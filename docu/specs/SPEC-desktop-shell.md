@@ -63,7 +63,7 @@ tests/ui/              → Tests de flujos críticos
 
 ## Commands
 
-La elección de Tauri/Electron queda abierta, pero el shell debe proporcionar comandos equivalentes a:
+El shell usa Tauri 2 y proporciona estos comandos desde la raíz del repositorio:
 
 ```bash
 npm run desktop:dev
@@ -100,11 +100,11 @@ Un usuario puede abrir un repositorio, crear una Task, observar la implementaci�
 - Tauri 2 es el framework adoptado para el MVP desktop tras el spike 003; el frontend se mantiene desacoplado del dominio y las capacidades nativas se restringen mediante permisos.
 - La primera plataforma objetivo será macOS, por ser el entorno validado del proyecto; la abstracción debe dejar abierta la portabilidad posterior.
 - El escape hatch mínimo abre la raíz del Project en el terminal y permite configurar un comando externo de IDE; la integración profunda con IntelliJ/VS Code queda fuera.
-- La elección Tauri/Electron se decidirá mediante un spike posterior con criterios de arranque, filesystem, procesos, empaquetado, seguridad y ergonomía de desarrollo.
+- El spike 003 validó Tauri 2 en macOS y ADR-0009 registra la adopción. Una reevaluación futura sólo se hará si cambia el alcance o aparece evidencia de que Tauri incumple el contrato.
 
 ## Open Questions
 
 - ¿Qué mecanismo de eventos usa la UI: polling, SSE local o un event bus nativo?
 - ¿Qué esquema de navegación permite observar varias Tasks sin perder el contexto de la activa?
 
-El spike comparativo está documentado en [003-desktop-framework](../spikes/003-desktop-framework.md#comparativa). La recomendación provisional es Tauri, pendiente de validar toolchain, permisos y acceso local en un prototipo técnico.
+La evidencia de adopción está documentada en [003-desktop-framework](../spikes/003-desktop-framework.md#resultado) y [ADR-0009](../adr/0009-tauri-desktop-shell.md).

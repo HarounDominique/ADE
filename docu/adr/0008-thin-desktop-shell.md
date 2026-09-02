@@ -16,7 +16,7 @@ La visión de ADE es una workstation, pero construir un IDE completo desviaría 
 
 Construir un shell desktop fino, local-first y centrado en Project Hub y Tasks. El shell presenta los contratos de aplicación existentes, no duplica el dominio ni ejecuta operaciones por fuera de ellos. Sus áreas son `PROJECT`, `WORK`, `KNOWLEDGE`, `CHANGES` y `RUNTIME`; incluye un escape hatch a terminal/IDE externo.
 
-La primera plataforma objetivo es macOS. Tauri y Electron siguen abiertos hasta un spike comparativo; la elección debe considerar procesos locales, filesystem, seguridad, empaquetado y coste de desarrollo.
+La primera plataforma objetivo es macOS. La comparación quedó resuelta por el spike 003 y ADR-0009: Tauri 2 es la elección del shell del MVP.
 
 ## Alternatives considered
 

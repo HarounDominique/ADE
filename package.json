@@ -8,7 +8,11 @@
     "test": "node --import tsx --test",
     "dev": "tsx src/spike.ts",
     "review": "tsx src/review-spike.ts",
-    "ade": "tsx src/cli.ts"
+    "ade": "tsx src/cli.ts",
+    "desktop:dev": "npm --prefix desktop run tauri dev",
+    "desktop:build": "npm --prefix desktop run tauri build",
+    "desktop:test": "npm test",
+    "desktop:package": "npm --prefix desktop run tauri build"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
