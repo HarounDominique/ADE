@@ -13,7 +13,7 @@ Este repositorio comienza deliberadamente por la documentación. La documentaci�
 
 ## Estado
 
-Fase 0 documental completada: todas las specs del MVP están en estado `ready`, con ADRs y plan de tareas versionados. La primera slice del adapter, dominio, ChangeSet y persistencia ya está implementada y validada contra un servidor OpenCode real en un repositorio efímero. La siguiente fase implementa el contrato Project/Repository y la vertical desktop mínima.
+MVP CLI operable: las specs del MVP están en estado `ready`, con ADRs y plan de tareas versionados. ADE puede registrar Projects, crear y avanzar Tasks, ejecutar el flujo Implementer/Reviewer con OpenCode, persistir ChangeSets/Reviews en SQLite y aplicar gates de aprobación. La vertical desktop queda como siguiente hito de producto.
 
 ## Quick start del spike
 
