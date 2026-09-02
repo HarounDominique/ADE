@@ -2,38 +2,49 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="stylesheet" href="styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tauri App</title>
+    <meta name="theme-color" content="#111318" />
+    <title>ADE — Agentic Development Environment</title>
     <script type="module" src="/main.js" defer></script>
   </head>
-
   <body>
-    <main class="container">
-      <h1>Welcome to Tauri</h1>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand"><span class="brand-mark">A</span><span>ADE</span><span class="brand-beta">MVP</span></div>
+        <div class="workspace-picker"><span class="status-dot"></span><span>Local workspace</span><span class="chevron">⌄</span></div>
+        <nav class="primary-nav" aria-label="Main navigation">
+          <button class="nav-item active" data-view="project"><span class="nav-icon">⌂</span>Project</button>
+          <button class="nav-item" data-view="work"><span class="nav-icon">◈</span>Work <span class="nav-count">2</span></button>
+          <button class="nav-item" data-view="knowledge"><span class="nav-icon">▤</span>Knowledge</button>
+          <button class="nav-item" data-view="changes"><span class="nav-icon">⑂</span>Changes <span class="nav-count warning">1</span></button>
+          <button class="nav-item" data-view="runtime"><span class="nav-icon">▣</span>Runtime</button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="system-status"><span class="pulse-dot"></span><span>All systems nominal</span></div>
+          <button class="nav-item muted"><span class="nav-icon">⚙</span>Settings</button>
+          <div class="user-row"><span class="avatar">JL</span><span><strong>Local operator</strong><small>Human in command</small></span><span class="more">···</span></div>
+        </div>
+      </aside>
 
-      <div class="row">
-        <a href="https://tauri.app" target="_blank">
-          <img src="/assets/tauri.svg" class="logo tauri" alt="Tauri logo" />
-        </a>
-        <a
-          href="https://developer.mozilla.org/en-US/docs/Web/JavaScript"
-          target="_blank"
-        >
-          <img
-            src="/assets/javascript.svg"
-            class="logo vanilla"
-            alt="JavaScript logo"
-          />
-        </a>
-      </div>
-      <p>Click on the Tauri logo to learn more about the framework</p>
+      <main class="main-content">
+        <header class="topbar"><div class="breadcrumb"><span class="crumb-muted">Projects</span><span>/</span><strong>ADE</strong></div><div class="top-actions"><span class="sync-label"><span class="pulse-dot"></span>Synced just now</span><button class="icon-button" aria-label="Notifications">♢</button><button class="help-button">?</button></div></header>
 
-      <form class="row" id="greet-form">
-        <input id="greet-input" placeholder="Enter a name..." />
-        <button type="submit">Greet</button>
-      </form>
-      <p id="greet-msg"></p>
-    </main>
+        <section class="view view-project active-view" data-panel="project">
+          <div class="hero-row"><div><p class="eyebrow">PROJECT HUB</p><h1>ADE <span class="private-pill">PRIVATE</span></h1><p class="subtitle">Agentic Development Environment</p></div><button class="button primary" data-action="new-task"><span>＋</span> New task</button></div>
+          <div class="project-meta"><span>⌘ <code>/Users/user/Documents/workspace/ADE</code></span><span class="branch-pill">⑂ master</span><span class="clean-state"><span class="status-dot"></span>Working tree clean</span></div>
+          <div class="metrics-grid"><article class="metric-card"><span class="metric-label">ACTIVE TASKS</span><strong>2</strong><span class="metric-foot positive">↑ 1 this week</span></article><article class="metric-card"><span class="metric-label">IN REVIEW</span><strong>1</strong><span class="metric-foot neutral">Awaiting decision</span></article><article class="metric-card"><span class="metric-label">SERVICES</span><strong>0 <small>/ 0</small></strong><span class="metric-foot neutral">No services declared</span></article><article class="metric-card"><span class="metric-label">LAST SHIP</span><strong>—</strong><span class="metric-foot neutral">Not shipped yet</span></article></div>
+          <div class="section-heading"><div><h2>Active work</h2><p>Your current Tasks and their latest evidence.</p></div><button class="text-button" data-view-target="work">View all →</button></div>
+          <div class="task-list"><article class="task-card selected-task"><div class="task-top"><span class="task-id">TASK-042</span><span class="task-status review">UNDER REVIEW</span></div><h3>Persist project identity and task history</h3><p>Implement Project/Repository registration and rehydration...</p><div class="task-bottom"><span class="phase"><span class="phase-dot"></span>Reviewer active</span><span class="task-time">Updated 4m ago</span><span class="task-arrow">→</span></div></article><article class="task-card"><div class="task-top"><span class="task-id">TASK-041</span><span class="task-status building">BUILDING</span></div><h3>Define adaptive development workflow</h3><p>Establish transitions, gates and re-entry semantics...</p><div class="task-bottom"><span class="phase"><span class="phase-dot blue"></span>Implementer active</span><span class="task-time">Updated 18m ago</span><span class="task-arrow">→</span></div></article></div>
+          <div class="section-heading lower"><div><h2>Activity</h2><p>Recent events across this project.</p></div><button class="text-button">View history →</button></div>
+          <div class="activity-list"><div class="activity-item"><span class="activity-icon green">✓</span><span><strong>Review passed</strong><small>TASK-042 · 4 minutes ago</small></span></div><div class="activity-item"><span class="activity-icon purple">◈</span><span><strong>ChangeSet captured</strong><small>TASK-042 · 6 minutes ago</small></span></div><div class="activity-item"><span class="activity-icon blue">↻</span><span><strong>Implementer session started</strong><small>TASK-041 · 18 minutes ago</small></span></div></div>
+        </section>
+
+        <section class="view" data-panel="work"><div class="page-header"><div><p class="eyebrow">WORK</p><h1>Tasks</h1><p class="subtitle">Intention, execution and evidence in one place.</p></div><button class="button primary" data-action="new-task">＋ New task</button></div><div class="task-list"><article class="task-card selected-task"><div class="task-top"><span class="task-id">TASK-042</span><span class="task-status review">UNDER REVIEW</span></div><h3>Persist project identity and task history</h3><p>Implement Project/Repository registration and rehydration...</p><div class="task-bottom"><span class="phase"><span class="phase-dot"></span>Reviewer active</span><span class="task-time">Updated 4m ago</span></div></article><article class="task-card"><div class="task-top"><span class="task-id">TASK-041</span><span class="task-status building">BUILDING</span></div><h3>Define adaptive development workflow</h3><p>Establish transitions, gates and re-entry semantics...</p><div class="task-bottom"><span class="phase"><span class="phase-dot blue"></span>Implementer active</span><span class="task-time">Updated 18m ago</span></div></article></div></section>
+        <section class="view" data-panel="knowledge"><div class="page-header"><div><p class="eyebrow">KNOWLEDGE</p><h1>Project context</h1><p class="subtitle">Selected documents and their impact.</p></div></div><div class="knowledge-grid"><article class="knowledge-card"><span class="doc-type canonical">CANONICAL</span><h3>Project and Task Workflow</h3><p>Task identity, states and transitions.</p><span class="doc-meta">SPEC · Updated today</span></article><article class="knowledge-card"><span class="doc-type agent">AGENT</span><h3>Development Workflow</h3><p>Adaptive phases, gates and re-entry.</p><span class="doc-meta">SPEC · Updated today</span></article><article class="knowledge-card"><span class="doc-type operational">OPERATIONAL</span><h3>Implementation plan</h3><p>Current work and verification checkpoints.</p><span class="doc-meta">TASKS · Updated 4m ago</span></article></div></section>
+        <section class="view" data-panel="changes"><div class="page-header"><div><p class="eyebrow">CHANGES</p><h1>Review queue</h1><p class="subtitle">ChangeSets, findings and gates before ship.</p></div></div><article class="review-panel"><div class="review-summary"><div><span class="task-id">TASK-042</span><h2>Persist project identity and task history</h2><p>Reviewer completed with 2 low-severity findings.</p></div><span class="task-status review">READY FOR HUMAN</span></div><div class="gate-row"><span class="gate passed">✓ Build</span><span class="gate passed">✓ Tests</span><span class="gate passed">✓ Review</span><span class="gate pending">○ Human approval</span></div><div class="finding"><span class="finding-dot"></span><span><strong>Low · Accept risk</strong><small>Evidence available in repository changeset</small></span></div><button class="button primary" data-action="approve">Review and approve</button></article></section>
+        <section class="view" data-panel="runtime"><div class="page-header"><div><p class="eyebrow">RUNTIME</p><h1>Local runtime</h1><p class="subtitle">Processes, health and verification evidence.</p></div></div><div class="runtime-empty"><div class="empty-icon">▣</div><h2>No services declared</h2><p>Project services and test runs will appear here when connected.</p><button class="button secondary" data-action="learn">View runtime docs</button></div></section>
+      </main>
+    </div>
+    <div class="toast" role="status" aria-live="polite"></div>
   </body>
 </html>
