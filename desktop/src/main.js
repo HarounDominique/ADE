@@ -23,6 +23,18 @@ function renderSnapshot(snapshot) {
   if (syncLabel) syncLabel.lastChild.textContent = ` ${snapshot.sync.label}`;
 }
 
+async function refreshProjectContext(snapshot) {
+  const invoke = window.__TAURI__?.core?.invoke;
+  if (!invoke) return;
+  try {
+    const context = await invoke('project_context', { repositoryPath: snapshot.project.repositoryPath });
+    renderSnapshot({ ...snapshot, project: { ...snapshot.project, ...context } });
+    notify('Project context loaded from the local repository.');
+  } catch (error) {
+    console.warn('Project context unavailable:', error);
+  }
+}
+
 function showView(view) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
@@ -38,6 +50,7 @@ function notify(message) {
 
 navItems.forEach((item) => item.addEventListener('click', () => showView(item.dataset.view)));
 renderSnapshot(projectSnapshot);
+refreshProjectContext(projectSnapshot);
 document.querySelectorAll('[data-view-target]').forEach((item) => item.addEventListener('click', () => showView(item.dataset.viewTarget)));
 document.querySelectorAll('[data-action]').forEach((item) => item.addEventListener('click', () => {
   const messages = { 'new-task': 'Task creation will connect to the ADE workflow.', approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
