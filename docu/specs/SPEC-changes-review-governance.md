@@ -20,6 +20,31 @@ BUILD → TESTS → AGENT_REVIEW → DOCUMENTATION_REVIEW → HUMAN_APPROVAL →
 
 Cada gate tiene estado, actor, duración, evidencia, findings y recomendación de reentrada. Los checkpoints permiten comparar y revertir; el mecanismo exacto se decidirá en el spike de Git.
 
+## Gate semantics
+
+Las gates se evalúan en orden, pero un fallo puede reentrar en la fase que lo necesita sin reiniciar la Task:
+
+| Gate | Evidencia mínima | Fallo vuelve a |
+|---|---|---|
+| `build` | código de salida 0 y logs | BUILD |
+| `tests` | comandos definidos, salida y código 0 | BUILD o VERIFY |
+| `agent-review` | Review independiente persistida | REVIEW |
+| `documentation-review` | impactos `required` reconciliados | RECONCILE |
+| `human-approval` | actor humano, decisión y razón | BUILD, REVIEW o RECONCILE |
+| `commit` | aprobación previa y referencia al ChangeSet | SHIP |
+
+Una gate tiene estados `pending`, `passed`, `failed` o `waived`. Sólo una policy explícita permite `waived`, siempre con actor, motivo y evidencia. `failed` no destruye el ChangeSet ni la evidencia anterior. La aplicación debe impedir `SHIP` si alguna gate requerida no está en `passed` o `waived` conforme a policy.
+
+## ChangeSet and checkpoint contract
+
+Un ChangeSet inmutable vincula `taskId`, sesión Implementer, repositorio, diff del runtime, estado Git, patch, archivos no trackeados y timestamp. Cada nuevo ciclo de BUILD produce un nuevo ChangeSet; la Task conserva la secuencia y nunca se sobrescribe evidencia histórica.
+
+Un checkpoint es una referencia a un estado Git identificable (`commit`, branch o snapshot disponible) y a su ChangeSet. Restaurar un checkpoint requiere confirmación humana si puede descartar cambios no guardados. El MVP puede mostrar y persistir ChangeSets sin implementar todavía restauración automática.
+
+## Review and finding contract
+
+El Reviewer recibe intención, criterios, ChangeSet y evidencia fresca. Cada Finding debe contener severidad, claim, evidencia, ubicación opcional y acción. Las acciones `fix` y `assign` mantienen abierta la Task; `accept-risk` requiere actor humano cuando la severidad es `high` o `critical`; `dismiss` requiere razón. Un re-review crea una nueva Review relacionada con el mismo `taskId` y el ChangeSet corregido.
+
 ## Project Structure
 
 ```text
@@ -43,6 +68,18 @@ npm test
 ```
 
 El reviewer determinista del Spike 002 valida el pipeline; no se considera sustituto de una revisión semántica LLM.
+
+El flujo de aplicación previsto es:
+
+```bash
+run-checks <task-id> --build --tests
+review-task <task-id>
+reconcile-task <task-id>
+approve-task <task-id> --reason "acceptance confirmed"
+ship-task <task-id>
+```
+
+`ship-task` no ejecuta `git commit` si falta aprobación humana, hay findings sin decisión o una gate requerida fallida.
 
 ## Code Style
 
@@ -73,8 +110,14 @@ Tests de gates con éxito, fallo y reintento; tests de captura de diff; tests de
 
 El flujo `implement → build → tests → review → fix → re-review → documentation gate → human approval → commit` produce un resultado trazable y deja claro por qué cada gate pasó o falló. La Review persiste `taskId`, `changeSetId`, reviewer, resumen, estado y findings.
 
+## v0.1 decisions
+
+- Son obligatorias por defecto `build`, `tests` cuando el Project los declara, `agent-review` para cambios significativos, `documentation-review` cuando el impacto es `required` y `human-approval` siempre antes de commit.
+- El MVP persiste checkpoints y ChangeSets; la restauración automática queda fuera hasta validar la política de descarte de cambios.
+- El resumen semántico del Reviewer es informativo; la decisión se basa en findings, evidencia y gates, no en una puntuación única.
+
 ## Open Questions
 
-- ¿Qué gates son obligatorios por defecto?
-- ¿Cómo se implementan checkpoints reversibles?
-- ¿Qué nivel de resumen semántico es fiable sin ASK?
+- ¿Cómo se configuran las policies por Project sin duplicar reglas en las specs?
+- ¿Qué formato final tendrá el vínculo entre checkpoint, branch y commit?
+- ¿Cómo se presenta al humano un riesgo aceptado para que siga siendo auditable?
