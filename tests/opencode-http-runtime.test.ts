@@ -10,6 +10,7 @@ test("OpenCode adapter maps health, session, prompt and diff endpoints", async (
     if (url.endsWith("/global/health")) return json({ healthy: true, version: "test" });
     if (url.endsWith("/session")) return json({ id: "session-1" });
     if (url.endsWith("/prompt_async")) return new Response(null, { status: 204 });
+    if (url.endsWith("/message")) return json({ info: { structured_output: { summary: "ok", findings: [] } } });
     if (url.endsWith("/session/session-1/diff")) return json([{ path: "README.md" }]);
     throw new Error(`Unexpected request: ${url}`);
   };
@@ -18,11 +19,16 @@ test("OpenCode adapter maps health, session, prompt and diff endpoints", async (
   assert.deepEqual(await runtime.health(), { healthy: true, version: "test" });
   const session = await runtime.createSession({ directory: "/tmp/project" });
   await runtime.prompt(session, { text: "Inspect" });
+  assert.deepEqual(await runtime.promptAndWait(session, {
+    text: "Review",
+    format: { type: "json_schema", schema: {} },
+  }), { info: { structured_output: { summary: "ok", findings: [] } } });
   assert.deepEqual(await runtime.diff(session), [{ path: "README.md" }]);
   assert.deepEqual(calls.map((call) => `${call.method} ${call.url}`), [
     "GET http://test/global/health",
     "POST http://test/session",
     "POST http://test/session/session-1/prompt_async",
+    "POST http://test/session/session-1/message",
     "GET http://test/session/session-1/diff",
   ]);
 });

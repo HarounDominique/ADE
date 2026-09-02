@@ -11,6 +11,7 @@ function changeSet(id: string, changed: boolean) {
     id,
     taskId: "task-review",
     sessionId: "session-implementation",
+    directory: "/tmp/review-project",
     runtimeDiff: changed ? [{ path: "new.txt" }] : [],
     git: changed
       ? { status: "?? new.txt\n", patch: "", untracked: ["new.txt"] }

@@ -25,7 +25,9 @@ Cada gate tiene estado, actor, duración, evidencia, findings y recomendación d
 ```text
 src/application/change-review/ → Pipeline y casos de uso
 src/ports/git.ts              → Operaciones Git
+src/ports/reviewer.ts         → Contrato de contexto fresco
 src/domain/governance/        → Gates, Findings y Policies
+src/adapters/opencode-reviewer.ts → Reviewer LLM con salida estructurada
 tests/change-review/           → Tests de pipeline y reglas
 ```
 

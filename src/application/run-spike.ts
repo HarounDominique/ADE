@@ -37,6 +37,7 @@ export async function runSpike(
     id: `changeset-${input.taskId}`,
     taskId: task.id,
     sessionId: session.id,
+    directory: input.directory,
     runtimeDiff: diff,
     git,
   });

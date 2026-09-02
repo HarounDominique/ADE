@@ -15,10 +15,21 @@ export type FileDiff = {
   [key: string]: unknown;
 };
 
+export type StructuredPrompt = {
+  text: string;
+  agent?: string;
+  format: {
+    type: "json_schema";
+    schema: Record<string, unknown>;
+    retryCount?: number;
+  };
+};
+
 export interface AgentRuntimePort {
   health(): Promise<{ healthy: boolean; version?: string }>;
   createSession(input: { directory: string; title?: string }): Promise<SessionHandle>;
   prompt(session: SessionHandle, input: { text: string; agent?: string }): Promise<void>;
+  promptAndWait(session: SessionHandle, input: StructuredPrompt): Promise<unknown>;
   events(signal?: AbortSignal): AsyncIterable<RuntimeEvent>;
   diff(session: SessionHandle): Promise<readonly FileDiff[]>;
   abort(session: SessionHandle): Promise<void>;

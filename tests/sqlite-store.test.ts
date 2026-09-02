@@ -13,6 +13,7 @@ test("SQLite persists Task and its ChangeSet relationship", () => {
     id: "changeset-1",
     taskId: task.id,
     sessionId: "session-1",
+    directory: "/tmp/project",
     runtimeDiff: [{ path: "new.txt" }],
     git: { status: "?? new.txt\n", patch: "", untracked: ["new.txt"] },
   });

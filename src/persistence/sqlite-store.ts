@@ -16,6 +16,7 @@ export type PersistedChangeSet = {
   id: string;
   taskId: string;
   sessionId: string;
+  directory: string;
   capturedAt: string;
   runtimeDiff: string;
   gitStatus: string;
@@ -53,6 +54,7 @@ export class AdeStore {
         id TEXT PRIMARY KEY,
         task_id TEXT NOT NULL REFERENCES tasks(id),
         session_id TEXT NOT NULL,
+        directory TEXT NOT NULL,
         captured_at TEXT NOT NULL,
         runtime_diff_json TEXT NOT NULL,
         git_status TEXT NOT NULL,
@@ -87,13 +89,14 @@ export class AdeStore {
   saveChangeSet(changeSet: ChangeSet): void {
     this.db.prepare(`
       INSERT INTO change_sets (
-        id, task_id, session_id, captured_at, runtime_diff_json,
+        id, task_id, session_id, directory, captured_at, runtime_diff_json,
         git_status, git_patch, untracked_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       changeSet.id,
       changeSet.taskId,
       changeSet.sessionId,
+      changeSet.directory,
       changeSet.capturedAt,
       JSON.stringify(changeSet.runtimeDiff),
       changeSet.git.status,
@@ -108,7 +111,8 @@ export class AdeStore {
 
   getChangeSet(id: string): PersistedChangeSet | undefined {
     return this.db.prepare(`
-      SELECT id, task_id AS taskId, session_id AS sessionId, captured_at AS capturedAt,
+      SELECT id, task_id AS taskId, session_id AS sessionId, directory,
+             captured_at AS capturedAt,
              runtime_diff_json AS runtimeDiff, git_status AS gitStatus,
              git_patch AS gitPatch, untracked_json AS untracked
       FROM change_sets WHERE id = ?

@@ -3,6 +3,7 @@ import type {
   FileDiff,
   RuntimeEvent,
   SessionHandle,
+  StructuredPrompt,
 } from "../ports/agent-runtime.js";
 
 type FetchLike = typeof fetch;
@@ -47,6 +48,22 @@ export class OpenCodeHttpRuntime implements AgentRuntimePort {
     if (response.status !== 204) {
       throw new Error(`Unexpected prompt response: ${response.status}`);
     }
+  }
+
+  async promptAndWait(session: SessionHandle, input: StructuredPrompt): Promise<unknown> {
+    const response = await this.request(`/session/${encodeURIComponent(session.id)}/message`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-opencode-directory": session.directory,
+      },
+      body: JSON.stringify({
+        parts: [{ type: "text", text: input.text }],
+        format: input.format,
+        ...(input.agent ? { agent: input.agent } : {}),
+      }),
+    });
+    return response.json();
   }
 
   async *events(signal?: AbortSignal): AsyncIterable<RuntimeEvent> {
