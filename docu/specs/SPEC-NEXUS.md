@@ -100,3 +100,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron
 - 2026-09-02 — documentation-milestone — Todos los módulos del MVP quedan en `ready`; la siguiente fase es implementar el contrato Project/Repository y la vertical desktop mínima.
 - 2026-09-02 — implementation-foundation — Project/Repository, persistencia y rehidratación, casos de uso, gates y CLI básica implementados; 19 tests pasan. Queda integrar el flujo review con los comandos y construir la vertical desktop.
 - 2026-09-02 — mvp-cli — CLI unificada validada en repositorio efímero: registro de Project, creación/avance de Task y persistencia SQLite; 21 tests pasan. El siguiente hito es la vertical desktop.
+- 2026-09-02 — spike-003 — Comparativa Tauri/Electron documentada con evidencia oficial y entorno local; se recomienda validar Tauri antes del scaffolding, sin adelantar la interfaz ni instalar dependencias todavía.

@@ -106,3 +106,5 @@ Un usuario puede abrir un repositorio, crear una Task, observar la implementaci�
 - ¿Tauri o Electron tras el spike comparativo?
 - ¿Qué mecanismo de eventos usa la UI: polling, SSE local o un event bus nativo?
 - ¿Qué esquema de navegación permite observar varias Tasks sin perder el contexto de la activa?
+
+El spike comparativo está documentado en [003-desktop-framework](../spikes/003-desktop-framework.md#comparativa). La recomendación provisional es Tauri, pendiente de validar toolchain, permisos y acceso local en un prototipo técnico.
