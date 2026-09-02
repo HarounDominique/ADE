@@ -30,3 +30,5 @@ npm run dev -- /ruta/al/repositorio "Inspect the repository and report its curre
 ```
 
 Ver [Spike 001](docu/spikes/001-opencode-runtime.md) y [Spike 002](docu/spikes/002-independent-review.md) para contratos, resultados y limitaciones conocidas.
+
+El flujo integrado se ejecuta con `npm run review -- /ruta/al/repositorio "Describe the task"` cuando OpenCode está sirviendo localmente.

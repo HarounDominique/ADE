@@ -73,6 +73,14 @@ export class AdeStore {
         findings_json TEXT NOT NULL
       );
     `);
+    this.migrateChangeSets();
+  }
+
+  private migrateChangeSets(): void {
+    const columns = this.db.prepare("PRAGMA table_info(change_sets)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "directory")) {
+      this.db.exec("ALTER TABLE change_sets ADD COLUMN directory TEXT NOT NULL DEFAULT ''");
+    }
   }
 
   saveTask(task: Task): void {

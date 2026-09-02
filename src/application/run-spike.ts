@@ -5,6 +5,7 @@ import { createChangeSet, type ChangeSet } from "../domain/change-set.js";
 import { AdeStore } from "../persistence/sqlite-store.js";
 
 export type SpikeResult = {
+  task: Task;
   taskId: string;
   sessionId: string;
   events: readonly RuntimeEvent[];
@@ -44,7 +45,7 @@ export async function runSpike(
   task.transition("IMPLEMENTED", "OpenCode prompt completed and diff captured", "ade");
   input.store?.saveTask(task);
   input.store?.saveChangeSet(changeSet);
-  return { taskId: task.id, sessionId: session.id, events, diff, git, changeSet, taskStatus: task.currentStatus };
+  return { task, taskId: task.id, sessionId: session.id, events, diff, git, changeSet, taskStatus: task.currentStatus };
 }
 
 async function collectUntilIdle(

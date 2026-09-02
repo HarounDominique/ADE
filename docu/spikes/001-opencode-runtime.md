@@ -74,3 +74,5 @@ Resultado ejecutado: OpenCode `1.18.26` respondió health, se creó una sesión,
 ## Resultado y siguiente decisión
 
 La frontera `AgentRuntimePort → OpenCodeHttpRuntime` y la persistencia `Task → ChangeSet` son viables. Antes de elegir SDK oficial, proceso hijo o integración embebida, hay que medir: estabilidad del SSE, forma de eventos, permisos, errores de provider, cancelación y aislamiento por directorio.
+
+La ejecución integrada también reveló y resolvió la necesidad de migrar SQLite cuando evoluciona el esquema: `AdeStore` añade `change_sets.directory` a bases existentes antes de usarlas.

@@ -87,3 +87,5 @@ Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron
 - 2026-09-02 — spike-001-validation — Smoke test real completado con OpenCode 1.18.26 en repositorio efímero: health, sesión, prompt, 68 eventos, `session.idle` y captura Git validados; se corrigió la detección de archivos no trackeados.
 - 2026-09-02 — spike-002 — Se implementó el contrato ReviewerPort, Review/Findings, orquestación independiente y persistencia SQLite; 8 tests pasan. La integración LLM real quedó validada en el smoke test posterior.
 - 2026-09-02 — spike-002-validation — OpenCode 1.18.26 validó una sesión de Reviewer independiente con salida JSON estructurada y 0 findings sobre el smoke test; el parser usa `info.structured`.
+- 2026-09-02 — review-flow — Se conectó el flujo completo Implementer → ChangeSet → Reviewer → Review/Findings → SQLite, con CLI `npm run review` y test end-to-end local.
+- 2026-09-02 — review-flow-validation — `npm run review` validado con OpenCode real: dos sesiones, Review persistida, Task `READY_FOR_HUMAN` y findings con evidencia; se añadió migración SQLite para esquemas existentes.

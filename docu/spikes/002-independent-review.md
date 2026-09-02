@@ -1,6 +1,6 @@
 # Spike 002 — Reviewer independiente y findings estructurados
 
-**Estado:** reviewer LLM real validado en repositorio efímero
+**Estado:** flujo CLI completo validado con reviewer LLM real
 **Fecha:** 2026-09-02  
 **Spec:** [SPEC-changes-review-governance.md](../specs/SPEC-changes-review-governance.md#gate-contract)  
 **Nexus:** [SPEC-NEXUS.md](../specs/SPEC-NEXUS.md#mvp-contract)
@@ -61,6 +61,8 @@ Resultado: 8 tests pasan. Se verifican transiciones, contrato HTTP anterior, Git
 
 Smoke test real: OpenCode `1.18.26` creó una sesión distinta de la del Implementer y devolvió una Review JSON estructurada con `summary` y `findings`. Para `smoke-result.txt` produjo 0 findings.
 
+Flujo CLI end-to-end: `npm run review` creó la Task, ejecutó el Implementer, persistió el ChangeSet, abrió una segunda sesión para el Reviewer, persistió la Review y dejó la Task en `READY_FOR_HUMAN`. La revisión produjo dos findings `low` con acción `accept-risk`, ambos respaldados por evidencia del archivo y Git.
+
 ## Limitación conocida
 
-La integración real ya está validada en el adapter. Queda pendiente probar findings semánticos sobre un ChangeSet con riesgo real y decidir si el parsing soporta todas las variantes del provider, además de persistir la Review desde un flujo CLI completo.
+La integración real y el flujo CLI ya están validados. Queda pendiente probar findings semánticos sobre un ChangeSet con riesgo real, añadir gates de tests/documentación y decidir si el parsing soporta todas las variantes de provider.
