@@ -98,3 +98,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron
 - 2026-09-02 — changes-review-governance — Se concretaron semántica de gates, ChangeSets/checkpoints, findings, re-review y aprobación humana; ADR-0007 registra la decisión y el módulo queda `ready`.
 - 2026-09-02 — desktop-shell — Se concretaron Project Hub, áreas de navegación, estados de interacción, escape hatch y límites del shell; ADR-0008 registra la decisión y el módulo queda `ready`.
 - 2026-09-02 — documentation-milestone — Todos los módulos del MVP quedan en `ready`; la siguiente fase es implementar el contrato Project/Repository y la vertical desktop mínima.
+- 2026-09-02 — implementation-foundation — Project/Repository, persistencia y rehidratación, casos de uso, gates y CLI básica implementados; 19 tests pasan. Queda integrar el flujo review con los comandos y construir la vertical desktop.

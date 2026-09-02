@@ -11,7 +11,8 @@ Completar la primera base operativa de ADE alrededor del agregado `Task`, de mod
 - `Task` ya valida intención, estados, transiciones y eventos.
 - `AdeStore` ya persiste Task, ChangeSet y Review en SQLite.
 - El flujo CLI ya crea una Task y la deja en `READY_FOR_HUMAN` después de una Review.
-- Faltan el caso de uso explícito para crear/rehidratar Tasks, la identidad de Project/Repository y una interfaz de consulta de historial.
+- Project/Repository, persistencia/rehidratación, casos de uso, gates y CLI básica ya están implementados.
+- Falta integrar `npm run review` con los casos de uso y construir la vertical desktop.
 
 ## Implementation order
 
