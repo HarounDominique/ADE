@@ -23,6 +23,36 @@ FRAME → EXPLORE → DESIGN → BUILD → VERIFY → REVIEW → RECONCILE → S
 
 `RECONCILE` comprueba documentación, decisiones y estado de la Task. `SHIP` requiere que las gates obligatorias hayan pasado y aprobación humana.
 
+## State transition contract
+
+Las fases son estados de workflow, no estados adicionales del agregado `Task`. Cada transición debe registrar `taskId`, fase anterior, fase nueva, actor, razón, timestamp y evidencias asociadas. Una fase puede completarse varias veces durante una Task.
+
+| From | To permitido | Condición mínima |
+|---|---|---|
+| FRAME | EXPLORE, DESIGN, BUILD | intención y criterio de aceptación registrados |
+| EXPLORE | FRAME, DESIGN, BUILD | contexto inspeccionado o incertidumbre explicitada |
+| DESIGN | FRAME, BUILD, REVIEW | decisión/interfaz o plan mínimo registrado |
+| BUILD | EXPLORE, VERIFY, REVIEW | ChangeSet capturado |
+| VERIFY | BUILD, REVIEW, RECONCILE | evidencia de checks disponible |
+| REVIEW | BUILD, VERIFY, RECONCILE | Review independiente y findings clasificados |
+| RECONCILE | FRAME, BUILD, SHIP | impacto documental y findings reconciliados |
+| SHIP | — | gates obligatorias pasadas y aprobación humana |
+
+Las transiciones no permitidas fallan sin mutar el estado. `reenter` es una transición explícita hacia una fase anterior y conserva el historial; no reinicia ni duplica la Task.
+
+## Gate contract
+
+Una gate tiene `id`, `phase`, `required`, `status`, `evidenceIds` y `failureReason`. Las gates obligatorias bloquean el avance; las informativas sólo dejan una observación. El conjunto mínimo es:
+
+- `task-framed`: intención y aceptación presentes antes de BUILD.
+- `changeset-captured`: BUILD deja un ChangeSet identificable.
+- `verification-evidence`: VERIFY registra build, tests o evidencia runtime apropiada.
+- `independent-review`: REVIEW usa un Reviewer separado cuando la policy lo exige.
+- `documentation-reconciled`: RECONCILE resuelve impactos `required`.
+- `human-approval`: SHIP requiere una decisión humana explícita.
+
+Un fallo debe incluir una fase de reentrada recomendada. La gate no decide por sí sola si el trabajo se corrige, se acepta con riesgo o se abandona.
+
 ### Phase semantics
 
 - **FRAME:** intención, alcance, criterios de aceptación, riesgo y modo inicial.
@@ -76,6 +106,20 @@ documentation-impact
 
 Las skills de dominio (`java-analysis`, `spring-migration`, `frontend-ui`, `database-change`, `security-review`, etc.) se combinan con las anteriores y no cambian por sí mismas el estado de la Task.
 
+## Skill invocation contract
+
+Una transition skill recibe una Task, la fase actual, restricciones, evidencia disponible y el modo. Devuelve una propuesta de resultado con evidencias, gates afectadas y fase siguiente; la aplicación valida la transición antes de persistirla. Una skill puede recomendar `reenter` o escalar de modo, pero no puede saltarse una gate obligatoria ni aprobar `SHIP`.
+
+```ts
+type WorkflowResult = {
+  phase: string;
+  next?: string;
+  evidenceIds: string[];
+  gateUpdates: Array<{ id: string; status: "passed" | "failed" | "waived" }>;
+  reason: string;
+};
+```
+
 ## Transitions and triggers
 
 Las transiciones se activan por intención humana, finalización de una skill, resultado de una gate o nueva evidencia. Ejemplos:
@@ -104,18 +148,18 @@ No debe existir un `re-discuss` global obligatorio. La reentrada se dirige al es
 
 ## Commands
 
-Los comandos concretos dependen del runtime. La interfaz de workflow debe exponer operaciones equivalentes a:
+La interfaz de workflow debe exponer operaciones equivalentes a:
 
-```text
-start-task --mode standard
+```bash
+start-task --project <project-id> --mode standard --intent "..."
 resume-task <task-id>
 advance-task <task-id>
 reenter-task <task-id> --at explore --reason "new evidence"
 review-task <task-id>
-ship-task <task-id>
+ship-task <task-id> --approve --reason "acceptance confirmed"
 ```
 
-Son comandos conceptuales; sus nombres definitivos quedan abiertos hasta el Spike 001.
+En v0.1 son comandos de aplicación, aunque inicialmente puedan exponerse sólo mediante una CLI de desarrollo. `ship-task` debe rechazar la operación si falta `--approve` o existe una gate obligatoria fallida.
 
 ## Project Structure
 
@@ -158,9 +202,15 @@ workflow.reenter({
 
 El mismo sistema permite completar un typo con un flujo corto y un cambio arquitectónico con exploración/diseño/review, manteniendo trazabilidad y gates. Un fallo en tests vuelve a `BUILD` y un requisito ambiguo vuelve a `FRAME`/`DESIGN` sin perder el trabajo previo.
 
+## v0.1 decisions
+
+- La selección de modo es híbrida: el humano puede elegirlo y ADE puede recomendar una escalada por riesgo o evidencia.
+- “Cambio significativo” significa, como mínimo, cambio de contrato público, migración de datos, modificación de seguridad, impacto documental `required` o una policy que exija Reviewer.
+- Las transition skills son capacidades invocables detrás de una interfaz de aplicación; no son estados obligatorios ni autoridad para mutar el dominio directamente.
+- Los ciclos se representan como transiciones repetidas con `cycleId` y evidencias nuevas; no se crea una Task nueva por cada re-build o re-review.
+
 ## Open Questions
 
-- ¿La selección de modo es manual, automática o híbrida?
-- ¿Qué umbrales determinan “cambio significativo”?
-- ¿Las transition skills serán skills reales del runtime o primitivas nativas de ADE?
-- ¿Cómo se representa una Task que contiene varios ciclos BUILD/VERIFY?
+- ¿Qué heurísticas concretas alimentan la recomendación automática de escalada?
+- ¿Qué persistencia tendrán gates y `cycleId` en el esquema definitivo de ADE?
+- ¿Qué policy predeterminada exige Reviewer y qué cambios puede aceptar con riesgo el humano?

@@ -53,7 +53,7 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | Module id | Spec file | Responsibility | Depends on | Status | Blocked by |
 |---|---|---|---|---|---|
 | project-task-workflow | [SPEC-project-task-workflow.md](SPEC-project-task-workflow.md) | Projects, Tasks, conversaciones y estados | — | ready | — |
-| development-workflow | [SPEC-development-workflow.md](SPEC-development-workflow.md) | Transiciones adaptativas, skills de workflow y modos de ejecución | project-task-workflow | draft | project-task-workflow |
+| development-workflow | [SPEC-development-workflow.md](SPEC-development-workflow.md) | Transiciones adaptativas, skills de workflow y modos de ejecución | project-task-workflow | ready | — |
 | agent-runtime | [SPEC-agent-runtime.md](SPEC-agent-runtime.md) | Sesiones, implementer, reviewer y adapter | project-task-workflow | draft | project-task-workflow |
 | knowledge-docs | [SPEC-knowledge-docs.md](SPEC-knowledge-docs.md) | Documentación, skills, contexto y drift | project-task-workflow | draft | project-task-workflow |
 | changes-review-governance | [SPEC-changes-review-governance.md](SPEC-changes-review-governance.md) | ChangeSets, Git, gates, findings y aprobación | agent-runtime, knowledge-docs | draft | agent-runtime; knowledge-docs |
@@ -91,3 +91,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron
 - 2026-09-02 — review-flow-validation — `npm run review` validado con OpenCode real: dos sesiones, Review persistida, Task `READY_FOR_HUMAN` y findings con evidencia; se añadió migración SQLite para esquemas existentes.
 - 2026-09-02 — project-task-workflow — Se concretó el contrato v0.1 con comandos ejecutables, estructura real, estrategia de tests y decisiones sobre estados/eventos; el módulo queda `ready` para plan y tareas.
 - 2026-09-02 — project-repository-identity — Se fijó en la spec y ADR-0002 la identidad estable Project → Repository, la raíz Git canónica y el alcance v0.1 sin branches/worktrees automáticos.
+- 2026-09-02 — development-workflow — Se concretaron la matriz de transiciones, contrato de gates, invocación de skills y modos adaptativos; ADR-0003 registra la decisión y el módulo queda `ready`.
