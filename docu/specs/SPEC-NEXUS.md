@@ -52,7 +52,7 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 
 | Module id | Spec file | Responsibility | Depends on | Status | Blocked by |
 |---|---|---|---|---|---|
-| project-task-workflow | [SPEC-project-task-workflow.md](SPEC-project-task-workflow.md) | Projects, Tasks, conversaciones y estados | — | draft | — |
+| project-task-workflow | [SPEC-project-task-workflow.md](SPEC-project-task-workflow.md) | Projects, Tasks, conversaciones y estados | — | ready | — |
 | development-workflow | [SPEC-development-workflow.md](SPEC-development-workflow.md) | Transiciones adaptativas, skills de workflow y modos de ejecución | project-task-workflow | draft | project-task-workflow |
 | agent-runtime | [SPEC-agent-runtime.md](SPEC-agent-runtime.md) | Sesiones, implementer, reviewer y adapter | project-task-workflow | draft | project-task-workflow |
 | knowledge-docs | [SPEC-knowledge-docs.md](SPEC-knowledge-docs.md) | Documentación, skills, contexto y drift | project-task-workflow | draft | project-task-workflow |
@@ -70,7 +70,7 @@ Este nexus cubre el MVP y sus spikes. Quedan fuera del build order inicial: Agen
 
 ## MVP contract
 
-El modo `standard` cubre: abrir repositorio, crear Task, resolver contexto, ejecutar Implementer, capturar ChangeSet, build/tests, resumen, Reviewer independiente, findings, re-review, reconciliación documental, aprobación humana y commit. El modo `quick` sirve para cambios pequeños; `recovery` permite reentrar tras nueva evidencia o un fallo. Ningún modo puede omitir los invariantes definidos en [SPEC-development-workflow.md#invariants](SPEC-development-workflow.md#invariants).
+El modo `standard` cubre: abrir repositorio, crear Task, resolver contexto, ejecutar Implementer, capturar ChangeSet, build/tests, resumen, Reviewer independiente, findings, re-review, reconciliación documental, aprobación humana y commit. El modo `quick` sirve para cambios pequeños; `recovery` permite reentrar tras nueva evidencia o un fallo. Ningún modo puede omitir los invariantes definidos en [SPEC-development-workflow.md#gates-and-invariants](SPEC-development-workflow.md#gates-and-invariants).
 
 Los cuatro spikes previos a UI significativa son: integración OpenCode y eventos; Implementer/Reviewer; resolución e impacto documental; y runtime local con logs y verificación.
 
@@ -89,3 +89,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron
 - 2026-09-02 — spike-002-validation — OpenCode 1.18.26 validó una sesión de Reviewer independiente con salida JSON estructurada y 0 findings sobre el smoke test; el parser usa `info.structured`.
 - 2026-09-02 — review-flow — Se conectó el flujo completo Implementer → ChangeSet → Reviewer → Review/Findings → SQLite, con CLI `npm run review` y test end-to-end local.
 - 2026-09-02 — review-flow-validation — `npm run review` validado con OpenCode real: dos sesiones, Review persistida, Task `READY_FOR_HUMAN` y findings con evidencia; se añadió migración SQLite para esquemas existentes.
+- 2026-09-02 — project-task-workflow — Se concretó el contrato v0.1 con comandos ejecutables, estructura real, estrategia de tests y decisiones sobre estados/eventos; el módulo queda `ready` para plan y tareas.

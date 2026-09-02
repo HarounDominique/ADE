@@ -30,15 +30,27 @@ Workspace → Project → Task
 
 ## Commands
 
-Pendientes hasta seleccionar stack. El spike debe documentar comandos ejecutables para `dev`, `build`, `test` y `lint`.
+La primera implementación usa TypeScript ejecutado con Node.js y SQLite local:
+
+```bash
+npm install
+npm run build
+npm test
+npm run dev -- /ruta/al/repositorio "Inspect the repository"
+npm run review -- /ruta/al/repositorio "Describe the task"
+```
+
+`npm run dev` ejecuta el spike Implementer y `npm run review` ejecuta el flujo Implementer → Reviewer. Ambos requieren OpenCode sirviendo en `127.0.0.1:4096`, salvo que se configure `OPENCODE_URL`. La metadata se guarda en `.ade/ade.db`, salvo que se configure `ADE_DB_PATH`.
 
 ## Project Structure
 
 ```text
 docu/specs/                 → Nexus y specs
-src/domain/project-task/   → Entidades y transiciones
-src/application/tasks/     → Casos de uso
-tests/domain/project-task/ → Tests de estados y reglas
+src/domain/task.ts         → Agregado Task, estados, transiciones y eventos
+src/application/           → Casos de uso que crean y avanzan Tasks
+src/persistence/           → Rehidratación y persistencia SQLite
+tests/                      → Tests de dominio, persistencia y flujo end-to-end
+tasks/                      → Plan y tareas de implementación del módulo
 ```
 
 ## Code Style
@@ -54,7 +66,7 @@ Los identificadores son estables, los estados están enumerados y los eventos co
 
 ## Testing Strategy
 
-Tests unitarios para invariantes y transiciones; tests de integración para persistencia y rehidratación; tests de contrato para eventos consumidos por otros módulos. No se fija framework hasta el spike.
+Tests unitarios para invariantes y transiciones; tests de integración para persistencia, migraciones y rehidratación; tests end-to-end para el flujo de una Task con ChangeSet y Review. El comando de verificación es `npm run build && npm test`. Los eventos persistidos deben conservar orden, actor, causa, timestamp y estado resultante.
 
 ## Boundaries
 
@@ -66,8 +78,15 @@ Tests unitarios para invariantes y transiciones; tests de integración para pers
 
 Una Task de ejemplo puede crearse, reanudarse, bloquearse, pasar a revisión y completarse con un historial reproducible, sin depender de una UI ni de un proveedor específico.
 
+## v0.1 decisions
+
+- Task y branch se relacionan mediante una referencia futura; no se impone una relación 1:1 mientras no exista soporte de worktrees.
+- El mínimo de eventos del agregado es `task.created` y `task.status_changed`; sesiones, ChangeSets, Reviews y TestRuns mantienen sus propios registros relacionados por `taskId`.
+- La conversación es metadata operativa del trabajo y su contrato detallado queda fuera de este primer slice; v0.1 sólo exige que no sea la identidad de la Task.
+- La transición a `COMPLETED` requiere aprobación humana posterior a `READY_FOR_HUMAN`; el final de una sesión de agente nunca la produce por sí solo.
+
 ## Open Questions
 
-- ¿Task y branch se relacionan 1:1 o sólo mediante una referencia?
-- ¿Qué eventos son mínimos para el primer event bus?
-- ¿Qué operaciones de conversación se incluyen en v0.1 además de continuar, renombrar, archivar y cambiar modelo?
+- ¿Qué campos de Project y Repository deben persistirse antes de construir la UI?
+- ¿Cuándo se crea una rama o worktree y cómo se vincula al `taskId`?
+- ¿Necesitamos un event bus observable en v0.1 o basta la secuencia persistida en `TaskEvent[]`?
