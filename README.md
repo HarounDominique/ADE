@@ -29,4 +29,4 @@ Con OpenCode instalado y sirviendo en `127.0.0.1:4096`:
 npm run dev -- /ruta/al/repositorio "Inspect the repository and report its current state without editing files."
 ```
 
-Ver [Spike 001](docu/spikes/001-opencode-runtime.md) para el contrato, resultados y limitaciones conocidas.
+Ver [Spike 001](docu/spikes/001-opencode-runtime.md) y [Spike 002](docu/spikes/002-independent-review.md) para contratos, resultados y limitaciones conocidas.

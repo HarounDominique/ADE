@@ -85,3 +85,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron
 - 2026-09-02 — consolidation — Se consolidaron el brief de producto, el contrato MVP y las decisiones abiertas en el nexus; `docu/specs/` pasa a ser la única fuente de specs.
 - 2026-09-02 — spike-001 — Se implementó la primera slice `Task → OpenCode adapter → SSE → diff`, con tests locales pasando; queda pendiente el smoke test contra OpenCode real.
 - 2026-09-02 — spike-001-validation — Smoke test real completado con OpenCode 1.18.26 en repositorio efímero: health, sesión, prompt, 68 eventos, `session.idle` y captura Git validados; se corrigió la detección de archivos no trackeados.
+- 2026-09-02 — spike-002 — Se implementó el contrato ReviewerPort, Review/Findings, orquestación independiente y persistencia SQLite; 7 tests pasan. La integración LLM real del reviewer queda pendiente.

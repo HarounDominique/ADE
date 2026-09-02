@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { ChangeSet } from "../domain/change-set.js";
 import type { Task } from "../domain/task.js";
+import type { Review } from "../domain/review.js";
 
 export type PersistedTask = {
   id: string;
@@ -20,6 +21,18 @@ export type PersistedChangeSet = {
   gitStatus: string;
   gitPatch: string;
   untracked: string;
+};
+
+export type PersistedReview = {
+  id: string;
+  taskId: string;
+  changeSetId: string;
+  reviewer: string;
+  sessionId?: string;
+  createdAt: string;
+  summary: string;
+  status: string;
+  findings: string;
 };
 
 export class AdeStore {
@@ -45,6 +58,17 @@ export class AdeStore {
         git_status TEXT NOT NULL,
         git_patch TEXT NOT NULL,
         untracked_json TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS reviews (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL REFERENCES tasks(id),
+        change_set_id TEXT NOT NULL REFERENCES change_sets(id),
+        reviewer TEXT NOT NULL,
+        session_id TEXT,
+        created_at TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        status TEXT NOT NULL,
+        findings_json TEXT NOT NULL
       );
     `);
   }
@@ -89,6 +113,34 @@ export class AdeStore {
              git_patch AS gitPatch, untracked_json AS untracked
       FROM change_sets WHERE id = ?
     `).get(id) as PersistedChangeSet | undefined;
+  }
+
+  saveReview(review: Review): void {
+    this.db.prepare(`
+      INSERT INTO reviews (
+        id, task_id, change_set_id, reviewer, session_id, created_at,
+        summary, status, findings_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      review.id,
+      review.taskId,
+      review.changeSetId,
+      review.reviewer,
+      review.sessionId ?? null,
+      review.createdAt,
+      review.summary,
+      review.status,
+      JSON.stringify(review.findings),
+    );
+  }
+
+  getReview(id: string): PersistedReview | undefined {
+    return this.db.prepare(`
+      SELECT id, task_id AS taskId, change_set_id AS changeSetId,
+             reviewer, session_id AS sessionId, created_at AS createdAt,
+             summary, status, findings_json AS findings
+      FROM reviews WHERE id = ?
+    `).get(id) as PersistedReview | undefined;
   }
 
   close(): void {

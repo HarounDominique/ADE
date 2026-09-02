@@ -33,6 +33,15 @@ tests/change-review/           → Tests de pipeline y reglas
 
 El MVP debe ejecutar comandos configurables de build y tests del repositorio, capturando código de salida, duración, stdout/stderr y artefactos relevantes.
 
+La primera implementación del contrato de Reviewer se valida con:
+
+```bash
+npm run build
+npm test
+```
+
+El reviewer determinista del Spike 002 valida el pipeline; no se considera sustituto de una revisión semántica LLM.
+
 ## Code Style
 
 Un Finding es accionable y no texto perdido:
@@ -60,7 +69,7 @@ Tests de gates con éxito, fallo y reintento; tests de captura de diff; tests de
 
 ## Success Criteria
 
-El flujo `implement → build → tests → review → fix → re-review → documentation gate → human approval → commit` produce un resultado trazable y deja claro por qué cada gate pasó o falló.
+El flujo `implement → build → tests → review → fix → re-review → documentation gate → human approval → commit` produce un resultado trazable y deja claro por qué cada gate pasó o falló. La Review persiste `taskId`, `changeSetId`, reviewer, resumen, estado y findings.
 
 ## Open Questions
 
