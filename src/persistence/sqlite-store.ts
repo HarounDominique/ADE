@@ -181,6 +181,14 @@ export class AdeStore {
     `).get(id) as PersistedProject | undefined;
   }
 
+  getProjectByGitRoot(gitRoot: string): PersistedProject | undefined {
+    return this.db.prepare(`
+      SELECT id, name, repository_path AS repositoryPath, git_root AS gitRoot,
+             branch, created_at AS createdAt
+      FROM projects WHERE git_root = ?
+    `).get(gitRoot) as PersistedProject | undefined;
+  }
+
   getChangeSet(id: string): PersistedChangeSet | undefined {
     return this.db.prepare(`
       SELECT id, task_id AS taskId, session_id AS sessionId, directory,
