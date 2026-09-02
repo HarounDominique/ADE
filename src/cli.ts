@@ -15,6 +15,8 @@ if (!command || command === "help") {
     ? args[2]
     : command === "task" && action === "create"
       ? args[3]
+      : command === "review"
+        ? action
       : undefined;
   const directory = repositoryPath ?? process.cwd();
   const store = new AdeStore(process.env.ADE_DB_PATH ?? `${directory}/.ade/ade.db`);
@@ -35,7 +37,8 @@ if (!command || command === "help") {
       const task = advanceTask(store, { id, next: next as Parameters<typeof advanceTask>[1]["next"], reason });
       console.log(JSON.stringify({ id: task.id, status: task.currentStatus }, null, 2));
     } else if (command === "review") {
-      const [reviewDirectory, ...intentParts] = args;
+      const reviewDirectory = action;
+      const intentParts = args;
       if (!reviewDirectory || intentParts.length === 0) throw new Error("Usage: review <repository-path> <intent>");
       const runtime = new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
       const result = await runReviewFlow(runtime, new OpenCodeReviewer(runtime), {
