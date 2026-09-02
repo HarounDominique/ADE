@@ -23,8 +23,8 @@
   - Verify: tests de gates y transición humana.
   - Files: `src/domain/task.ts`, `src/application/tasks/`, `tests/domain/task.test.ts`
 
-- [ ] Task: Integrar el flujo `review` con los casos de uso
-  - Acceptance: `npm run review` usa los casos de uso de Task y mantiene el flujo persistido Implementer → Reviewer; `npm run ade` expone las operaciones básicas.
+- [x] Task: Integrar el flujo `review` con los casos de uso
+  - Acceptance: `npm run review` y `npm run ade -- review` usan los casos de uso de Task y mantienen el flujo persistido Implementer → Reviewer; `npm run ade` expone las operaciones básicas.
   - Verify: `npm run build && npm test` y smoke test con OpenCode local.
   - Files: `src/application/run-review-flow.ts`, `src/review-spike.ts`, `tests/review-flow.test.ts`
 
