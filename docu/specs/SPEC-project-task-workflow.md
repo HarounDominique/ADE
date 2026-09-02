@@ -20,9 +20,40 @@ Workspace → Project → Task
 
 `Project` referencia Repository, Worktree, Documents, Skills, Policies, Services y Commits. `Task` es el agregado raíz del trabajo; no se crea una Task por cada mensaje ni se hace que una conversación sea la identidad del trabajo.
 
+## Project and Repository contract
+
+`Project` es la identidad estable que agrupa un repositorio local y su configuración de ADE. `Repository` representa la ubicación Git concreta. En v0.1 la relación es `Project 1 → 1 Repository`, pero `Task` sólo conserva `projectId` y `repositoryPath` como referencias; no incorpora la lógica de Git ni crea branches automáticamente.
+
+```ts
+type Project = {
+  id: string;
+  name: string;
+  repositoryPath: string;
+  createdAt: string;
+};
+
+type Repository = {
+  path: string;
+  gitRoot: string;
+  branch?: string;
+};
+```
+
+Invariantes del contrato:
+
+- `id`, `name` y `repositoryPath` no pueden estar vacíos.
+- `repositoryPath` debe ser absoluto y apuntar a un directorio existente.
+- El repositorio debe poder identificarse mediante `git rev-parse --show-toplevel`; la validación no modifica el árbol de trabajo.
+- Dos Projects no pueden registrar el mismo `gitRoot` dentro de la misma base ADE.
+- Una Task puede existir antes de que se complete la detección de branch; el branch es metadata mutable, no identidad.
+- El dominio no depende de un cliente Git concreto: la detección se realiza detrás de un puerto/adaptador.
+
+La creación de Project falla de forma explícita si la ruta no existe, no es un repositorio Git o ya está registrada. La operación debe devolver la raíz Git canónica para evitar duplicados por rutas relativas o subdirectorios.
+
 ### Acceptance criteria
 
 - Un repositorio local puede registrarse como `Project`.
+- Un Project expone una raíz Git canónica y puede vincular Tasks mediante `projectId`.
 - Una `Task` conserva intención, requisitos, contexto, estado, conversaciones y resultado.
 - Una Task puede pasar por estados formales sin inferirlos desde texto.
 - La conversación pertenece a ADE y permite cambiar de modelo/proveedor sin perder la Task.
@@ -88,5 +119,5 @@ Una Task de ejemplo puede crearse, reanudarse, bloquearse, pasar a revisión y c
 ## Open Questions
 
 - ¿Qué campos de Project y Repository deben persistirse antes de construir la UI?
-- ¿Cuándo se crea una rama o worktree y cómo se vincula al `taskId`?
+- ¿Cuándo se crea una rama o worktree y cómo se vincula al `taskId`? En v0.1 no se crean automáticamente.
 - ¿Necesitamos un event bus observable en v0.1 o basta la secuencia persistida en `TaskEvent[]`?
