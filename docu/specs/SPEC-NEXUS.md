@@ -55,7 +55,7 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | project-task-workflow | [SPEC-project-task-workflow.md](SPEC-project-task-workflow.md) | Projects, Tasks, conversaciones y estados | — | ready | — |
 | development-workflow | [SPEC-development-workflow.md](SPEC-development-workflow.md) | Transiciones adaptativas, skills de workflow y modos de ejecución | project-task-workflow | ready | — |
 | agent-runtime | [SPEC-agent-runtime.md](SPEC-agent-runtime.md) | Sesiones, implementer, reviewer y adapter | project-task-workflow | ready | — |
-| knowledge-docs | [SPEC-knowledge-docs.md](SPEC-knowledge-docs.md) | Documentación, skills, contexto y drift | project-task-workflow | draft | project-task-workflow |
+| knowledge-docs | [SPEC-knowledge-docs.md](SPEC-knowledge-docs.md) | Documentación, skills, contexto y drift | project-task-workflow | ready | — |
 | changes-review-governance | [SPEC-changes-review-governance.md](SPEC-changes-review-governance.md) | ChangeSets, Git, gates, findings y aprobación | agent-runtime, knowledge-docs | draft | agent-runtime; knowledge-docs |
 | local-runtime | [SPEC-local-runtime.md](SPEC-local-runtime.md) | Servicios, procesos, terminal, logs y tests | project-task-workflow | draft | project-task-workflow |
 | desktop-shell | [SPEC-desktop-shell.md](SPEC-desktop-shell.md) | Project Hub, navegación, visor y escape hatch | project-task-workflow, changes-review-governance, local-runtime | draft | upstream modules |
@@ -93,3 +93,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron
 - 2026-09-02 — project-repository-identity — Se fijó en la spec y ADR-0002 la identidad estable Project → Repository, la raíz Git canónica y el alcance v0.1 sin branches/worktrees automáticos.
 - 2026-09-02 — development-workflow — Se concretaron la matriz de transiciones, contrato de gates, invocación de skills y modos adaptativos; ADR-0003 registra la decisión y el módulo queda `ready`.
 - 2026-09-02 — agent-runtime — Se concretaron `AgentRuntimePort`, aislamiento Implementer/Reviewer, OpenCode HTTP/SSE, salida estructurada y límites de v0.1; ADR-0004 registra la decisión y el módulo queda `ready`.
+- 2026-09-02 — knowledge-docs — Se concretaron metadata, taxonomía, resolución determinista, niveles de impacto y reconciliación; ADR-0005 registra la decisión y el módulo queda `ready`.
