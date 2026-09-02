@@ -20,7 +20,14 @@ Una conversación puede continuar, renombrarse, resumirse, bifurcarse, archivars
 
 ## Commands
 
-El spike debe dejar comandos o API reproducible para crear sesión, enviar una Task, recibir streaming, cancelar y obtener eventos.
+```bash
+npm install
+npm run build
+npm test
+npm run dev -- /ruta/al/repositorio "Inspect the repository and report its current state without editing files."
+```
+
+El adapter ya expone una API reproducible para crear sesión, enviar una Task, recibir streaming SSE, cancelar y obtener eventos/diff. El smoke test real está documentado en [Spike 001](../spikes/001-opencode-runtime.md#smoke-test-real).
 
 ## Project Structure
 
@@ -55,7 +62,7 @@ Tests de contrato contra un fake runtime; smoke test contra OpenCode real; prueb
 
 ## Success Criteria
 
-Una sesión real puede ejecutar una Task sobre un repositorio local, emitir eventos, modificar archivos y ser cancelada; un reviewer fresco puede recibir diff, intención y tests y devolver findings estructurados.
+Una sesión real puede ejecutar una Task sobre un repositorio local, emitir eventos, modificar archivos y ser cancelada; el smoke test real validó health, sesión, prompt, streaming SSE, `session.idle` y aislamiento en un repositorio efímero. Un reviewer fresco podrá recibir diff, intención y tests y devolver findings estructurados en el siguiente spike.
 
 ## Open Questions
 

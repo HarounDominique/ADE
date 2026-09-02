@@ -13,4 +13,20 @@ Este repositorio comienza deliberadamente por la documentación. La documentaci�
 
 ## Estado
 
-Fase 0 — Architecture Spike. No se ha elegido aún el stack definitivo ni se ha implementado runtime, UI o persistencia.
+Fase 0 — Architecture Spike. La primera slice del adapter, dominio, ChangeSet y persistencia ya está implementada y validada contra un servidor OpenCode real en un repositorio efímero.
+
+## Quick start del spike
+
+```bash
+npm install
+npm run build
+npm test
+```
+
+Con OpenCode instalado y sirviendo en `127.0.0.1:4096`:
+
+```bash
+npm run dev -- /ruta/al/repositorio "Inspect the repository and report its current state without editing files."
+```
+
+Ver [Spike 001](docu/spikes/001-opencode-runtime.md) para el contrato, resultados y limitaciones conocidas.

@@ -83,3 +83,5 @@ Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron
 - 2026-09-02 — initial — Se descompuso el informe fundacional en seis módulos base, se fijaron dependencias y build order; quedan abiertas las decisiones tecnológicas indicadas en Tech Foundations.
 - 2026-09-02 — development-workflow — Se añadió el módulo de workflow adaptativo y se propagó a producto, MVP y governance: fases orientativas, invariantes obligatorios, modos según riesgo y bucles de re-discuss/re-build/re-review.
 - 2026-09-02 — consolidation — Se consolidaron el brief de producto, el contrato MVP y las decisiones abiertas en el nexus; `docu/specs/` pasa a ser la única fuente de specs.
+- 2026-09-02 — spike-001 — Se implementó la primera slice `Task → OpenCode adapter → SSE → diff`, con tests locales pasando; queda pendiente el smoke test contra OpenCode real.
+- 2026-09-02 — spike-001-validation — Smoke test real completado con OpenCode 1.18.26 en repositorio efímero: health, sesión, prompt, 68 eventos, `session.idle` y captura Git validados; se corrigió la detección de archivos no trackeados.
