@@ -1,6 +1,6 @@
 # Spike 003 — Framework del shell desktop
 
-**Estado:** recomendación preparada, decisión humana pendiente
+**Estado:** Tauri validado en macOS, listo para shell ADE
 **Fecha:** 2026-09-02  
 **Spec:** [SPEC-desktop-shell.md](../specs/SPEC-desktop-shell.md#shell-contract)  
 **Nexus:** [SPEC-NEXUS.md](../specs/SPEC-NEXUS.md#open-decisions)
@@ -45,4 +45,4 @@ La decisión queda lista para implementación cuando:
 
 ## Resultado
 
-Este spike no crea interfaz gráfica ni cambia dependencias. El siguiente paso del proceso es validar el prototipo técnico de Tauri y, si pasa sus gates, generar el shell mínimo definido en `tasks/desktop-shell-plan.md`.
+El prototipo Tauri se generó en `desktop/`, compiló en modo release y produjo `.app` y `.dmg` para macOS. `npm run tauri dev` también arrancó la ventana en modo desarrollo. El siguiente paso del proceso es generar el shell mínimo definido en `tasks/desktop-shell-plan.md`, sin ampliar todavía el alcance a un editor.

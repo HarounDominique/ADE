@@ -97,13 +97,13 @@ Un usuario puede abrir un repositorio, crear una Task, observar la implementaci�
 ## v0.1 decisions
 
 - El shell es deliberadamente fino: presenta estado y orquesta casos de uso, pero no contiene un editor completo ni lógica de dominio duplicada.
+- Tauri 2 es el framework adoptado para el MVP desktop tras el spike 003; el frontend se mantiene desacoplado del dominio y las capacidades nativas se restringen mediante permisos.
 - La primera plataforma objetivo será macOS, por ser el entorno validado del proyecto; la abstracción debe dejar abierta la portabilidad posterior.
 - El escape hatch mínimo abre la raíz del Project en el terminal y permite configurar un comando externo de IDE; la integración profunda con IntelliJ/VS Code queda fuera.
 - La elección Tauri/Electron se decidirá mediante un spike posterior con criterios de arranque, filesystem, procesos, empaquetado, seguridad y ergonomía de desarrollo.
 
 ## Open Questions
 
-- ¿Tauri o Electron tras el spike comparativo?
 - ¿Qué mecanismo de eventos usa la UI: polling, SSE local o un event bus nativo?
 - ¿Qué esquema de navegación permite observar varias Tasks sin perder el contexto de la activa?
 
