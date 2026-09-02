@@ -3,6 +3,7 @@
 <!-- Plan: tasks/plan.md | Spec: docu/specs/SPEC-project-task-workflow.md -->
 
 - [ ] Task: Formalizar Project y Repository
+  - Plan: [project-repository-plan.md](project-repository-plan.md)
   - Acceptance: existen tipos con identificadores estables y una relación explícita Project → Repository; Task puede referenciar Project sin depender de OpenCode.
   - Verify: `npm run build` y tests de validación de identificadores y relación.
   - Files: `src/domain/project.ts`, `src/domain/task.ts`, `tests/domain/project.test.ts`
