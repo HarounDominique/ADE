@@ -3,6 +3,7 @@ import { captureGitChanges, type GitChanges } from "../adapters/git-changes.js";
 import type { AgentRuntimePort, RuntimeEvent } from "../ports/agent-runtime.js";
 import { createChangeSet, type ChangeSet } from "../domain/change-set.js";
 import { AdeStore } from "../persistence/sqlite-store.js";
+import { createTask } from "./tasks/task-commands.js";
 
 export type SpikeResult = {
   task: Task;
@@ -19,7 +20,9 @@ export async function runSpike(
   runtime: AgentRuntimePort,
   input: { taskId: string; directory: string; intent: string; agent?: string; signal?: AbortSignal; store?: AdeStore },
 ): Promise<SpikeResult> {
-  const task = Task.create({ id: input.taskId, intent: input.intent });
+  const task = input.store
+    ? createTask(input.store, { id: input.taskId, intent: input.intent, repositoryPath: input.directory })
+    : Task.create({ id: input.taskId, intent: input.intent, repositoryPath: input.directory });
   task.transition("READY", "Spike accepted", "human");
   input.store?.saveTask(task);
   const session = await runtime.createSession({ directory: input.directory, title: input.taskId });
