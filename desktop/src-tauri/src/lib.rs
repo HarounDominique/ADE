@@ -53,3 +53,31 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::project_context;
+    use std::fs;
+
+    #[test]
+    fn project_context_rejects_missing_repository() {
+        let result = project_context("/path/that/cannot/exist/for/ade".to_string());
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn project_context_reads_repository_branch() {
+        let root = std::env::temp_dir().join(format!("ade-project-context-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join(".git")).expect("create fixture");
+        fs::write(root.join(".git/HEAD"), "ref: refs/heads/feature/ui\n").expect("write head");
+
+        let context = project_context(root.to_string_lossy().into_owned()).expect("read context");
+
+        assert_eq!(context.name, root.file_name().unwrap().to_string_lossy());
+        assert_eq!(context.branch, "feature/ui");
+        assert_eq!(context.working_tree, "detected");
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+}
