@@ -1,6 +1,6 @@
 # Nexus: ADE — Agentic Development Environment
 
-**Estado:** draft  
+**Estado:** MVP documental listo para implementación
 **Fecha:** 2026-09-02  
 **Fuente:** informe fundacional de ADE proporcionado por el usuario
 
@@ -97,3 +97,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron
 - 2026-09-02 — local-runtime — Se concretaron lifecycle de procesos, contrato de servicios, health/log evidence y límites de seguridad; ADR-0006 registra la decisión y el módulo queda `ready`.
 - 2026-09-02 — changes-review-governance — Se concretaron semántica de gates, ChangeSets/checkpoints, findings, re-review y aprobación humana; ADR-0007 registra la decisión y el módulo queda `ready`.
 - 2026-09-02 — desktop-shell — Se concretaron Project Hub, áreas de navegación, estados de interacción, escape hatch y límites del shell; ADR-0008 registra la decisión y el módulo queda `ready`.
+- 2026-09-02 — documentation-milestone — Todos los módulos del MVP quedan en `ready`; la siguiente fase es implementar el contrato Project/Repository y la vertical desktop mínima.

@@ -13,7 +13,7 @@ Este repositorio comienza deliberadamente por la documentación. La documentaci�
 
 ## Estado
 
-Fase 0 — Architecture Spike. La primera slice del adapter, dominio, ChangeSet y persistencia ya está implementada y validada contra un servidor OpenCode real en un repositorio efímero.
+Fase 0 documental completada: todas las specs del MVP están en estado `ready`, con ADRs y plan de tareas versionados. La primera slice del adapter, dominio, ChangeSet y persistencia ya está implementada y validada contra un servidor OpenCode real en un repositorio efímero. La siguiente fase implementa el contrato Project/Repository y la vertical desktop mínima.
 
 ## Quick start del spike
 
