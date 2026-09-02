@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Task } from "../src/domain/task.js";
 import { createChangeSet } from "../src/domain/change-set.js";
+import { Project } from "../src/domain/project.js";
 
 test("SQLite persists Task and its ChangeSet relationship", () => {
   const store = new AdeStore();
@@ -28,6 +29,24 @@ test("SQLite persists Task and its ChangeSet relationship", () => {
   assert.equal(JSON.parse(persistedTask?.events ?? "[]").length, 2);
   assert.equal(persistedChangeSet?.taskId, task.id);
   assert.deepEqual(JSON.parse(persistedChangeSet?.untracked ?? "[]"), ["new.txt"]);
+  store.close();
+});
+
+test("SQLite persists Project and rehydrates a Task with its history", () => {
+  const store = new AdeStore();
+  const project = Project.create({ id: "project-1", name: "ADE", repositoryPath: "/tmp/ade" });
+  const repository = { path: "/tmp/ade", gitRoot: "/tmp/ade", branch: "main" };
+  store.saveProject(project, repository);
+  const task = Task.create({ id: "task-project", intent: "Inspect", projectId: project.id, repositoryPath: project.repositoryPath });
+  task.transition("READY", "Intent framed", "human");
+  store.saveTask(task);
+
+  const persistedProject = store.getProject(project.id);
+  const rehydrated = store.rehydrateTask(task.id);
+  assert.equal(persistedProject?.gitRoot, "/tmp/ade");
+  assert.equal(rehydrated?.currentStatus, "READY");
+  assert.equal(rehydrated?.projectId, project.id);
+  assert.deepEqual(rehydrated?.history(), task.history());
   store.close();
 });
 

@@ -50,6 +50,19 @@ export class Task {
     return new Task(input.id, input.intent, input.projectId, input.repositoryPath, "DRAFT", [event]);
   }
 
+  static rehydrate(input: {
+    id: string;
+    intent: string;
+    projectId: string | undefined;
+    repositoryPath: string | undefined;
+    status: TaskStatus;
+    events: readonly TaskEvent[];
+  }): Task {
+    if (!input.intent.trim()) throw new Error("Task intent cannot be empty");
+    if (input.events.length === 0) throw new Error("Task history cannot be empty");
+    return new Task(input.id, input.intent, input.projectId, input.repositoryPath, input.status, [...input.events]);
+  }
+
   get currentStatus(): TaskStatus {
     return this.status;
   }

@@ -2,7 +2,8 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { ChangeSet } from "../domain/change-set.js";
-import type { Task } from "../domain/task.js";
+import { Task, type TaskEvent, type TaskStatus } from "../domain/task.js";
+import type { Project, Repository } from "../domain/project.js";
 import type { Review } from "../domain/review.js";
 
 export type PersistedTask = {
@@ -10,6 +11,17 @@ export type PersistedTask = {
   intent: string;
   status: string;
   events: string;
+  projectId: string | null;
+  repositoryPath: string | null;
+};
+
+export type PersistedProject = {
+  id: string;
+  name: string;
+  repositoryPath: string;
+  gitRoot: string;
+  branch: string | null;
+  createdAt: string;
 };
 
 export type PersistedChangeSet = {
@@ -48,7 +60,17 @@ export class AdeStore {
         id TEXT PRIMARY KEY,
         intent TEXT NOT NULL,
         status TEXT NOT NULL,
-        events_json TEXT NOT NULL
+        events_json TEXT NOT NULL,
+        project_id TEXT,
+        repository_path TEXT
+      );
+      CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        repository_path TEXT NOT NULL,
+        git_root TEXT NOT NULL UNIQUE,
+        branch TEXT,
+        created_at TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS change_sets (
         id TEXT PRIMARY KEY,
@@ -73,7 +95,14 @@ export class AdeStore {
         findings_json TEXT NOT NULL
       );
     `);
+    this.migrateTasks();
     this.migrateChangeSets();
+  }
+
+  private migrateTasks(): void {
+    const columns = this.db.prepare("PRAGMA table_info(tasks)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "project_id")) this.db.exec("ALTER TABLE tasks ADD COLUMN project_id TEXT");
+    if (!columns.some((column) => column.name === "repository_path")) this.db.exec("ALTER TABLE tasks ADD COLUMN repository_path TEXT");
   }
 
   private migrateChangeSets(): void {
@@ -85,13 +114,27 @@ export class AdeStore {
 
   saveTask(task: Task): void {
     this.db.prepare(`
-      INSERT INTO tasks (id, intent, status, events_json)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO tasks (id, intent, status, events_json, project_id, repository_path)
+      VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         intent = excluded.intent,
         status = excluded.status,
-        events_json = excluded.events_json
-    `).run(task.id, task.intent, task.currentStatus, JSON.stringify(task.history()));
+        events_json = excluded.events_json,
+        project_id = excluded.project_id,
+        repository_path = excluded.repository_path
+    `).run(task.id, task.intent, task.currentStatus, JSON.stringify(task.history()), task.projectId ?? null, task.repositoryPath ?? null);
+  }
+
+  saveProject(project: Project, repository: Repository): void {
+    this.db.prepare(`
+      INSERT INTO projects (id, name, repository_path, git_root, branch, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        repository_path = excluded.repository_path,
+        git_root = excluded.git_root,
+        branch = excluded.branch
+    `).run(project.id, project.name, project.repositoryPath, repository.gitRoot, repository.branch ?? null, project.createdAt);
   }
 
   saveChangeSet(changeSet: ChangeSet): void {
@@ -114,7 +157,28 @@ export class AdeStore {
   }
 
   getTask(id: string): PersistedTask | undefined {
-    return this.db.prepare("SELECT id, intent, status, events_json AS events FROM tasks WHERE id = ?").get(id) as PersistedTask | undefined;
+    return this.db.prepare("SELECT id, intent, status, events_json AS events, project_id AS projectId, repository_path AS repositoryPath FROM tasks WHERE id = ?").get(id) as PersistedTask | undefined;
+  }
+
+  rehydrateTask(id: string): Task | undefined {
+    const persisted = this.getTask(id);
+    if (!persisted) return undefined;
+    return Task.rehydrate({
+      id: persisted.id,
+      intent: persisted.intent,
+      projectId: persisted.projectId ?? undefined,
+      repositoryPath: persisted.repositoryPath ?? undefined,
+      status: persisted.status as TaskStatus,
+      events: JSON.parse(persisted.events) as TaskEvent[],
+    });
+  }
+
+  getProject(id: string): PersistedProject | undefined {
+    return this.db.prepare(`
+      SELECT id, name, repository_path AS repositoryPath, git_root AS gitRoot,
+             branch, created_at AS createdAt
+      FROM projects WHERE id = ?
+    `).get(id) as PersistedProject | undefined;
   }
 
   getChangeSet(id: string): PersistedChangeSet | undefined {
