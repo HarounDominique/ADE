@@ -58,7 +58,7 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | knowledge-docs | [SPEC-knowledge-docs.md](SPEC-knowledge-docs.md) | Documentación, skills, contexto y drift | project-task-workflow | ready | — |
 | changes-review-governance | [SPEC-changes-review-governance.md](SPEC-changes-review-governance.md) | ChangeSets, Git, gates, findings y aprobación | agent-runtime, knowledge-docs | ready | — |
 | local-runtime | [SPEC-local-runtime.md](SPEC-local-runtime.md) | Servicios, procesos, terminal, logs y tests | project-task-workflow | ready | — |
-| desktop-shell | [SPEC-desktop-shell.md](SPEC-desktop-shell.md) | Project Hub, navegación, visor y escape hatch | project-task-workflow, changes-review-governance, local-runtime | draft | upstream modules |
+| desktop-shell | [SPEC-desktop-shell.md](SPEC-desktop-shell.md) | Project Hub, navegación, visor y escape hatch | project-task-workflow, changes-review-governance, local-runtime | ready | — |
 
 **Build order:** `project-task-workflow → development-workflow → agent-runtime + knowledge-docs + local-runtime → changes-review-governance → desktop-shell`.
 
@@ -96,3 +96,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron
 - 2026-09-02 — knowledge-docs — Se concretaron metadata, taxonomía, resolución determinista, niveles de impacto y reconciliación; ADR-0005 registra la decisión y el módulo queda `ready`.
 - 2026-09-02 — local-runtime — Se concretaron lifecycle de procesos, contrato de servicios, health/log evidence y límites de seguridad; ADR-0006 registra la decisión y el módulo queda `ready`.
 - 2026-09-02 — changes-review-governance — Se concretaron semántica de gates, ChangeSets/checkpoints, findings, re-review y aprobación humana; ADR-0007 registra la decisión y el módulo queda `ready`.
+- 2026-09-02 — desktop-shell — Se concretaron Project Hub, áreas de navegación, estados de interacción, escape hatch y límites del shell; ADR-0008 registra la decisión y el módulo queda `ready`.
