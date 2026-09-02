@@ -32,3 +32,9 @@
   - Acceptance: nexus, specs dependientes, plan y tareas reflejan los contratos implementados y no quedan referencias rotas.
   - Verify: `rg 'SPEC-project-task-workflow|project-task-workflow' docu` y revisión de headings.
   - Files: `docu/specs/`, `tasks/`
+
+- [ ] Task: Implementar vertical desktop mínima
+  - Plan: [desktop-shell-plan.md](desktop-shell-plan.md)
+  - Acceptance: Project Hub, Work, Changes, Knowledge y Runtime permiten recorrer una Task con estados, gates y escape hatch visibles.
+  - Verify: `npm run desktop:test` y smoke test en macOS.
+  - Files: `src/ui/`, `tests/ui/`
