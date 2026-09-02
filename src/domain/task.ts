@@ -23,11 +23,13 @@ export class Task {
   private constructor(
     readonly id: string,
     readonly intent: string,
+    readonly projectId: string | undefined,
+    readonly repositoryPath: string | undefined,
     private status: TaskStatus,
     private readonly events: TaskEvent[],
   ) {}
 
-  static create(input: { id: string; intent: string; actor?: string }): Task {
+  static create(input: { id: string; intent: string; actor?: string; projectId?: string; repositoryPath?: string }): Task {
     if (!input.intent.trim()) throw new Error("Task intent cannot be empty");
     const at = new Date().toISOString();
     const actor = input.actor ?? "human";
@@ -39,7 +41,13 @@ export class Task {
       reason: "Task created",
       status: "DRAFT",
     };
-    return new Task(input.id, input.intent, "DRAFT", [event]);
+    if (input.projectId !== undefined && !input.projectId.trim()) {
+      throw new Error("Task project id cannot be empty");
+    }
+    if (input.repositoryPath !== undefined && !input.repositoryPath.trim()) {
+      throw new Error("Task repository path cannot be empty");
+    }
+    return new Task(input.id, input.intent, input.projectId, input.repositoryPath, "DRAFT", [event]);
   }
 
   get currentStatus(): TaskStatus {
