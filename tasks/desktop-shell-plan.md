@@ -27,7 +27,7 @@ La primera entrega debe poder ejecutarse con adapters fake y sustituirlos por lo
 ## Implementation order
 
 1. Shell estático con navegación y estados `loading/ready/empty/blocked/failed/stale`. ✅
-2. Project Hub conectado a consultas de Project y Task. En curso: existe un `ProjectSnapshot` local como boundary de UI; falta el comando Tauri real.
+2. Project Hub conectado a consultas de Project y Task. En curso: existe un `ProjectSnapshot` como boundary de UI y el comando Tauri `project_context` aporta contexto local; falta conectar Project/Task reales.
 3. Work conectado a creación/reanudación y eventos de runtime.
 4. Changes conectado a ChangeSet/Review y gates.
 5. Knowledge y Runtime con datos reales de sus puertos.

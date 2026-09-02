@@ -76,7 +76,7 @@ Los cuatro spikes previos a UI significativa son: integración OpenCode y evento
 
 ## Open decisions
 
-Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron; integración concreta con OpenCode; esquema SQLite; retrieval y embeddings; relación Task/branch; checkpoints; automatización de commits; esquema `.ade/`; enforcement de taxonomía documental; memoria/equipos; licensing y pricing.
+Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta con OpenCode desde Tauri; esquema SQLite; retrieval y embeddings; relación Task/branch; checkpoints; automatización de commits; esquema `.ade/`; enforcement de taxonomía documental; memoria/equipos; licensing y pricing.
 
 ## Change Log
 
@@ -101,3 +101,5 @@ Siguen deliberadamente abiertas hasta obtener evidencia: Tauri frente a Electron
 - 2026-09-02 — implementation-foundation — Project/Repository, persistencia y rehidratación, casos de uso, gates y CLI básica implementados; 19 tests pasan. Queda integrar el flujo review con los comandos y construir la vertical desktop.
 - 2026-09-02 — mvp-cli — CLI unificada validada en repositorio efímero: registro de Project, creación/avance de Task y persistencia SQLite; 21 tests pasan. El siguiente hito es la vertical desktop.
 - 2026-09-02 — spike-003 — Comparativa Tauri/Electron validada: Tauri 2 compila `.app`/`.dmg` y arranca en macOS; ADR-0009 registra la adopción para el shell MVP.
+- 2026-09-02 — desktop-shell-bootstrap — Se creó el shell visual Tauri con navegación Project/Work/Knowledge/Changes/Runtime y estados representativos; se validó bundle `.app`/`.dmg`.
+- 2026-09-02 — desktop-project-context — Se definió `ProjectSnapshot` y se añadió el comando Tauri de solo lectura `project_context`; la integración de Task/SQLite/Git completo queda para los siguientes puntos de la vertical.

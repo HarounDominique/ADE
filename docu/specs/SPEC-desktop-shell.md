@@ -74,6 +74,8 @@ npm run desktop:package
 
 Mientras el shell no exista, el contrato se verifica con `npm run build && npm test` y los flujos CLI descritos en las specs de runtime y governance.
 
+El shell visual inicial vive en `desktop/src/`. Su fixture `project-snapshot.js` define el boundary de datos y el comando Tauri `project_context` ya aporta contexto local de repositorio en modo solo lectura. La UI no accede directamente a SQLite, Git ni procesos.
+
 ## Code Style
 
 La revisión se presenta de mayor a menor nivel de detalle: resumen semántico, impacto, findings, archivos, diff. El visor necesita syntax highlighting, búsqueda, navegación, diff y apertura externa; no completado ni language server propio.
