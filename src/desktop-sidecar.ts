@@ -1,4 +1,5 @@
 import { createInterface } from "node:readline";
+import { dirname, join } from "node:path";
 import { isSea } from "node:sea";
 import { advanceTask, createTask } from "./application/tasks/task-commands.js";
 import type { TaskStatus } from "./domain/task.js";
@@ -24,6 +25,7 @@ import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
 import { createBranch, createCommit, createPullRequest, createWorktree } from "./application/git/git-mutations.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
+import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
 import { proposeKnowledgeReconciliation } from "./application/knowledge/reconcile.js";
 
 export type DesktopRequest = {
@@ -55,6 +57,7 @@ const runtimeStatus: RuntimeStatus = {
 };
 let runtimeEvidenceSequence = 0;
 let serviceManager: ServiceManager | undefined;
+let declaredServices: readonly ServiceDefinition[] = [];
 
 function getRuntimeStatus(): RuntimeStatus {
   return {
@@ -64,7 +67,7 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'service.status', 'skills.list'].includes(request.method)) {
+    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'service.status', 'service.list', 'skills.list'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -83,6 +86,7 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       if (!serviceId || !serviceManager) return { id: request.id, error: { code: "INVALID_PARAMS", message: "serviceId is required" } };
       return { id: request.id, result: { serviceId, status: serviceManager.status(serviceId) } };
     }
+    if (request.method === "service.list") return { id: request.id, result: declaredServices.map((service) => ({ id: service.id, command: service.command, cwd: service.cwd, healthcheck: service.healthcheck ? true : false })) };
     if (request.method === "task.detail" || request.method === "runtime.history" || request.method === "change.review") {
       const taskId = request.params?.taskId;
       if (!taskId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId is required" } };
@@ -125,6 +129,8 @@ export async function runDesktopSidecar(): Promise<void> {
   if (!databasePath) throw new Error("ADE_DB_PATH must point to the ADE metadata database");
   const store = new AdeStore(databasePath);
   serviceManager = new ServiceManager(new LocalProcess());
+  const servicesPath = process.env.ADE_SERVICES_PATH ?? join(dirname(databasePath), "services.json");
+  try { declaredServices = await loadServiceDefinitions(servicesPath); } catch { declaredServices = []; }
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
   try {
     for await (const line of input) {
@@ -198,11 +204,12 @@ export async function runDesktopSidecar(): Promise<void> {
 
 function startLocalService(request: DesktopRequest): void {
   const params = request.params ?? {};
-  if (!serviceManager || !params.serviceId || !params.command || !params.cwd) {
-    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "serviceId, command and cwd are required" } })}\n`);
+  const declared = params.serviceId ? declaredServices.find((service) => service.id === params.serviceId) : undefined;
+  const definition = declared ?? (params.serviceId && params.command && params.cwd ? { id: params.serviceId, command: params.command, cwd: params.cwd, ...(params.args ? { args: params.args } : {}) } : undefined);
+  if (!serviceManager || !definition) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "serviceId must reference a declared service or provide command/cwd" } })}\n`);
     return;
   }
-  const definition: ServiceDefinition = { id: params.serviceId, command: params.command, cwd: params.cwd, ...(params.args ? { args: params.args } : {}) };
   void serviceManager.start(definition).then((status) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { serviceId: definition.id, status } })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SERVICE_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
 }
 
