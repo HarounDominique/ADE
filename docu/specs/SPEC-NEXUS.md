@@ -176,6 +176,7 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — v0.3-provider-selection — La detección de Codex usa el mismo comando que ejecuta el adapter y el workbench muestra disponibilidad, capacidades y auth sin credenciales; proveedores no disponibles no se pueden seleccionar para ejecutar skills. 72 tests TypeScript pasan.
 - 2026-09-03 — v0.3-project-skill-update — Las skills de Project conservan `installedFrom` e instante de instalación, se actualizan desde un origen trazable sin cambiar de id y exigen consentimiento si el origen es Git. La UI distingue native/Project, permite Update y muestra los errores del sidecar. 74 tests TypeScript pasan.
 - 2026-09-03 — v0.3-git-worktree-flow — Git muestra rama activa y cambios, y la Task seleccionada puede iniciar branch, worktree, commit, push y PR confirmados. Worktree exige ruta y rama específicas; 75 tests TypeScript pasan.
+- 2026-09-03 — v0.3-native-pty — Terminal Core sustituye los pipes por `portable-pty`, conserva la sesión interactiva y valida un comando real en PTY. La raíz autorizada del Project sigue aplicando; 13 tests Rust y 75 TypeScript pasan.
 
 ## Automatic Reconciliation Log
 

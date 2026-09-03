@@ -1,5 +1,6 @@
+use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::Serialize;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
@@ -10,9 +11,14 @@ struct SidecarSupervisor {
     child: Mutex<Option<Child>>,
 }
 
+struct TerminalProcess {
+    child: Box<dyn portable_pty::Child + Send + Sync>,
+    writer: Box<dyn Write + Send>,
+}
+
 #[derive(Default)]
 struct TerminalSupervisor {
-    child: Mutex<Option<Child>>,
+    process: Mutex<Option<TerminalProcess>>,
 }
 
 #[derive(Default)]
@@ -73,35 +79,10 @@ fn terminal_start_in(
     if !cwd.is_dir() {
         return Err(format!("Terminal cwd does not exist: {}", cwd.display()));
     }
-    let mut shell = if cfg!(target_os = "windows") {
-        let mut command = Command::new("cmd");
-        command.args(["/Q"]);
-        command
-    } else {
-        let mut command = Command::new("/bin/sh");
-        command.args(["-i"]);
-        command
-    };
-    let mut child = shell
-        .current_dir(&cwd)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|error| format!("Unable to start terminal: {error}"))?;
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| "Terminal stdout unavailable".to_string())?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| "Terminal stderr unavailable".to_string())?;
+    let (process, mut reader) = start_terminal_pty(&cwd)?;
     let output_app = app.clone();
     std::thread::spawn(move || {
-        use std::io::Read;
         let mut bytes = [0u8; 4096];
-        let mut reader = std::io::BufReader::new(stdout);
         loop {
             match reader.read(&mut bytes) {
                 Ok(0) | Err(_) => break,
@@ -114,28 +95,44 @@ fn terminal_start_in(
             }
         }
     });
-    let error_app = app.clone();
-    std::thread::spawn(move || {
-        use std::io::Read;
-        let mut bytes = [0u8; 4096];
-        let mut reader = std::io::BufReader::new(stderr);
-        loop {
-            match reader.read(&mut bytes) {
-                Ok(0) | Err(_) => break,
-                Ok(size) => {
-                    let _ = error_app.emit(
-                        "terminal:output",
-                        String::from_utf8_lossy(&bytes[..size]).into_owned(),
-                    );
-                }
-            }
-        }
-    });
     *state
-        .child
+        .process
         .lock()
-        .map_err(|_| "Terminal state is poisoned".to_string())? = Some(child);
+        .map_err(|_| "Terminal state is poisoned".to_string())? = Some(process);
     Ok(())
+}
+
+fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Send>), String> {
+    let pty = native_pty_system();
+    let pair = pty
+        .openpty(PtySize {
+            rows: 24,
+            cols: 120,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|error| format!("Unable to allocate terminal PTY: {error}"))?;
+    let mut shell = if cfg!(target_os = "windows") {
+        CommandBuilder::new("cmd")
+    } else {
+        let mut command = CommandBuilder::new("/bin/sh");
+        command.arg("-i");
+        command
+    };
+    shell.cwd(&cwd);
+    let child = pair
+        .slave
+        .spawn_command(shell)
+        .map_err(|error| format!("Unable to start terminal: {error}"))?;
+    let reader = pair
+        .master
+        .try_clone_reader()
+        .map_err(|error| format!("Terminal PTY reader unavailable: {error}"))?;
+    let writer = pair
+        .master
+        .take_writer()
+        .map_err(|error| format!("Terminal PTY writer unavailable: {error}"))?;
+    Ok((TerminalProcess { child, writer }, reader))
 }
 
 #[tauri::command]
@@ -145,30 +142,28 @@ fn terminal_input(
 ) -> Result<(), String> {
     use std::io::Write;
     let mut guard = state
-        .child
+        .process
         .lock()
         .map_err(|_| "Terminal state is poisoned".to_string())?;
-    let child = guard
+    let process = guard
         .as_mut()
         .ok_or_else(|| "Terminal is not running".to_string())?;
-    child
-        .stdin
-        .as_mut()
-        .ok_or_else(|| "Terminal stdin unavailable".to_string())?
+    process
+        .writer
         .write_all(input.as_bytes())
-        .and_then(|_| child.stdin.as_mut().unwrap().flush())
+        .and_then(|_| process.writer.flush())
         .map_err(|error| format!("Unable to write terminal input: {error}"))
 }
 
 #[tauri::command]
 fn terminal_stop(state: tauri::State<'_, TerminalSupervisor>) -> Result<(), String> {
     let mut guard = state
-        .child
+        .process
         .lock()
         .map_err(|_| "Terminal state is poisoned".to_string())?;
-    if let Some(mut child) = guard.take() {
-        let _ = child.kill();
-        let _ = child.wait();
+    if let Some(mut process) = guard.take() {
+        let _ = process.child.kill();
+        let _ = process.child.wait();
     }
     Ok(())
 }
@@ -607,7 +602,7 @@ pub fn run() {
 mod tests {
     use super::{
         list_directory_in, open_document_in, open_file_in, open_terminal_in, project_context_for,
-        terminal_exec_in, SidecarSupervisor, WorkspaceRoot,
+        start_terminal_pty, terminal_exec_in, SidecarSupervisor, WorkspaceRoot,
     };
     use std::fs;
 
@@ -704,6 +699,43 @@ mod tests {
         .expect("run terminal");
         assert_eq!(result.stdout, "ade");
         assert_eq!(result.exit_code, Some(0));
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn terminal_pty_runs_an_interactive_shell_command() {
+        let root = fixture_root("terminal-pty");
+        let (mut process, reader) = start_terminal_pty(&root).expect("start PTY");
+        process
+            .writer
+            .write_all(b"printf ADE_PTY_OK\\nexit\\n")
+            .expect("write PTY input");
+        process.writer.flush().expect("flush PTY input");
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut reader = reader;
+            let mut output = String::new();
+            let mut bytes = [0u8; 1024];
+            loop {
+                match reader.read(&mut bytes) {
+                    Ok(0) | Err(_) => break,
+                    Ok(size) => {
+                        output.push_str(&String::from_utf8_lossy(&bytes[..size]));
+                        if output.contains("ADE_PTY_OK") {
+                            let _ = sender.send(output);
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+        let output = receiver
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .expect("read PTY output before timeout");
+
+        assert!(output.contains("ADE_PTY_OK"));
+        let _ = process.child.kill();
+        let _ = process.child.wait();
         fs::remove_dir_all(root).expect("remove fixture");
     }
 

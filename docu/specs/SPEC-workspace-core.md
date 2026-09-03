@@ -12,7 +12,7 @@ Ofrecer un workspace local navegable donde el desarrollador vea el árbol de dir
 
 ## Project Structure
 
-`desktop/src/` contiene el árbol perezoso y el estado visual; `desktop/src-tauri/` conserva la raíz canónica del Project y aplica la autorización de rutas para filesystem, terminal y apertura externa; `src/application/` contiene casos de uso; `tests/` cubre contratos de filesystem, terminal y sidecar.
+`desktop/src/` contiene el árbol perezoso y el estado visual; `desktop/src-tauri/` conserva la raíz canónica del Project, aplica la autorización de rutas y aloja el PTY persistente; `src/application/` contiene casos de uso; `tests/` cubre contratos de filesystem, terminal y sidecar.
 
 ## Code Style
 
@@ -27,7 +27,7 @@ El árbol obtiene sólo los hijos directos y expande cada directorio bajo demand
 
 ## Testing Strategy
 
-Tests de rutas fuera del Project, symlinks que escapan, orden estable, apertura de archivos y cwd de terminal. Smoke manual y empaquetado en macOS.
+Tests de rutas fuera del Project, symlinks que escapan, orden estable, apertura de archivos, cwd y un comando interactivo dentro del PTY. Smoke manual y empaquetado en macOS.
 
 ## Boundaries
 
@@ -37,9 +37,8 @@ Tests de rutas fuera del Project, symlinks que escapan, orden estable, apertura 
 
 ## Success Criteria
 
-El usuario puede seleccionar un Project, navegar su árbol de forma perezosa, abrir un archivo interno y ejecutar comandos en una terminal integrada con cwd correcto. Ningún comando de workspace puede salir de la raíz seleccionada, ni a través de un symlink.
+El usuario puede seleccionar un Project, navegar su árbol de forma perezosa, abrir un archivo interno y ejecutar comandos en un PTY integrado persistente con cwd correcto. Ningún comando de workspace puede salir de la raíz seleccionada, ni a través de un symlink.
 
 ## Open Questions
 
 - ¿Editor completo o visor con apertura en editor externo?
-- ¿PTY propio o librería Tauri estable?

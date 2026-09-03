@@ -63,6 +63,7 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 - Provider inspection uses the same Codex command as the runtime, while the workbench renders availability, transport, auth mode and capabilities. Unavailable providers are disabled before a skill can run; no credential is copied into ADE.
 - Installed Project skills persist their canonical local or Git source and install time. The workbench can update a selected traceable Project skill, retaining its id and requiring explicit consent before a remote update; sidecar errors are rendered as user feedback.
 - Git workspace reports the active branch and changed files as well as branches, worktrees and remotes. The Task-scoped UI exposes confirmed branch/worktree/commit/push/PR operations, with explicit worktree path and branch inputs.
+- Workspace terminal uses a persistent native PTY (`portable-pty`) rather than split shell pipes. It is tested with an interactive command and remains constrained to the canonical Project root.
 
 - ¿Qué proveedores se incluyen de forma nativa en el primer paquete?
 - ¿La terminal usa PTY propio o una librería Tauri estable?
