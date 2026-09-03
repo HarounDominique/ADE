@@ -400,15 +400,9 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'open-terminal') {
-    if (!nativeInvoke) {
-      notify('Opening Terminal requires the local desktop runtime.');
-      return;
-    }
-    const repositoryPath = document.getElementById('project-path')?.textContent;
-    nativeInvoke('open_terminal', { repositoryPath }).then(() => notify('Terminal opened at the project root.')).catch((error) => {
-      notify('Unable to open Terminal.');
-      console.warn('Terminal unavailable:', error);
-    });
+    showView('project');
+    document.getElementById('terminal-command')?.focus();
+    notify('Integrated terminal focused at the project root.');
     return;
   }
   if (item.dataset.action === 'refresh-tree') {
@@ -495,6 +489,9 @@ document.getElementById('terminal-form')?.addEventListener('submit', async (even
     if (output) output.textContent = String(error);
     notify('Terminal command failed.');
   }
+});
+window.addEventListener('beforeunload', () => {
+  if (terminalStarted) nativeInvoke?.('terminal_stop').catch(() => {});
 });
 taskForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
