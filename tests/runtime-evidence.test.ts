@@ -4,6 +4,7 @@ import { createRuntimeEvidence } from "../src/domain/runtime-evidence.js";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Task } from "../src/domain/task.js";
 import { getRuntimeHistory, getTaskDetail } from "../src/application/task-detail.js";
+import { getChangeReview } from "../src/application/change-review-read-model.js";
 
 test("runtime evidence is bounded and persists by Task", () => {
   const store = new AdeStore();
@@ -24,5 +25,6 @@ test("runtime evidence is bounded and persists by Task", () => {
   assert.equal(store.listRuntimeEvidence("other-task").length, 0);
   assert.equal(getRuntimeHistory(store, "task-1").length, 1);
   assert.equal(getTaskDetail(store, "task-1").task.status, "DRAFT");
+  assert.equal(getChangeReview(store, "task-1").gates[0]?.status, "pending");
   store.close();
 });
