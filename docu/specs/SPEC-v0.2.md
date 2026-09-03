@@ -40,7 +40,7 @@ Cloud, cuentas, sync, colaboración realtime, worktrees paralelos, multiagente c
 ## Public contracts
 
 - `ProjectSnapshot` incorpora la Task activa y referencias resumidas a ChangeSet, Review y runtime evidence.
-- El sidecar añade consultas `task.detail` y `runtime.history`; las mutaciones siguen pasando por casos de uso.
+- El sidecar añade consultas `task.detail`, `runtime.history` y `change.review`; las mutaciones siguen pasando por casos de uso.
 - La evidencia Runtime persistida queda limitada a tipo, resumen, detalles acotados, Task, sesión y timestamp.
 - Los eventos de runtime persistidos no contienen secretos ni el contenido completo de conversaciones.
 - Las acciones de gate requieren actor, razón y evidencia; aprobación humana sigue siendo obligatoria antes de commit.

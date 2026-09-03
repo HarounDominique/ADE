@@ -136,7 +136,7 @@
   - Verify: tests de read model y protocolo sidecar.
   - Files: `src/application/`, `src/desktop-sidecar.ts`, `tests/`
 
-- [ ] Task: Integrar gates y Review reales en Changes
+- [x] Task: Integrar gates y Review reales en Changes
   - Acceptance: Changes muestra gates/findings/evidencia reales y exige actor/razón para re-review y aprobación; no permite saltar gates.
   - Verify: tests de governance/UI y smoke del flujo de aprobación.
   - Files: `desktop/src/`, `src/application/`, `tests/`
