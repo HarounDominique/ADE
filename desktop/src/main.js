@@ -46,6 +46,17 @@ function renderChanges(tasks) {
   });
 }
 
+function renderChangeReview(review) {
+  const taskId = document.getElementById('changes-task-id');
+  const detail = document.getElementById('changes-task-detail');
+  const status = document.getElementById('changes-task-status');
+  const gates = document.getElementById('changes-gates');
+  if (taskId) taskId.textContent = review.taskId;
+  if (detail) detail.textContent = review.review ? `${review.review.summary} · ${review.review.findings.length} finding(s).` : 'No independent review recorded yet.';
+  if (status) status.textContent = review.taskStatus.replaceAll('_', ' ');
+  if (gates) gates.innerHTML = review.gates.map((gate) => `<span class="gate ${gate.status === 'passed' || gate.status === 'waived' ? 'passed' : 'pending'}">${gate.status === 'passed' ? '✓' : '○'} ${escapeHTML(gate.id.replaceAll('-', ' '))}</span>`).join('');
+}
+
 function setSyncState(state, message) {
   const syncLabel = document.querySelector('.sync-label');
   const syncText = document.querySelector('.sync-text');
@@ -156,6 +167,10 @@ async function connectSidecar(snapshot) {
         renderTaskDetail(response.result);
         return;
       }
+      if (response.result?.gates) {
+        renderChangeReview(response.result);
+        return;
+      }
       if (response.result?.healthy !== undefined) {
         renderRuntimeStatus(response.result.status);
         notify(response.result.healthy ? `OpenCode connected${response.result.version ? ` (${response.result.version})` : ''}.` : 'OpenCode is unhealthy.');
@@ -171,7 +186,10 @@ async function connectSidecar(snapshot) {
         setSyncState('ready', 'Synced just now');
         recoveryAttempted = false;
         const firstTask = response.result.tasks?.[0];
-        if (firstTask) nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `detail-${firstTask.id}-${Date.now()}`, method: 'task.detail', params: { taskId: firstTask.id } }) });
+        if (firstTask) {
+          nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `detail-${firstTask.id}-${Date.now()}`, method: 'task.detail', params: { taskId: firstTask.id } }) });
+          nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `review-${firstTask.id}-${Date.now()}`, method: 'change.review', params: { taskId: firstTask.id } }) });
+        }
       }
       if (response.error) {
         if (response.status) renderRuntimeStatus(response.status);
