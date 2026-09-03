@@ -126,12 +126,12 @@
 
 ## v0.2 — Operación verificable
 
-- [ ] Task: Persistir evidencia de runtime
+- [x] Task: Persistir evidencia de runtime
   - Acceptance: eventos resumidos de Implementer/health/logs se persisten por Task y sesión, con límites, migración y exclusión de secretos.
   - Verify: build, tests de SQLite/migración y captura/consulta de evidencia.
   - Files: `src/domain/`, `src/persistence/`, `src/application/`, `tests/`
 
-- [ ] Task: Exponer detalle de Task y runtime history
+- [x] Task: Exponer detalle de Task y runtime history
   - Acceptance: `task.detail` y `runtime.history` rehidratan historial, ChangeSet, Review y evidencia de la Task seleccionada.
   - Verify: tests de read model y protocolo sidecar.
   - Files: `src/application/`, `src/desktop-sidecar.ts`, `tests/`
