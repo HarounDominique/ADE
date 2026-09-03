@@ -93,9 +93,9 @@
   - Verify: smoke test macOS en modo desarrollo y bundle.
   - Files: `desktop/src-tauri/`, `docu/spikes/004-desktop-transport.md`
 
-- [ ] Task: Empaquetar el sidecar para macOS
-  - Acceptance: `.app` incluye un sidecar ejecutable o runtime autocontenido compatible, y conserva la ruta configurable de `ADE_DB_PATH`. Estado actual: ejecutable Node SEA arm64 generado y incluido en el recurso Tauri; falta probar instalación fuera del workspace.
-  - Verify: `npm run desktop:package` y ejecución sobre repositorio temporal sin depender del workspace; bundle arm64 verificado.
+- [x] Task: Empaquetar el sidecar para macOS
+  - Acceptance: `.app` incluye un sidecar ejecutable o runtime autocontenido compatible, y conserva la ruta configurable de `ADE_DB_PATH`. Ejecutable Node SEA arm64 incluido en el recurso Tauri y validado fuera del workspace con DB externa.
+  - Verify: `ADE_SEA_NODE=/ruta/node22 npm run desktop:package:app` y ejecución sobre repositorio temporal sin depender del workspace; bundle arm64 verificado. El target `.dmg` queda separado por un fallo del `bundle_dmg.sh` del entorno.
   - Files: `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/binaries/`, `scripts/build-desktop-sidecar.mjs`
 
 - [ ] Task: Implementar vertical desktop mínima
