@@ -1,0 +1,23 @@
+{
+  "regions": [
+    { "id": "activity-rail", "kind": "chrome", "grid": "A0:A9", "note": "narrow IDE activity rail with navigation icons" },
+    { "id": "top-command-bar", "kind": "chrome", "grid": "B0:J0", "note": "desktop title and command bar" },
+    { "id": "explorer", "kind": "chrome", "grid": "B1:B8", "note": "repository explorer and file tree" },
+    { "id": "task-summary", "kind": "chrome", "grid": "C1:H2", "note": "task summary and metadata surface" },
+    { "id": "task-status-label", "kind": "text", "grid": "C1:C1", "note": "TASK and In Progress labels" },
+    { "id": "task-title", "kind": "text", "grid": "C1:F1", "note": "primary task title" },
+    { "id": "task-description", "kind": "text", "grid": "C2:F2", "note": "task description and acceptance bullets" },
+    { "id": "task-metadata", "kind": "text", "grid": "F1:H2", "note": "priority, status, assignee and plan control" },
+    { "id": "workbench-tabs", "kind": "control", "grid": "C2:E2", "note": "Workbench, Chat, Activity and Artifacts tabs" },
+    { "id": "workbench-steps", "kind": "chrome", "grid": "C3:D6", "note": "task execution checklist" },
+    { "id": "changed-files", "kind": "chrome", "grid": "E3:F6", "note": "changed file list" },
+    { "id": "verification", "kind": "chrome", "grid": "G3:H6", "note": "verification summary and checks" },
+    { "id": "workbench-copy", "kind": "text", "grid": "C3:H6", "note": "workbench panel labels and status copy" },
+    { "id": "terminal", "kind": "chrome", "grid": "C7:H8", "note": "integrated terminal panel" },
+    { "id": "terminal-output", "kind": "text", "grid": "C7:F8", "note": "terminal command and test output" },
+    { "id": "inspector", "kind": "chrome", "grid": "I1:J8", "note": "ADE inspector with session, gates and context" },
+    { "id": "inspector-headings", "kind": "text", "grid": "I1:J3", "note": "session, objectives and gates headings" },
+    { "id": "inspector-events", "kind": "text", "grid": "I4:J7", "note": "recent events and context rows" },
+    { "id": "status-bar", "kind": "chrome", "grid": "A9:J9", "note": "bottom IDE status bar" }
+  ]
+}

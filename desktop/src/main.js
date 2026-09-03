@@ -34,6 +34,8 @@ function renderSnapshot(snapshot) {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
   });
+  const statusBranch = document.getElementById('status-branch-name');
+  if (statusBranch) statusBranch.textContent = snapshot.project.branch;
   renderChanges(snapshot.tasks ?? []);
   renderProjectTasks(snapshot.tasks ?? []);
   if (snapshot.sync) setSyncState(snapshot.sync.state, snapshot.sync.label);

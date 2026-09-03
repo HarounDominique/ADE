@@ -1,0 +1,7 @@
+{
+  "prompt": "A high-fidelity desktop app UI composition for ADE, an agentic software engineering workstation. Design an IDE-like review mode at 1440x900: dark graphite chrome, narrow activity rail, repository explorer, top command bar, central split diff and change review workbench, right inspector with agent session and quality gates, integrated terminal at the bottom. Take cues from leading professional IDEs without copying them. Dense, calm, technical hierarchy, thin borders, restrained cyan and blue accents, amber review state, no gradients, no glassmorphism, no marketing dashboard cards, no fake logos, no decorative illustration. Show a shipped macOS developer tool interface with realistic ADE labels and code-like content.",
+  "source": "harness-native image generation",
+  "approved": false,
+  "kind": "alternative",
+  "direction": 71242654
+}

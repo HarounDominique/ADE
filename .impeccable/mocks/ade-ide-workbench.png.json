@@ -1,0 +1,7 @@
+{
+  "prompt": "A high-fidelity desktop app UI composition for ADE, an agentic software engineering workstation. Operate mode, 1440x900 landscape. Inspired by the best professional IDEs without copying any one: dark graphite workspace, narrow activity rail at far left, project explorer column, top command bar, central task workbench showing a real software task with changed files and verification states, bottom integrated terminal, right contextual inspector for agent sessions and gates. Dense but calm, crisp utility-first information architecture, restrained blue-green accent, warm amber for warnings, no gradients, no glassmorphism, no generic marketing hero, no large dashboard metric cards, no fake logos, no decorative illustration. Use realistic ADE labels and code-like content; controls and panels should look like a shipped macOS developer tool, with excellent hierarchy and keyboard-oriented affordances. Show the interface itself as the subject, not a poster.",
+  "source": "harness-native image generation",
+  "approved": true,
+  "kind": "assigned",
+  "direction": 71242654
+}
