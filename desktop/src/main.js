@@ -14,6 +14,7 @@ let activeServiceId = null;
 let gitWorkflow = 'pull-request';
 let selectedTaskId = null;
 let selectedTaskIntent = '';
+let providerStatuses = [];
 const runtimeEvents = [];
 
 function renderSnapshot(snapshot) {
@@ -122,6 +123,38 @@ function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 }
 
+function providerIsAvailable(providerId) {
+  const provider = providerStatuses.find((item) => item.id === providerId);
+  return !provider || provider.available;
+}
+
+function renderProviderSelection() {
+  const detail = document.getElementById('agent-provider-status');
+  if (!detail) return;
+  const provider = providerStatuses.find((item) => item.id === selectedProvider);
+  if (!provider) {
+    detail.dataset.providerState = 'checking';
+    detail.textContent = 'Checking local provider availability…';
+    return;
+  }
+  detail.dataset.providerState = provider.available ? 'available' : 'unavailable';
+  detail.textContent = `${provider.label} · ${provider.available ? 'available' : 'unavailable'} · ${provider.auth} auth · ${provider.capability.join(', ')}.`;
+}
+
+function renderProviders(providers) {
+  providerStatuses = providers;
+  const select = document.getElementById('agent-provider');
+  const available = providers.filter((provider) => provider.available);
+  if (!available.some((provider) => provider.id === selectedProvider)) selectedProvider = available[0]?.id ?? providers[0]?.id ?? 'opencode';
+  if (select) {
+    select.innerHTML = providers.map((provider) => `<option value="${escapeHTML(provider.id)}"${provider.id === selectedProvider ? ' selected' : ''}${provider.available ? '' : ' disabled'}>${escapeHTML(provider.label)}${provider.available ? '' : ' — unavailable'}</option>`).join('');
+    select.disabled = available.length === 0;
+  }
+  const knowledgeDetail = document.getElementById('provider-detail');
+  if (knowledgeDetail) knowledgeDetail.textContent = providers.map((provider) => `${provider.label}: ${provider.detail}`).join(' · ');
+  renderProviderSelection();
+}
+
 function renderProjectTasks(tasks) {
   const lists = [...document.querySelectorAll('#project-task-list, #work-task-list')];
   if (lists.length === 0 || tasks.length === 0) return;
@@ -167,6 +200,11 @@ function runSkillFromUI(sessionId) {
   selectedProvider = providerSelect?.value ?? 'opencode';
   const feedback = document.getElementById('agent-feedback');
   if (!skillId) { notify('No native skill selected.'); return; }
+  if (!providerIsAvailable(selectedProvider)) {
+    if (feedback) feedback.textContent = `${selectedProvider} is unavailable. Check the provider connection before running a skill.`;
+    notify('Selected provider is unavailable.');
+    return;
+  }
   const declared = (select?.selectedOptions?.[0]?.dataset.permissions ?? '').split(',').filter(Boolean);
   const explicit = declared.filter((permission) => !['read_project', 'write_docs'].includes(permission));
   if (explicit.length && !window.confirm(`${skillId} requests: ${explicit.join(', ')}. Allow for this run?`)) {
@@ -358,9 +396,7 @@ async function connectSidecar(snapshot) {
         return;
       }
       if (Array.isArray(response.result) && response.result[0]?.capability) {
-        const available = response.result.filter((provider) => provider.available).map((provider) => `${provider.label}: ${provider.detail}`);
-        const detail = document.getElementById('provider-detail');
-        if (detail) detail.textContent = available.length ? available.join(' · ') : 'No configured provider is reachable.';
+        renderProviders(response.result);
         return;
       }
       if (Array.isArray(response.result) && response.result[0]?.permissions) {
@@ -708,6 +744,10 @@ document.addEventListener('click', (event) => {
   const button = event.target.closest('[data-task-id][data-task-next]');
   if (!button) return;
   advanceTaskFromUI(button.dataset.taskId, button.dataset.taskNext, button);
+});
+document.getElementById('agent-provider')?.addEventListener('change', (event) => {
+  selectedProvider = event.target.value;
+  renderProviderSelection();
 });
 document.getElementById('terminal-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();

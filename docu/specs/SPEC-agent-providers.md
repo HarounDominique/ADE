@@ -36,9 +36,13 @@ OpenCode reanuda el `sessionId` HTTP almacenado. Codex inicia con `codex exec --
 
 La actividad de skills se persiste como evidencia acotada por Task y sesión, y se muestra en el detalle de la Task junto a ChangeSets, operaciones Git y sesiones. No persiste tokens ni prompts completos del proveedor.
 
+## Availability and selection
+
+Al iniciar el shell, ADE inspecciona el endpoint local de OpenCode y el mismo comando que usa el runner de Codex (por defecto, el binario incluido en ChatGPT para macOS o `ADE_CODEX_COMMAND`). El selector visual muestra todos los proveedores, deshabilita los que no están disponibles y deja visible su transporte, auth externa/local y capacidades. Una ejecución no se inicia contra un proveedor declarado no disponible.
+
 ## Success Criteria
 
-ADE detecta proveedores disponibles, permite elegir uno para una Task y mantiene el workflow aunque cambie el adapter.
+ADE detecta proveedores disponibles, permite elegir uno para una Task y mantiene el workflow aunque cambie el adapter. La disponibilidad informada por el selector corresponde al runner que se ejecutará realmente.
 
 ## Open Questions
 

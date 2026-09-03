@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import type { AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt } from "../ports/agent-runtime.js";
 
 const execFile = promisify(execFileCallback);
-const defaultCodexCommand = process.env.ADE_CODEX_COMMAND ?? "/Applications/ChatGPT.app/Contents/Resources/codex";
+export const defaultCodexCommand = process.env.ADE_CODEX_COMMAND ?? "/Applications/ChatGPT.app/Contents/Resources/codex";
 
 type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number }) => Promise<{ stdout: string }>;
 

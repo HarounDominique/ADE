@@ -28,6 +28,9 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   for (const id of ["changes-changeset", "changes-findings", "git-task-operations"]) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(main, /Persisted activity/);
   assert.match(main, /method: 'knowledge\.reconcile\.apply'/);
+  assert.match(main, /renderProviders/);
+  assert.match(main, /providerIsAvailable/);
+  assert.match(html, /id="agent-provider-status"/);
 });
 
 test("workspace tree expands directories lazily and keeps symlinks non-actionable", () => {
