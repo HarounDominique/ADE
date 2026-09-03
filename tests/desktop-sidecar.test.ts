@@ -35,6 +35,23 @@ test("desktop sidecar returns actionable protocol errors", () => {
     id: 2,
     error: { code: "INVALID_PARAMS", message: "projectId is required" },
   });
+  assert.deepEqual(handleDesktopRequest(store, { id: 3, method: "task.create" }), {
+    id: 3,
+    error: { code: "INVALID_PARAMS", message: "taskId and intent are required" },
+  });
+  store.close();
+});
+
+test("desktop sidecar creates a Task through the application use case", () => {
+  const store = new AdeStore();
+  const response = handleDesktopRequest(store, {
+    id: "task-1",
+    method: "task.create",
+    params: { taskId: "task-sidecar", intent: "Build Work screen", projectId: "ade" },
+  });
+
+  assert.deepEqual(response.result, { id: "task-sidecar", intent: "Build Work screen", status: "DRAFT", projectId: "ade" });
+  assert.equal(store.getTask("task-sidecar")?.intent, "Build Work screen");
   store.close();
 });
 

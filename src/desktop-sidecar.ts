@@ -1,12 +1,13 @@
 import { createInterface } from "node:readline";
 import { isSea } from "node:sea";
+import { createTask } from "./application/tasks/task-commands.js";
 import { AdeStore } from "./persistence/sqlite-store.js";
 import { getProjectSnapshot } from "./application/project-snapshot.js";
 
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; repositoryPath?: string };
 };
 
 export type DesktopResponse = {
@@ -17,14 +18,27 @@ export type DesktopResponse = {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (request.method !== "project.snapshot") {
+    if (request.method !== "project.snapshot" && request.method !== "task.create") {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
-    const projectId = request.params?.projectId;
-    if (!projectId) {
-      return { id: request.id, error: { code: "INVALID_PARAMS", message: "projectId is required" } };
+    if (request.method === "project.snapshot") {
+      const projectId = request.params?.projectId;
+      if (!projectId) {
+        return { id: request.id, error: { code: "INVALID_PARAMS", message: "projectId is required" } };
+      }
+      return { id: request.id, result: getProjectSnapshot(store, projectId) };
     }
-    return { id: request.id, result: getProjectSnapshot(store, projectId) };
+    const { taskId, intent, projectId, repositoryPath } = request.params ?? {};
+    if (!taskId || !intent) {
+      return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId and intent are required" } };
+    }
+    const task = createTask(store, {
+      id: taskId,
+      intent,
+      ...(projectId ? { projectId } : {}),
+      ...(repositoryPath ? { repositoryPath } : {}),
+    });
+    return { id: request.id, result: { id: task.id, intent: task.intent, status: task.currentStatus, projectId: task.projectId ?? null } };
   } catch (error) {
     return {
       id: request.id,
