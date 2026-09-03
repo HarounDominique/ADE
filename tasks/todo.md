@@ -108,9 +108,9 @@
   - Verify: `npm run build`, `npm test` y `node --check desktop/src/main.js`.
   - Files: `tests/desktop-ui-contract.test.ts`
 
-- [ ] Task: Integrar lifecycle del sidecar con Tauri
-  - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor, conexión de streams, render del snapshot, estados `ready/failed`, parada segura incluso tras salida inesperada, un único reintento automático y recuperación manual desde Runtime implementados; smoke de desarrollo con `ADE_DB_PATH` y `ADE_PROJECT_ID` explícitos y pruebas de fallo de proceso superados. Falta validar el flujo dentro de una ventana Tauri empaquetada.
-  - Verify: smoke test macOS en modo desarrollo y bundle.
+- [x] Task: Integrar lifecycle del sidecar con Tauri
+  - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor, conexión de streams, render del snapshot, estados `ready/failed`, parada segura incluso tras salida inesperada, un único reintento automático y recuperación manual desde Runtime implementados; smoke de desarrollo y bundle con `ADE_DB_PATH` y `ADE_PROJECT_ID` explícitos superados.
+  - Verify: `npm run desktop:smoke` en macOS con permisos de ejecución de app.
   - Files: `desktop/src-tauri/`, `docu/spikes/004-desktop-transport.md`
 
 - [x] Task: Empaquetar el sidecar para macOS
@@ -118,8 +118,8 @@
   - Verify: `ADE_SEA_NODE=/ruta/node22 npm run desktop:package:app` y ejecución sobre repositorio temporal sin depender del workspace; bundle arm64 verificado. El target `.dmg` queda separado por un fallo del `bundle_dmg.sh` del entorno.
   - Files: `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/binaries/`, `scripts/build-desktop-sidecar.mjs`
 
-- [ ] Task: Implementar vertical desktop mínima
+- [x] Task: Implementar vertical desktop mínima
   - Plan: [desktop-shell-plan.md](desktop-shell-plan.md)
-  - Acceptance: Project Hub, Work, Changes, Knowledge y Runtime permiten recorrer una Task con estados, gates y escape hatch visibles.
-  - Verify: `npm run desktop:test` y smoke test en macOS.
+  - Acceptance: Project Hub, Work, Changes, Knowledge y Runtime permiten recorrer una Task con estados, gates y escape hatch visibles; el contrato de UI y el arranque/parada del bundle están cubiertos.
+  - Verify: `npm run desktop:test`, `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y `npm run desktop:smoke`.
   - Files: `src/ui/`, `tests/ui/`
