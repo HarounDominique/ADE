@@ -35,6 +35,26 @@ async function refreshProjectContext(snapshot) {
   }
 }
 
+async function connectSidecar(snapshot) {
+  const invoke = window.__TAURI__?.core?.invoke;
+  const listen = window.__TAURI__?.event?.listen;
+  if (!invoke || !listen) return;
+  try {
+    await listen('sidecar:response', (event) => {
+      const response = JSON.parse(event.payload);
+      if (response.result) renderSnapshot({ ...snapshot, ...response.result });
+      if (response.error) notify(`Sidecar: ${response.error.message}`);
+    });
+    await listen('sidecar:error', (event) => notify(`Sidecar error: ${event.payload}`));
+    await invoke('sidecar_start');
+    await invoke('sidecar_request', {
+      request: JSON.stringify({ id: `snapshot-${Date.now()}`, method: 'project.snapshot', params: { projectId: snapshot.project.id } }),
+    });
+  } catch (error) {
+    console.warn('Sidecar unavailable:', error);
+  }
+}
+
 function showView(view) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
@@ -51,6 +71,7 @@ function notify(message) {
 navItems.forEach((item) => item.addEventListener('click', () => showView(item.dataset.view)));
 renderSnapshot(projectSnapshot);
 refreshProjectContext(projectSnapshot);
+connectSidecar(projectSnapshot);
 document.querySelectorAll('[data-view-target]').forEach((item) => item.addEventListener('click', () => showView(item.dataset.viewTarget)));
 document.querySelectorAll('[data-action]').forEach((item) => item.addEventListener('click', () => {
   const messages = { 'new-task': 'Task creation will connect to the ADE workflow.', approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };

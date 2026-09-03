@@ -1,6 +1,8 @@
 use serde::Serialize;
+use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
+use tauri::Emitter;
 
 #[derive(Default)]
 struct SidecarSupervisor {
@@ -83,7 +85,10 @@ fn project_context(repository_path: String) -> Result<ProjectContext, String> {
 }
 
 #[tauri::command]
-fn sidecar_start(state: tauri::State<'_, SidecarSupervisor>) -> Result<(), String> {
+fn sidecar_start(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, SidecarSupervisor>,
+) -> Result<(), String> {
     if state.reap_finished()? {
         return Ok(());
     }
@@ -91,19 +96,58 @@ fn sidecar_start(state: tauri::State<'_, SidecarSupervisor>) -> Result<(), Strin
     let script = std::env::var("ADE_SIDECAR_SCRIPT").map_err(|_| {
         "ADE_SIDECAR_SCRIPT must point to the compiled sidecar entrypoint".to_string()
     })?;
-    let child = Command::new(node)
+    let mut child = Command::new(node)
         .arg(script)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()
         .map_err(|error| format!("Unable to start sidecar: {error}"))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "Sidecar stdout is unavailable".to_string())?;
+    std::thread::spawn(move || {
+        for line in BufReader::new(stdout).lines() {
+            match line {
+                Ok(payload) => {
+                    let _ = app.emit("sidecar:response", payload);
+                }
+                Err(error) => {
+                    let _ = app.emit("sidecar:error", error.to_string());
+                    break;
+                }
+            }
+        }
+    });
     let mut current = state
         .child
         .lock()
         .map_err(|_| "Sidecar state is poisoned".to_string())?;
     *current = Some(child);
     Ok(())
+}
+
+#[tauri::command]
+fn sidecar_request(
+    state: tauri::State<'_, SidecarSupervisor>,
+    request: String,
+) -> Result<(), String> {
+    let mut child = state
+        .child
+        .lock()
+        .map_err(|_| "Sidecar state is poisoned".to_string())?;
+    let process = child
+        .as_mut()
+        .ok_or_else(|| "Sidecar is not running".to_string())?;
+    let stdin = process
+        .stdin
+        .as_mut()
+        .ok_or_else(|| "Sidecar stdin is unavailable".to_string())?;
+    stdin
+        .write_all(format!("{request}\n").as_bytes())
+        .and_then(|_| stdin.flush())
+        .map_err(|error| format!("Unable to send sidecar request: {error}"))
 }
 
 #[tauri::command]
@@ -130,6 +174,7 @@ pub fn run() {
             greet,
             project_context,
             sidecar_start,
+            sidecar_request,
             sidecar_status,
             sidecar_stop
         ])
