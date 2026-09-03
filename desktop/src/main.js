@@ -369,6 +369,23 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     });
     return;
   }
+  if (item.dataset.action === 'approve') {
+    if (!nativeInvoke) {
+      notify('Approval requires the local sidecar.');
+      return;
+    }
+    const taskId = document.getElementById('changes-task-id')?.textContent;
+    nativeInvoke('sidecar_request', {
+      request: JSON.stringify({ id: `approve-${taskId}-${Date.now()}`, method: 'task.approve', params: { taskId, reason: 'Human approval confirmed in Changes', actor: 'human' } }),
+    }).then(() => {
+      notify('Task approved and completed.');
+      return nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `refresh-approve-${Date.now()}`, method: 'project.snapshot', params: { projectId: activeProjectId } }) });
+    }).catch((error) => {
+      notify('Approval blocked by required gates.');
+      console.warn('Approval unavailable:', error);
+    });
+    return;
+  }
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
