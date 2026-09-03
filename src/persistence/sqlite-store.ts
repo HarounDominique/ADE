@@ -51,6 +51,7 @@ export type PersistedReview = {
 };
 
 export type PersistedRuntimeEvidence = RuntimeEvidence;
+export type GitOperation = { id: string; taskId: string; operation: string; reference?: string; actor: string; reason: string; at: string; metadata?: string };
 
 export class AdeStore {
   readonly db: DatabaseSync;
@@ -121,6 +122,16 @@ export class AdeStore {
         evidence_ids_json TEXT NOT NULL,
         failure_reason TEXT,
         PRIMARY KEY (task_id, id)
+      );
+      CREATE TABLE IF NOT EXISTS git_operations (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL REFERENCES tasks(id),
+        operation TEXT NOT NULL,
+        reference TEXT,
+        actor TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        at TEXT NOT NULL,
+        metadata TEXT
       );
     `);
     this.migrateTasks();
@@ -300,6 +311,18 @@ export class AdeStore {
       SELECT id, task_id AS taskId, session_id AS sessionId, type, at, summary, details
       FROM runtime_evidence WHERE task_id = ? ORDER BY at DESC, id DESC LIMIT ?
     `).all(taskId, limit) as PersistedRuntimeEvidence[];
+  }
+
+  pruneRuntimeEvidence(taskId: string, maxItems: number): void {
+    this.db.prepare(`DELETE FROM runtime_evidence WHERE task_id = ? AND id NOT IN (SELECT id FROM runtime_evidence WHERE task_id = ? ORDER BY at DESC, id DESC LIMIT ?)`).run(taskId, taskId, maxItems);
+  }
+
+  saveGitOperation(input: Omit<GitOperation, "at"> & { at?: string }): void {
+    this.db.prepare(`INSERT INTO git_operations (id, task_id, operation, reference, actor, reason, at, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET reference = excluded.reference, metadata = excluded.metadata`).run(input.id, input.taskId, input.operation, input.reference ?? null, input.actor, input.reason, input.at ?? new Date().toISOString(), input.metadata ?? null);
+  }
+
+  listGitOperations(taskId: string): GitOperation[] {
+    return this.db.prepare(`SELECT id, task_id AS taskId, operation, reference, actor, reason, at, metadata FROM git_operations WHERE task_id = ? ORDER BY at DESC, id DESC`).all(taskId) as GitOperation[];
   }
 
   saveApproval(input: { taskId: string; actor: string; reason: string; at?: string }): void {

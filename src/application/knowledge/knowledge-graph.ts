@@ -1,20 +1,35 @@
 import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 export type KnowledgeGraph = { nodes: readonly string[]; edges: readonly { from: string; to: string; heading?: string }[]; mermaid: string };
 
 export async function buildKnowledgeGraph(root: string): Promise<KnowledgeGraph> {
-  const files = (await readdir(root)).filter((file) => file.endsWith(".md")).sort();
+  const files = await markdownFiles(root);
   const nodes = [...files];
   const edges: { from: string; to: string; heading?: string }[] = [];
   for (const file of files) {
     const content = await readFile(join(root, file), "utf8");
-    for (const match of content.matchAll(/\]\((SPEC-[^)#]+\.md)(?:#([^)]*))?\)/g)) {
-      if (match[1] && nodes.includes(match[1])) edges.push({ from: file, to: match[1], ...(match[2] ? { heading: match[2] } : {}) });
+    for (const match of content.matchAll(/\]\(([^)#]+\.md)(?:#([^)]*))?\)/g)) {
+      if (!match[1]) continue;
+      const normalized = relative(root, resolve(root, dirname(file), match[1]));
+      if (match[1] && nodes.includes(normalized)) edges.push({ from: file, to: normalized, ...(match[2] ? { heading: match[2] } : {}) });
     }
   }
   const mermaid = ["graph TD", ...edges.map((edge) => `  ${node(edge.from)} -->|${edge.heading ?? "references"}| ${node(edge.to)}`)].join("\n");
   return { nodes, edges, mermaid };
+}
+
+async function markdownFiles(root: string): Promise<string[]> {
+  const result: string[] = [];
+  async function visit(directory: string): Promise<void> {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) await visit(path);
+      else if (entry.name.endsWith(".md")) result.push(relative(root, path));
+    }
+  }
+  await visit(root);
+  return result.sort();
 }
 
 function node(file: string): string { return `n${file.replace(/[^a-zA-Z0-9]/g, "")}`; }

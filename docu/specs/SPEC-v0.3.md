@@ -46,6 +46,12 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 
 ## Open Questions
 
+## Implemented contract slices
+
+- Project policy is optionally read from `.ade/policy.json` with `requiredGates` and evidence limits (`maxItems`, `summaryLimit`, `detailsLimit`). Invalid or missing policy falls back to safe defaults.
+- Runtime evidence is bounded at ingestion and old evidence can be pruned per Task. Git mutations can carry `taskId` and are persisted as auditable Task operations.
+- The living-knowledge graph scans nested Markdown and computes transitive citing impact; reconciliation remains a reviewable proposal and does not mutate documentation automatically.
+
 - ¿Qué proveedores se incluyen de forma nativa en el primer paquete?
 - ¿La terminal usa PTY propio o una librería Tauri estable?
 - ¿GitHub se integra mediante CLI local, API oficial o ambos?

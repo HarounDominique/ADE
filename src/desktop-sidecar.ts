@@ -27,6 +27,7 @@ import { createBranch, createCommit, createPullRequest, createWorktree } from ".
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
 import { proposeKnowledgeReconciliation } from "./application/knowledge/reconcile.js";
+import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -168,7 +169,13 @@ export async function runDesktopSidecar(): Promise<void> {
         else {
           const base = { directory: params.repositoryPath, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true };
           const operation = request.method === "git.branch.create" && params.intent ? createBranch({ ...base, name: params.intent }) : request.method === "git.worktree.create" && params.intent ? createWorktree({ ...base, path: params.intent, branch: params.intent }) : request.method === "git.commit.create" && params.intent ? createCommit({ ...base, message: params.intent }) : createPullRequest({ ...base, title: params.intent ?? "ADE change", body: params.reason });
-          void operation.then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_MUTATION_BLOCKED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+          void operation.then((result) => {
+            if (params.taskId) {
+              const reference = "name" in result ? result.name : "url" in result ? result.url : "branch" in result ? result.branch : undefined;
+              store.saveGitOperation({ id: `git-${request.id}`, taskId: params.taskId, operation: result.operation, ...(reference ? { reference } : {}), actor: params.actor!, reason: params.reason!, metadata: JSON.stringify(result) });
+            }
+            process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`);
+          }).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_MUTATION_BLOCKED", message: error instanceof Error ? error.message : String(error) } })}\n`));
         }
       } else if (request.method === "knowledge.graph") {
         const root = request.params?.repositoryPath;
@@ -280,6 +287,7 @@ function startTaskRun(store: AdeStore, request: DesktopRequest): void {
     onEvent: (event) => {
       runtimeStatus.lastEventAt = new Date().toISOString();
       const payload = event.payload as { type?: string; sessionID?: string; properties?: Record<string, unknown> };
+      const evidencePolicy = loadGatePolicy(task.repositoryPath).evidence;
       store.saveRuntimeEvidence(createRuntimeEvidence({
         id: `runtime-${taskId}-${Date.now()}-${++runtimeEvidenceSequence}`,
         taskId,
@@ -288,7 +296,9 @@ function startTaskRun(store: AdeStore, request: DesktopRequest): void {
         at: runtimeStatus.lastEventAt,
         summary: payload.type ?? event.type,
         ...(payload.properties ? { details: JSON.stringify(payload.properties) } : {}),
+        policy: evidencePolicy,
       }));
+      store.pruneRuntimeEvidence(taskId, evidencePolicy.maxItems);
       process.stdout.write(`${JSON.stringify({ type: "runtime.event", taskId, event, status: getRuntimeStatus() })}\n`);
     },
   }).then(() => {

@@ -29,3 +29,9 @@ test("runtime evidence is bounded and persists by Task", () => {
   assert.equal(getChangeReview(store, "task-1").gates[0]?.status, "pending");
   store.close();
 });
+
+test("runtime evidence accepts stricter project limits", () => {
+  const evidence = createRuntimeEvidence({ id: "e", taskId: "t", type: "log", summary: "123456", details: "123456", policy: { summaryLimit: 3, detailsLimit: 4 } });
+  assert.equal(evidence.summary, "123");
+  assert.equal(evidence.details, "1234");
+});
