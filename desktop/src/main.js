@@ -129,10 +129,19 @@ async function refreshProjectContext(snapshot) {
     const context = await invoke('project_context', { repositoryPath: snapshot.project.repositoryPath });
     renderSnapshot({ ...snapshot, project: { ...snapshot.project, ...context } });
     await loadWorkspaceTree(context.repositoryPath, invoke);
+    await refreshGitWorkspace(context.repositoryPath, invoke);
     notify('Project context loaded from the local repository.');
   } catch (error) {
     console.warn('Project context unavailable:', error);
   }
+}
+
+async function refreshGitWorkspace(path, invoke = nativeInvoke) {
+  if (!invoke || !path) return;
+  try {
+    const result = await invoke('sidecar_request', { request: JSON.stringify({ id: `git-workspace-${Date.now()}`, method: 'git.workspace', params: { repositoryPath: path } }) });
+    return result;
+  } catch (error) { console.warn('Git workspace unavailable:', error); }
 }
 
 async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke) {
@@ -189,6 +198,11 @@ async function connectSidecar(snapshot) {
       if (response.result?.serviceId) {
         renderServiceStatus(response.result);
         notify(`Local service ${response.result.status.toLowerCase()}.`);
+        return;
+      }
+      if (response.result?.branches && response.result?.worktrees) {
+        const output = document.getElementById('git-workspace-output');
+        if (output) output.textContent = `Branches\n${response.result.branches.join('\n') || '—'}\n\nWorktrees\n${response.result.worktrees.join('\n') || '—'}\n\nRemotes\n${response.result.remotes.join('\n') || '—'}`;
         return;
       }
       if (Array.isArray(response.result) && response.result[0]?.capability) {
@@ -407,6 +421,18 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'refresh-tree') {
     loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
+    return;
+  }
+  if (item.dataset.action === 'refresh-git') {
+    refreshGitWorkspace(document.getElementById('project-path')?.textContent, nativeInvoke);
+    return;
+  }
+  if (['create-branch', 'create-commit', 'create-pr'].includes(item.dataset.action)) {
+    if (!nativeInvoke) { notify('Git operations require the sidecar.'); return; }
+    const labels = { 'create-branch': ['git.branch.create', 'feature/ade-next'], 'create-commit': ['git.commit.create', 'chore: record ADE changes'], 'create-pr': ['github.pr.create', 'ADE change'] };
+    const [method, intent] = labels[item.dataset.action];
+    if (!window.confirm(`Confirm ${method}: ${intent}?`)) return;
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => notify(`${method} completed.`)).catch((error) => { notify('Git operation failed.'); console.warn(error); });
     return;
   }
   if (item.dataset.action === 'inspect-providers') {
