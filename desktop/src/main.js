@@ -3,6 +3,11 @@ import { projectSnapshot } from './project-snapshot.js';
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 const panels = [...document.querySelectorAll('.view')];
 const toast = document.querySelector('.toast');
+const taskDialog = document.getElementById('new-task-dialog');
+const taskForm = document.getElementById('new-task-form');
+const taskIntent = document.getElementById('task-intent');
+let nativeInvoke;
+let activeProjectId = projectSnapshot.project.id;
 
 function renderSnapshot(snapshot) {
   const values = {
@@ -64,9 +69,11 @@ async function connectSidecar(snapshot) {
   const invoke = window.__TAURI__?.core?.invoke;
   const listen = window.__TAURI__?.event?.listen;
   if (!invoke || !listen) return;
+  nativeInvoke = invoke;
   let recoveryAttempted = false;
   const requestSnapshot = async () => {
     const configuredProjectId = await invoke('project_id');
+    activeProjectId = configuredProjectId;
     await invoke('sidecar_request', {
       request: JSON.stringify({ id: `snapshot-${Date.now()}`, method: 'project.snapshot', params: { projectId: configuredProjectId } }),
     });
@@ -117,6 +124,25 @@ async function connectSidecar(snapshot) {
   }
 }
 
+async function createTaskFromUI(intent) {
+  if (!nativeInvoke) {
+    notify('Task creation requires the local sidecar.');
+    return;
+  }
+  const taskId = `task-${Date.now()}`;
+  await nativeInvoke('sidecar_request', {
+    request: JSON.stringify({
+      id: `create-${taskId}`,
+      method: 'task.create',
+      params: { taskId, intent, projectId: activeProjectId, repositoryPath: projectSnapshot.project.repositoryPath },
+    }),
+  });
+  notify(`Created ${taskId}.`);
+  await nativeInvoke('sidecar_request', {
+    request: JSON.stringify({ id: `refresh-${taskId}`, method: 'project.snapshot', params: { projectId: activeProjectId } }),
+  });
+}
+
 function showView(view) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
@@ -136,6 +162,28 @@ refreshProjectContext(projectSnapshot);
 connectSidecar(projectSnapshot);
 document.querySelectorAll('[data-view-target]').forEach((item) => item.addEventListener('click', () => showView(item.dataset.viewTarget)));
 document.querySelectorAll('[data-action]').forEach((item) => item.addEventListener('click', () => {
-  const messages = { 'new-task': 'Task creation will connect to the ADE workflow.', approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
+  if (item.dataset.action === 'new-task') {
+    taskDialog?.showModal();
+    taskIntent?.focus();
+    return;
+  }
+  const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
+taskForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const intent = taskIntent?.value.trim();
+  if (!intent) return;
+  const button = document.getElementById('create-task-button');
+  if (button) button.disabled = true;
+  try {
+    await createTaskFromUI(intent);
+    taskForm.reset();
+    taskDialog?.close();
+  } catch (error) {
+    notify('Task creation failed.');
+    console.warn('Task creation unavailable:', error);
+  } finally {
+    if (button) button.disabled = false;
+  }
+});

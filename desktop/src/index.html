@@ -46,6 +46,16 @@
         <section class="view" data-panel="runtime"><div class="page-header"><div><p class="eyebrow">RUNTIME</p><h1>Local runtime</h1><p class="subtitle">Processes, health and verification evidence.</p></div></div><div class="runtime-empty"><div class="empty-icon">▣</div><h2>No services declared</h2><p>Project services and test runs will appear here when connected.</p><button class="button secondary" data-action="learn">View runtime docs</button></div></section>
       </main>
     </div>
+    <dialog class="task-dialog" id="new-task-dialog">
+      <form method="dialog" id="new-task-form">
+        <p class="eyebrow">NEW TASK</p>
+        <h2>Define the next intent</h2>
+        <p class="dialog-copy">The Task will be persisted in the local ADE metadata store.</p>
+        <label for="task-intent">Intent</label>
+        <textarea id="task-intent" rows="4" placeholder="Describe what ADE should accomplish…" required></textarea>
+        <div class="dialog-actions"><button class="button secondary" value="cancel">Cancel</button><button class="button primary" id="create-task-button" value="default">Create task</button></div>
+      </form>
+    </dialog>
     <div class="toast" role="status" aria-live="polite"></div>
   </body>
 </html>
