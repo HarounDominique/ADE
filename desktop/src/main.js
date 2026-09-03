@@ -62,9 +62,11 @@ function renderProjectTasks(tasks) {
     const status = escapeHTML(task.status.replaceAll('_', ' '));
     const tone = ['UNDER_REVIEW', 'READY_FOR_HUMAN', 'BLOCKED'].includes(task.status) ? 'review' : 'building';
     const phase = task.status === 'UNDER_REVIEW' ? 'Reviewer active' : task.status === 'READY_FOR_HUMAN' ? 'Awaiting approval' : 'Task state confirmed';
-    const transitions = { DRAFT: ['READY', 'Mark ready'], READY: ['IN_PROGRESS', 'Start task'], CHANGES_REQUESTED: ['IN_PROGRESS', 'Resume task'], BLOCKED: ['READY', 'Re-enter task'] };
+    const transitions = { DRAFT: ['READY', 'Mark ready'], READY: ['RUN', 'Start task'], CHANGES_REQUESTED: ['RUN', 'Resume task'], BLOCKED: ['RUN', 'Re-enter task'] };
     const action = transitions[task.status];
-    const actionMarkup = action ? `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-next="${action[0]}">${action[1]}</button>` : '';
+    const actionMarkup = action ? action[0] === 'RUN'
+      ? `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-run="true">${action[1]}</button>`
+      : `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-next="${action[0]}">${action[1]}</button>` : '';
     return `<article class="task-card${index === 0 ? ' selected-task' : ''}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from ADE metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div>${actionMarkup}</article>`;
   }).join('');
   lists.forEach((list) => { list.innerHTML = cards; });
@@ -99,8 +101,19 @@ async function connectSidecar(snapshot) {
     });
   };
   try {
-    await listen('sidecar:response', (event) => {
+    await listen('sidecar:response', async (event) => {
       const response = JSON.parse(event.payload);
+      if (response.type?.startsWith('runtime.') && response.status) {
+        renderRuntimeStatus(response.status);
+        if (response.type === 'runtime.completed') notify(`Implementer completed ${response.taskId}.`);
+        if (response.type === 'runtime.failed') notify(`Implementer failed: ${response.status.lastError}`);
+        if (response.type !== 'runtime.event') {
+          await nativeInvoke('sidecar_request', {
+            request: JSON.stringify({ id: `refresh-${response.taskId}-${Date.now()}`, method: 'project.snapshot', params: { projectId: activeProjectId } }),
+          });
+        }
+        return;
+      }
       if (response.result?.agentRuntime) {
         renderRuntimeStatus(response.result);
         return;
@@ -188,6 +201,24 @@ async function advanceTaskFromUI(taskId, next, button) {
   }
 }
 
+async function runTaskFromUI(taskId, button) {
+  if (!nativeInvoke) {
+    notify('Task execution requires the local sidecar.');
+    return;
+  }
+  button.disabled = true;
+  try {
+    await nativeInvoke('sidecar_request', {
+      request: JSON.stringify({ id: `run-${taskId}-${Date.now()}`, method: 'task.run', params: { taskId } }),
+    });
+    notify(`Starting Implementer for ${taskId}.`);
+  } catch (error) {
+    button.disabled = false;
+    notify('Task execution failed to start.');
+    console.warn('Task execution unavailable:', error);
+  }
+}
+
 function showView(view) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
@@ -217,6 +248,11 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
 document.addEventListener('click', (event) => {
+  const runButton = event.target.closest('[data-task-id][data-task-run]');
+  if (runButton) {
+    runTaskFromUI(runButton.dataset.taskId, runButton);
+    return;
+  }
   const button = event.target.closest('[data-task-id][data-task-next]');
   if (!button) return;
   advanceTaskFromUI(button.dataset.taskId, button.dataset.taskNext, button);
