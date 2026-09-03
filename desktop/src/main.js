@@ -8,6 +8,7 @@ const taskForm = document.getElementById('new-task-form');
 const taskIntent = document.getElementById('task-intent');
 let nativeInvoke;
 let activeProjectId = projectSnapshot.project.id;
+const runtimeEvents = [];
 
 function renderSnapshot(snapshot) {
   const values = {
@@ -49,6 +50,16 @@ function renderRuntimeStatus(status) {
   if (event) event.textContent = status.lastEventAt ? new Date(status.lastEventAt).toLocaleString() : '—';
   if (detail) detail.textContent = status.activeTaskId ? `Task ${status.activeTaskId} is active.` : 'No agent session is running.';
   if (error) error.textContent = status.lastError ?? 'No runtime events recorded.';
+}
+
+function renderRuntimeEvent(taskId, event) {
+  const list = document.getElementById('runtime-events');
+  if (!list) return;
+  const payload = event?.payload;
+  const label = typeof payload?.type === 'string' ? payload.type : event?.type ?? 'runtime.event';
+  runtimeEvents.unshift({ taskId, label, at: new Date().toLocaleTimeString() });
+  runtimeEvents.splice(12);
+  list.innerHTML = runtimeEvents.map((item) => `<li class="runtime-event"><span class="runtime-event-time">${escapeHTML(item.at)}</span><strong>${escapeHTML(item.label)}</strong><small>${escapeHTML(item.taskId)}</small></li>`).join('');
 }
 
 function escapeHTML(value) {
@@ -105,6 +116,7 @@ async function connectSidecar(snapshot) {
       const response = JSON.parse(event.payload);
       if (response.type?.startsWith('runtime.') && response.status) {
         renderRuntimeStatus(response.status);
+        if (response.type === 'runtime.event') renderRuntimeEvent(response.taskId, response.event);
         if (response.type === 'runtime.completed') notify(`Implementer completed ${response.taskId}.`);
         if (response.type === 'runtime.failed') notify(`Implementer failed: ${response.status.lastError}`);
         if (response.type !== 'runtime.event') {
