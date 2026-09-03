@@ -33,7 +33,9 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
 }
 
 export async function runDesktopSidecar(): Promise<void> {
-  const store = new AdeStore(process.env.ADE_DB_PATH ?? `${process.cwd()}/.ade/ade.db`);
+  const databasePath = process.env.ADE_DB_PATH;
+  if (!databasePath) throw new Error("ADE_DB_PATH must point to the ADE metadata database");
+  const store = new AdeStore(databasePath);
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
   try {
     for await (const line of input) {

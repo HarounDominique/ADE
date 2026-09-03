@@ -96,8 +96,11 @@ fn sidecar_start(
     let script = std::env::var("ADE_SIDECAR_SCRIPT").map_err(|_| {
         "ADE_SIDECAR_SCRIPT must point to the compiled sidecar entrypoint".to_string()
     })?;
+    let database_path = std::env::var("ADE_DB_PATH")
+        .map_err(|_| "ADE_DB_PATH must point to the ADE metadata database".to_string())?;
     let mut child = Command::new(node)
         .arg(script)
+        .env("ADE_DB_PATH", database_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
