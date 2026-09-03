@@ -10,7 +10,7 @@ test("desktop shell keeps the five MVP areas and critical actions", () => {
     assert.match(html, new RegExp(`data-view=\"${view}\"`));
     assert.match(html, new RegExp(`data-panel=\"${view}\"`));
   }
-  for (const action of ["new-task", "open-terminal", "open-document", "check-runtime", "restart-sidecar"]) {
+  for (const action of ["new-task", "open-terminal", "open-document", "check-runtime", "restart-sidecar", "refresh-tree"]) {
     assert.match(html, new RegExp(`data-action=\"${action}\"`));
   }
 });
@@ -21,4 +21,5 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   }
   assert.match(main, /method: 'task\.run'/);
   assert.match(main, /renderChanges\(snapshot\.tasks/);
+  assert.match(main, /list_directory/);
 });

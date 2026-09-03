@@ -127,9 +127,22 @@ async function refreshProjectContext(snapshot) {
   try {
     const context = await invoke('project_context', { repositoryPath: snapshot.project.repositoryPath });
     renderSnapshot({ ...snapshot, project: { ...snapshot.project, ...context } });
+    await loadWorkspaceTree(context.repositoryPath, invoke);
     notify('Project context loaded from the local repository.');
   } catch (error) {
     console.warn('Project context unavailable:', error);
+  }
+}
+
+async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke) {
+  const tree = document.getElementById('workspace-tree');
+  if (!tree || !invoke || !path) return;
+  try {
+    const entries = await invoke('list_directory', { path });
+    tree.innerHTML = entries.length ? entries.map((entry) => `<li class="workspace-entry ${entry.kind}"><span>${entry.kind === 'directory' ? '▸' : entry.kind === 'symlink' ? '↗' : '·'}</span><span>${escapeHTML(entry.name)}</span></li>`).join('') : '<li>Directory is empty.</li>';
+  } catch (error) {
+    tree.innerHTML = '<li>Workspace directory unavailable.</li>';
+    console.warn('Workspace tree unavailable:', error);
   }
 }
 
@@ -379,6 +392,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
       notify('Unable to open Terminal.');
       console.warn('Terminal unavailable:', error);
     });
+    return;
+  }
+  if (item.dataset.action === 'refresh-tree') {
+    loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
     return;
   }
   if (item.dataset.action === 'open-document') {

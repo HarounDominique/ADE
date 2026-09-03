@@ -59,6 +59,35 @@ struct ProjectContext {
     working_tree: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DirectoryEntry {
+    name: String,
+    path: String,
+    kind: String,
+}
+
+#[tauri::command]
+fn list_directory(path: String) -> Result<Vec<DirectoryEntry>, String> {
+    let root = std::path::Path::new(&path);
+    if !root.is_dir() { return Err(format!("Directory does not exist: {path}")); }
+    let mut entries = std::fs::read_dir(root)
+        .map_err(|error| format!("Unable to read directory: {error}"))?
+        .filter_map(Result::ok)
+        .map(|entry| {
+            let entry_path = entry.path();
+            let kind = match entry.file_type() {
+                Ok(file_type) if file_type.is_dir() => "directory",
+                Ok(file_type) if file_type.is_symlink() => "symlink",
+                _ => "file",
+            };
+            DirectoryEntry { name: entry.file_name().to_string_lossy().into_owned(), path: entry_path.to_string_lossy().into_owned(), kind: kind.to_string() }
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|entry| (entry.kind != "directory", entry.name.to_lowercase()));
+    Ok(entries)
+}
+
 // Read-only bridge for the shell. Domain mutations remain in application
 // use-cases; this command only exposes local repository context to the UI.
 #[tauri::command]
@@ -238,6 +267,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             project_context,
+            list_directory,
             project_id,
             open_terminal,
             open_document,
@@ -253,7 +283,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{open_document, open_terminal, project_context, SidecarSupervisor};
+    use super::{list_directory, open_document, open_terminal, project_context, SidecarSupervisor};
     use std::fs;
 
     #[test]
@@ -286,6 +316,20 @@ mod tests {
     #[test]
     fn open_document_rejects_paths_outside_specs() {
         assert!(open_document("/tmp".to_string(), "README.md".to_string()).is_err());
+    }
+
+    #[test]
+    fn list_directory_returns_directories_first_and_marks_symlinks() {
+        let root = std::env::temp_dir().join(format!("ade-directory-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("folder")).expect("create folder");
+        fs::write(root.join("file.txt"), "content").expect("create file");
+        #[cfg(unix)] std::os::unix::fs::symlink(root.join("file.txt"), root.join("link")).expect("create link");
+        let entries = list_directory(root.to_string_lossy().into_owned()).expect("list directory");
+        assert_eq!(entries[0].kind, "directory");
+        assert!(entries.iter().any(|entry| entry.name == "file.txt" && entry.kind == "file"));
+        #[cfg(unix)] assert!(entries.iter().any(|entry| entry.name == "link" && entry.kind == "symlink"));
+        fs::remove_dir_all(root).expect("remove fixture");
     }
 
     #[test]
