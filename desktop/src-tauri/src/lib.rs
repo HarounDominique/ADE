@@ -108,6 +108,24 @@ fn open_terminal(repository_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_document(repository_path: String, relative_path: String) -> Result<(), String> {
+    let repository = std::path::Path::new(&repository_path);
+    let relative = std::path::Path::new(&relative_path);
+    if relative.is_absolute() || !relative_path.starts_with("docu/specs/") {
+        return Err("Only documents under docu/specs can be opened".to_string());
+    }
+    let document = repository.join(relative);
+    if !document.is_file() {
+        return Err(format!("Document does not exist: {}", document.display()));
+    }
+    Command::new("open")
+        .arg(&document)
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("Unable to open document: {error}"))
+}
+
+#[tauri::command]
 fn sidecar_start(
     app: tauri::AppHandle,
     state: tauri::State<'_, SidecarSupervisor>,
@@ -222,6 +240,7 @@ pub fn run() {
             project_context,
             project_id,
             open_terminal,
+            open_document,
             sidecar_start,
             sidecar_request,
             sidecar_status,
@@ -234,7 +253,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{open_terminal, project_context, SidecarSupervisor};
+    use super::{open_document, open_terminal, project_context, SidecarSupervisor};
     use std::fs;
 
     #[test]
@@ -262,6 +281,11 @@ mod tests {
     #[test]
     fn open_terminal_rejects_missing_repository() {
         assert!(open_terminal("/path/that/cannot/exist/for/ade".to_string()).is_err());
+    }
+
+    #[test]
+    fn open_document_rejects_paths_outside_specs() {
+        assert!(open_document("/tmp".to_string(), "README.md".to_string()).is_err());
     }
 
     #[test]
