@@ -49,7 +49,14 @@ try {
     appProcess.kill("SIGKILL");
     throw new Error("Packaged app did not stop cleanly");
   }
-  console.log(JSON.stringify({ app, sidecar, database, sidecarStatus: sidecarResponse.result.sidecar, appStarted: true, appStopped: true }));
+  let opencode = { checked: false };
+  if (process.env.ADE_SMOKE_OPENCODE === "1") {
+    const url = process.env.OPENCODE_URL ?? "http://127.0.0.1:4096";
+    const response = await fetch(`${url}/global/health`);
+    if (!response.ok) throw new Error(`OpenCode health failed (${response.status})`);
+    opencode = { checked: true, url, health: await response.json() };
+  }
+  console.log(JSON.stringify({ app, sidecar, database, sidecarStatus: sidecarResponse.result.sidecar, appStarted: true, appStopped: true, opencode }));
 } finally {
   rmSync(smokeDirectory, { recursive: true, force: true });
 }

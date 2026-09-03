@@ -3,6 +3,7 @@ import type { ReviewerPort } from "../ports/reviewer.js";
 import { AdeStore } from "../persistence/sqlite-store.js";
 import { reviewChangeSet } from "./review-change-set.js";
 import { runSpike, type SpikeResult } from "./run-spike.js";
+import { getChangeReview } from "./change-review-read-model.js";
 
 export type ReviewFlowResult = {
   implementation: SpikeResult;
@@ -27,5 +28,6 @@ export async function runReviewFlow(
     changeSet: implementation.changeSet,
     store: input.store,
   });
+  getChangeReview(input.store, input.taskId);
   return { implementation, review };
 }

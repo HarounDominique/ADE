@@ -6,12 +6,12 @@ import { AdeStore } from "../persistence/sqlite-store.js";
 
 export async function reviewChangeSet(
   reviewer: ReviewerPort,
-  input: { task: Task; changeSet: ChangeSet; store?: AdeStore },
+  input: { task: Task; changeSet: ChangeSet; store?: AdeStore; actor?: string; reason?: string },
 ): Promise<Review> {
   if (input.task.currentStatus !== "IMPLEMENTED") {
     throw new Error(`Task must be IMPLEMENTED before review, got ${input.task.currentStatus}`);
   }
-  input.task.transition("UNDER_REVIEW", "Independent review started", "ade");
+  input.task.transition("UNDER_REVIEW", input.reason ?? "Independent review started", input.actor ?? "ade");
   input.store?.saveTask(input.task);
   const output = await reviewer.review({
     taskId: input.task.id,

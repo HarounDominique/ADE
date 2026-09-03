@@ -413,7 +413,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   if (item.dataset.action === 'rereview') {
     if (!nativeInvoke) { notify('Re-review requires the local sidecar.'); return; }
     const taskId = document.getElementById('changes-task-id')?.textContent;
-    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `rereview-${taskId}-${Date.now()}`, method: 'task.rereview', params: { taskId } }) }).then(() => notify('Re-review started.')).catch((error) => { notify('Re-review unavailable.'); console.warn(error); });
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `rereview-${taskId}-${Date.now()}`, method: 'task.rereview', params: { taskId, reason: 'Human requested a fresh independent review', actor: 'human' } }) }).then(() => notify('Re-review started.')).catch((error) => { notify('Re-review unavailable.'); console.warn(error); });
     return;
   }
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };

@@ -136,8 +136,8 @@
   - Verify: tests de read model y protocolo sidecar.
   - Files: `src/application/`, `src/desktop-sidecar.ts`, `tests/`
 
-- [ ] Task: Integrar gates y Review reales en Changes
-  - Acceptance: Changes muestra gates/findings/evidencia reales y exige actor/razón para re-review y aprobación; no permite saltar gates. `task.approve` ya persiste la aprobación humana cuando build, tests y agent-review están cubiertos; queda implementar re-review y persistencia completa de gates.
+- [x] Task: Integrar gates y Review reales en Changes
+  - Acceptance: Changes muestra gates/findings/evidencia reales y exige actor/razón para re-review y aprobación; no permite saltar gates. `task.approve` persiste la aprobación humana cuando build, tests y agent-review están cubiertos; `task.rereview` ejecuta una revisión independiente sobre el último ChangeSet.
   - Verify: tests de governance/UI y smoke del flujo de aprobación.
   - Files: `desktop/src/`, `src/application/`, `tests/`
 
@@ -146,7 +146,7 @@
   - Verify: tests con procesos temporales, healthcheck y parada.
   - Files: `src/application/`, `src/adapters/`, `desktop/src-tauri/`, `tests/`
 
-- [ ] Task: Validar rehidratación completa de v0.2
+- [x] Task: Validar rehidratación completa de v0.2
   - Acceptance: el `.app` reinicia y conserva Task, runtime evidence, ChangeSet, Review y estado de gates desde una DB externa.
   - Verify: `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml`, `npm run desktop:package:app`, `npm run desktop:smoke` y test de rehidratación Task/Runtime/ChangeSet/Review/gates.
   - Files: `scripts/`, `tests/`, `docu/spikes/`

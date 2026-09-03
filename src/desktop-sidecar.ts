@@ -168,8 +168,8 @@ function startTaskRereview(store: AdeStore, request: DesktopRequest): void {
   const taskId = request.params?.taskId;
   const task = taskId ? store.rehydrateTask(taskId) : undefined;
   const persisted = taskId ? store.listChangeSets(taskId)[0] : undefined;
-  if (!taskId || !task || !persisted) {
-    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "taskId must reference a Task with a ChangeSet" } })}\n`);
+  if (!taskId || !task || !persisted || !request.params?.reason || !request.params.actor) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "taskId, reason and actor are required" } })}\n`);
     return;
   }
   if (task.currentStatus !== "IMPLEMENTED") {
@@ -178,7 +178,7 @@ function startTaskRereview(store: AdeStore, request: DesktopRequest): void {
   }
   const changeSet: ChangeSet = { id: persisted.id, taskId: persisted.taskId, sessionId: persisted.sessionId, directory: persisted.directory, capturedAt: persisted.capturedAt, runtimeDiff: JSON.parse(persisted.runtimeDiff) as ChangeSet["runtimeDiff"], git: { status: persisted.gitStatus, patch: persisted.gitPatch, untracked: JSON.parse(persisted.untracked) as string[] } };
   process.stdout.write(`${JSON.stringify({ id: request.id, result: { accepted: true, taskId, status: "REVIEWING" } })}\n`);
-  void reviewChangeSet(new OpenCodeReviewer(new OpenCodeHttpRuntime(process.env.OPENCODE_URL)), { task, changeSet, store }).then((review) => process.stdout.write(`${JSON.stringify({ type: "review.completed", taskId, review })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ type: "review.failed", taskId, error: error instanceof Error ? error.message : String(error) })}\n`));
+  void reviewChangeSet(new OpenCodeReviewer(new OpenCodeHttpRuntime(process.env.OPENCODE_URL)), { task, changeSet, store, reason: request.params.reason, actor: request.params.actor }).then((review) => process.stdout.write(`${JSON.stringify({ type: "review.completed", taskId, review })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ type: "review.failed", taskId, error: error instanceof Error ? error.message : String(error) })}\n`));
 }
 
 async function checkRuntimeHealth(request: DesktopRequest): Promise<void> {

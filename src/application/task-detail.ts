@@ -15,6 +15,7 @@ export function getTaskDetail(store: AdeStore, taskId: string) {
     changeSets: store.listChangeSets(taskId),
     reviews: store.listReviews(taskId),
     runtimeEvidence: store.listRuntimeEvidence(taskId),
+    gates: store.listGates(taskId),
   };
 }
 
