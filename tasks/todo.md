@@ -78,6 +78,11 @@
   - Verify: `node --check desktop/src/main.js`, `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`.
   - Files: `desktop/src/index.html`, `desktop/src/main.js`, `desktop/src/styles.css`
 
+- [x] Task: Hacer recuperables los fallos de ejecución
+  - Acceptance: `task.run` rechaza estados no ejecutables y persiste `BLOCKED` cuando una Task en ejecución falla, conservando el error Runtime.
+  - Verify: `npm run build` y `npm test`.
+  - Files: `src/desktop-sidecar.ts`, `tests/desktop-sidecar.test.ts`
+
 - [ ] Task: Integrar lifecycle del sidecar con Tauri
   - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor, conexión de streams, render del snapshot, estados `ready/failed` y un único reintento implementados; smoke de desarrollo con `ADE_DB_PATH` y `ADE_PROJECT_ID` explícitos y pruebas de fallo de proceso superados. Falta validar recuperación dentro de la app.
   - Verify: smoke test macOS en modo desarrollo y bundle.
