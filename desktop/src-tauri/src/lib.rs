@@ -65,27 +65,57 @@ struct DirectoryEntry {
     name: String,
     path: String,
     kind: String,
+    depth: usize,
 }
 
 #[tauri::command]
-fn list_directory(path: String) -> Result<Vec<DirectoryEntry>, String> {
+fn list_directory(path: String, max_depth: Option<usize>) -> Result<Vec<DirectoryEntry>, String> {
     let root = std::path::Path::new(&path);
     if !root.is_dir() { return Err(format!("Directory does not exist: {path}")); }
-    let mut entries = std::fs::read_dir(root)
+    let mut entries = Vec::new();
+    collect_directory(root, 0, max_depth.unwrap_or(1), &mut entries)?;
+    Ok(entries)
+}
+
+fn collect_directory(root: &std::path::Path, depth: usize, max_depth: usize, entries: &mut Vec<DirectoryEntry>) -> Result<(), String> {
+    let mut children = std::fs::read_dir(root)
         .map_err(|error| format!("Unable to read directory: {error}"))?
         .filter_map(Result::ok)
-        .map(|entry| {
-            let entry_path = entry.path();
-            let kind = match entry.file_type() {
-                Ok(file_type) if file_type.is_dir() => "directory",
-                Ok(file_type) if file_type.is_symlink() => "symlink",
-                _ => "file",
-            };
-            DirectoryEntry { name: entry.file_name().to_string_lossy().into_owned(), path: entry_path.to_string_lossy().into_owned(), kind: kind.to_string() }
-        })
         .collect::<Vec<_>>();
-    entries.sort_by_key(|entry| (entry.kind != "directory", entry.name.to_lowercase()));
-    Ok(entries)
+    children.sort_by_key(|entry| entry.file_name().to_string_lossy().to_lowercase());
+    children.sort_by_key(|entry| std::cmp::Reverse(entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false)));
+    for entry in children {
+        let entry_path = entry.path();
+        let file_type = entry.file_type().map_err(|error| error.to_string())?;
+        let kind = if file_type.is_dir() { "directory" } else if file_type.is_symlink() { "symlink" } else { "file" };
+        entries.push(DirectoryEntry { name: entry.file_name().to_string_lossy().into_owned(), path: entry_path.clone().to_string_lossy().into_owned(), kind: kind.to_string(), depth });
+        if file_type.is_dir() && depth < max_depth { collect_directory(&entry_path, depth + 1, max_depth, entries)?; }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn open_file(path: String) -> Result<(), String> {
+    let file = std::path::Path::new(&path);
+    if !file.is_file() { return Err(format!("File does not exist: {path}")); }
+    Command::new("open").arg(file).spawn().map(|_| ()).map_err(|error| format!("Unable to open file: {error}"))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalResult { command: String, cwd: String, exit_code: Option<i32>, stdout: String, stderr: String }
+
+#[tauri::command]
+fn terminal_exec(cwd: String, command: String) -> Result<TerminalResult, String> {
+    let directory = std::path::Path::new(&cwd);
+    if !directory.is_dir() { return Err(format!("Terminal cwd does not exist: {cwd}")); }
+    if command.trim().is_empty() { return Err("Terminal command cannot be empty".to_string()); }
+    #[cfg(target_os = "windows")]
+    let output = Command::new("cmd").args(["/C", &command]).current_dir(directory).output();
+    #[cfg(not(target_os = "windows"))]
+    let output = Command::new("/bin/sh").args(["-lc", &command]).current_dir(directory).output();
+    let output = output.map_err(|error| format!("Unable to execute terminal command: {error}"))?;
+    Ok(TerminalResult { command, cwd, exit_code: output.status.code(), stdout: String::from_utf8_lossy(&output.stdout).into_owned(), stderr: String::from_utf8_lossy(&output.stderr).into_owned() })
 }
 
 // Read-only bridge for the shell. Domain mutations remain in application
@@ -268,6 +298,8 @@ pub fn run() {
             greet,
             project_context,
             list_directory,
+            open_file,
+            terminal_exec,
             project_id,
             open_terminal,
             open_document,
@@ -283,7 +315,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{list_directory, open_document, open_terminal, project_context, SidecarSupervisor};
+    use super::{list_directory, open_document, open_terminal, project_context, terminal_exec, SidecarSupervisor};
     use std::fs;
 
     #[test]
@@ -325,11 +357,18 @@ mod tests {
         fs::create_dir_all(root.join("folder")).expect("create folder");
         fs::write(root.join("file.txt"), "content").expect("create file");
         #[cfg(unix)] std::os::unix::fs::symlink(root.join("file.txt"), root.join("link")).expect("create link");
-        let entries = list_directory(root.to_string_lossy().into_owned()).expect("list directory");
+        let entries = list_directory(root.to_string_lossy().into_owned(), Some(1)).expect("list directory");
         assert_eq!(entries[0].kind, "directory");
         assert!(entries.iter().any(|entry| entry.name == "file.txt" && entry.kind == "file"));
         #[cfg(unix)] assert!(entries.iter().any(|entry| entry.name == "link" && entry.kind == "symlink"));
         fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn terminal_exec_returns_output_and_exit_code() {
+        let result = terminal_exec(std::env::temp_dir().to_string_lossy().into_owned(), "printf ade".to_string()).expect("run terminal");
+        assert_eq!(result.stdout, "ade");
+        assert_eq!(result.exit_code, Some(0));
     }
 
     #[test]

@@ -138,8 +138,8 @@ async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke) 
   const tree = document.getElementById('workspace-tree');
   if (!tree || !invoke || !path) return;
   try {
-    const entries = await invoke('list_directory', { path });
-    tree.innerHTML = entries.length ? entries.map((entry) => `<li class="workspace-entry ${entry.kind}"><span>${entry.kind === 'directory' ? '▸' : entry.kind === 'symlink' ? '↗' : '·'}</span><span>${escapeHTML(entry.name)}</span></li>`).join('') : '<li>Directory is empty.</li>';
+    const entries = await invoke('list_directory', { path, maxDepth: 2 });
+    tree.innerHTML = entries.length ? entries.map((entry) => `<li class="workspace-entry ${entry.kind}" data-file-path="${escapeHTML(entry.path)}" style="padding-left:${entry.depth * 16}px"><span>${entry.kind === 'directory' ? '▸' : entry.kind === 'symlink' ? '↗' : '·'}</span><span>${escapeHTML(entry.name)}</span></li>`).join('') : '<li>Directory is empty.</li>';
   } catch (error) {
     tree.innerHTML = '<li>Workspace directory unavailable.</li>';
     console.warn('Workspace tree unavailable:', error);
@@ -437,6 +437,11 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
 document.addEventListener('click', (event) => {
+  const fileEntry = event.target.closest('[data-file-path].file');
+  if (fileEntry) {
+    nativeInvoke?.('open_file', { path: fileEntry.dataset.filePath }).catch((error) => console.warn('File open unavailable:', error));
+    return;
+  }
   const taskCard = event.target.closest('[data-task-select]');
   if (taskCard && !event.target.closest('button')) {
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `detail-${taskCard.dataset.taskSelect}-${Date.now()}`, method: 'task.detail', params: { taskId: taskCard.dataset.taskSelect } }) });
@@ -450,6 +455,20 @@ document.addEventListener('click', (event) => {
   const button = event.target.closest('[data-task-id][data-task-next]');
   if (!button) return;
   advanceTaskFromUI(button.dataset.taskId, button.dataset.taskNext, button);
+});
+document.getElementById('terminal-form')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const output = document.getElementById('terminal-output');
+  const command = document.getElementById('terminal-command')?.value.trim();
+  const cwd = document.getElementById('project-path')?.textContent;
+  if (!nativeInvoke || !command || !cwd) { notify('Native terminal requires the desktop runtime.'); return; }
+  try {
+    const result = await nativeInvoke('terminal_exec', { cwd, command });
+    if (output) output.textContent = `$ ${result.command}\n${result.stdout}${result.stderr ? `\n${result.stderr}` : ''}\n[exit ${result.exitCode ?? 'signal'}]`;
+  } catch (error) {
+    if (output) output.textContent = String(error);
+    notify('Terminal command failed.');
+  }
 });
 taskForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
