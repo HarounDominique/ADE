@@ -165,7 +165,7 @@
 ## v0.3 — Workspace agéntico local-first
 
 - [ ] Task: Implementar Workspace Core
-  - Acceptance: árbol local navegable, visor/apertura y terminal nativa con cwd y permisos validados.
+  - Acceptance: árbol local navegable, visor/apertura y terminal nativa con cwd y permisos validados. Primer corte implementado; falta endurecer permisos y UX recursiva.
   - Verify: `npm run build`, `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y prueba manual macOS.
 - [ ] Task: Integrar proveedores agénticos
   - Acceptance: Codex/OpenCode y futuros adapters se detectan, seleccionan y diagnostican sin persistir credenciales.
