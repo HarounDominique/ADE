@@ -93,9 +93,16 @@ function renderProjectTasks(tasks) {
     const actionMarkup = action ? action[0] === 'RUN'
       ? `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-run="true">${action[1]}</button>`
       : `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-next="${action[0]}">${action[1]}</button>` : '';
-    return `<article class="task-card${index === 0 ? ' selected-task' : ''}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from ADE metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div>${actionMarkup}</article>`;
+    return `<article class="task-card${index === 0 ? ' selected-task' : ''}" data-task-select="${escapeHTML(task.id)}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from ADE metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div>${actionMarkup}</article>`;
   }).join('');
   lists.forEach((list) => { list.innerHTML = cards; });
+}
+
+function renderTaskDetail(detail) {
+  const panel = document.getElementById('task-detail-panel');
+  if (!panel) return;
+  const task = detail.task;
+  panel.innerHTML = `<p class="eyebrow">TASK DETAIL</p><div class="task-detail-heading"><div><span class="task-id">${escapeHTML(task.id)}</span><h2>${escapeHTML(task.intent)}</h2></div><span class="task-status building">${escapeHTML(task.status.replaceAll('_', ' '))}</span></div><p>${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p>`;
 }
 
 async function refreshProjectContext(snapshot) {
@@ -145,6 +152,10 @@ async function connectSidecar(snapshot) {
         renderRuntimeStatus(response.result);
         return;
       }
+      if (response.result?.task?.history) {
+        renderTaskDetail(response.result);
+        return;
+      }
       if (response.result?.healthy !== undefined) {
         renderRuntimeStatus(response.result.status);
         notify(response.result.healthy ? `OpenCode connected${response.result.version ? ` (${response.result.version})` : ''}.` : 'OpenCode is unhealthy.');
@@ -159,6 +170,8 @@ async function connectSidecar(snapshot) {
         });
         setSyncState('ready', 'Synced just now');
         recoveryAttempted = false;
+        const firstTask = response.result.tasks?.[0];
+        if (firstTask) nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `detail-${firstTask.id}-${Date.now()}`, method: 'task.detail', params: { taskId: firstTask.id } }) });
       }
       if (response.error) {
         if (response.status) renderRuntimeStatus(response.status);
@@ -342,6 +355,11 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
 document.addEventListener('click', (event) => {
+  const taskCard = event.target.closest('[data-task-select]');
+  if (taskCard && !event.target.closest('button')) {
+    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `detail-${taskCard.dataset.taskSelect}-${Date.now()}`, method: 'task.detail', params: { taskId: taskCard.dataset.taskSelect } }) });
+    return;
+  }
   const runButton = event.target.closest('[data-task-id][data-task-run]');
   if (runButton) {
     runTaskFromUI(runButton.dataset.taskId, runButton);
