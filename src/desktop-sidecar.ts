@@ -17,9 +17,27 @@ export type DesktopResponse = {
   error?: { code: string; message: string };
 };
 
+export type RuntimeStatus = {
+  sidecar: "READY";
+  agentRuntime: "DISCONNECTED";
+  activeTaskId: null;
+  lastEventAt: null;
+  lastError: null;
+};
+
+function getRuntimeStatus(): RuntimeStatus {
+  return {
+    sidecar: "READY",
+    agentRuntime: "DISCONNECTED",
+    activeTaskId: null,
+    lastEventAt: null,
+    lastError: null,
+  };
+}
+
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (request.method !== "project.snapshot" && request.method !== "task.create" && request.method !== "task.advance") {
+    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -28,6 +46,9 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
         return { id: request.id, error: { code: "INVALID_PARAMS", message: "projectId is required" } };
       }
       return { id: request.id, result: getProjectSnapshot(store, projectId) };
+    }
+    if (request.method === "runtime.status") {
+      return { id: request.id, result: getRuntimeStatus() };
     }
     const { taskId, intent, projectId, repositoryPath, next, reason, actor } = request.params ?? {};
     if (request.method === "task.advance") {

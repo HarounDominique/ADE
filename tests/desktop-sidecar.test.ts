@@ -43,6 +43,16 @@ test("desktop sidecar returns actionable protocol errors", () => {
     id: 4,
     error: { code: "INVALID_PARAMS", message: "taskId, next and reason are required" },
   });
+  assert.deepEqual(handleDesktopRequest(store, { id: 5, method: "runtime.status" }), {
+    id: 5,
+    result: {
+      sidecar: "READY",
+      agentRuntime: "DISCONNECTED",
+      activeTaskId: null,
+      lastEventAt: null,
+      lastError: null,
+    },
+  });
   store.close();
 });
 
