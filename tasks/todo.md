@@ -150,3 +150,14 @@
   - Acceptance: el `.app` reinicia y conserva Task, runtime evidence, ChangeSet, Review y estado de gates desde una DB externa.
   - Verify: `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml`, `npm run desktop:package:app`, `npm run desktop:smoke` y test de rehidratación Task/Runtime/ChangeSet/Review/gates.
   - Files: `scripts/`, `tests/`, `docu/spikes/`
+
+## v0.2 — Cierre de release pendiente
+
+- [ ] Task: Ejecutar smoke empaquetado completo en macOS gráfico
+  - Acceptance: `.app` permanece activo, responde al sidecar, ejecuta una Task real y se detiene limpiamente; el smoke actual aborta con `SIGABRT` en este entorno.
+- [ ] Task: Validar OpenCode real desde la aplicación
+  - Acceptance: `opencode serve` permanece disponible y `runtime.health` responde desde el `.app`; el binario está instalado pero el daemon devuelve `ServeError` aquí.
+- [ ] Task: Completar declaración persistida de servicios por Project
+  - Acceptance: Runtime lee servicios declarados desde `.ade/services.yaml` o una policy equivalente, muestra comando/cwd/healthcheck y evita que la UI dependa de un comando hardcodeado.
+- [ ] Task: Cerrar contrato de evidencia y policy de gates
+  - Acceptance: límites de tamaño/retención, policy mínima por Project y evidencia de documentación quedan especificados, implementados y cubiertos por tests.

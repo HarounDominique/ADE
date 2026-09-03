@@ -13,7 +13,7 @@ Este repositorio comienza deliberadamente por la documentación. La documentaci�
 
 ## Estado
 
-MVP CLI operable: las specs del MVP están en estado `ready`, con ADRs y plan de tareas versionados. ADE puede registrar Projects, crear y avanzar Tasks, ejecutar el flujo Implementer/Reviewer con OpenCode, persistir ChangeSets/Reviews en SQLite y aplicar gates de aprobación. La vertical desktop queda como siguiente hito de producto.
+MVP CLI y vertical desktop operables: ADE puede registrar Projects, crear y avanzar Tasks, ejecutar el flujo Implementer/Reviewer con OpenCode, persistir ChangeSets/Reviews/evidencia/gates en SQLite y aplicar aprobación humana desde Changes. Runtime incluye lifecycle mínimo de servicios locales. El cierre de release v0.2 queda condicionado al smoke gráfico empaquetado con OpenCode real; la siguiente iteración está definida en [SPEC-v0.3](docu/specs/SPEC-v0.3.md).
 
 ## Quick start del spike
 
@@ -43,4 +43,4 @@ npm run ade -- task advance task-1 READY "Acceptance criteria recorded"
 npm run ade -- review /ruta/al/repositorio "Describe la tarea"
 ```
 
-`project snapshot` es la lectura estructurada que consumirá la shell desktop; la UI todavía usa un fixture local mientras se implementa el transporte Tauri del backend.
+`project snapshot` es la lectura estructurada que consume la shell desktop mediante el sidecar JSON-RPC de Tauri.
