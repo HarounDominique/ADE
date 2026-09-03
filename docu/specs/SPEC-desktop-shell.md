@@ -38,7 +38,7 @@ Muestra documentos seleccionados, motivo de inclusión, clase (`canonical`, `ope
 
 ### Changes
 
-Presenta resumen semántico, impacto, findings, archivos, diff, ChangeSets y checkpoints en ese orden. Las acciones de corregir, aceptar riesgo, descartar y re-review deben mostrar actor, razón y evidencia.
+Presenta resumen semántico, impacto, findings, archivos, diff, ChangeSets y checkpoints en ese orden. La primera slice selecciona la Task real del `ProjectSnapshot`, priorizando `UNDER_REVIEW` y `READY_FOR_HUMAN`, y muestra un estado vacío explícito si no existe. Las acciones de corregir, aceptar riesgo, descartar y re-review deben mostrar actor, razón y evidencia.
 
 ### Runtime
 
@@ -105,7 +105,7 @@ Un usuario puede abrir un repositorio, crear una Task, observar la implementaci�
 - El shell es deliberadamente fino: presenta estado y orquesta casos de uso, pero no contiene un editor completo ni lógica de dominio duplicada.
 - Tauri 2 es el framework adoptado para el MVP desktop tras el spike 003; el frontend se mantiene desacoplado del dominio y las capacidades nativas se restringen mediante permisos.
 - La primera plataforma objetivo será macOS, por ser el entorno validado del proyecto; la abstracción debe dejar abierta la portabilidad posterior.
-- El escape hatch mínimo abre la raíz del Project en el terminal y permite configurar un comando externo de IDE; la integración profunda con IntelliJ/VS Code queda fuera.
+- El escape hatch mínimo abre la raíz del Project en Terminal mediante Tauri y permite configurar un comando externo de IDE; la integración profunda con IntelliJ/VS Code queda fuera.
 - El spike 003 validó Tauri 2 en macOS y ADR-0009 registra la adopción. Una reevaluación futura sólo se hará si cambia el alcance o aparece evidencia de que Tauri incumple el contrato.
 
 ## Open Questions
