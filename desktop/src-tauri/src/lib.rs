@@ -24,6 +24,22 @@ impl SidecarSupervisor {
         }
         Ok(child.is_some())
     }
+
+    fn stop(&self) -> Result<(), String> {
+        let mut child = self
+            .child
+            .lock()
+            .map_err(|_| "Sidecar state is poisoned".to_string())?;
+        if let Some(mut process) = child.take() {
+            process
+                .kill()
+                .map_err(|error| format!("Unable to stop sidecar: {error}"))?;
+            process
+                .wait()
+                .map_err(|error| format!("Unable to reap sidecar: {error}"))?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Serialize)]
@@ -97,19 +113,7 @@ fn sidecar_status(state: tauri::State<'_, SidecarSupervisor>) -> Result<bool, St
 
 #[tauri::command]
 fn sidecar_stop(state: tauri::State<'_, SidecarSupervisor>) -> Result<(), String> {
-    let mut child = state
-        .child
-        .lock()
-        .map_err(|_| "Sidecar state is poisoned".to_string())?;
-    if let Some(mut process) = child.take() {
-        process
-            .kill()
-            .map_err(|error| format!("Unable to stop sidecar: {error}"))?;
-        process
-            .wait()
-            .map_err(|error| format!("Unable to reap sidecar: {error}"))?;
-    }
-    Ok(())
+    state.stop()
 }
 
 #[tauri::command]
@@ -135,7 +139,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::project_context;
+    use super::{project_context, SidecarSupervisor};
     use std::fs;
 
     #[test]
@@ -158,5 +162,20 @@ mod tests {
         assert_eq!(context.branch, "feature/ui");
         assert_eq!(context.working_tree, "detected");
         fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn sidecar_status_is_false_without_a_process() {
+        let supervisor = SidecarSupervisor::default();
+
+        assert!(!supervisor.reap_finished().expect("status"));
+    }
+
+    #[test]
+    fn sidecar_stop_is_idempotent_without_a_process() {
+        let supervisor = SidecarSupervisor::default();
+
+        supervisor.stop().expect("first stop");
+        supervisor.stop().expect("second stop");
     }
 }
