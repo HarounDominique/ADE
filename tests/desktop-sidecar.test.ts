@@ -103,6 +103,30 @@ test("desktop sidecar process answers over stdin/stdout", async () => {
   rmSync(directory, { recursive: true, force: true });
 });
 
+test("desktop sidecar accepts an Implementer run asynchronously", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-run-"));
+  const databasePath = join(directory, "ade.db");
+  const store = new AdeStore(databasePath);
+  const task = Task.create({ id: "task-run", intent: "Run Implementer", repositoryPath: directory });
+  task.transition("READY", "Ready for implementation", "human");
+  store.saveTask(task);
+  store.close();
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: databasePath, OPENCODE_URL: "http://127.0.0.1:1" },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  child.stdin.write(JSON.stringify({ id: "run-1", method: "task.run", params: { taskId: task.id } }) + "\n");
+  const [output] = await once(child.stdout, "data");
+  const response = JSON.parse(output.toString()) as { id: string; result: { accepted: boolean; status: string } };
+
+  assert.deepEqual(response, { id: "run-1", result: { accepted: true, taskId: task.id, status: "RUNNING" } });
+  child.kill();
+  await once(child, "close");
+  rmSync(directory, { recursive: true, force: true });
+});
+
 test("desktop sidecar process fails fast without an explicit database", async () => {
   const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
     cwd: process.cwd(),

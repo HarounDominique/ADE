@@ -3,7 +3,7 @@ import { captureGitChanges, type GitChanges } from "../adapters/git-changes.js";
 import type { AgentRuntimePort, RuntimeEvent } from "../ports/agent-runtime.js";
 import { createChangeSet, type ChangeSet } from "../domain/change-set.js";
 import { AdeStore } from "../persistence/sqlite-store.js";
-import { createTask } from "./tasks/task-commands.js";
+import { createTask, getTask } from "./tasks/task-commands.js";
 
 export type SpikeResult = {
   task: Task;
@@ -18,18 +18,23 @@ export type SpikeResult = {
 
 export async function runSpike(
   runtime: AgentRuntimePort,
-  input: { taskId: string; directory: string; intent: string; agent?: string; signal?: AbortSignal; store?: AdeStore },
+  input: { taskId: string; directory: string; intent: string; agent?: string; signal?: AbortSignal; store?: AdeStore; existingTask?: boolean; onEvent?: (event: RuntimeEvent) => void },
 ): Promise<SpikeResult> {
-  const task = input.store
-    ? createTask(input.store, { id: input.taskId, intent: input.intent, repositoryPath: input.directory })
-    : Task.create({ id: input.taskId, intent: input.intent, repositoryPath: input.directory });
-  task.transition("READY", "Spike accepted", "human");
+  const task = input.store && input.existingTask
+    ? getTask(input.store, input.taskId)
+    : input.store
+      ? createTask(input.store, { id: input.taskId, intent: input.intent, repositoryPath: input.directory })
+      : Task.create({ id: input.taskId, intent: input.intent, repositoryPath: input.directory });
+  if (!input.existingTask) task.transition("READY", "Spike accepted", "human");
+  if (!(["READY", "CHANGES_REQUESTED", "BLOCKED"] as const).includes(task.currentStatus as "READY" | "CHANGES_REQUESTED" | "BLOCKED")) {
+    throw new Error(`Task cannot start from ${task.currentStatus}`);
+  }
   input.store?.saveTask(task);
   const session = await runtime.createSession({ directory: input.directory, title: input.taskId });
   task.transition("IN_PROGRESS", "OpenCode session created", "ade");
   input.store?.saveTask(task);
 
-  const eventPromise = collectUntilIdle(runtime.events(input.signal), input.signal);
+  const eventPromise = collectUntilIdle(runtime.events(input.signal), input.signal, input.onEvent);
   await runtime.prompt(session, {
     text: input.intent,
     ...(input.agent ? { agent: input.agent } : {}),
@@ -54,10 +59,12 @@ export async function runSpike(
 async function collectUntilIdle(
   source: AsyncIterable<RuntimeEvent>,
   signal?: AbortSignal,
+  onEvent?: (event: RuntimeEvent) => void,
 ): Promise<RuntimeEvent[]> {
   const events: RuntimeEvent[] = [];
   for await (const event of source) {
     events.push(event);
+    onEvent?.(event);
     const payload = event.payload as { type?: string; properties?: { sessionID?: string } };
     if (payload.type === "session.idle") break;
     if (signal?.aborted) break;

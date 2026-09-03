@@ -4,6 +4,8 @@ import { advanceTask, createTask } from "./application/tasks/task-commands.js";
 import type { TaskStatus } from "./domain/task.js";
 import { AdeStore } from "./persistence/sqlite-store.js";
 import { getProjectSnapshot } from "./application/project-snapshot.js";
+import { OpenCodeHttpRuntime } from "./adapters/opencode-http-runtime.js";
+import { runSpike } from "./application/run-spike.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -19,25 +21,29 @@ export type DesktopResponse = {
 
 export type RuntimeStatus = {
   sidecar: "READY";
-  agentRuntime: "DISCONNECTED";
-  activeTaskId: null;
-  lastEventAt: null;
-  lastError: null;
+  agentRuntime: "DISCONNECTED" | "RUNNING" | "CONNECTED" | "FAILED";
+  activeTaskId: string | null;
+  lastEventAt: string | null;
+  lastError: string | null;
+};
+
+const runtimeStatus: RuntimeStatus = {
+  sidecar: "READY",
+  agentRuntime: "DISCONNECTED",
+  activeTaskId: null,
+  lastEventAt: null,
+  lastError: null,
 };
 
 function getRuntimeStatus(): RuntimeStatus {
   return {
-    sidecar: "READY",
-    agentRuntime: "DISCONNECTED",
-    activeTaskId: null,
-    lastEventAt: null,
-    lastError: null,
+    ...runtimeStatus,
   };
 }
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status'].includes(request.method)) {
+    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.run'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -91,12 +97,53 @@ export async function runDesktopSidecar(): Promise<void> {
         process.stdout.write(`${JSON.stringify({ id: null, error: { code: "INVALID_JSON", message: "Request must be valid JSON" } })}\n`);
         continue;
       }
-      process.stdout.write(`${JSON.stringify(handleDesktopRequest(store, request))}\n`);
+      if (request.method === "task.run") {
+        startTaskRun(store, request);
+      } else {
+        process.stdout.write(`${JSON.stringify(handleDesktopRequest(store, request))}\n`);
+      }
     }
   } finally {
     input.close();
     store.close();
   }
+}
+
+function startTaskRun(store: AdeStore, request: DesktopRequest): void {
+  const taskId = request.params?.taskId;
+  const task = taskId ? store.rehydrateTask(taskId) : undefined;
+  if (!taskId || !task?.repositoryPath) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "taskId must reference a Task with a repositoryPath" } })}\n`);
+    return;
+  }
+  if (runtimeStatus.activeTaskId) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RUNTIME_BUSY", message: `Task ${runtimeStatus.activeTaskId} is already running` } })}\n`);
+    return;
+  }
+  runtimeStatus.agentRuntime = "RUNNING";
+  runtimeStatus.activeTaskId = taskId;
+  runtimeStatus.lastError = null;
+  process.stdout.write(`${JSON.stringify({ id: request.id, result: { accepted: true, taskId, status: "RUNNING" } })}\n`);
+  void runSpike(new OpenCodeHttpRuntime(process.env.OPENCODE_URL), {
+    taskId,
+    directory: task.repositoryPath,
+    intent: task.intent,
+    store,
+    existingTask: true,
+    onEvent: (event) => {
+      runtimeStatus.lastEventAt = new Date().toISOString();
+      process.stdout.write(`${JSON.stringify({ type: "runtime.event", taskId, event, status: getRuntimeStatus() })}\n`);
+    },
+  }).then(() => {
+    runtimeStatus.agentRuntime = "CONNECTED";
+    runtimeStatus.activeTaskId = null;
+    process.stdout.write(`${JSON.stringify({ type: "runtime.completed", taskId, status: getRuntimeStatus() })}\n`);
+  }).catch((error: unknown) => {
+    runtimeStatus.agentRuntime = "FAILED";
+    runtimeStatus.activeTaskId = null;
+    runtimeStatus.lastError = error instanceof Error ? error.message : String(error);
+    process.stdout.write(`${JSON.stringify({ type: "runtime.failed", taskId, status: getRuntimeStatus() })}\n`);
+  });
 }
 
 const directEntrypoint = ["desktop-sidecar.ts", "desktop-sidecar.js", "desktop-sidecar.cjs"].some((name) => process.argv[1]?.endsWith(name));
