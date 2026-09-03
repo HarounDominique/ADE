@@ -8,6 +8,7 @@ const taskForm = document.getElementById('new-task-form');
 const taskIntent = document.getElementById('task-intent');
 let nativeInvoke;
 let terminalStarted = false;
+let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
 const runtimeEvents = [];
 
@@ -175,6 +176,8 @@ async function connectSidecar(snapshot) {
     await invoke('sidecar_request', {
       request: JSON.stringify({ id: `runtime-${Date.now()}`, method: 'runtime.status' }),
     });
+    await invoke('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list' }) });
+    await invoke('sidecar_request', { request: JSON.stringify({ id: `providers-${Date.now()}`, method: 'providers.inspect' }) });
   };
   try {
     await listen('sidecar:response', async (event) => {
@@ -214,7 +217,14 @@ async function connectSidecar(snapshot) {
       if (Array.isArray(response.result) && response.result[0]?.permissions) {
         const detail = document.getElementById('native-skills-list');
         if (detail) detail.textContent = response.result.map((skill) => skill.label).join(' · ');
+        const select = document.getElementById('agent-skill');
+        if (select) select.innerHTML = response.result.map((skill) => `<option value="${escapeHTML(skill.id)}">${escapeHTML(skill.label)}</option>`).join('');
         notify(`${response.result.length} native skills available.`);
+        return;
+      }
+      if (response.result?.skillId && response.result?.sessionId) {
+        const feedback = document.getElementById('agent-feedback');
+        if (feedback) feedback.textContent = `${response.result.skillId} running in ${response.result.sessionId} (${selectedProvider}).`;
         return;
       }
       if (response.type === 'review.completed' || response.type === 'review.failed') {
@@ -433,6 +443,17 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     const [method, intent] = labels[item.dataset.action];
     if (!window.confirm(`Confirm ${method}: ${intent}?`)) return;
     nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => notify(`${method} completed.`)).catch((error) => { notify('Git operation failed.'); console.warn(error); });
+    return;
+  }
+  if (item.dataset.action === 'run-skill') {
+    if (!nativeInvoke) { notify('Skill execution requires the sidecar.'); return; }
+    const skillId = document.getElementById('agent-skill')?.value;
+    selectedProvider = document.getElementById('agent-provider')?.value ?? 'opencode';
+    const feedback = document.getElementById('agent-feedback');
+    if (selectedProvider !== 'opencode') { if (feedback) feedback.textContent = 'Codex provider detected but this runtime adapter is not wired yet.'; notify('Provider adapter not available.'); return; }
+    if (!skillId) { notify('No native skill selected.'); return; }
+    if (feedback) feedback.textContent = `Starting ${skillId} with ${selectedProvider}…`;
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `skill-run-${Date.now()}`, method: 'skills.run', params: { skillId, intent: document.getElementById('task-intent')?.value || 'Inspect the active Project and propose the next useful action.', repositoryPath: document.getElementById('project-path')?.textContent } }) }).catch((error) => { if (feedback) feedback.textContent = `Skill failed: ${error}`; notify('Skill execution failed.'); });
     return;
   }
   if (item.dataset.action === 'inspect-providers') {
