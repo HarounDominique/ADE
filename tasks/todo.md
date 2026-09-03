@@ -58,6 +58,11 @@
   - Verify: `npm run build` y tests del sidecar.
   - Files: `src/desktop-sidecar.ts`, `tests/desktop-sidecar.test.ts`
 
+- [x] Task: Controles visuales de transición en Work
+  - Acceptance: Work muestra acciones sólo para transiciones permitidas, envía razón/actor y refresca el snapshot tras completar.
+  - Verify: `node --check desktop/src/main.js` y `npm run build`.
+  - Files: `desktop/src/index.html`, `desktop/src/main.js`, `desktop/src/styles.css`
+
 - [ ] Task: Integrar lifecycle del sidecar con Tauri
   - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor, conexión de streams, render del snapshot, estados `ready/failed` y un único reintento implementados; smoke de desarrollo con `ADE_DB_PATH` y `ADE_PROJECT_ID` explícitos y pruebas de fallo de proceso superados. Falta validar recuperación dentro de la app.
   - Verify: smoke test macOS en modo desarrollo y bundle.
