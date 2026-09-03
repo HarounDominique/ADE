@@ -39,6 +39,25 @@ test("desktop sidecar returns actionable protocol errors", () => {
     id: 3,
     error: { code: "INVALID_PARAMS", message: "taskId and intent are required" },
   });
+  assert.deepEqual(handleDesktopRequest(store, { id: 4, method: "task.advance" }), {
+    id: 4,
+    error: { code: "INVALID_PARAMS", message: "taskId, next and reason are required" },
+  });
+  store.close();
+});
+
+test("desktop sidecar advances a Task through the application use case", () => {
+  const store = new AdeStore();
+  const task = Task.create({ id: "task-advance", intent: "Advance Work task", projectId: "ade" });
+  store.saveTask(task);
+  const response = handleDesktopRequest(store, {
+    id: "advance-1",
+    method: "task.advance",
+    params: { taskId: task.id, next: "READY", reason: "Acceptance criteria recorded", actor: "human" },
+  });
+
+  assert.deepEqual(response.result, { id: task.id, intent: task.intent, status: "READY", projectId: "ade" });
+  assert.equal(store.getTask(task.id)?.status, "READY");
   store.close();
 });
 

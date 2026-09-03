@@ -1,13 +1,14 @@
 import { createInterface } from "node:readline";
 import { isSea } from "node:sea";
-import { createTask } from "./application/tasks/task-commands.js";
+import { advanceTask, createTask } from "./application/tasks/task-commands.js";
+import type { TaskStatus } from "./domain/task.js";
 import { AdeStore } from "./persistence/sqlite-store.js";
 import { getProjectSnapshot } from "./application/project-snapshot.js";
 
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; repositoryPath?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string };
 };
 
 export type DesktopResponse = {
@@ -18,7 +19,7 @@ export type DesktopResponse = {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (request.method !== "project.snapshot" && request.method !== "task.create") {
+    if (request.method !== "project.snapshot" && request.method !== "task.create" && request.method !== "task.advance") {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -28,7 +29,14 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       }
       return { id: request.id, result: getProjectSnapshot(store, projectId) };
     }
-    const { taskId, intent, projectId, repositoryPath } = request.params ?? {};
+    const { taskId, intent, projectId, repositoryPath, next, reason, actor } = request.params ?? {};
+    if (request.method === "task.advance") {
+      if (!taskId || !next || !reason) {
+        return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId, next and reason are required" } };
+      }
+      const task = advanceTask(store, { id: taskId, next, reason, ...(actor ? { actor } : {}) });
+      return { id: request.id, result: { id: task.id, intent: task.intent, status: task.currentStatus, projectId: task.projectId ?? null } };
+    }
     if (!taskId || !intent) {
       return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId and intent are required" } };
     }
