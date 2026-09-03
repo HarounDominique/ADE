@@ -29,7 +29,7 @@ import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js"
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
 import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation } from "./application/knowledge/reconcile.js";
 import { loadGatePolicy } from "./application/change-review/gate-policy.js";
-import { installProjectSkill, skillSourceNeedsNetwork } from "./application/skills/skill-install.js";
+import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNetwork, updateProjectSkill } from "./application/skills/skill-install.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -214,6 +214,19 @@ export async function runDesktopSidecar(): Promise<void> {
         if (!params?.repositoryPath || !params.intent) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and source are required" } })}\n`);
         else if (skillSourceNeedsNetwork(params.intent) && !params.confirmed) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_INSTALL_CONFIRMATION_REQUIRED", message: "Installing a skill from the network requires explicit confirmation" } })}\n`);
         else void installProjectSkill({ repositoryPath: params.repositoryPath, source: params.intent }).then((skill) => process.stdout.write(`${JSON.stringify({ id: request.id, result: skill })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_INSTALL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "skills.update") {
+        const params = request.params;
+        if (!params?.repositoryPath || !params.skillId) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and skillId are required" } })}\n`);
+        else {
+          const { repositoryPath, skillId, confirmed } = params;
+          void projectSkillSourceNeedsNetwork({ repositoryPath, skillId }).then((needsNetwork) => {
+            if (needsNetwork && !confirmed) {
+              process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_UPDATE_CONFIRMATION_REQUIRED", message: "Updating a skill from the network requires explicit confirmation" } })}\n`);
+              return;
+            }
+            return updateProjectSkill({ repositoryPath, skillId }).then((skill) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { ...skill, updated: true } })}\n`));
+          }).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_UPDATE_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        }
       } else if (request.method === "git.workspace") {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);

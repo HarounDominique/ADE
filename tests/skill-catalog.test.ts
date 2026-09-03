@@ -2,11 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { listNativeSkills, listSkills } from "../src/application/skills/skill-catalog.js";
 import { validateSkillManifest } from "../src/domain/skill.js";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runNativeSkill } from "../src/application/skills/run-skill.js";
-import { installProjectSkill, skillSourceNeedsNetwork } from "../src/application/skills/skill-install.js";
+import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNetwork, updateProjectSkill } from "../src/application/skills/skill-install.js";
 
 test("native skill catalog includes the daily developer workflow", () => {
   const ids = listNativeSkills().map((skill) => skill.id);
@@ -50,6 +50,29 @@ test("a local skill manifest installs into the Project catalog", async () => {
   const skill = await installProjectSkill({ repositoryPath: root, source });
   assert.equal(skill.id, "release-notes");
   assert.ok((await listSkills(root)).some((candidate) => candidate.id === "release-notes"));
+});
+
+test("a Project skill updates from its recorded local source", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-skills-update-"));
+  const source = join(root, "source.json");
+  await writeFile(source, JSON.stringify({ id: "release-notes", version: "1.0.0", label: "Release notes", description: "Summarize release", inputs: ["intent"], outputs: ["notes"], permissions: ["write_docs"] }));
+  await installProjectSkill({ repositoryPath: root, source });
+  await writeFile(source, JSON.stringify({ id: "release-notes", version: "1.1.0", label: "Release notes", description: "Summarize release", inputs: ["intent"], outputs: ["notes"], permissions: ["write_docs"] }));
+
+  const updated = await updateProjectSkill({ repositoryPath: root, skillId: "release-notes" });
+  const stored = JSON.parse(await readFile(join(root, ".ade", "skills", "release-notes.json"), "utf8"));
+
+  assert.equal(updated.version, "1.1.0");
+  assert.equal(stored.installedFrom, await realpath(source));
+  assert.equal(await projectSkillSourceNeedsNetwork({ repositoryPath: root, skillId: "release-notes" }), false);
+});
+
+test("a Project skill update identifies a recorded remote source before cloning", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-skills-remote-update-"));
+  await mkdir(join(root, ".ade", "skills"), { recursive: true });
+  await writeFile(join(root, ".ade", "skills", "remote-review.json"), JSON.stringify({ id: "remote-review", version: "1.0.0", label: "Remote review", description: "Review remotely", inputs: ["intent"], outputs: ["findings"], permissions: ["read_project"], installedFrom: "owner/remote-review" }));
+
+  assert.equal(await projectSkillSourceNeedsNetwork({ repositoryPath: root, skillId: "remote-review" }), true);
 });
 
 test("remote skill sources are identifiable before any clone occurs", () => {

@@ -30,7 +30,9 @@ Prompt engineering, PR review, Spector/spec-driven development, workflow adaptat
 }
 ```
 
-Los manifests se instalan desde un `.json` local o un repositorio Git (URL o `owner/repository`) mediante `skills.install`; ADE los copia a `.ade/skills/<id>.json` y conserva el origen `project`. Una fuente de red se identifica antes de clonar y exige `confirmed`: sin consentimiento explícito el sidecar responde `SKILL_INSTALL_CONFIRMATION_REQUIRED` y no ejecuta ninguna operación de red.
+Los manifests se instalan desde un `.json` local o un repositorio Git (URL o `owner/repository`) mediante `skills.install`; ADE escribe `.ade/skills/<id>.json`, conserva el origen, la fecha y `installedFrom`. Una fuente de red se identifica antes de clonar y exige `confirmed`: sin consentimiento explícito el sidecar responde `SKILL_INSTALL_CONFIRMATION_REQUIRED` y no ejecuta ninguna operación de red.
+
+`skills.update` vuelve a obtener una skill de Project desde `installedFrom` y rechaza un manifest con otro `id`. Si ese origen es remoto, exige el mismo consentimiento explícito antes de clonar; una skill antigua sin origen queda ejecutable, pero informa que no puede actualizarse automáticamente. El workbench muestra si la skill es nativa o de Project, su origen y habilita Update sólo cuando es trazable.
 
 ## Testing Strategy
 
@@ -44,7 +46,7 @@ Validación de manifest, compatibilidad, permisos, inputs/outputs, instalación 
 
 ## Success Criteria
 
-Un Project nuevo tiene un catálogo de skills y el usuario puede añadir una skill propia con versión, permisos y trazabilidad.
+Un Project nuevo tiene un catálogo de skills y el usuario puede añadir o actualizar una skill propia con versión, permisos y trazabilidad de origen.
 
 ## Open Questions
 

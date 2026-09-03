@@ -155,6 +155,31 @@ function renderProviders(providers) {
   renderProviderSelection();
 }
 
+function refreshSelectedSkill() {
+  const select = document.getElementById('agent-skill');
+  const option = select?.selectedOptions?.[0];
+  const update = document.getElementById('update-skill-button');
+  const detail = document.getElementById('agent-skill-status');
+  const projectSkill = option?.dataset.source === 'project';
+  const installedFrom = option?.dataset.installedFrom;
+  if (update) update.disabled = !projectSkill || !installedFrom;
+  if (detail) detail.textContent = projectSkill
+    ? (installedFrom ? `Project skill · source: ${installedFrom}` : 'Project skill without a recorded source; update is unavailable.')
+    : 'Native ADE skill · versioned with the application.';
+}
+
+function renderSkills(skills) {
+  const detail = document.getElementById('native-skills-list');
+  if (detail) detail.textContent = skills.map((skill) => skill.label).join(' · ');
+  const select = document.getElementById('agent-skill');
+  if (select) {
+    const previous = select.value;
+    select.innerHTML = skills.map((skill) => `<option value="${escapeHTML(skill.id)}" data-permissions="${escapeHTML(skill.permissions.join(','))}" data-source="${escapeHTML(skill.source)}"${skill.installedFrom ? ` data-installed-from="${escapeHTML(skill.installedFrom)}"` : ''}>${escapeHTML(skill.label)}${skill.source === 'project' ? ' · Project' : ''}</option>`).join('');
+    if ([...select.options].some((option) => option.value === previous)) select.value = previous;
+  }
+  refreshSelectedSkill();
+}
+
 function renderProjectTasks(tasks) {
   const lists = [...document.querySelectorAll('#project-task-list, #work-task-list')];
   if (lists.length === 0 || tasks.length === 0) return;
@@ -332,6 +357,12 @@ async function connectSidecar(snapshot) {
   try {
     await listen('sidecar:response', async (event) => {
       const response = JSON.parse(event.payload);
+      if (response.error) {
+        const feedback = document.getElementById('agent-feedback');
+        if (feedback) feedback.textContent = `${response.error.code}: ${response.error.message}`;
+        notify(response.error.message);
+        return;
+      }
       if (response.type?.startsWith('runtime.') && response.status) {
         renderRuntimeStatus(response.status);
         if (response.type === 'runtime.event') renderRuntimeEvent(response.taskId, response.event);
@@ -400,10 +431,7 @@ async function connectSidecar(snapshot) {
         return;
       }
       if (Array.isArray(response.result) && response.result[0]?.permissions) {
-        const detail = document.getElementById('native-skills-list');
-        if (detail) detail.textContent = response.result.map((skill) => skill.label).join(' · ');
-        const select = document.getElementById('agent-skill');
-        if (select) select.innerHTML = response.result.map((skill) => `<option value="${escapeHTML(skill.id)}" data-permissions="${escapeHTML(skill.permissions.join(','))}">${escapeHTML(skill.label)}</option>`).join('');
+        renderSkills(response.result);
         notify(`${response.result.length} native skills available.`);
         return;
       }
@@ -414,7 +442,7 @@ async function connectSidecar(snapshot) {
       }
       if (response.result?.id && response.result?.source && response.result?.permissions) {
         const feedback = document.getElementById('agent-feedback');
-        if (feedback) feedback.textContent = `${response.result.label} installed in this Project.`;
+        if (feedback) feedback.textContent = `${response.result.label} ${response.result.updated ? 'updated from its recorded source' : 'installed in this Project'}.`;
         nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list', params: { repositoryPath: document.getElementById('project-path')?.textContent } }) });
         return;
       }
@@ -660,6 +688,17 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `skill-install-${Date.now()}`, method: 'skills.install', params: { repositoryPath: document.getElementById('project-path')?.textContent, intent: source, confirmed: remote } }) }).catch((error) => { notify('Skill installation failed.'); console.warn(error); });
     return;
   }
+  if (item.dataset.action === 'update-skill') {
+    if (!nativeInvoke) { notify('Skill update requires the sidecar.'); return; }
+    const select = document.getElementById('agent-skill');
+    const option = select?.selectedOptions?.[0];
+    const source = option?.dataset.installedFrom;
+    if (!option || option.dataset.source !== 'project' || !source) { notify('Select a Project skill with a recorded source.'); return; }
+    const remote = /^(https?:\/\/|git@)/.test(source) || /^[\w.-]+\/[\w.-]+$/.test(source);
+    if (remote && !window.confirm(`Update ${option.value} from ${source}?`)) return;
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `skill-update-${Date.now()}`, method: 'skills.update', params: { repositoryPath: document.getElementById('project-path')?.textContent, skillId: option.value, confirmed: remote } }) }).catch((error) => { notify('Skill update failed.'); console.warn(error); });
+    return;
+  }
   if (item.dataset.action === 'github-status') {
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `github-${Date.now()}`, method: 'github.status' }) });
     return;
@@ -749,6 +788,7 @@ document.getElementById('agent-provider')?.addEventListener('change', (event) =>
   selectedProvider = event.target.value;
   renderProviderSelection();
 });
+document.getElementById('agent-skill')?.addEventListener('change', refreshSelectedSkill);
 document.getElementById('terminal-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const output = document.getElementById('terminal-output');

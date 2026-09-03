@@ -30,14 +30,16 @@ export function getNativeSkill(id: string): SkillManifest | undefined {
   return nativeSkills.find((skill) => skill.id === id);
 }
 
-export async function loadProjectSkills(repositoryPath: string): Promise<readonly SkillManifest[]> {
+export type ProjectSkillManifest = SkillManifest & { installedFrom?: string; installedAt?: string };
+
+export async function loadProjectSkills(repositoryPath: string): Promise<readonly ProjectSkillManifest[]> {
   const directory = join(repositoryPath, ".ade", "skills");
   try {
     const files = (await readdir(directory)).filter((file) => file.endsWith(".json")).sort();
-    const skills: SkillManifest[] = [];
+    const skills: ProjectSkillManifest[] = [];
     for (const file of files) {
-      const value = JSON.parse(await readFile(join(directory, file), "utf8")) as SkillManifest;
-      skills.push(validateSkillManifest({ ...value, source: "project" }));
+      const value = JSON.parse(await readFile(join(directory, file), "utf8")) as ProjectSkillManifest;
+      skills.push({ ...validateSkillManifest({ ...value, source: "project" }), ...(value.installedFrom ? { installedFrom: value.installedFrom } : {}), ...(value.installedAt ? { installedAt: value.installedAt } : {}) });
     }
     return skills;
   } catch {

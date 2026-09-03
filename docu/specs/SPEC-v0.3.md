@@ -61,6 +61,7 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 - Changes renders the selected Task's ChangeSet, gates and findings; Work renders its persisted runtime activity, agent sessions and Git trace. Skill runtime events are bounded evidence rather than stored provider transcripts.
 - Workspace Core canonizes the selected Project in Tauri and rejects filesystem, terminal and external-open paths outside it, including symlinks that escape it. The file tree loads direct children and expands directories on demand; ADR-0013 records the authorization boundary.
 - Provider inspection uses the same Codex command as the runtime, while the workbench renders availability, transport, auth mode and capabilities. Unavailable providers are disabled before a skill can run; no credential is copied into ADE.
+- Installed Project skills persist their canonical local or Git source and install time. The workbench can update a selected traceable Project skill, retaining its id and requiring explicit consent before a remote update; sidecar errors are rendered as user feedback.
 
 - ¿Qué proveedores se incluyen de forma nativa en el primer paquete?
 - ¿La terminal usa PTY propio o una librería Tauri estable?
