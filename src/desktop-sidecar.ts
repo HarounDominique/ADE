@@ -1,4 +1,5 @@
 import { createInterface } from "node:readline";
+import { isSea } from "node:sea";
 import { AdeStore } from "./persistence/sqlite-store.js";
 import { getProjectSnapshot } from "./application/project-snapshot.js";
 
@@ -55,7 +56,8 @@ export async function runDesktopSidecar(): Promise<void> {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const directEntrypoint = ["desktop-sidecar.ts", "desktop-sidecar.js", "desktop-sidecar.cjs"].some((name) => process.argv[1]?.endsWith(name));
+if (directEntrypoint || isSea()) {
   runDesktopSidecar().catch((error) => {
     process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
     process.exitCode = 1;

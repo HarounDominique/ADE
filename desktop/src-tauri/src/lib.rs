@@ -97,19 +97,25 @@ fn sidecar_start(
     if state.reap_finished()? {
         return Ok(());
     }
-    let node = std::env::var("ADE_SIDECAR_NODE").unwrap_or_else(|_| "node".to_string());
-    let script = std::env::var("ADE_SIDECAR_SCRIPT")
-        .map(std::path::PathBuf::from)
-        .or_else(|_| {
-            app.path()
-                .resource_dir()
-                .map(|directory| directory.join("sidecar-dist/desktop-sidecar.js"))
-                .map_err(|error| error.to_string())
-        })?;
     let database_path = std::env::var("ADE_DB_PATH")
         .map_err(|_| "ADE_DB_PATH must point to the ADE metadata database".to_string())?;
-    let mut child = Command::new(node)
-        .arg(script)
+    let mut command = if let Ok(script) = std::env::var("ADE_SIDECAR_SCRIPT") {
+        let node = std::env::var("ADE_SIDECAR_NODE").unwrap_or_else(|_| "node".to_string());
+        let mut command = Command::new(node);
+        command.arg(script);
+        command
+    } else {
+        let binary = std::env::var("ADE_SIDECAR_BIN")
+            .map(std::path::PathBuf::from)
+            .or_else(|_| {
+                app.path()
+                    .resource_dir()
+                    .map(|directory| directory.join("sidecar-dist/ade-sidecar"))
+                    .map_err(|error| error.to_string())
+            })?;
+        Command::new(binary)
+    };
+    let mut child = command
         .env("ADE_DB_PATH", database_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
