@@ -147,6 +147,7 @@ classDiagram
   nREADMEmd --> ndocuspecsSPECNEXUSmd : references
   nREADMEmd --> ndocuREADMEmd : references
   nREADMEmd --> ndocuspecsSPECv03md : references
+  nREADMEmd --> ntaskstodomd : references
   nREADMEmd --> ndocuspikes001opencoderuntimemd : references
   nREADMEmd --> ndocuspikes002independentreviewmd : references
   ndocuREADMEmd --> ndocuspecsSPECNEXUSmd : references

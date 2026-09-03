@@ -45,3 +45,12 @@ test("documentation reconciliation is a first-class approval gate", () => {
   assert.deepEqual(gate?.evidenceIds, ["docs-evidence"]);
   store.close();
 });
+
+test("task detail retains persisted skill activity for a resumed session", () => {
+  const store = new AdeStore();
+  store.saveTask(Task.create({ id: "task-skill-history", intent: "Run a skill" }));
+  store.saveRuntimeEvidence(createRuntimeEvidence({ id: "skill-evidence", taskId: "task-skill-history", sessionId: "session-1", type: "skill.session.idle", summary: "spector: session.idle" }));
+  const detail = getTaskDetail(store, "task-skill-history");
+  assert.deepEqual(detail.runtimeEvidence.map((item) => [item.type, item.sessionId]), [["skill.session.idle", "session-1"]]);
+  store.close();
+});

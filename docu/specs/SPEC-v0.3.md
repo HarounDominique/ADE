@@ -58,6 +58,7 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 - The selected Task is shell state shared by Work, Changes, Git and the workbench, so skills, reconciliation and Git operations attribute their evidence to the same Task the user is looking at.
 - Git operations return an auditable reference: `commit.create` reports its SHA and `push` resolves the current branch, refusing a detached `HEAD`. `github.status` reports GitHub CLI availability without storing credentials.
 - Project skills are installable from the workbench. A network source is identified before cloning and rejected with `SKILL_INSTALL_CONFIRMATION_REQUIRED` unless the run is explicitly confirmed.
+- Changes renders the selected Task's ChangeSet, gates and findings; Work renders its persisted runtime activity, agent sessions and Git trace. Skill runtime events are bounded evidence rather than stored provider transcripts.
 
 - ¿Qué proveedores se incluyen de forma nativa en el primer paquete?
 - ¿La terminal usa PTY propio o una librería Tauri estable?

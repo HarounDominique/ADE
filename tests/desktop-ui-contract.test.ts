@@ -25,5 +25,7 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /method: 'skills\.run'/);
   assert.match(main, /method: 'skills\.install'/);
   assert.match(main, /method: 'github\.status'/);
+  for (const id of ["changes-changeset", "changes-findings", "git-task-operations"]) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(main, /Persisted activity/);
   assert.match(main, /method: 'knowledge\.reconcile\.apply'/);
 });

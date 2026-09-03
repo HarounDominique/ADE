@@ -40,6 +40,8 @@ Una Task puede seguirse desde su branch y ChangeSet hasta commit/PR, con gates y
 
 Cada operación devuelve la referencia que la hace auditable: `commit.create` devuelve el SHA creado, `push` resuelve la rama actual y rechaza un `HEAD` desacoplado en lugar de empujar una referencia ambigua, y `branch.create`/`pull-request.create` devuelven nombre y URL. ADE persiste esa referencia contra la Task seleccionada en el workspace, no contra la Task que muestre otra pantalla. `github.status` expone la disponibilidad de la GitHub CLI sin almacenar credenciales.
 
+Changes presenta el ChangeSet, gates y findings de la Task seleccionada; Git conserva sus operaciones en un panel separado para que el estado del workspace no reemplace la trazabilidad de la Task.
+
 ## Open Questions
 
 - ¿GitHub vía CLI local, API oficial o ambos?

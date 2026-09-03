@@ -34,6 +34,8 @@ Fakes por capacidad, contract tests por adapter, detección de binario/endpoint 
 
 OpenCode reanuda el `sessionId` HTTP almacenado. Codex inicia con `codex exec --json`, captura `thread_id` y lo retoma con `codex exec resume <thread_id>`. El shell muestra las sesiones de cada Task y permite elegir una para continuar una skill; una sesión no se declara reanudable hasta que el proveedor ha emitido su identificador real.
 
+La actividad de skills se persiste como evidencia acotada por Task y sesión, y se muestra en el detalle de la Task junto a ChangeSets, operaciones Git y sesiones. No persiste tokens ni prompts completos del proveedor.
+
 ## Success Criteria
 
 ADE detecta proveedores disponibles, permite elegir uno para una Task y mantiene el workflow aunque cambie el adapter.

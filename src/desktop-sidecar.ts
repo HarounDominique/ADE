@@ -173,6 +173,21 @@ export async function runDesktopSidecar(): Promise<void> {
           let sessionId: string | undefined;
           let createdAt: string | undefined;
           const persist = (id: string, status: string) => store.saveAgentSession({ id, ...(params.taskId ? { taskId: params.taskId } : {}), provider: params.provider ?? "opencode", directory: params.repositoryPath!, status, createdAt: createdAt ?? new Date().toISOString() });
+          const persistEvent = (event: import("./ports/agent-runtime.js").RuntimeEvent) => {
+            if (!params.taskId) return;
+            const payload = event.payload as { type?: string; properties?: Record<string, unknown>; sessionID?: string };
+            const evidencePolicy = loadGatePolicy(params.repositoryPath).evidence;
+            store.saveRuntimeEvidence(createRuntimeEvidence({
+              id: `skill-${params.taskId}-${Date.now()}-${++runtimeEvidenceSequence}`,
+              taskId: params.taskId,
+              ...(sessionId || payload.sessionID ? { sessionId: sessionId ?? payload.sessionID } : {}),
+              type: `skill.${payload.type ?? event.type}`,
+              summary: `${params.skillId}: ${payload.type ?? event.type}`,
+              ...(payload.properties ? { details: JSON.stringify(payload.properties) } : {}),
+              policy: evidencePolicy,
+            }));
+            store.pruneRuntimeEvidence(params.taskId, evidencePolicy.maxItems);
+          };
           void runNativeSkill(runtime, {
             skillId: params.skillId,
             directory: params.repositoryPath,
@@ -185,7 +200,7 @@ export async function runDesktopSidecar(): Promise<void> {
               // Codex emits its real resume id only after the first prompt completes.
               if (params.provider !== "codex") persist(session.id, "RUNNING");
             },
-            onEvent: (event) => process.stdout.write(`${JSON.stringify({ type: "skill.event", id: request.id, skillId: params.skillId, event })}\n`),
+            onEvent: (event) => { persistEvent(event); process.stdout.write(`${JSON.stringify({ type: "skill.event", id: request.id, skillId: params.skillId, event })}\n`); },
           }).then((result) => {
             persist(result.session.id, "COMPLETED");
             process.stdout.write(`${JSON.stringify({ id: request.id, result: { skillId: result.skill.id, sessionId: result.session.id, provider: params.provider ?? "opencode", events: result.events.length, status: "COMPLETED" } })}\n`);
