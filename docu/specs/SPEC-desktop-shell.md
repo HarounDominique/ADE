@@ -30,7 +30,7 @@ Es la entrada por defecto. Presenta Project, raíz del repositorio, branch detec
 
 ### Work
 
-Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y las transiciones seguras ya atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor, y refrescan el Project Hub. La observación de ejecución sigue pendiente; por ahora Work sólo refleja el estado persistido de la Task. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados.
+Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y las transiciones seguras atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor, y refrescan el Project Hub. Una Task en `READY`, `CHANGES_REQUESTED` o `BLOCKED` puede iniciar `task.run`; la shell recibe aceptación inmediata y eventos de Implementer, mientras el sidecar persiste la transición, diff y ChangeSet. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados.
 
 ### Knowledge
 
@@ -42,7 +42,7 @@ Presenta resumen semántico, impacto, findings, archivos, diff, ChangeSets y che
 
 ### Runtime
 
-Muestra sesiones, servicios, procesos, puertos, healthchecks, terminal, stdout/stderr y tests. La primera slice expone `runtime.status` por el sidecar y presenta por separado `sidecar: READY`, `agentRuntime: DISCONNECTED`, Task activa, último evento y último error. Un estado `RUNNING` debe provenir de evidencia de runtime, no de una inferencia visual; `DISCONNECTED` no implica fallo del proyecto ni ejecución cancelada.
+Muestra sesiones, servicios, procesos, puertos, healthchecks, terminal, stdout/stderr y tests. Expone `runtime.status` por el sidecar y presenta por separado `sidecar: READY`, `agentRuntime`, Task activa, último evento y último error. `task.run` emite notificaciones `runtime.event`, `runtime.completed` o `runtime.failed`; la UI actualiza Runtime y refresca el Project Hub al finalizar. Un estado `RUNNING` debe provenir de evidencia de runtime, no de una inferencia visual; `DISCONNECTED` no implica fallo del proyecto ni ejecución cancelada.
 
 ## Interaction states
 

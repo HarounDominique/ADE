@@ -68,6 +68,11 @@
   - Verify: `npm run build`, `npm test` y `node --check desktop/src/main.js`.
   - Files: `src/desktop-sidecar.ts`, `tests/desktop-sidecar.test.ts`, `desktop/src/`
 
+- [x] Task: Conectar ejecución del Implementer y eventos de runtime
+  - Acceptance: `task.run` acepta una Task ejecutable sin bloquear stdin/stdout, inicia OpenCode, retransmite eventos y refleja `CONNECTED`/`FAILED`; Work puede iniciar la ejecución y refresca el snapshot al terminar.
+  - Verify: `npm run build`, `npm test` y `node --check desktop/src/main.js`.
+  - Files: `src/application/run-spike.ts`, `src/desktop-sidecar.ts`, `tests/desktop-sidecar.test.ts`, `desktop/src/main.js`
+
 - [ ] Task: Integrar lifecycle del sidecar con Tauri
   - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor, conexión de streams, render del snapshot, estados `ready/failed` y un único reintento implementados; smoke de desarrollo con `ADE_DB_PATH` y `ADE_PROJECT_ID` explícitos y pruebas de fallo de proceso superados. Falta validar recuperación dentro de la app.
   - Verify: smoke test macOS en modo desarrollo y bundle.
