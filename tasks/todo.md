@@ -141,7 +141,7 @@
   - Verify: tests de governance/UI y smoke del flujo de aprobación.
   - Files: `desktop/src/`, `src/application/`, `tests/`
 
-- [ ] Task: Implementar servicios locales declarados
+- [x] Task: Implementar servicios locales declarados
   - Acceptance: Runtime inicia, inspecciona, comprueba y detiene servicios con timeout y lifecycle sin procesos huérfanos.
   - Verify: tests con procesos temporales, healthcheck y parada.
   - Files: `src/application/`, `src/adapters/`, `desktop/src-tauri/`, `tests/`
