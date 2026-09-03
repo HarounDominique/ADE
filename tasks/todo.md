@@ -49,7 +49,7 @@
   - Files: `src/desktop-sidecar.ts`, `tests/desktop-sidecar.test.ts`
 
 - [ ] Task: Integrar lifecycle del sidecar con Tauri
-  - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor interno implementado; falta smoke test con proceso real y conexión de streams.
+  - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor y conexión de streams implementados; falta smoke test con proceso real dentro de la app.
   - Verify: smoke test macOS en modo desarrollo y bundle.
   - Files: `desktop/src-tauri/`, `docu/spikes/004-desktop-transport.md`
 
