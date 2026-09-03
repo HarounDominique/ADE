@@ -5,6 +5,7 @@ import { validateSkillManifest } from "../src/domain/skill.js";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runNativeSkill } from "../src/application/skills/run-skill.js";
 
 test("native skill catalog includes the daily developer workflow", () => {
   const ids = listNativeSkills().map((skill) => skill.id);
@@ -21,4 +22,15 @@ test("project skills load from the local ADE skills directory", async () => {
   await writeFile(join(root, ".ade", "skills", "team-review.json"), JSON.stringify({ id: "team-review", version: "1.0.0", label: "Team review", description: "Review team conventions", inputs: ["intent"], outputs: ["findings"], permissions: ["read_project"] }));
   const skills = await listSkills(root);
   assert.ok(skills.some((skill) => skill.id === "team-review" && skill.source === "project"));
+});
+
+test("project skills are executable through the shared runtime contract", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-skills-run-"));
+  await mkdir(join(root, ".ade", "skills"), { recursive: true });
+  await writeFile(join(root, ".ade", "skills", "team-review.json"), JSON.stringify({ id: "team-review", version: "1.0.0", label: "Team review", description: "Review team conventions", inputs: ["intent"], outputs: ["findings"], permissions: ["read_project"] }));
+  const calls: string[] = [];
+  const runtime = { createSession: async () => ({ id: "session", directory: root }), prompt: async (_session: unknown, input: { text: string }) => { calls.push(input.text); } } as never;
+  const result = await runNativeSkill(runtime, { skillId: "team-review", directory: root, intent: "Review this" });
+  assert.equal(result.skill.source, "project");
+  assert.match(calls[0] ?? "", /Team review/);
 });

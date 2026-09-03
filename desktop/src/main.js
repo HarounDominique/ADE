@@ -466,7 +466,11 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     const labels = { 'create-branch': ['git.branch.create', 'feature/ade-next'], 'create-commit': ['git.commit.create', 'chore: record ADE changes'], 'create-pr': ['github.pr.create', 'ADE change'] };
     const [method, intent] = labels[item.dataset.action];
     if (!window.confirm(`Confirm ${method}: ${intent}?`)) return;
-    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => notify(`${method} completed.`)).catch((error) => { notify('Git operation failed.'); console.warn(error); });
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { taskId: document.getElementById('changes-task-id')?.textContent, repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => {
+      notify(`${method} completed.`);
+      const taskId = document.getElementById('changes-task-id')?.textContent;
+      if (taskId) nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-ops-${Date.now()}`, method: 'task.git.operations', params: { taskId } }) });
+    }).catch((error) => { notify('Git operation failed.'); console.warn(error); });
     return;
   }
   if (item.dataset.action === 'run-skill') {
