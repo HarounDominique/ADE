@@ -17,7 +17,7 @@ import { LocalProcess } from "./adapters/local-process.js";
 import { ServiceManager, type ServiceDefinition } from "./application/local-runtime/service-manager.js";
 import type { ChangeSet } from "./domain/change-set.js";
 import { inspectProviders } from "./application/agent-providers/provider-registry.js";
-import { listNativeSkills } from "./application/skills/skill-catalog.js";
+import { listNativeSkills, listSkills } from "./application/skills/skill-catalog.js";
 import { getGitStatus } from "./application/git/git-status.js";
 import { findReferenceImpact } from "./application/knowledge/reference-impact.js";
 import { runNativeSkill } from "./application/skills/run-skill.js";
@@ -151,6 +151,9 @@ export async function runDesktopSidecar(): Promise<void> {
       }
       if (request.method === "runtime.health") {
         void checkRuntimeHealth(request);
+      } else if (request.method === "skills.list") {
+        void listSkills(request.params?.repositoryPath).then((skills) => process.stdout.write(`${JSON.stringify({ id: request.id, result: skills })}\n`))
+          .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILLS_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "task.run") {
         startTaskRun(store, request);
       } else if (request.method === "task.rereview") {

@@ -1,5 +1,7 @@
 import { nativeProviders } from "../../domain/agent-provider.js";
 import { validateSkillManifest, type SkillManifest } from "../../domain/skill.js";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 export const nativeSkills: readonly SkillManifest[] = ([
   ["prompt-engineering", "Prompt engineering", "Shape intent, constraints and acceptance criteria."],
@@ -18,6 +20,25 @@ export function listNativeSkills(): readonly SkillManifest[] {
 
 export function getNativeSkill(id: string): SkillManifest | undefined {
   return nativeSkills.find((skill) => skill.id === id);
+}
+
+export async function loadProjectSkills(repositoryPath: string): Promise<readonly SkillManifest[]> {
+  const directory = join(repositoryPath, ".ade", "skills");
+  try {
+    const files = (await readdir(directory)).filter((file) => file.endsWith(".json")).sort();
+    const skills: SkillManifest[] = [];
+    for (const file of files) {
+      const value = JSON.parse(await readFile(join(directory, file), "utf8")) as SkillManifest;
+      skills.push(validateSkillManifest({ ...value, source: "project" }));
+    }
+    return skills;
+  } catch {
+    return [];
+  }
+}
+
+export async function listSkills(repositoryPath?: string): Promise<readonly SkillManifest[]> {
+  return repositoryPath ? [...nativeSkills, ...(await loadProjectSkills(repositoryPath))] : nativeSkills;
 }
 
 export function listNativeProviders(): readonly string[] {

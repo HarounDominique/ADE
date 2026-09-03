@@ -184,7 +184,7 @@ async function connectSidecar(snapshot) {
     await invoke('sidecar_request', {
       request: JSON.stringify({ id: `runtime-${Date.now()}`, method: 'runtime.status' }),
     });
-    await invoke('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list' }) });
+    await invoke('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list', params: { repositoryPath: snapshot.project.repositoryPath } }) });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `providers-${Date.now()}`, method: 'providers.inspect' }) });
   };
   try {
@@ -485,7 +485,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'list-skills') {
-    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list' }) });
+    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list', params: { repositoryPath: document.getElementById('project-path')?.textContent } }) });
     return;
   }
   if (item.dataset.action === 'open-document') {
