@@ -326,6 +326,18 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     });
     return;
   }
+  if (item.dataset.action === 'open-document') {
+    if (!nativeInvoke) {
+      notify('Opening documentation requires the local desktop runtime.');
+      return;
+    }
+    const repositoryPath = document.getElementById('project-path')?.textContent;
+    nativeInvoke('open_document', { repositoryPath, relativePath: `docu/specs/${item.dataset.document}` }).then(() => notify('Documentation opened.')).catch((error) => {
+      notify('Unable to open documentation.');
+      console.warn('Documentation unavailable:', error);
+    });
+    return;
+  }
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
