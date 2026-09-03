@@ -33,9 +33,15 @@ impl SidecarSupervisor {
             .lock()
             .map_err(|_| "Sidecar state is poisoned".to_string())?;
         if let Some(mut process) = child.take() {
-            process
-                .kill()
-                .map_err(|error| format!("Unable to stop sidecar: {error}"))?;
+            if process
+                .try_wait()
+                .map_err(|error| format!("Unable to inspect sidecar: {error}"))?
+                .is_none()
+            {
+                process
+                    .kill()
+                    .map_err(|error| format!("Unable to stop sidecar: {error}"))?;
+            }
             process
                 .wait()
                 .map_err(|error| format!("Unable to reap sidecar: {error}"))?;
@@ -253,5 +259,34 @@ mod tests {
 
         supervisor.stop().expect("first stop");
         supervisor.stop().expect("second stop");
+    }
+
+    #[test]
+    fn sidecar_status_reaps_an_unexpected_exit() {
+        let supervisor = SidecarSupervisor::default();
+        let child = std::process::Command::new("sh")
+            .args(["-c", "exit 0"])
+            .spawn()
+            .expect("spawn fixture");
+        *supervisor.child.lock().expect("lock state") = Some(child);
+
+        std::thread::sleep(std::time::Duration::from_millis(20));
+
+        assert!(!supervisor.reap_finished().expect("status"));
+    }
+
+    #[test]
+    fn sidecar_stop_handles_a_process_that_already_exited() {
+        let supervisor = SidecarSupervisor::default();
+        let child = std::process::Command::new("sh")
+            .args(["-c", "exit 0"])
+            .spawn()
+            .expect("spawn fixture");
+        *supervisor.child.lock().expect("lock state") = Some(child);
+
+        std::thread::sleep(std::time::Duration::from_millis(20));
+
+        supervisor.stop().expect("stop exited process");
+        assert!(!supervisor.reap_finished().expect("status"));
     }
 }
