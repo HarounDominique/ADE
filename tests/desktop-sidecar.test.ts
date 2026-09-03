@@ -127,6 +127,20 @@ test("desktop sidecar accepts an Implementer run asynchronously", async () => {
   rmSync(directory, { recursive: true, force: true });
 });
 
+test("desktop sidecar rejects an Implementer run from an ineligible Task state", () => {
+  const store = new AdeStore();
+  const task = Task.create({ id: "task-draft-run", intent: "Do not run yet", repositoryPath: "/tmp/ade" });
+  store.saveTask(task);
+
+  const response = handleDesktopRequest(store, { id: "run-draft", method: "task.run", params: { taskId: task.id } });
+
+  assert.deepEqual(response, {
+    id: "run-draft",
+    error: { code: "METHOD_NOT_FOUND", message: "Unknown method: task.run" },
+  });
+  store.close();
+});
+
 test("desktop sidecar process fails fast without an explicit database", async () => {
   const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
     cwd: process.cwd(),

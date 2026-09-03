@@ -43,7 +43,7 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.run'].includes(request.method)) {
+    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -116,6 +116,10 @@ function startTaskRun(store: AdeStore, request: DesktopRequest): void {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "taskId must reference a Task with a repositoryPath" } })}\n`);
     return;
   }
+  if (!["READY", "CHANGES_REQUESTED", "BLOCKED"].includes(task.currentStatus)) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_TASK_STATE", message: `Task ${taskId} cannot run from ${task.currentStatus}` } })}\n`);
+    return;
+  }
   if (runtimeStatus.activeTaskId) {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RUNTIME_BUSY", message: `Task ${runtimeStatus.activeTaskId} is already running` } })}\n`);
     return;
@@ -139,6 +143,11 @@ function startTaskRun(store: AdeStore, request: DesktopRequest): void {
     runtimeStatus.activeTaskId = null;
     process.stdout.write(`${JSON.stringify({ type: "runtime.completed", taskId, status: getRuntimeStatus() })}\n`);
   }).catch((error: unknown) => {
+    const failedTask = store.rehydrateTask(taskId);
+    if (failedTask?.currentStatus === "IN_PROGRESS") {
+      failedTask.transition("BLOCKED", "Implementer execution failed", "ade");
+      store.saveTask(failedTask);
+    }
     runtimeStatus.agentRuntime = "FAILED";
     runtimeStatus.activeTaskId = null;
     runtimeStatus.lastError = error instanceof Error ? error.message : String(error);
