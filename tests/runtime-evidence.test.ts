@@ -5,6 +5,7 @@ import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Task } from "../src/domain/task.js";
 import { getRuntimeHistory, getTaskDetail } from "../src/application/task-detail.js";
 import { getChangeReview } from "../src/application/change-review-read-model.js";
+import { approveTaskFromStore } from "../src/application/tasks/approval-from-store.js";
 
 test("runtime evidence is bounded and persists by Task", () => {
   const store = new AdeStore();

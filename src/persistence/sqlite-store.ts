@@ -106,6 +106,12 @@ export class AdeStore {
         summary TEXT NOT NULL,
         details TEXT
       );
+      CREATE TABLE IF NOT EXISTS approvals (
+        task_id TEXT PRIMARY KEY REFERENCES tasks(id),
+        actor TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        at TEXT NOT NULL
+      );
     `);
     this.migrateTasks();
     this.migrateChangeSets();
@@ -284,6 +290,14 @@ export class AdeStore {
       SELECT id, task_id AS taskId, session_id AS sessionId, type, at, summary, details
       FROM runtime_evidence WHERE task_id = ? ORDER BY at DESC, id DESC LIMIT ?
     `).all(taskId, limit) as PersistedRuntimeEvidence[];
+  }
+
+  saveApproval(input: { taskId: string; actor: string; reason: string; at?: string }): void {
+    this.db.prepare(`INSERT INTO approvals (task_id, actor, reason, at) VALUES (?, ?, ?, ?) ON CONFLICT(task_id) DO UPDATE SET actor = excluded.actor, reason = excluded.reason, at = excluded.at`).run(input.taskId, input.actor, input.reason, input.at ?? new Date().toISOString());
+  }
+
+  getApproval(taskId: string): { taskId: string; actor: string; reason: string; at: string } | undefined {
+    return this.db.prepare("SELECT task_id AS taskId, actor, reason, at FROM approvals WHERE task_id = ?").get(taskId) as { taskId: string; actor: string; reason: string; at: string } | undefined;
   }
 
   close(): void {

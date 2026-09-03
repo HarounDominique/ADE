@@ -9,6 +9,7 @@ import { runSpike } from "./application/run-spike.js";
 import { createRuntimeEvidence } from "./domain/runtime-evidence.js";
 import { getRuntimeHistory, getTaskDetail } from "./application/task-detail.js";
 import { getChangeReview } from "./application/change-review-read-model.js";
+import { approveTaskFromStore } from "./application/tasks/approval-from-store.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -47,7 +48,7 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review'].includes(request.method)) {
+    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -64,6 +65,12 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       const taskId = request.params?.taskId;
       if (!taskId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId is required" } };
       return { id: request.id, result: request.method === "task.detail" ? getTaskDetail(store, taskId) : request.method === "runtime.history" ? getRuntimeHistory(store, taskId) : getChangeReview(store, taskId) };
+    }
+    if (request.method === "task.approve") {
+      const { taskId, reason, actor } = request.params ?? {};
+      if (!taskId || !reason) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId and reason are required" } };
+      approveTaskFromStore(store, { id: taskId, reason, ...(actor ? { actor } : {}) });
+      return { id: request.id, result: { taskId, status: "COMPLETED", actor: actor ?? "human" } };
     }
     const { taskId, intent, projectId, repositoryPath, next, reason, actor } = request.params ?? {};
     if (request.method === "task.advance") {
