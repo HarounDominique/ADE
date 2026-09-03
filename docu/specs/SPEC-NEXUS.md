@@ -1,6 +1,6 @@
 # Nexus: ADE — Agentic Development Environment
 
-**Estado:** v0.1 MVP implementado; v0.2 en especificación
+**Estado:** v0.1 MVP implementado; v0.2 operativo con cierre de release pendiente; v0.3 en especificación
 **Fecha:** 2026-09-02  
 **Fuente:** informe fundacional de ADE proporcionado por el usuario
 
@@ -59,14 +59,27 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | changes-review-governance | [SPEC-changes-review-governance.md](SPEC-changes-review-governance.md) | ChangeSets, Git, gates, findings y aprobación | agent-runtime, knowledge-docs | ready | — |
 | local-runtime | [SPEC-local-runtime.md](SPEC-local-runtime.md) | Servicios, procesos, terminal, logs y tests | project-task-workflow | ready | — |
 | desktop-shell | [SPEC-desktop-shell.md](SPEC-desktop-shell.md) | Project Hub, navegación, visor y escape hatch | project-task-workflow, changes-review-governance, local-runtime | ready | — |
+| workspace-core | [SPEC-workspace-core.md](SPEC-workspace-core.md) | Terminal nativa, árbol local, archivos y contexto de workspace | desktop-shell, project-task-workflow | ready | — |
+| agent-providers | [SPEC-agent-providers.md](SPEC-agent-providers.md) | Proveedores agénticos, licencias, sesiones y permisos | agent-runtime, workspace-core | ready | — |
+| native-skills | [SPEC-native-skills.md](SPEC-native-skills.md) | Catálogo, instalación, versionado y ejecución de skills | knowledge-docs, development-workflow, agent-providers | ready | — |
+| git-collaboration | [SPEC-git-collaboration.md](SPEC-git-collaboration.md) | Git local, GitHub, branches, worktrees y PRs | workspace-core, changes-review-governance, agent-providers | ready | — |
+| living-knowledge | [SPEC-living-knowledge.md](SPEC-living-knowledge.md) | Grafo de referencias, specs vivas, diagramas y reconciliación | knowledge-docs, native-skills, workspace-core | ready | — |
 
 **Build order:** `project-task-workflow → development-workflow → agent-runtime + knowledge-docs + local-runtime → changes-review-governance → desktop-shell`.
 
+**v0.3 build order:** `workspace-core → agent-providers + native-skills → git-collaboration + living-knowledge → desktop-shell integration`. `quality-consulting` se implementará como skills nativas sobre esos contratos.
+
 Las ramas paralelas sólo pueden comenzar cuando `project-task-workflow` haya definido el contrato de Task y sus eventos mínimos. `development-workflow` define las transiciones que coordinan las ramas, pero no convierte cada fase en una obligación.
+
+## v0.3 product direction
+
+ADE evoluciona de shell desktop operativa a workspace agéntico local-first. El usuario debe poder abrir un repositorio, navegar su máquina, usar una terminal nativa, seleccionar un proveedor con licencia, ejecutar skills y mantener código y documentación viva dentro del mismo contexto.
+
+La v0.3 prioriza `workspace-core`: sin contexto local navegable y terminal integrada, los demás módulos obligan al usuario a volver a cambiar de aplicación.
 
 ## Scope boundary
 
-Este nexus cubre el MVP y sus spikes. Quedan fuera del build order inicial: AgentMemory, ASK como dependencia, multiagente complejo, worktrees paralelos, browser automation, cloud, sync, realtime collaboration y productización.
+Este nexus cubre MVP, v0.2 y la planificación v0.3. AgentMemory, ASK como dependencia, browser automation, cloud, sync realtime, colaboración multiusuario y productización siguen fuera. Los worktrees entran en v0.3 sólo como aislamiento Git local.
 
 ## MVP contract
 

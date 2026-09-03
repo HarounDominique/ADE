@@ -1,0 +1,48 @@
+# Spec: Native Skills
+
+<!-- Nexus: SPEC-NEXUS.md | Module id: native-skills -->
+
+## Objective
+
+Distribuir un catálogo nativo de skills comunes y permitir instalar, actualizar, modificar o crear skills sin romper la trazabilidad del workflow.
+
+## Initial Catalog
+
+Prompt engineering, PR review, Spector/spec-driven development, workflow adaptativo, UML, documentación funcional para QA, estimación de tareas, Git/GitHub y reconciliación documental.
+
+## Commands
+
+`npm run build`; `npm test`; `npm run ade -- skill list`; `npm run desktop:dev`.
+
+## Project Structure
+
+`.ade/skills/` contiene skills del Project; el paquete nativo vive en `skills/`; el registro vive en `src/application/skills/`; la UI en `desktop/src/`.
+
+## Code Style
+
+```yaml
+id: spector
+version: 1.0.0
+inputs: [intent, changed_specs]
+outputs: [specs, nexus_updates, findings]
+permissions: [read_project, write_docs]
+```
+
+## Testing Strategy
+
+Validación de manifest, compatibilidad, permisos, inputs/outputs, instalación y regresión de skills nativas.
+
+## Boundaries
+
+- Always: versionar, atribuir y poder desactivar cada skill.
+- Ask first: instalar desde red, escribir código o cambiar specs canónicas.
+- Never: ejecutar una skill sin declarar permisos ni ocultar qué produjo.
+
+## Success Criteria
+
+Un Project nuevo tiene un catálogo de skills y el usuario puede añadir una skill propia con versión, permisos y trazabilidad.
+
+## Open Questions
+
+- ¿Formato único compatible con Codex, OpenCode y otros agentes?
+- ¿Marketplace remoto o sólo repositorios locales/Git?
