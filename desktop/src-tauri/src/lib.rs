@@ -96,6 +96,18 @@ fn project_id() -> String {
 }
 
 #[tauri::command]
+fn open_terminal(repository_path: String) -> Result<(), String> {
+    if !std::path::Path::new(&repository_path).is_dir() {
+        return Err(format!("Repository does not exist: {repository_path}"));
+    }
+    Command::new("open")
+        .args(["-a", "Terminal", &repository_path])
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("Unable to open Terminal: {error}"))
+}
+
+#[tauri::command]
 fn sidecar_start(
     app: tauri::AppHandle,
     state: tauri::State<'_, SidecarSupervisor>,
@@ -209,6 +221,7 @@ pub fn run() {
             greet,
             project_context,
             project_id,
+            open_terminal,
             sidecar_start,
             sidecar_request,
             sidecar_status,
@@ -221,7 +234,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{project_context, SidecarSupervisor};
+    use super::{open_terminal, project_context, SidecarSupervisor};
     use std::fs;
 
     #[test]
@@ -244,6 +257,11 @@ mod tests {
         assert_eq!(context.branch, "feature/ui");
         assert_eq!(context.working_tree, "detected");
         fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn open_terminal_rejects_missing_repository() {
+        assert!(open_terminal("/path/that/cannot/exist/for/ade".to_string()).is_err());
     }
 
     #[test]
