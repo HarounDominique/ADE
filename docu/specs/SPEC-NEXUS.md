@@ -112,3 +112,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — desktop-supervisor — Tauri incorpora supervisor de sidecar con start/status/stop idempotente y pruebas unitarias; sigue pendiente el smoke test con proceso real y el cableado de streams.
 - 2026-09-03 — desktop-sidecar-smoke — Smoke test real del sidecar por stdin/stdout sobre SQLite temporal completado; la integración del proceso bajo Tauri sigue pendiente.
 - 2026-09-03 — desktop-tauri-transport — Tauri ya arranca/supervisa el sidecar y expone requests/respuestas JSON-RPC mediante comandos y eventos; queda pendiente validar el lifecycle dentro de la app y el bundle.
+- 2026-09-03 — desktop-sidecar-path — Se hizo obligatorio `ADE_DB_PATH` en el sidecar y en el supervisor Tauri para evitar persistencia dependiente del `cwd`; el smoke siguiente debe usar una DB explícita.

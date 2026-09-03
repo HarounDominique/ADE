@@ -32,7 +32,7 @@ Usar un sidecar TypeScript supervisado por Tauri y un protocolo JSON-RPC sobre s
 
 El primer corte debe implementar sólo `project.snapshot`, con request id, respuesta `result/error` y cierre limpio. Las mutaciones y eventos se añaden después de validar lifecycle y empaquetado.
 
-El primer corte está implementado en `src/desktop-sidecar.ts` y se ejecuta con `npm run desktop:sidecar`. Los tests verifican snapshot, request id y errores estructurados, y un smoke test ya validó el proceso real sobre stdin/stdout con SQLite temporal. Tauri dispone de un supervisor con arranque, consulta de estado y parada idempotente, además de los comandos y eventos para conectar los streams JSON-RPC; falta ejecutar el smoke test integrado.
+El primer corte está implementado en `src/desktop-sidecar.ts` y se ejecuta con `npm run desktop:sidecar` cuando `ADE_DB_PATH` está configurado. Los tests verifican snapshot, request id y errores estructurados, y un smoke test ya validó el proceso real sobre stdin/stdout con SQLite temporal. Tauri dispone de un supervisor con arranque, consulta de estado y parada idempotente, además de los comandos y eventos para conectar los streams JSON-RPC; el smoke integrado ya arranca la app, pero queda repetirlo con DB explícita y verificar respuesta visible en la UI.
 
 ## Gates del spike
 
@@ -41,7 +41,7 @@ El primer corte está implementado en `src/desktop-sidecar.ts` y se ejecuta con 
 3. Una excepción del sidecar produce error estructurado y no rompe la shell.
 4. El bundle macOS incluye el ejecutable y conserva la ruta de datos elegida.
 
-**Progreso:** gate 1 y el protocolo de proceso cubiertos; el cableado del gate 2 está implementado, pero su smoke test real permanece pendiente; gates 3 (fallo en runtime) y 4 (bundle) pendientes.
+**Progreso:** gate 1 y el protocolo de proceso cubiertos; gate 2 está implementado y arrancado en desarrollo, pendiente de validación con DB explícita y respuesta visible; gates 3 (fallo en runtime) y 4 (bundle) pendientes.
 
 ## Fuera de alcance
 
