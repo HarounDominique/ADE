@@ -38,6 +38,19 @@ function setSyncState(state, message) {
   syncText.textContent = message;
 }
 
+function renderRuntimeStatus(status) {
+  const sidecar = document.getElementById('runtime-sidecar-status');
+  const agent = document.getElementById('runtime-agent-status');
+  const event = document.getElementById('runtime-last-event');
+  const detail = document.getElementById('runtime-agent-detail');
+  const error = document.getElementById('runtime-error-detail');
+  if (sidecar) sidecar.textContent = status.sidecar.replaceAll('_', ' ');
+  if (agent) agent.textContent = status.agentRuntime.replaceAll('_', ' ');
+  if (event) event.textContent = status.lastEventAt ? new Date(status.lastEventAt).toLocaleString() : '—';
+  if (detail) detail.textContent = status.activeTaskId ? `Task ${status.activeTaskId} is active.` : 'No agent session is running.';
+  if (error) error.textContent = status.lastError ?? 'No runtime events recorded.';
+}
+
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 }
@@ -81,10 +94,17 @@ async function connectSidecar(snapshot) {
     await invoke('sidecar_request', {
       request: JSON.stringify({ id: `snapshot-${Date.now()}`, method: 'project.snapshot', params: { projectId: configuredProjectId } }),
     });
+    await invoke('sidecar_request', {
+      request: JSON.stringify({ id: `runtime-${Date.now()}`, method: 'runtime.status' }),
+    });
   };
   try {
     await listen('sidecar:response', (event) => {
       const response = JSON.parse(event.payload);
+      if (response.result?.agentRuntime) {
+        renderRuntimeStatus(response.result);
+        return;
+      }
       if (response.result) {
         renderSnapshot({
           ...snapshot,
@@ -183,6 +203,7 @@ function notify(message) {
 
 navItems.forEach((item) => item.addEventListener('click', () => showView(item.dataset.view)));
 renderSnapshot(projectSnapshot);
+renderRuntimeStatus({ sidecar: 'STARTING', agentRuntime: 'DISCONNECTED', activeTaskId: null, lastEventAt: null, lastError: null });
 refreshProjectContext(projectSnapshot);
 connectSidecar(projectSnapshot);
 document.querySelectorAll('[data-view-target]').forEach((item) => item.addEventListener('click', () => showView(item.dataset.viewTarget)));
