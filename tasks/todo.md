@@ -146,7 +146,7 @@
   - Verify: tests con procesos temporales, healthcheck y parada.
   - Files: `src/application/`, `src/adapters/`, `desktop/src-tauri/`, `tests/`
 
-- [ ] Task: Validar rehidratación completa de v0.2
+- [x] Task: Validar rehidratación completa de v0.2
   - Acceptance: el `.app` reinicia y conserva Task, runtime evidence, ChangeSet, Review y estado de gates desde una DB externa.
-  - Verify: `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml`, `npm run desktop:package:app` y `npm run desktop:smoke`.
+  - Verify: `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml`, `npm run desktop:package:app`, `npm run desktop:smoke` y test de rehidratación Task/Runtime/ChangeSet/Review.
   - Files: `scripts/`, `tests/`, `docu/spikes/`

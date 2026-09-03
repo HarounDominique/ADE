@@ -60,7 +60,7 @@ Cloud, cuentas, sync, colaboración realtime, worktrees paralelos, multiagente c
 2. Changes muestra evidencia real, gates y findings de la Task seleccionada.
 3. Una gate requerida bloquea aprobación/commit hasta que exista evidencia válida o waiver conforme a policy.
 4. Un servicio local declarado puede iniciarse, comprobarse y detenerse desde Runtime.
-5. El smoke empaquetado sobrevive al reinicio de la app sin perder el historial operativo.
+5. El smoke empaquetado y el test de rehidratación sobreviven al reinicio de la app sin perder el historial operativo.
 
 ## Delivery order
 
