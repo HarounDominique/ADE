@@ -20,6 +20,8 @@ import { listNativeSkills } from "./application/skills/skill-catalog.js";
 import { getGitStatus } from "./application/git/git-status.js";
 import { findReferenceImpact } from "./application/knowledge/reference-impact.js";
 import { runNativeSkill } from "./application/skills/run-skill.js";
+import { inspectGitWorkspace } from "./application/git/workspace-status.js";
+import { inspectGitHub } from "./application/git/github-status.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -145,6 +147,12 @@ export async function runDesktopSidecar(): Promise<void> {
         const params = request.params;
         if (!params?.skillId || !params.intent || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "skillId, intent and repositoryPath are required" } })}\n`);
         else void runNativeSkill(new OpenCodeHttpRuntime(process.env.OPENCODE_URL), { skillId: params.skillId, directory: params.repositoryPath, intent: params.intent }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { skillId: result.skill.id, sessionId: result.session.id, status: "RUNNING" } })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "git.workspace") {
+        const directory = request.params?.repositoryPath;
+        if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+        else void inspectGitWorkspace(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "github.status") {
+        void inspectGitHub().then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`));
       } else if (request.method === "knowledge.impact") {
         const target = request.params?.intent;
         const root = request.params?.repositoryPath;
