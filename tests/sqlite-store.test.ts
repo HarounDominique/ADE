@@ -50,6 +50,21 @@ test("SQLite persists Project and rehydrates a Task with its history", () => {
   store.close();
 });
 
+test("SQLite lists Projects and Tasks for the desktop read model", () => {
+  const store = new AdeStore();
+  const first = Project.create({ id: "project-a", name: "First", repositoryPath: "/tmp/first" });
+  const second = Project.create({ id: "project-b", name: "Second", repositoryPath: "/tmp/second" });
+  store.saveProject(first, { path: "/tmp/first", gitRoot: "/tmp/first", branch: "main" });
+  store.saveProject(second, { path: "/tmp/second", gitRoot: "/tmp/second", branch: "main" });
+  store.saveTask(Task.create({ id: "task-b", intent: "Second task", projectId: second.id }));
+  store.saveTask(Task.create({ id: "task-a", intent: "First task", projectId: first.id }));
+
+  assert.deepEqual(store.listProjects().map((project) => project.id), ["project-a", "project-b"]);
+  assert.deepEqual(store.listTasks().map((task) => task.id), ["task-a", "task-b"]);
+  assert.equal(store.listTasks()[0]?.projectId, first.id);
+  store.close();
+});
+
 test("SQLite migrates an existing ChangeSet table when directory is added", () => {
   const path = join(tmpdir(), `ade-legacy-${Date.now()}.db`);
   const legacy = new DatabaseSync(path);

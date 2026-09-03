@@ -160,6 +160,10 @@ export class AdeStore {
     return this.db.prepare("SELECT id, intent, status, events_json AS events, project_id AS projectId, repository_path AS repositoryPath FROM tasks WHERE id = ?").get(id) as PersistedTask | undefined;
   }
 
+  listTasks(): PersistedTask[] {
+    return this.db.prepare("SELECT id, intent, status, events_json AS events, project_id AS projectId, repository_path AS repositoryPath FROM tasks ORDER BY id").all() as PersistedTask[];
+  }
+
   rehydrateTask(id: string): Task | undefined {
     const persisted = this.getTask(id);
     if (!persisted) return undefined;
@@ -179,6 +183,14 @@ export class AdeStore {
              branch, created_at AS createdAt
       FROM projects WHERE id = ?
     `).get(id) as PersistedProject | undefined;
+  }
+
+  listProjects(): PersistedProject[] {
+    return this.db.prepare(`
+      SELECT id, name, repository_path AS repositoryPath, git_root AS gitRoot,
+             branch, created_at AS createdAt
+      FROM projects ORDER BY created_at, id
+    `).all() as PersistedProject[];
   }
 
   getProjectByGitRoot(gitRoot: string): PersistedProject | undefined {
