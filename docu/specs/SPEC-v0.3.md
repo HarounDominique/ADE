@@ -66,6 +66,7 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 - Workspace terminal uses a persistent native PTY (`portable-pty`) rather than split shell pipes. It is tested with an interactive command and remains constrained to the canonical Project root.
 - The packaged macOS smoke was repeated after the PTY integration: included sidecar `READY`, a real OpenCode 1.18.26 Task in an ephemeral repository, and clean `.app` startup/shutdown all passed. The temporary OpenCode server is stopped after the smoke.
 - Living documentation now reconciles all changed specs and ADRs reported by Git in one sequential run, generating their reports and recording bounded Task evidence. The workbench action targets the changed-document set rather than a hardcoded Nexus file.
+- Runtime reads the Project-local service manifest and renders every declared service with command, cwd, healthcheck, status and individual start/stop actions instead of controlling an implicit first service.
 
 - ¿Qué proveedores se incluyen de forma nativa en el primer paquete?
 - ¿La terminal usa PTY propio o una librería Tauri estable?

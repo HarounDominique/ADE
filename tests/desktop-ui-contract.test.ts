@@ -34,6 +34,9 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /method: 'skills\.update'/);
   assert.match(main, /refreshSelectedSkill/);
   assert.match(html, /id="update-skill-button"/);
+  assert.match(main, /method: 'service\.list'/);
+  assert.match(main, /renderServices/);
+  assert.match(html, /id="runtime-service-list"/);
 });
 
 test("workspace tree expands directories lazily and keeps symlinks non-actionable", () => {

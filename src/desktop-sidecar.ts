@@ -70,7 +70,7 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'service.status', 'service.list', 'skills.list'].includes(request.method)) {
+    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'service.status', 'skills.list'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -96,7 +96,6 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       if (!serviceId || !serviceManager) return { id: request.id, error: { code: "INVALID_PARAMS", message: "serviceId is required" } };
       return { id: request.id, result: { serviceId, status: serviceManager.status(serviceId) } };
     }
-    if (request.method === "service.list") return { id: request.id, result: declaredServices.map((service) => ({ id: service.id, command: service.command, cwd: service.cwd, healthcheck: service.healthcheck ? true : false })) };
     if (request.method === "task.detail" || request.method === "runtime.history" || request.method === "change.review") {
       const taskId = request.params?.taskId;
       if (!taskId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId is required" } };
@@ -157,6 +156,10 @@ export async function runDesktopSidecar(): Promise<void> {
       } else if (request.method === "skills.list") {
         void listSkills(request.params?.repositoryPath).then((skills) => process.stdout.write(`${JSON.stringify({ id: request.id, result: skills })}\n`))
           .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILLS_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "service.list") {
+        const repositoryPath = request.params?.repositoryPath;
+        const definitions = repositoryPath ? await loadServiceDefinitions(join(repositoryPath, ".ade", "services.json")).catch(() => []) : declaredServices;
+        process.stdout.write(`${JSON.stringify({ id: request.id, result: definitions.map((service) => ({ id: service.id, command: service.command, cwd: service.cwd, healthcheck: service.healthcheck ? true : false, status: serviceManager?.status(service.id) ?? "DECLARED" })) })}\n`);
       } else if (request.method === "task.run") {
         startTaskRun(store, request);
       } else if (request.method === "task.rereview") {

@@ -55,7 +55,7 @@ npm run build
 npm test
 ```
 
-El futuro CLI debe exponer operaciones equivalentes a `service-start <id>`, `service-stop <id>`, `service-restart <id>`, `service-logs <id>` y `run-check <command-id>`.
+El futuro CLI debe exponer operaciones equivalentes a `service-start <id>`, `service-stop <id>`, `service-restart <id>`, `service-logs <id>` y `run-check <command-id>`. La shell ya lista los servicios declarados por Project desde `.ade/services.json` y permite start/stop por `id`.
 
 ## Code Style
 

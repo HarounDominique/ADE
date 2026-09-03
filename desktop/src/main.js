@@ -109,6 +109,14 @@ function renderServiceStatus(status) {
   if (element && status?.status) element.textContent = status.status;
 }
 
+function renderServices(services) {
+  const list = document.getElementById('runtime-service-list');
+  if (!list) return;
+  list.innerHTML = services.length
+    ? services.map((service) => `<li class="runtime-service"><span><strong>${escapeHTML(service.id)}</strong><small>${escapeHTML(service.command)} · ${escapeHTML(service.cwd)}${service.healthcheck ? ' · healthcheck' : ''}</small></span><span class="service-status ${escapeHTML(service.status.toLowerCase())}">${escapeHTML(service.status)}</span><button class="text-button" data-service-action="start" data-service-id="${escapeHTML(service.id)}">Start</button><button class="text-button" data-service-action="stop" data-service-id="${escapeHTML(service.id)}">Stop</button></li>`).join('')
+    : '<li class="runtime-service-empty">No services declared in .ade/services.json.</li>';
+}
+
 function renderRuntimeEvent(taskId, event) {
   const list = document.getElementById('runtime-events');
   if (!list) return;
@@ -353,6 +361,7 @@ async function connectSidecar(snapshot) {
     });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list', params: { repositoryPath: snapshot.project.repositoryPath } }) });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `providers-${Date.now()}`, method: 'providers.inspect' }) });
+    await invoke('sidecar_request', { request: JSON.stringify({ id: `services-${Date.now()}`, method: 'service.list', params: { repositoryPath: snapshot.project.repositoryPath } }) });
   };
   try {
     await listen('sidecar:response', async (event) => {
@@ -390,6 +399,11 @@ async function connectSidecar(snapshot) {
         activeServiceId = response.result.serviceId;
         renderServiceStatus(response.result);
         notify(`Local service ${response.result.status.toLowerCase()}.`);
+        nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `services-${Date.now()}`, method: 'service.list', params: { repositoryPath: document.getElementById('project-path')?.textContent } }) });
+        return;
+      }
+      if (Array.isArray(response.result) && response.result[0]?.command && response.result[0]?.status) {
+        renderServices(response.result);
         return;
       }
       if (response.result?.branches && response.result?.worktrees) {
@@ -761,6 +775,13 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
 document.addEventListener('click', (event) => {
+  const serviceButton = event.target.closest('[data-service-action][data-service-id]');
+  if (serviceButton) {
+    if (!nativeInvoke) { notify('Local services require the sidecar.'); return; }
+    const method = serviceButton.dataset.serviceAction === 'start' ? 'service.start' : 'service.stop';
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { serviceId: serviceButton.dataset.serviceId, repositoryPath: document.getElementById('project-path')?.textContent } }) }).catch((error) => { notify('Local service action failed.'); console.warn(error); });
+    return;
+  }
   const resumeButton = event.target.closest('[data-resume-session]');
   if (resumeButton) {
     const provider = resumeButton.dataset.sessionProvider;

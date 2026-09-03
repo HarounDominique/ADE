@@ -179,6 +179,7 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — v0.3-native-pty — Terminal Core sustituye los pipes por `portable-pty`, conserva la sesión interactiva y valida un comando real en PTY. La raíz autorizada del Project sigue aplicando; 13 tests Rust y 75 TypeScript pasan.
 - 2026-09-03 — v0.3-packaged-pty-smoke — Se reempaquetó el `.app` con el PTY nativo y el smoke real pasó: sidecar `READY`, Task efímera, OpenCode 1.18.26 y arranque/parada limpia. El servidor temporal se detuvo tras validar.
 - 2026-09-03 — v0.3-changed-doc-reconciliation — La reconciliación detecta por Git todas las specs/ADRs Markdown modificadas y las aplica secuencialmente, preservando las trazas Nexus y asociando evidencia a la Task. 76 tests TypeScript pasan.
+- 2026-09-03 — v0.2-project-services-ui — Runtime lista los servicios declarados por Project y permite start/stop individual con estado refrescado, completando la superficie operativa de `.ade/services.json`. 76 tests TypeScript pasan.
 
 ## Automatic Reconciliation Log
 
