@@ -10,11 +10,16 @@ import { createRuntimeEvidence } from "./domain/runtime-evidence.js";
 import { getRuntimeHistory, getTaskDetail } from "./application/task-detail.js";
 import { getChangeReview } from "./application/change-review-read-model.js";
 import { approveTaskFromStore } from "./application/tasks/approval-from-store.js";
+import { OpenCodeReviewer } from "./adapters/opencode-reviewer.js";
+import { reviewChangeSet } from "./application/review-change-set.js";
+import { LocalProcess } from "./adapters/local-process.js";
+import { ServiceManager, type ServiceDefinition } from "./application/local-runtime/service-manager.js";
+import type { ChangeSet } from "./domain/change-set.js";
 
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; serviceId?: string; command?: string; args?: string[]; cwd?: string };
 };
 
 export type DesktopResponse = {
@@ -39,6 +44,7 @@ const runtimeStatus: RuntimeStatus = {
   lastError: null,
 };
 let runtimeEvidenceSequence = 0;
+let serviceManager: ServiceManager | undefined;
 
 function getRuntimeStatus(): RuntimeStatus {
   return {
@@ -48,7 +54,7 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve'].includes(request.method)) {
+    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'service.status'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -60,6 +66,11 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
     }
     if (request.method === "runtime.status") {
       return { id: request.id, result: getRuntimeStatus() };
+    }
+    if (request.method === "service.status") {
+      const serviceId = request.params?.serviceId;
+      if (!serviceId || !serviceManager) return { id: request.id, error: { code: "INVALID_PARAMS", message: "serviceId is required" } };
+      return { id: request.id, result: { serviceId, status: serviceManager.status(serviceId) } };
     }
     if (request.method === "task.detail" || request.method === "runtime.history" || request.method === "change.review") {
       const taskId = request.params?.taskId;
@@ -102,6 +113,7 @@ export async function runDesktopSidecar(): Promise<void> {
   const databasePath = process.env.ADE_DB_PATH;
   if (!databasePath) throw new Error("ADE_DB_PATH must point to the ADE metadata database");
   const store = new AdeStore(databasePath);
+  serviceManager = new ServiceManager(new LocalProcess());
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
   try {
     for await (const line of input) {
@@ -117,6 +129,12 @@ export async function runDesktopSidecar(): Promise<void> {
         void checkRuntimeHealth(request);
       } else if (request.method === "task.run") {
         startTaskRun(store, request);
+      } else if (request.method === "task.rereview") {
+        startTaskRereview(store, request);
+      } else if (request.method === "service.start") {
+        startLocalService(request);
+      } else if (request.method === "service.stop") {
+        stopLocalService(request);
       } else {
         process.stdout.write(`${JSON.stringify(handleDesktopRequest(store, request))}\n`);
       }
@@ -125,6 +143,42 @@ export async function runDesktopSidecar(): Promise<void> {
     input.close();
     store.close();
   }
+}
+
+function startLocalService(request: DesktopRequest): void {
+  const params = request.params ?? {};
+  if (!serviceManager || !params.serviceId || !params.command || !params.cwd) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "serviceId, command and cwd are required" } })}\n`);
+    return;
+  }
+  const definition: ServiceDefinition = { id: params.serviceId, command: params.command, cwd: params.cwd, ...(params.args ? { args: params.args } : {}) };
+  void serviceManager.start(definition).then((status) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { serviceId: definition.id, status } })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SERVICE_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+}
+
+function stopLocalService(request: DesktopRequest): void {
+  const serviceId = request.params?.serviceId;
+  if (!serviceManager || !serviceId) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "serviceId is required" } })}\n`);
+    return;
+  }
+  void serviceManager.stop(serviceId).then((status) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { serviceId, status } })}\n`));
+}
+
+function startTaskRereview(store: AdeStore, request: DesktopRequest): void {
+  const taskId = request.params?.taskId;
+  const task = taskId ? store.rehydrateTask(taskId) : undefined;
+  const persisted = taskId ? store.listChangeSets(taskId)[0] : undefined;
+  if (!taskId || !task || !persisted) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "taskId must reference a Task with a ChangeSet" } })}\n`);
+    return;
+  }
+  if (task.currentStatus !== "IMPLEMENTED") {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_TASK_STATE", message: `Task ${taskId} cannot be re-reviewed from ${task.currentStatus}` } })}\n`);
+    return;
+  }
+  const changeSet: ChangeSet = { id: persisted.id, taskId: persisted.taskId, sessionId: persisted.sessionId, directory: persisted.directory, capturedAt: persisted.capturedAt, runtimeDiff: JSON.parse(persisted.runtimeDiff) as ChangeSet["runtimeDiff"], git: { status: persisted.gitStatus, patch: persisted.gitPatch, untracked: JSON.parse(persisted.untracked) as string[] } };
+  process.stdout.write(`${JSON.stringify({ id: request.id, result: { accepted: true, taskId, status: "REVIEWING" } })}\n`);
+  void reviewChangeSet(new OpenCodeReviewer(new OpenCodeHttpRuntime(process.env.OPENCODE_URL)), { task, changeSet, store }).then((review) => process.stdout.write(`${JSON.stringify({ type: "review.completed", taskId, review })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ type: "review.failed", taskId, error: error instanceof Error ? error.message : String(error) })}\n`));
 }
 
 async function checkRuntimeHealth(request: DesktopRequest): Promise<void> {

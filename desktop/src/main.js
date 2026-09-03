@@ -78,6 +78,11 @@ function renderRuntimeStatus(status) {
   if (error) error.textContent = status.lastError ?? 'No runtime events recorded.';
 }
 
+function renderServiceStatus(status) {
+  const element = document.getElementById('runtime-service-status');
+  if (element && status?.status) element.textContent = status.status;
+}
+
 function renderRuntimeEvent(taskId, event) {
   const list = document.getElementById('runtime-events');
   if (!list) return;
@@ -161,6 +166,16 @@ async function connectSidecar(snapshot) {
       }
       if (response.result?.agentRuntime) {
         renderRuntimeStatus(response.result);
+        return;
+      }
+      if (response.result?.serviceId) {
+        renderServiceStatus(response.result);
+        notify(`Local service ${response.result.status.toLowerCase()}.`);
+        return;
+      }
+      if (response.type === 'review.completed' || response.type === 'review.failed') {
+        notify(response.type === 'review.completed' ? 'Re-review completed.' : `Re-review failed: ${response.error}`);
+        nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `review-refresh-${Date.now()}`, method: 'change.review', params: { taskId: response.taskId } }) });
         return;
       }
       if (response.result?.task?.history) {
@@ -345,6 +360,15 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     restartSidecarFromUI();
     return;
   }
+  if (item.dataset.action === 'start-service' || item.dataset.action === 'stop-service') {
+    if (!nativeInvoke) { notify('Local services require the sidecar.'); return; }
+    const method = item.dataset.action === 'start-service' ? 'service.start' : 'service.stop';
+    const params = method === 'service.start'
+      ? { serviceId: 'ade-dev-service', command: '/bin/sh', args: ['-c', 'sleep 3600'], cwd: document.getElementById('project-path')?.textContent ?? '.' }
+      : { serviceId: 'ade-dev-service' };
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params }) }).catch((error) => { notify('Local service action failed.'); console.warn(error); });
+    return;
+  }
   if (item.dataset.action === 'open-terminal') {
     if (!nativeInvoke) {
       notify('Opening Terminal requires the local desktop runtime.');
@@ -384,6 +408,12 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
       notify('Approval blocked by required gates.');
       console.warn('Approval unavailable:', error);
     });
+    return;
+  }
+  if (item.dataset.action === 'rereview') {
+    if (!nativeInvoke) { notify('Re-review requires the local sidecar.'); return; }
+    const taskId = document.getElementById('changes-task-id')?.textContent;
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `rereview-${taskId}-${Date.now()}`, method: 'task.rereview', params: { taskId } }) }).then(() => notify('Re-review started.')).catch((error) => { notify('Re-review unavailable.'); console.warn(error); });
     return;
   }
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
