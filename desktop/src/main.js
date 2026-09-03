@@ -220,6 +220,12 @@ async function connectSidecar(snapshot) {
         renderGitOperations(response.result);
         return;
       }
+      if (response.result?.operation === 'pull-request.create') {
+        const detail = document.getElementById('git-workspace-detail');
+        if (detail) detail.textContent = `Pull request created: ${response.result.url}`;
+        notify(`Pull request created: ${response.result.url}`);
+        return;
+      }
       if (response.result?.graph?.mermaid && response.result?.proposal) {
         const graph = document.getElementById('knowledge-graph-output');
         const proposal = document.getElementById('knowledge-reconcile-output');

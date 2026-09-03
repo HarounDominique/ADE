@@ -171,10 +171,10 @@
   - Acceptance: Codex/OpenCode y futuros adapters se detectan, seleccionan y diagnostican sin persistir credenciales. OpenCode HTTP y Codex CLI ya están conectados al runner de skills; faltan sesiones persistentes y feedback de streaming.
   - Verify: contract tests con fakes y smoke de health.
 - [~] Task: Distribuir catálogo nativo de skills
-  - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad. Catálogo, carga de skills de proyecto y runners OpenCode/Codex ya están implementados; falta ejecución aislada completa y actualización remota.
+  - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad. Catálogo, carga/ejecución de skills de proyecto y runners OpenCode/Codex ya están implementados; falta sandbox de permisos y actualización remota.
   - Verify: validación de manifests, instalación local y ejecución de una skill fixture.
 - [~] Task: Integrar Git y GitHub con Tasks
-  - Acceptance: branch, diff, worktree, commit y PR muestran actor, razón, ChangeSet y gates; operaciones peligrosas piden confirmación. Backend ya persiste Task→operación; falta completar la vista de PR/ChangeSet.
+  - Acceptance: branch, diff, worktree, commit y PR muestran actor, razón, ChangeSet y gates; operaciones peligrosas piden confirmación. Backend persiste Task→operación y la UI muestra el resultado del PR; falta presentar ChangeSet/gates en el flujo Git.
   - Verify: fixtures Git y contract tests GitHub.
 - [~] Task: Implementar documentación viva y consultoría
   - Acceptance: cambios en specs calculan impacto sobre Nexus, citers, diagramas, QA docs y estimaciones; grafo recursivo, UML inicial, referencias rotas e impacto transitivo ya están implementados; falta aplicación coordinada y artefactos QA/estimación.
