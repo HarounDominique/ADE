@@ -171,7 +171,7 @@
   - Acceptance: Codex/OpenCode y futuros adapters se detectan, seleccionan y diagnostican sin persistir credenciales.
   - Verify: contract tests con fakes y smoke de health.
 - [~] Task: Distribuir catálogo nativo de skills
-  - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad.
+  - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad. Catálogo nativo y carga de skills de proyecto desde `.ade/skills/*.json` ya están implementados; falta ejecución aislada completa y actualización remota.
   - Verify: validación de manifests, instalación local y ejecución de una skill fixture.
 - [~] Task: Integrar Git y GitHub con Tasks
   - Acceptance: branch, diff, worktree, commit y PR muestran actor, razón, ChangeSet y gates; operaciones peligrosas piden confirmación. Backend ya persiste Task→operación; falta completar la vista de PR/ChangeSet.

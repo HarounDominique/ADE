@@ -51,6 +51,7 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 - Project policy is optionally read from `.ade/policy.json` with `requiredGates` and evidence limits (`maxItems`, `summaryLimit`, `detailsLimit`). Invalid or missing policy falls back to safe defaults.
 - Runtime evidence is bounded at ingestion and old evidence can be pruned per Task. Git mutations can carry `taskId` and are persisted as auditable Task operations.
 - The living-knowledge graph scans nested Markdown and computes transitive citing impact; reconciliation remains a reviewable proposal and does not mutate documentation automatically.
+- Native skills are loaded from the built-in catalog plus optional project manifests in `.ade/skills/*.json`; project manifests are validated and marked as `source: project`.
 
 - ¿Qué proveedores se incluyen de forma nativa en el primer paquete?
 - ¿La terminal usa PTY propio o una librería Tauri estable?
