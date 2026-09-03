@@ -1,6 +1,6 @@
 # Spike 004 — Transporte entre Tauri y el backend TypeScript
 
-**Estado:** propuesto
+**Estado:** implementación parcial
 **Fecha:** 2026-09-03
 **Módulo:** `desktop-shell`
 
@@ -32,12 +32,16 @@ Usar un sidecar TypeScript supervisado por Tauri y un protocolo JSON-RPC sobre s
 
 El primer corte debe implementar sólo `project.snapshot`, con request id, respuesta `result/error` y cierre limpio. Las mutaciones y eventos se añaden después de validar lifecycle y empaquetado.
 
+El primer corte está implementado en `src/desktop-sidecar.ts` y se ejecuta con `npm run desktop:sidecar`. Los tests verifican snapshot, request id y errores estructurados; aún no se ha integrado el lifecycle del proceso con Tauri.
+
 ## Gates del spike
 
 1. El sidecar responde a una consulta snapshot desde un repositorio temporal.
 2. Tauri lo arranca, recibe una respuesta y lo termina sin proceso huérfano.
 3. Una excepción del sidecar produce error estructurado y no rompe la shell.
 4. El bundle macOS incluye el ejecutable y conserva la ruta de datos elegida.
+
+**Progreso:** gate 1 cubierto por tests del sidecar; gates 2–4 pendientes.
 
 ## Fuera de alcance
 

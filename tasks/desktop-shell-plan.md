@@ -28,7 +28,7 @@ La primera entrega debe poder ejecutarse con adapters fake y sustituirlos por lo
 
 1. Shell estático con navegación y estados `loading/ready/empty/blocked/failed/stale`. ✅
 2. Project Hub conectado a consultas de Project y Task. En curso: el store ofrece consultas de colección, `src/application/project-snapshot.ts` compone el read model y la CLI lo expone; falta transportarlo al proceso Tauri.
-   - Spike de transporte: [004-desktop-transport.md](../docu/spikes/004-desktop-transport.md).
+   - Spike de transporte: [004-desktop-transport.md](../docu/spikes/004-desktop-transport.md); gate 1 superado, gates Tauri pendientes.
 3. Work conectado a creación/reanudación y eventos de runtime.
 4. Changes conectado a ChangeSet/Review y gates.
 5. Knowledge y Runtime con datos reales de sus puertos.

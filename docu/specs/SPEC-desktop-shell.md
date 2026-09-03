@@ -115,4 +115,4 @@ Un usuario puede abrir un repositorio, crear una Task, observar la implementaci�
 
 La evidencia de adopción está documentada en [003-desktop-framework](../spikes/003-desktop-framework.md#resultado) y [ADR-0009](../adr/0009-tauri-desktop-shell.md).
 
-El transporte backend pendiente se investiga en [004-desktop-transport](../spikes/004-desktop-transport.md#recomendación-provisional); su primer corte será sólo lectura (`project.snapshot`) y deberá superar sus gates antes de conectar mutaciones de Work.
+El transporte backend se investiga en [004-desktop-transport](../spikes/004-desktop-transport.md#recomendación-provisional); el sidecar ya implementa sólo lectura (`project.snapshot`), pero debe superar los gates de lifecycle y empaquetado antes de conectar mutaciones de Work.
