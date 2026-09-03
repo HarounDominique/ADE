@@ -83,6 +83,11 @@
   - Verify: `npm run build` y `npm test`.
   - Files: `src/desktop-sidecar.ts`, `tests/desktop-sidecar.test.ts`
 
+- [x] Task: Diagnóstico explícito de conexión OpenCode
+  - Acceptance: Runtime puede solicitar `runtime.health`, mostrar versión cuando responde y conservar un error `RUNTIME_UNAVAILABLE` cuando no hay conexión.
+  - Verify: `npm run build`, `npm test` y `node --check desktop/src/main.js`.
+  - Files: `src/desktop-sidecar.ts`, `tests/desktop-sidecar.test.ts`, `desktop/src/`
+
 - [ ] Task: Integrar lifecycle del sidecar con Tauri
   - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor, conexión de streams, render del snapshot, estados `ready/failed` y un único reintento implementados; smoke de desarrollo con `ADE_DB_PATH` y `ADE_PROJECT_ID` explícitos y pruebas de fallo de proceso superados. Falta validar recuperación dentro de la app.
   - Verify: smoke test macOS en modo desarrollo y bundle.
