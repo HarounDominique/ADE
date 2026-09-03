@@ -33,9 +33,9 @@
   - Verify: `npm run build && npm test && npm run ade -- help`.
   - Files: `src/cli.ts`, `package.json`, `README.md`
 
-- [ ] Task: Sincronizar documentación del módulo
+- [x] Task: Sincronizar documentación del módulo
   - Acceptance: nexus, specs dependientes, plan y tareas reflejan los contratos implementados y no quedan referencias rotas.
-  - Verify: `rg 'SPEC-project-task-workflow|project-task-workflow' docu` y revisión de headings.
+  - Verify: `rg 'SPEC-project-task-workflow|project-task-workflow' docu` y revisión de headings; verificado durante los commits de la vertical desktop.
   - Files: `docu/specs/`, `tasks/`
 
 - [ ] Task: Implementar vertical desktop mínima
