@@ -6,6 +6,8 @@ const toast = document.querySelector('.toast');
 
 function renderSnapshot(snapshot) {
   const values = {
+    'project-name': snapshot.project.name,
+    'project-description': snapshot.project.description ?? 'Local ADE project',
     'project-path': snapshot.project.repositoryPath,
     'project-branch': snapshot.project.branch,
     'working-tree-state': snapshot.project.workingTree,
@@ -19,8 +21,24 @@ function renderSnapshot(snapshot) {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
   });
+  renderProjectTasks(snapshot.tasks ?? []);
   const syncLabel = document.querySelector('.sync-label');
   if (syncLabel) syncLabel.lastChild.textContent = ` ${snapshot.sync.label}`;
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
+function renderProjectTasks(tasks) {
+  const list = document.getElementById('project-task-list');
+  if (!list || tasks.length === 0) return;
+  list.innerHTML = tasks.map((task, index) => {
+    const status = escapeHTML(task.status.replaceAll('_', ' '));
+    const tone = ['UNDER_REVIEW', 'READY_FOR_HUMAN', 'BLOCKED'].includes(task.status) ? 'review' : 'building';
+    const phase = task.status === 'UNDER_REVIEW' ? 'Reviewer active' : task.status === 'READY_FOR_HUMAN' ? 'Awaiting approval' : 'Task state confirmed';
+    return `<article class="task-card${index === 0 ? ' selected-task' : ''}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from ADE metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div></article>`;
+  }).join('');
 }
 
 async function refreshProjectContext(snapshot) {
@@ -42,13 +60,21 @@ async function connectSidecar(snapshot) {
   try {
     await listen('sidecar:response', (event) => {
       const response = JSON.parse(event.payload);
-      if (response.result) renderSnapshot({ ...snapshot, ...response.result });
+      if (response.result) {
+        renderSnapshot({
+          ...snapshot,
+          ...response.result,
+          project: { ...snapshot.project, ...response.result.project },
+          metrics: { ...snapshot.metrics, ...response.result.metrics },
+        });
+      }
       if (response.error) notify(`Sidecar: ${response.error.message}`);
     });
     await listen('sidecar:error', (event) => notify(`Sidecar error: ${event.payload}`));
     await invoke('sidecar_start');
+    const configuredProjectId = await invoke('project_id');
     await invoke('sidecar_request', {
-      request: JSON.stringify({ id: `snapshot-${Date.now()}`, method: 'project.snapshot', params: { projectId: snapshot.project.id } }),
+      request: JSON.stringify({ id: `snapshot-${Date.now()}`, method: 'project.snapshot', params: { projectId: configuredProjectId } }),
     });
   } catch (error) {
     console.warn('Sidecar unavailable:', error);

@@ -85,6 +85,11 @@ fn project_context(repository_path: String) -> Result<ProjectContext, String> {
 }
 
 #[tauri::command]
+fn project_id() -> String {
+    std::env::var("ADE_PROJECT_ID").unwrap_or_else(|_| "ade".to_string())
+}
+
+#[tauri::command]
 fn sidecar_start(
     app: tauri::AppHandle,
     state: tauri::State<'_, SidecarSupervisor>,
@@ -176,6 +181,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             project_context,
+            project_id,
             sidecar_start,
             sidecar_request,
             sidecar_status,
