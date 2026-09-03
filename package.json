@@ -13,7 +13,8 @@
     "desktop:build": "npm --prefix desktop run tauri build",
     "desktop:test": "npm test",
     "desktop:package": "npm --prefix desktop run tauri build",
-    "desktop:sidecar": "tsx src/desktop-sidecar.ts"
+    "desktop:sidecar": "tsx src/desktop-sidecar.ts",
+    "desktop:sidecar:build": "node scripts/build-desktop-sidecar.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

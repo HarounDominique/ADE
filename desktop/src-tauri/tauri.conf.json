@@ -21,6 +21,9 @@
   },
   "bundle": {
     "active": true,
+    "resources": {
+      "../sidecar-dist": "sidecar-dist"
+    },
     "targets": "all",
     "icon": [
       "icons/32x32.png",

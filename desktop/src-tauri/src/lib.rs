@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 #[derive(Default)]
 struct SidecarSupervisor {
@@ -98,9 +98,14 @@ fn sidecar_start(
         return Ok(());
     }
     let node = std::env::var("ADE_SIDECAR_NODE").unwrap_or_else(|_| "node".to_string());
-    let script = std::env::var("ADE_SIDECAR_SCRIPT").map_err(|_| {
-        "ADE_SIDECAR_SCRIPT must point to the compiled sidecar entrypoint".to_string()
-    })?;
+    let script = std::env::var("ADE_SIDECAR_SCRIPT")
+        .map(std::path::PathBuf::from)
+        .or_else(|_| {
+            app.path()
+                .resource_dir()
+                .map(|directory| directory.join("sidecar-dist/desktop-sidecar.js"))
+                .map_err(|error| error.to_string())
+        })?;
     let database_path = std::env::var("ADE_DB_PATH")
         .map_err(|_| "ADE_DB_PATH must point to the ADE metadata database".to_string())?;
     let mut child = Command::new(node)
