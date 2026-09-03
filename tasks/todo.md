@@ -168,7 +168,7 @@
   - Acceptance: árbol local navegable, visor/apertura y terminal nativa con cwd y permisos validados. Primer corte implementado; falta endurecer permisos y UX recursiva.
   - Verify: `npm run build`, `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y prueba manual macOS.
 - [~] Task: Integrar proveedores agénticos
-  - Acceptance: Codex/OpenCode y futuros adapters se detectan, seleccionan y diagnostican sin persistir credenciales. OpenCode HTTP y Codex CLI ya están conectados al runner de skills; faltan sesiones persistentes y feedback de streaming.
+  - Acceptance: Codex/OpenCode y futuros adapters se detectan, seleccionan y diagnostican sin persistir credenciales. OpenCode HTTP y Codex CLI ya están conectados al runner de skills; las sesiones se persisten por Task y pueden retomarse por `sessionId`; falta feedback de streaming.
   - Verify: contract tests con fakes y smoke de health.
 - [~] Task: Distribuir catálogo nativo de skills
   - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad. Catálogo, carga/ejecución de skills de proyecto y runners OpenCode/Codex ya están implementados; falta sandbox de permisos y actualización remota.

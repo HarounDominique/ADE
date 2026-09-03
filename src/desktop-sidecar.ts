@@ -33,7 +33,7 @@ import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; provider?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; provider?: string; sessionId?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string };
 };
 
 export type DesktopResponse = {
@@ -69,7 +69,7 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'service.status', 'service.list', 'skills.list'].includes(request.method)) {
+    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'service.status', 'service.list', 'skills.list'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -88,6 +88,7 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       if (!store.rehydrateTask(taskId)) return { id: request.id, error: { code: "TASK_NOT_FOUND", message: `Task not found: ${taskId}` } };
       return { id: request.id, result: store.listGitOperations(taskId) };
     }
+    if (request.method === "runtime.sessions") return { id: request.id, result: store.listAgentSessions(request.params?.taskId) };
     if (request.method === "skills.list") return { id: request.id, result: listNativeSkills() };
     if (request.method === "service.status") {
       const serviceId = request.params?.serviceId;
@@ -168,7 +169,7 @@ export async function runDesktopSidecar(): Promise<void> {
         if (!params?.skillId || !params.intent || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "skillId, intent and repositoryPath are required" } })}\n`);
         else {
           const runtime = params.provider === "codex" ? new CodexCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
-          void runNativeSkill(runtime, { skillId: params.skillId, directory: params.repositoryPath, intent: params.intent }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { skillId: result.skill.id, sessionId: result.session.id, provider: params.provider ?? "opencode", status: "COMPLETED" } })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+          void runNativeSkill(runtime, { skillId: params.skillId, directory: params.repositoryPath, intent: params.intent, ...(params.sessionId ? { sessionId: params.sessionId } : {}) }).then((result) => { store.saveAgentSession({ id: result.session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider: params.provider ?? "opencode", directory: params.repositoryPath!, status: "COMPLETED", createdAt: new Date().toISOString() }); process.stdout.write(`${JSON.stringify({ id: request.id, result: { skillId: result.skill.id, sessionId: result.session.id, provider: params.provider ?? "opencode", status: "COMPLETED" } })}\n`); }).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
         }
       } else if (request.method === "git.workspace") {
         const directory = request.params?.repositoryPath;

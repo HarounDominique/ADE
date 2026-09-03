@@ -52,6 +52,7 @@ export type PersistedReview = {
 
 export type PersistedRuntimeEvidence = RuntimeEvidence;
 export type GitOperation = { id: string; taskId: string; operation: string; reference?: string; actor: string; reason: string; at: string; metadata?: string };
+export type AgentSession = { id: string; taskId?: string; provider: string; directory: string; status: string; createdAt: string; updatedAt: string };
 
 export class AdeStore {
   readonly db: DatabaseSync;
@@ -132,6 +133,15 @@ export class AdeStore {
         reason TEXT NOT NULL,
         at TEXT NOT NULL,
         metadata TEXT
+      );
+      CREATE TABLE IF NOT EXISTS agent_sessions (
+        id TEXT PRIMARY KEY,
+        task_id TEXT REFERENCES tasks(id),
+        provider TEXT NOT NULL,
+        directory TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
       );
     `);
     this.migrateTasks();
@@ -323,6 +333,16 @@ export class AdeStore {
 
   listGitOperations(taskId: string): GitOperation[] {
     return this.db.prepare(`SELECT id, task_id AS taskId, operation, reference, actor, reason, at, metadata FROM git_operations WHERE task_id = ? ORDER BY at DESC, id DESC`).all(taskId) as GitOperation[];
+  }
+
+  saveAgentSession(input: Omit<AgentSession, "updatedAt"> & { updatedAt?: string }): void {
+    const updatedAt = input.updatedAt ?? new Date().toISOString();
+    this.db.prepare(`INSERT INTO agent_sessions (id, task_id, provider, directory, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET task_id = excluded.task_id, provider = excluded.provider, directory = excluded.directory, status = excluded.status, updated_at = excluded.updated_at`).run(input.id, input.taskId ?? null, input.provider, input.directory, input.status, input.createdAt, updatedAt);
+  }
+
+  listAgentSessions(taskId?: string): AgentSession[] {
+    const query = taskId ? `SELECT id, task_id AS taskId, provider, directory, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE task_id = ? ORDER BY updated_at DESC` : `SELECT id, task_id AS taskId, provider, directory, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions ORDER BY updated_at DESC`;
+    return (taskId ? this.db.prepare(query).all(taskId) : this.db.prepare(query).all()) as AgentSession[];
   }
 
   saveApproval(input: { taskId: string; actor: string; reason: string; at?: string }): void {

@@ -53,6 +53,7 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 - The living-knowledge graph scans nested Markdown and computes transitive citing impact; reconciliation remains a reviewable proposal and does not mutate documentation automatically.
 - Native skills are loaded from the built-in catalog plus optional project manifests in `.ade/skills/*.json`; project manifests are validated and marked as `source: project`.
 - Skills can select the OpenCode HTTP runtime or the Codex CLI runtime without persisting credentials; both runners preserve the common `AgentRuntimePort` contract.
+- Agent sessions are persisted by Task (`runtime.sessions`) with provider, directory and status; a saved `sessionId` can be supplied to resume a skill run.
 
 - ¿Qué proveedores se incluyen de forma nativa en el primer paquete?
 - ¿La terminal usa PTY propio o una librería Tauri estable?

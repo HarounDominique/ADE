@@ -75,3 +75,13 @@ test("SQLite migrates an existing ChangeSet table when directory is added", () =
   assert.ok(columns.some((column) => column.name === "directory"));
   store.close();
 });
+
+test("SQLite persists resumable agent sessions per Task", () => {
+  const store = new AdeStore();
+  const task = Task.create({ id: "task-session", intent: "Resume agent work" });
+  store.saveTask(task);
+  store.saveAgentSession({ id: "session-1", taskId: task.id, provider: "codex", directory: "/tmp/project", status: "COMPLETED", createdAt: "2026-09-03T00:00:00.000Z" });
+  assert.deepEqual(store.listAgentSessions(task.id).map((session) => session.id), ["session-1"]);
+  assert.equal(store.listAgentSessions(task.id)[0]?.provider, "codex");
+  store.close();
+});
