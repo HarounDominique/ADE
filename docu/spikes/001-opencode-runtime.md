@@ -76,3 +76,7 @@ Resultado ejecutado: OpenCode `1.18.26` respondió health, se creó una sesión,
 La frontera `AgentRuntimePort → OpenCodeHttpRuntime` y la persistencia `Task → ChangeSet` son viables. Antes de elegir SDK oficial, proceso hijo o integración embebida, hay que medir: estabilidad del SSE, forma de eventos, permisos, errores de provider, cancelación y aislamiento por directorio.
 
 La ejecución integrada también reveló y resolvió la necesidad de migrar SQLite cuando evoluciona el esquema: `AdeStore` añade `change_sets.directory` a bases existentes antes de usarlas.
+
+## Integración desktop
+
+El sidecar desktop reutiliza este adapter mediante `task.run`, emite eventos de runtime por JSONL y la shell conserva los 12 más recientes. La verificación automatizada de contrato y persistencia pasa; el smoke desde Tauri requiere arrancar `opencode serve` en el entorno del usuario. En esta sesión `opencode --version` respondió `1.18.26`, pero `opencode serve` terminó con `ServeError`, por lo que no se afirma una validación end-to-end adicional.
