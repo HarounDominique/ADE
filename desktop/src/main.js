@@ -64,6 +64,13 @@ async function connectSidecar(snapshot) {
   const invoke = window.__TAURI__?.core?.invoke;
   const listen = window.__TAURI__?.event?.listen;
   if (!invoke || !listen) return;
+  let recoveryAttempted = false;
+  const requestSnapshot = async () => {
+    const configuredProjectId = await invoke('project_id');
+    await invoke('sidecar_request', {
+      request: JSON.stringify({ id: `snapshot-${Date.now()}`, method: 'project.snapshot', params: { projectId: configuredProjectId } }),
+    });
+  };
   try {
     await listen('sidecar:response', (event) => {
       const response = JSON.parse(event.payload);
@@ -74,6 +81,8 @@ async function connectSidecar(snapshot) {
           project: { ...snapshot.project, ...response.result.project },
           metrics: { ...snapshot.metrics, ...response.result.metrics },
         });
+        setSyncState('ready', 'Synced just now');
+        recoveryAttempted = false;
       }
       if (response.error) {
         setSyncState('failed', 'Snapshot unavailable');
@@ -84,11 +93,24 @@ async function connectSidecar(snapshot) {
       setSyncState('failed', 'Sidecar disconnected');
       notify(`Sidecar error: ${event.payload}`);
     });
-    await invoke('sidecar_start');
-    const configuredProjectId = await invoke('project_id');
-    await invoke('sidecar_request', {
-      request: JSON.stringify({ id: `snapshot-${Date.now()}`, method: 'project.snapshot', params: { projectId: configuredProjectId } }),
+    await listen('sidecar:exited', () => {
+      setSyncState('failed', 'Sidecar exited');
+      if (recoveryAttempted) return;
+      recoveryAttempted = true;
+      notify('Sidecar exited; attempting one recovery.');
+      window.setTimeout(async () => {
+        try {
+          await invoke('sidecar_restart');
+          await requestSnapshot();
+        } catch (error) {
+          setSyncState('failed', 'Recovery required');
+          notify('Sidecar recovery failed; retry from Runtime.');
+          console.warn('Sidecar recovery unavailable:', error);
+        }
+      }, 500);
     });
+    await invoke('sidecar_start');
+    await requestSnapshot();
   } catch (error) {
     setSyncState('failed', 'Local snapshot unavailable');
     console.warn('Sidecar unavailable:', error);

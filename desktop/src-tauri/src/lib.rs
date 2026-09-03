@@ -127,6 +127,7 @@ fn sidecar_start(
                 }
             }
         }
+        let _ = app.emit("sidecar:exited", "Sidecar stdout closed");
     });
     let mut current = state
         .child
@@ -164,6 +165,15 @@ fn sidecar_status(state: tauri::State<'_, SidecarSupervisor>) -> Result<bool, St
 }
 
 #[tauri::command]
+fn sidecar_restart(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, SidecarSupervisor>,
+) -> Result<(), String> {
+    state.stop()?;
+    sidecar_start(app, state)
+}
+
+#[tauri::command]
 fn sidecar_stop(state: tauri::State<'_, SidecarSupervisor>) -> Result<(), String> {
     state.stop()
 }
@@ -185,6 +195,7 @@ pub fn run() {
             sidecar_start,
             sidecar_request,
             sidecar_status,
+            sidecar_restart,
             sidecar_stop
         ])
         .run(tauri::generate_context!())
