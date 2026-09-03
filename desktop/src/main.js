@@ -22,8 +22,15 @@ function renderSnapshot(snapshot) {
     if (element) element.textContent = value;
   });
   renderProjectTasks(snapshot.tasks ?? []);
+  if (snapshot.sync) setSyncState(snapshot.sync.state, snapshot.sync.label);
+}
+
+function setSyncState(state, message) {
   const syncLabel = document.querySelector('.sync-label');
-  if (syncLabel) syncLabel.lastChild.textContent = ` ${snapshot.sync.label}`;
+  const syncText = document.querySelector('.sync-text');
+  if (!syncLabel || !syncText) return;
+  syncLabel.dataset.syncState = state;
+  syncText.textContent = message;
 }
 
 function escapeHTML(value) {
@@ -68,15 +75,22 @@ async function connectSidecar(snapshot) {
           metrics: { ...snapshot.metrics, ...response.result.metrics },
         });
       }
-      if (response.error) notify(`Sidecar: ${response.error.message}`);
+      if (response.error) {
+        setSyncState('failed', 'Snapshot unavailable');
+        notify(`Sidecar: ${response.error.message}`);
+      }
     });
-    await listen('sidecar:error', (event) => notify(`Sidecar error: ${event.payload}`));
+    await listen('sidecar:error', (event) => {
+      setSyncState('failed', 'Sidecar disconnected');
+      notify(`Sidecar error: ${event.payload}`);
+    });
     await invoke('sidecar_start');
     const configuredProjectId = await invoke('project_id');
     await invoke('sidecar_request', {
       request: JSON.stringify({ id: `snapshot-${Date.now()}`, method: 'project.snapshot', params: { projectId: configuredProjectId } }),
     });
   } catch (error) {
+    setSyncState('failed', 'Local snapshot unavailable');
     console.warn('Sidecar unavailable:', error);
   }
 }
