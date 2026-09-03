@@ -7,6 +7,7 @@ import { getProjectSnapshot } from "./application/project-snapshot.js";
 import { OpenCodeHttpRuntime } from "./adapters/opencode-http-runtime.js";
 import { runSpike } from "./application/run-spike.js";
 import { createRuntimeEvidence } from "./domain/runtime-evidence.js";
+import { getRuntimeHistory, getTaskDetail } from "./application/task-detail.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -45,7 +46,7 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status'].includes(request.method)) {
+    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -57,6 +58,11 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
     }
     if (request.method === "runtime.status") {
       return { id: request.id, result: getRuntimeStatus() };
+    }
+    if (request.method === "task.detail" || request.method === "runtime.history") {
+      const taskId = request.params?.taskId;
+      if (!taskId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId is required" } };
+      return { id: request.id, result: request.method === "task.detail" ? getTaskDetail(store, taskId) : getRuntimeHistory(store, taskId) };
     }
     const { taskId, intent, projectId, repositoryPath, next, reason, actor } = request.params ?? {};
     if (request.method === "task.advance") {

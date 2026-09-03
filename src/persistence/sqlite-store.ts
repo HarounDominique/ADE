@@ -223,6 +223,15 @@ export class AdeStore {
     `).get(id) as PersistedChangeSet | undefined;
   }
 
+  listChangeSets(taskId: string): PersistedChangeSet[] {
+    return this.db.prepare(`
+      SELECT id, task_id AS taskId, session_id AS sessionId, directory,
+             captured_at AS capturedAt, runtime_diff_json AS runtimeDiff,
+             git_status AS gitStatus, git_patch AS gitPatch, untracked_json AS untracked
+      FROM change_sets WHERE task_id = ? ORDER BY captured_at DESC, id DESC
+    `).all(taskId) as PersistedChangeSet[];
+  }
+
   saveReview(review: Review): void {
     this.db.prepare(`
       INSERT INTO reviews (
@@ -249,6 +258,15 @@ export class AdeStore {
              summary, status, findings_json AS findings
       FROM reviews WHERE id = ?
     `).get(id) as PersistedReview | undefined;
+  }
+
+  listReviews(taskId: string): PersistedReview[] {
+    return this.db.prepare(`
+      SELECT id, task_id AS taskId, change_set_id AS changeSetId,
+             reviewer, session_id AS sessionId, created_at AS createdAt,
+             summary, status, findings_json AS findings
+      FROM reviews WHERE task_id = ? ORDER BY created_at DESC, id DESC
+    `).all(taskId) as PersistedReview[];
   }
 
   saveRuntimeEvidence(evidence: RuntimeEvidence): void {

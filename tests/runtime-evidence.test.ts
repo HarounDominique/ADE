@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createRuntimeEvidence } from "../src/domain/runtime-evidence.js";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Task } from "../src/domain/task.js";
+import { getRuntimeHistory, getTaskDetail } from "../src/application/task-detail.js";
 
 test("runtime evidence is bounded and persists by Task", () => {
   const store = new AdeStore();
@@ -21,5 +22,7 @@ test("runtime evidence is bounded and persists by Task", () => {
   assert.equal(saved.length, 1);
   assert.equal(saved[0]?.details?.length, 2_000);
   assert.equal(store.listRuntimeEvidence("other-task").length, 0);
+  assert.equal(getRuntimeHistory(store, "task-1").length, 1);
+  assert.equal(getTaskDetail(store, "task-1").task.status, "DRAFT");
   store.close();
 });
