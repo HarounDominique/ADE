@@ -109,3 +109,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — desktop-transport — Se abrió el spike 004 para decidir el transporte Tauri–TypeScript; la recomendación provisional es sidecar JSON-RPC por stdio, pendiente de validación de lifecycle y empaquetado.
 - 2026-09-03 — desktop-sidecar — Se implementó el primer corte del sidecar (`project.snapshot`) con protocolo JSON-RPC stdio y errores estructurados; el gate de respuesta está cubierto por tests, quedan lifecycle Tauri y packaging.
 - 2026-09-03 — roadmap-granularity — Se separaron en tareas independientes el read model, el protocolo sidecar, su lifecycle Tauri y el empaquetado macOS.
+- 2026-09-03 — desktop-supervisor — Tauri incorpora supervisor de sidecar con start/status/stop idempotente y pruebas unitarias; sigue pendiente el smoke test con proceso real y el cableado de streams.
