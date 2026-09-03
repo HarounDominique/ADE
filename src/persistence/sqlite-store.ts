@@ -5,6 +5,7 @@ import type { ChangeSet } from "../domain/change-set.js";
 import { Task, type TaskEvent, type TaskStatus } from "../domain/task.js";
 import type { Project, Repository } from "../domain/project.js";
 import type { Review } from "../domain/review.js";
+import type { RuntimeEvidence } from "../domain/runtime-evidence.js";
 
 export type PersistedTask = {
   id: string;
@@ -47,6 +48,8 @@ export type PersistedReview = {
   status: string;
   findings: string;
 };
+
+export type PersistedRuntimeEvidence = RuntimeEvidence;
 
 export class AdeStore {
   readonly db: DatabaseSync;
@@ -93,6 +96,15 @@ export class AdeStore {
         summary TEXT NOT NULL,
         status TEXT NOT NULL,
         findings_json TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS runtime_evidence (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL REFERENCES tasks(id),
+        session_id TEXT,
+        type TEXT NOT NULL,
+        at TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        details TEXT
       );
     `);
     this.migrateTasks();
@@ -237,6 +249,23 @@ export class AdeStore {
              summary, status, findings_json AS findings
       FROM reviews WHERE id = ?
     `).get(id) as PersistedReview | undefined;
+  }
+
+  saveRuntimeEvidence(evidence: RuntimeEvidence): void {
+    this.db.prepare(`
+      INSERT INTO runtime_evidence (id, task_id, session_id, type, at, summary, details)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        task_id = excluded.task_id, session_id = excluded.session_id, type = excluded.type,
+        at = excluded.at, summary = excluded.summary, details = excluded.details
+    `).run(evidence.id, evidence.taskId, evidence.sessionId ?? null, evidence.type, evidence.at, evidence.summary, evidence.details ?? null);
+  }
+
+  listRuntimeEvidence(taskId: string, limit = 100): PersistedRuntimeEvidence[] {
+    return this.db.prepare(`
+      SELECT id, task_id AS taskId, session_id AS sessionId, type, at, summary, details
+      FROM runtime_evidence WHERE task_id = ? ORDER BY at DESC, id DESC LIMIT ?
+    `).all(taskId, limit) as PersistedRuntimeEvidence[];
   }
 
   close(): void {

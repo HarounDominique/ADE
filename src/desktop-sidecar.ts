@@ -6,6 +6,7 @@ import { AdeStore } from "./persistence/sqlite-store.js";
 import { getProjectSnapshot } from "./application/project-snapshot.js";
 import { OpenCodeHttpRuntime } from "./adapters/opencode-http-runtime.js";
 import { runSpike } from "./application/run-spike.js";
+import { createRuntimeEvidence } from "./domain/runtime-evidence.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -34,6 +35,7 @@ const runtimeStatus: RuntimeStatus = {
   lastEventAt: null,
   lastError: null,
 };
+let runtimeEvidenceSequence = 0;
 
 function getRuntimeStatus(): RuntimeStatus {
   return {
@@ -151,6 +153,16 @@ function startTaskRun(store: AdeStore, request: DesktopRequest): void {
     existingTask: true,
     onEvent: (event) => {
       runtimeStatus.lastEventAt = new Date().toISOString();
+      const payload = event.payload as { type?: string; sessionID?: string; properties?: Record<string, unknown> };
+      store.saveRuntimeEvidence(createRuntimeEvidence({
+        id: `runtime-${taskId}-${Date.now()}-${++runtimeEvidenceSequence}`,
+        taskId,
+        ...(payload.sessionID ? { sessionId: payload.sessionID } : {}),
+        type: payload.type ?? event.type,
+        at: runtimeStatus.lastEventAt,
+        summary: payload.type ?? event.type,
+        ...(payload.properties ? { details: JSON.stringify(payload.properties) } : {}),
+      }));
       process.stdout.write(`${JSON.stringify({ type: "runtime.event", taskId, event, status: getRuntimeStatus() })}\n`);
     },
   }).then(() => {
