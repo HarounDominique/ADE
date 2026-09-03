@@ -1,6 +1,6 @@
 # Nexus: ADE — Agentic Development Environment
 
-**Estado:** MVP documental listo para implementación
+**Estado:** v0.1 MVP implementado; v0.2 en especificación
 **Fecha:** 2026-09-02  
 **Fuente:** informe fundacional de ADE proporcionado por el usuario
 
@@ -74,6 +74,10 @@ El modo `standard` cubre: abrir repositorio, crear Task, resolver contexto, ejec
 
 Los cuatro spikes previos a UI significativa son: integración OpenCode y eventos; Implementer/Reviewer; resolución e impacto documental; y runtime local con logs y verificación.
 
+## v0.2 contract
+
+La siguiente iteración está definida en [SPEC-v0.2.md](SPEC-v0.2.md): revisión y gates visibles, evidencia de runtime persistida, servicios locales declarados y navegación contextual de Tasks. Su orden de entrega es `runtime-evidence → task-detail-read-model → review-gates-ui → local-services → rehydration-smoke`. Cloud, worktrees, colaboración, multiagente complejo y commits autónomos continúan fuera de alcance.
+
 ## Open decisions
 
 Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta con OpenCode desde Tauri; esquema SQLite; retrieval y embeddings; relación Task/branch; checkpoints; automatización de commits; esquema `.ade/`; enforcement de taxonomía documental; memoria/equipos; licensing y pricing.
@@ -134,3 +138,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — desktop-knowledge-action — Knowledge abre specs canónicas desde Tauri con una frontera segura `docu/specs`; las cinco áreas visibles ya tienen navegación y acciones locales, pendiente el recorrido completo empaquetado.
 - 2026-09-03 — desktop-vertical-contract — Se añadió una prueba de contrato para proteger las cinco áreas MVP y sus acciones críticas; 35 tests TypeScript pasan. La validación funcional completa empaquetada sigue pendiente.
 - 2026-09-03 — desktop-mvp-smoke — El smoke empaquetado valida sidecar incluido, arranque y parada limpia del `.app` desde un cwd externo con DB temporal; lifecycle Tauri y vertical desktop mínima quedan cerrados para el MVP local.
+- 2026-09-03 — v0.2-specification — Tras cerrar v0.1 se crea `SPEC-v0.2.md` con cuatro capacidades post-MVP, contratos públicos, criterios de éxito y orden `runtime-evidence → task-detail-read-model → review-gates-ui → local-services → rehydration-smoke`; la implementación queda bloqueada hasta revisar este alcance.
