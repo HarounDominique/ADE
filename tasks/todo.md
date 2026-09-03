@@ -38,6 +38,26 @@
   - Verify: `rg 'SPEC-project-task-workflow|project-task-workflow' docu` y revisión de headings; verificado durante los commits de la vertical desktop.
   - Files: `docu/specs/`, `tasks/`
 
+- [x] Task: Definir read model ProjectSnapshot
+  - Acceptance: existe un modelo de lectura que compone Project, Tasks filtradas y métricas sin exponer SQLite a la UI.
+  - Verify: `npm run build` y tests de `ProjectSnapshot`.
+  - Files: `src/application/project-snapshot.ts`, `src/persistence/sqlite-store.ts`, `tests/project-snapshot.test.ts`
+
+- [x] Task: Implementar protocolo inicial desktop sidecar
+  - Acceptance: `project.snapshot` responde por JSON-RPC stdio con request id y errores estructurados.
+  - Verify: `npm run build` y tests del sidecar.
+  - Files: `src/desktop-sidecar.ts`, `tests/desktop-sidecar.test.ts`
+
+- [ ] Task: Integrar lifecycle del sidecar con Tauri
+  - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell.
+  - Verify: smoke test macOS en modo desarrollo y bundle.
+  - Files: `desktop/src-tauri/`, `docu/spikes/004-desktop-transport.md`
+
+- [ ] Task: Empaquetar el sidecar para macOS
+  - Acceptance: `.app` incluye el ejecutable compatible y conserva la ruta configurable de `ADE_DB_PATH`.
+  - Verify: `npm run desktop:package` y ejecución sobre repositorio temporal.
+  - Files: `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/binaries/`
+
 - [ ] Task: Implementar vertical desktop mínima
   - Plan: [desktop-shell-plan.md](desktop-shell-plan.md)
   - Acceptance: Project Hub, Work, Changes, Knowledge y Runtime permiten recorrer una Task con estados, gates y escape hatch visibles.
