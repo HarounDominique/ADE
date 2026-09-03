@@ -27,7 +27,7 @@ La primera entrega debe poder ejecutarse con adapters fake y sustituirlos por lo
 ## Implementation order
 
 1. Shell estático con navegación y estados `loading/ready/empty/blocked/failed/stale`. ✅
-2. Project Hub conectado a consultas de Project y Task. En curso: el store ofrece consultas de colección y `src/application/project-snapshot.ts` compone el read model; falta transportarlo al proceso Tauri.
+2. Project Hub conectado a consultas de Project y Task. En curso: el store ofrece consultas de colección, `src/application/project-snapshot.ts` compone el read model y la CLI lo expone; falta transportarlo al proceso Tauri.
 3. Work conectado a creación/reanudación y eventos de runtime.
 4. Changes conectado a ChangeSet/Review y gates.
 5. Knowledge y Runtime con datos reales de sus puertos.

@@ -42,3 +42,5 @@ npm run ade -- task create task-1 "Describe la tarea" ade /ruta/al/repositorio
 npm run ade -- task advance task-1 READY "Acceptance criteria recorded"
 npm run ade -- review /ruta/al/repositorio "Describe la tarea"
 ```
+
+`project snapshot` es la lectura estructurada que consumirá la shell desktop; la UI todavía usa un fixture local mientras se implementa el transporte Tauri del backend.

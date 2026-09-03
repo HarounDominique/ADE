@@ -78,6 +78,8 @@ El shell visual inicial vive en `desktop/src/`. Su fixture `project-snapshot.js`
 
 El read model de aplicación `ProjectSnapshot` compone el Project seleccionado, sus Tasks, el último evento de cada Task y las métricas `activeTasks`/`inReview`. La shell debe consumir este modelo y no consultar tablas de SQLite directamente.
 
+La CLI expone el mismo contrato mediante `npm run ade -- project snapshot <project-id>`, usando `ADE_DB_PATH` para localizar la metadata. Esta salida es el seam de verificación; el transporte Tauri debe reutilizar el caso de uso, no parsear la salida humana de otros comandos.
+
 ## Code Style
 
 La revisión se presenta de mayor a menor nivel de detalle: resumen semántico, impacto, findings, archivos, diff. El visor necesita syntax highlighting, búsqueda, navegación, diff y apertura externa; no completado ni language server propio.
