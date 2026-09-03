@@ -24,6 +24,7 @@ import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
 import { createBranch, createCommit, createPullRequest, createWorktree } from "./application/git/git-mutations.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
+import { proposeKnowledgeReconciliation } from "./application/knowledge/reconcile.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -167,6 +168,11 @@ export async function runDesktopSidecar(): Promise<void> {
         const root = request.params?.repositoryPath;
         if (!root) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
         else void buildKnowledgeGraph(root).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`));
+      } else if (request.method === "knowledge.reconcile") {
+        const root = request.params?.repositoryPath;
+        const changedFile = request.params?.intent;
+        if (!root || !changedFile) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and changedFile are required" } })}\n`);
+        else void proposeKnowledgeReconciliation(root, changedFile).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`));
       } else if (request.method === "knowledge.impact") {
         const target = request.params?.intent;
         const root = request.params?.repositoryPath;

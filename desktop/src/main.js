@@ -208,6 +208,13 @@ async function connectSidecar(snapshot) {
         if (output) output.textContent = `Branches\n${response.result.branches.join('\n') || '—'}\n\nWorktrees\n${response.result.worktrees.join('\n') || '—'}\n\nRemotes\n${response.result.remotes.join('\n') || '—'}`;
         return;
       }
+      if (response.result?.graph?.mermaid && response.result?.proposal) {
+        const graph = document.getElementById('knowledge-graph-output');
+        const proposal = document.getElementById('knowledge-reconcile-output');
+        if (graph) graph.textContent = response.result.graph.mermaid;
+        if (proposal) proposal.textContent = `${response.result.proposal} Affected: ${response.result.affected.join(', ') || 'none'}. Broken: ${response.result.broken.join(', ') || 'none'}.`;
+        return;
+      }
       if (Array.isArray(response.result) && response.result[0]?.capability) {
         const available = response.result.filter((provider) => provider.available).map((provider) => `${provider.label}: ${provider.detail}`);
         const detail = document.getElementById('provider-detail');
@@ -435,6 +442,11 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'refresh-git') {
     refreshGitWorkspace(document.getElementById('project-path')?.textContent, nativeInvoke);
+    return;
+  }
+  if (item.dataset.action === 'refresh-knowledge') {
+    const repositoryPath = document.getElementById('project-path')?.textContent;
+    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile', params: { repositoryPath, intent: 'SPEC-NEXUS.md' } }) });
     return;
   }
   if (['create-branch', 'create-commit', 'create-pr'].includes(item.dataset.action)) {
