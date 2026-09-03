@@ -97,7 +97,9 @@ export async function runDesktopSidecar(): Promise<void> {
         process.stdout.write(`${JSON.stringify({ id: null, error: { code: "INVALID_JSON", message: "Request must be valid JSON" } })}\n`);
         continue;
       }
-      if (request.method === "task.run") {
+      if (request.method === "runtime.health") {
+        void checkRuntimeHealth(request);
+      } else if (request.method === "task.run") {
         startTaskRun(store, request);
       } else {
         process.stdout.write(`${JSON.stringify(handleDesktopRequest(store, request))}\n`);
@@ -106,6 +108,19 @@ export async function runDesktopSidecar(): Promise<void> {
   } finally {
     input.close();
     store.close();
+  }
+}
+
+async function checkRuntimeHealth(request: DesktopRequest): Promise<void> {
+  try {
+    const health = await new OpenCodeHttpRuntime(process.env.OPENCODE_URL).health();
+    runtimeStatus.agentRuntime = health.healthy ? "CONNECTED" : "FAILED";
+    runtimeStatus.lastError = health.healthy ? null : "OpenCode reported an unhealthy runtime";
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: { ...health, status: getRuntimeStatus() } })}\n`);
+  } catch (error: unknown) {
+    runtimeStatus.agentRuntime = "FAILED";
+    runtimeStatus.lastError = error instanceof Error ? error.message : String(error);
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RUNTIME_UNAVAILABLE", message: runtimeStatus.lastError }, status: getRuntimeStatus() })}\n`);
   }
 }
 

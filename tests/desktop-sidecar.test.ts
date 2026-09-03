@@ -141,6 +141,25 @@ test("desktop sidecar rejects an Implementer run from an ineligible Task state",
   store.close();
 });
 
+test("desktop sidecar reports unavailable OpenCode health explicitly", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-health-"));
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: join(directory, "ade.db"), OPENCODE_URL: "http://127.0.0.1:1" },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  child.stdin.write('{"id":"health-1","method":"runtime.health"}\n');
+  const [output] = await once(child.stdout, "data");
+  const response = JSON.parse(output.toString()) as { id: string; error: { code: string }; status: { agentRuntime: string } };
+
+  assert.equal(response.id, "health-1");
+  assert.equal(response.error.code, "RUNTIME_UNAVAILABLE");
+  assert.equal(response.status.agentRuntime, "FAILED");
+  child.kill();
+  await once(child, "close");
+  rmSync(directory, { recursive: true, force: true });
+});
+
 test("desktop sidecar process fails fast without an explicit database", async () => {
   const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
     cwd: process.cwd(),
