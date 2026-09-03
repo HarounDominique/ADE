@@ -34,7 +34,7 @@ Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y la
 
 ### Knowledge
 
-Muestra documentos seleccionados, motivo de inclusión, clase (`canonical`, `operational`, `agent`) e impacto pendiente. Los documentos canónicos se abren para consulta y sus cambios pasan por la gate documental.
+Muestra documentos seleccionados, motivo de inclusión, clase (`canonical`, `operational`, `agent`) e impacto pendiente. Los documentos canónicos se abren para consulta mediante Tauri, limitado a `docu/specs`, y sus cambios pasan por la gate documental.
 
 ### Changes
 
