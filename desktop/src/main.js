@@ -28,7 +28,22 @@ function renderSnapshot(snapshot) {
     if (element) element.textContent = value;
   });
   renderProjectTasks(snapshot.tasks ?? []);
+  renderChanges(snapshot.tasks ?? []);
   if (snapshot.sync) setSyncState(snapshot.sync.state, snapshot.sync.label);
+}
+
+function renderChanges(tasks) {
+  const task = tasks.find((item) => ['UNDER_REVIEW', 'READY_FOR_HUMAN'].includes(item.status)) ?? tasks[0];
+  const values = {
+    'changes-task-id': task?.id ?? '—',
+    'changes-task-title': task?.intent ?? 'No Task selected',
+    'changes-task-detail': task ? `Current persisted state: ${task.status.replaceAll('_', ' ')}.` : 'Create a Task from Work to populate the review queue.',
+    'changes-task-status': task?.status?.replaceAll('_', ' ') ?? 'EMPTY',
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+  });
 }
 
 function setSyncState(state, message) {
@@ -297,6 +312,18 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'restart-sidecar') {
     restartSidecarFromUI();
+    return;
+  }
+  if (item.dataset.action === 'open-terminal') {
+    if (!nativeInvoke) {
+      notify('Opening Terminal requires the local desktop runtime.');
+      return;
+    }
+    const repositoryPath = document.getElementById('project-path')?.textContent;
+    nativeInvoke('open_terminal', { repositoryPath }).then(() => notify('Terminal opened at the project root.')).catch((error) => {
+      notify('Unable to open Terminal.');
+      console.warn('Terminal unavailable:', error);
+    });
     return;
   }
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
