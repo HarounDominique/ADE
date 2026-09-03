@@ -186,6 +186,18 @@ async function connectSidecar(snapshot) {
         notify(`Local service ${response.result.status.toLowerCase()}.`);
         return;
       }
+      if (Array.isArray(response.result) && response.result[0]?.capability) {
+        const available = response.result.filter((provider) => provider.available).map((provider) => `${provider.label}: ${provider.detail}`);
+        const detail = document.getElementById('provider-detail');
+        if (detail) detail.textContent = available.length ? available.join(' · ') : 'No configured provider is reachable.';
+        return;
+      }
+      if (Array.isArray(response.result) && response.result[0]?.permissions) {
+        const detail = document.getElementById('native-skills-list');
+        if (detail) detail.textContent = response.result.map((skill) => skill.label).join(' · ');
+        notify(`${response.result.length} native skills available.`);
+        return;
+      }
       if (response.type === 'review.completed' || response.type === 'review.failed') {
         notify(response.type === 'review.completed' ? 'Re-review completed.' : `Re-review failed: ${response.error}`);
         nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `review-refresh-${Date.now()}`, method: 'change.review', params: { taskId: response.taskId } }) });
@@ -396,6 +408,14 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'refresh-tree') {
     loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
+    return;
+  }
+  if (item.dataset.action === 'inspect-providers') {
+    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `providers-${Date.now()}`, method: 'providers.inspect' }) });
+    return;
+  }
+  if (item.dataset.action === 'list-skills') {
+    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list' }) });
     return;
   }
   if (item.dataset.action === 'open-document') {
