@@ -30,7 +30,7 @@ Conectar la shell Tauri con los casos de uso TypeScript sin duplicar dominio, SQ
 
 Usar un sidecar TypeScript supervisado por Tauri y un protocolo JSON-RPC sobre stdin/stdout. Tauri arranca y detiene el proceso; el sidecar crea `AdeStore`, expone read models y enruta comandos de aplicación. stdout queda reservado para respuestas protocolizadas y stderr para logs.
 
-El primer corte debe implementar sólo `project.snapshot`, con request id, respuesta `result/error` y cierre limpio. Las mutaciones y eventos se añaden después de validar lifecycle y empaquetado.
+El primer corte debe implementar `project.snapshot`, con request id, respuesta `result/error` y cierre limpio. `task.create` y `task.advance` ya enrutan mutaciones acotadas a los casos de uso existentes; las operaciones de agente y revisión siguen fuera de este transporte inicial.
 
 El primer corte está implementado en `src/desktop-sidecar.ts` y se ejecuta con `npm run desktop:sidecar` cuando `ADE_DB_PATH` está configurado. Los tests verifican snapshot, request id y errores estructurados, y un smoke test validó el proceso real sobre stdin/stdout con SQLite temporal. Tauri dispone de un supervisor con arranque, consulta de estado y parada idempotente, además de los comandos y eventos JSON-RPC; el smoke integrado arranca la app con `ADE_PROJECT_ID` y `ADE_DB_PATH` explícitos, y la UI solicita el snapshot para renderizarlo.
 

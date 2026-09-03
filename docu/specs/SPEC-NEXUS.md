@@ -120,3 +120,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — desktop-sidecar-resource — El bundle Tauri incluye `sidecar-dist` y Rust resuelve el recurso empaquetado; el packaging autónomo queda pendiente porque aún requiere Node instalado.
 - 2026-09-03 — desktop-sidecar-standalone — Node SEA + `postject` generan un sidecar Mach-O arm64 autocontenido; el bundle `.app` lo incluye y el smoke JSON-RPC no requiere Node externo.
 - 2026-09-03 — desktop-work-create — Work permite introducir una intención y crear una Task persistida mediante el sidecar; el Project Hub se refresca con el resultado real.
+- 2026-09-03 — desktop-work-advance — El sidecar expone `task.advance` con validación de transición, razón y actor; la UI aún debe ofrecer controles visuales de reanudación.
