@@ -45,6 +45,7 @@ Cloud, cuentas, sync, colaboración realtime, worktrees paralelos, multiagente c
 - La evidencia Runtime persistida queda limitada a tipo, resumen, detalles acotados, Task, sesión y timestamp.
 - Los eventos de runtime persistidos no contienen secretos ni el contenido completo de conversaciones.
 - Las acciones de gate requieren actor, razón y evidencia; aprobación humana sigue siendo obligatoria antes de commit.
+- `task.approve` persiste la decisión humana y sólo completa la Task cuando las gates previas tienen evidencia; la gate humana no se satisface implícitamente por una consulta.
 
 ## Testing Strategy
 

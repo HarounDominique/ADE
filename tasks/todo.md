@@ -137,7 +137,7 @@
   - Files: `src/application/`, `src/desktop-sidecar.ts`, `tests/`
 
 - [ ] Task: Integrar gates y Review reales en Changes
-  - Acceptance: Changes muestra gates/findings/evidencia reales y exige actor/razón para re-review y aprobación; no permite saltar gates.
+  - Acceptance: Changes muestra gates/findings/evidencia reales y exige actor/razón para re-review y aprobación; no permite saltar gates. `task.approve` ya persiste la aprobación humana cuando build, tests y agent-review están cubiertos; queda implementar re-review y persistencia completa de gates.
   - Verify: tests de governance/UI y smoke del flujo de aprobación.
   - Files: `desktop/src/`, `src/application/`, `tests/`
 
