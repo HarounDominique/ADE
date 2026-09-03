@@ -1,4 +1,30 @@
 use serde::Serialize;
+use std::process::{Child, Command, Stdio};
+use std::sync::Mutex;
+
+#[derive(Default)]
+struct SidecarSupervisor {
+    child: Mutex<Option<Child>>,
+}
+
+impl SidecarSupervisor {
+    fn reap_finished(&self) -> Result<bool, String> {
+        let mut child = self
+            .child
+            .lock()
+            .map_err(|_| "Sidecar state is poisoned".to_string())?;
+        if let Some(process) = child.as_mut() {
+            if process
+                .try_wait()
+                .map_err(|error| error.to_string())?
+                .is_some()
+            {
+                *child = None;
+            }
+        }
+        Ok(child.is_some())
+    }
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,6 +67,52 @@ fn project_context(repository_path: String) -> Result<ProjectContext, String> {
 }
 
 #[tauri::command]
+fn sidecar_start(state: tauri::State<'_, SidecarSupervisor>) -> Result<(), String> {
+    if state.reap_finished()? {
+        return Ok(());
+    }
+    let node = std::env::var("ADE_SIDECAR_NODE").unwrap_or_else(|_| "node".to_string());
+    let script = std::env::var("ADE_SIDECAR_SCRIPT").map_err(|_| {
+        "ADE_SIDECAR_SCRIPT must point to the compiled sidecar entrypoint".to_string()
+    })?;
+    let child = Command::new(node)
+        .arg(script)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .map_err(|error| format!("Unable to start sidecar: {error}"))?;
+    let mut current = state
+        .child
+        .lock()
+        .map_err(|_| "Sidecar state is poisoned".to_string())?;
+    *current = Some(child);
+    Ok(())
+}
+
+#[tauri::command]
+fn sidecar_status(state: tauri::State<'_, SidecarSupervisor>) -> Result<bool, String> {
+    state.reap_finished()
+}
+
+#[tauri::command]
+fn sidecar_stop(state: tauri::State<'_, SidecarSupervisor>) -> Result<(), String> {
+    let mut child = state
+        .child
+        .lock()
+        .map_err(|_| "Sidecar state is poisoned".to_string())?;
+    if let Some(mut process) = child.take() {
+        process
+            .kill()
+            .map_err(|error| format!("Unable to stop sidecar: {error}"))?;
+        process
+            .wait()
+            .map_err(|error| format!("Unable to reap sidecar: {error}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
@@ -48,8 +120,15 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(SidecarSupervisor::default())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, project_context])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            project_context,
+            sidecar_start,
+            sidecar_status,
+            sidecar_stop
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
