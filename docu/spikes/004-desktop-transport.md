@@ -41,7 +41,7 @@ El primer corte está implementado en `src/desktop-sidecar.ts` y se ejecuta con 
 3. Una excepción del sidecar produce error estructurado y no rompe la shell.
 4. El bundle macOS incluye el ejecutable y conserva la ruta de datos elegida.
 
-**Progreso:** gates 1 y 2 cubiertos en tests/smoke de desarrollo; la shell muestra `ready/failed`, conserva el último snapshot confirmado y ejecuta un único reintento ante salida del sidecar. El supervisor reabsorbe salidas inesperadas y `stop` es seguro aunque el proceso haya terminado. Gate 3 cubierto por pruebas de proceso (respuesta y fallo rápido). Gate 4 cubierto en macOS arm64: el sidecar se genera como ejecutable Node SEA autocontenido, se incluye en `Contents/Resources/sidecar-dist` y responde sin Node externo. Falta validar el reintento dentro de una ventana Tauri real.
+**Progreso:** gates 1 y 2 cubiertos en tests/smoke de desarrollo; la shell muestra `ready/failed`, conserva el último snapshot confirmado, ejecuta un único reintento ante salida del sidecar y ofrece recuperación manual desde Runtime. El supervisor reabsorbe salidas inesperadas y `stop` es seguro aunque el proceso haya terminado. Gate 3 cubierto por pruebas de proceso (respuesta y fallo rápido). Gate 4 cubierto en macOS arm64: el sidecar se genera como ejecutable Node SEA autocontenido, se incluye en `Contents/Resources/sidecar-dist` y responde sin Node externo. Falta validar el flujo dentro de una ventana Tauri empaquetada.
 
 ## Fuera de alcance
 

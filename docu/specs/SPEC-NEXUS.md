@@ -128,3 +128,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — desktop-runtime-recovery — `task.run` rechaza estados no ejecutables y persiste `BLOCKED` ante fallo del Implementer; el smoke real sigue pendiente por el `ServeError` de OpenCode.
 - 2026-09-03 — desktop-runtime-health — Runtime incorpora `runtime.health` con versión y errores estructurados; el diagnóstico automatizado pasa y el smoke real queda reproducible cuando OpenCode pueda arrancar.
 - 2026-09-03 — desktop-supervisor-hardening — El supervisor Tauri reabsorbe salidas inesperadas y evita errores de parada si el sidecar ya terminó; seis pruebas Rust pasan. La recuperación visual dentro de una ventana Tauri sigue pendiente.
+- 2026-09-03 — desktop-supervisor-recovery-ui — Runtime ofrece recuperación manual del sidecar, solicita snapshot y vuelve a comprobar health; queda validar el flujo en una ventana Tauri empaquetada.
