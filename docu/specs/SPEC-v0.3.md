@@ -48,12 +48,13 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 
 ## Implemented contract slices
 
-- Project policy is optionally read from `.ade/policy.json` with `requiredGates` and evidence limits (`maxItems`, `summaryLimit`, `detailsLimit`). Invalid or missing policy falls back to safe defaults.
+- Project policy is optionally read from `.ade/policy.json` with `requiredGates` and evidence limits (`maxItems`, `summaryLimit`, `detailsLimit`). The safe default includes `documentation-review`; invalid or missing policy falls back to it.
 - Runtime evidence is bounded at ingestion and old evidence can be pruned per Task. Git mutations can carry `taskId` and are persisted as auditable Task operations.
-- The living-knowledge graph scans nested Markdown and computes transitive citing impact; reconciliation remains a reviewable proposal and does not mutate documentation automatically.
+- The living-knowledge graph scans nested Markdown and computes transitive citing impact; reconciliation writes versioned QA/estimate/UML artifacts and an idempotent Nexus trace. Its resulting evidence satisfies `documentation-review` for the linked Task.
 - Native skills are loaded from the built-in catalog plus optional project manifests in `.ade/skills/*.json`; project manifests are validated and marked as `source: project`.
 - Skills can select the OpenCode HTTP runtime or the Codex CLI runtime without persisting credentials; both runners preserve the common `AgentRuntimePort` contract.
-- Agent sessions are persisted by Task (`runtime.sessions`) with provider, directory and status; a saved `sessionId` can be supplied to resume a skill run.
+- Agent sessions are persisted by Task (`runtime.sessions`) with provider, directory and status; a saved `sessionId` is selectable from Task detail to resume a skill run.
+- Native and Project skills declare least-privilege manifests. `read_project` and `write_docs` are Project-scoped; `write_code`, `run_commands` and `network` need an explicit per-run grant in the workbench.
 
 - ¿Qué proveedores se incluyen de forma nativa en el primer paquete?
 - ¿La terminal usa PTY propio o una librería Tauri estable?

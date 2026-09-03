@@ -8,7 +8,7 @@ export type GatePolicy = {
 };
 
 const DEFAULT_POLICY: GatePolicy = {
-  requiredGates: ["build", "tests", "agent-review", "human-approval"],
+  requiredGates: ["build", "tests", "agent-review", "documentation-review", "human-approval"],
   evidence: { maxItems: 100, summaryLimit: 500, detailsLimit: 2_000 },
   gitWorkflow: "pull-request",
 };

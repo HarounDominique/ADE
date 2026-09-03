@@ -15,6 +15,7 @@ export function getChangeReview(store: AdeStore, taskId: string) {
     build: { id: "build", required: true, status: changeSets.length > 0 ? "passed" : "pending", evidenceIds: changeSets[0] ? [changeSets[0].id] : [] },
     tests: { id: "tests", required: true, status: evidence.some((item) => item.type === "verification") ? "passed" : "pending", evidenceIds: evidence.filter((item) => item.type === "verification").map((item) => item.id) },
     "agent-review": { id: "agent-review", required: true, status: reviewPassed ? "passed" : "pending", evidenceIds: review ? [review.id] : [] },
+    "documentation-review": { id: "documentation-review", required: true, status: evidence.some((item) => item.type === "documentation.reconciled") ? "passed" : "pending", evidenceIds: evidence.filter((item) => item.type === "documentation.reconciled").map((item) => item.id) },
     "human-approval": { id: "human-approval", required: true, status: store.getApproval(taskId) ? "passed" : "pending", evidenceIds: store.getApproval(taskId) ? [taskId] : [] },
   };
   const gates: Gate[] = policy.requiredGates.map((id) => definitions[id] ?? { id, required: true, status: "pending", evidenceIds: [] as string[] });

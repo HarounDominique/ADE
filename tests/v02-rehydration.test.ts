@@ -38,6 +38,6 @@ test("v0.2 rehydrates Task, evidence, ChangeSet and Review after restart", async
   assert.equal(detail.changeSets.length, 1);
   assert.equal(detail.reviews.length, 1);
   assert.equal(detail.runtimeEvidence.length, 1);
-  assert.equal(restartedStore.listGates("task-rehydrate").length, 4);
+  assert.deepEqual(restartedStore.listGates("task-rehydrate").map((gate) => gate.id), ["agent-review", "build", "documentation-review", "human-approval", "tests"]);
   restartedStore.close();
 });

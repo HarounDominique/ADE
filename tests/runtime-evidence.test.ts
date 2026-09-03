@@ -35,3 +35,13 @@ test("runtime evidence accepts stricter project limits", () => {
   assert.equal(evidence.summary, "123");
   assert.equal(evidence.details, "1234");
 });
+
+test("documentation reconciliation is a first-class approval gate", () => {
+  const store = new AdeStore();
+  store.saveTask(Task.create({ id: "task-docs", intent: "Synchronize specifications" }));
+  store.saveRuntimeEvidence(createRuntimeEvidence({ id: "docs-evidence", taskId: "task-docs", type: "documentation.reconciled", summary: "Nexus and QA package generated" }));
+  const gate = getChangeReview(store, "task-docs").gates.find((candidate) => candidate.id === "documentation-review");
+  assert.equal(gate?.status, "passed");
+  assert.deepEqual(gate?.evidenceIds, ["docs-evidence"]);
+  store.close();
+});

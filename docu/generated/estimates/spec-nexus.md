@@ -4,7 +4,7 @@
 
 - Changed spec: docu/specs/SPEC-NEXUS.md
 - Direct and transitive dependents: 8
-- Broken references: 11
+- Broken references: 0
 
 ## Estimate
 

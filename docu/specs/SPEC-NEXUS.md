@@ -169,3 +169,9 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — v0.3-session-persistence — Se persisten sesiones de agentes por Task y se permite reanudar skills mediante `sessionId`; 56 tests TypeScript pasan. El streaming persistente y la reanudación completa de Tasks siguen abiertos.
 - 2026-09-03 — v0.3-release-and-reconciliation — El bundle macOS usa un launcher de sidecar cuando SEA no está disponible; smoke real valida app, sidecar, OpenCode 1.18.26 y una Task en repositorio efímero. La reconciliación automática genera informes de impacto, QA y estimación en Markdown. ADR-0011 registra ambas decisiones.
 - 2026-09-03 — v0.3-stream-install-workflow — Las skills transmiten eventos de runtime, se instalan desde JSON local o Git, y Git admite policy `pull-request` o `direct` con push confirmado. 59 tests TypeScript pasan; el sandbox de permisos y la presentación de ChangeSets/gates siguen abiertos.
+- 2026-09-03 — v0.3-resumable-permissions-gate — Codex captura y reanuda su `thread_id` real, las sesiones aparecen por Task y los manifests exigen consentimiento por ejecución para código, comandos y red. La reconciliación produce evidencia de `documentation-review`; ADR-0012 fija el contrato. 66 tests TypeScript y 10 Rust pasan; smoke real de `codex exec resume` validado.
+
+## Automatic Reconciliation Log
+
+<!-- reconciliation:docu/specs/SPEC-NEXUS.md -->
+- 2026-09-03 — automatic-reconciliation — docu/specs/SPEC-NEXUS.md; 8 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/spec-nexus.md, ../generated/qa/spec-nexus.md, ../generated/estimates/spec-nexus.md.

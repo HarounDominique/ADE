@@ -29,7 +29,7 @@ Las gates se evalúan en orden, pero un fallo puede reentrar en la fase que lo n
 | `build` | código de salida 0 y logs | BUILD |
 | `tests` | comandos definidos, salida y código 0 | BUILD o VERIFY |
 | `agent-review` | Review independiente persistida | REVIEW |
-| `documentation-review` | impactos `required` reconciliados | RECONCILE |
+| `documentation-review` | evidencia `documentation.reconciled` con paquete de reconciliación y traza de Nexus | RECONCILE |
 | `human-approval` | actor humano, decisión y razón | BUILD, REVIEW o RECONCILE |
 | `commit` | aprobación previa y referencia al ChangeSet | SHIP |
 
@@ -112,7 +112,7 @@ El flujo `implement → build → tests → review → fix → re-review → doc
 
 ## v0.1 decisions
 
-- Son obligatorias por defecto `build`, `tests` cuando el Project los declara, `agent-review` para cambios significativos, `documentation-review` cuando el impacto es `required` y `human-approval` siempre antes de commit.
+- Son obligatorias por defecto `build`, `tests`, `agent-review`, `documentation-review` y `human-approval`; `.ade/policy.json` puede adaptar la lista por Project. `knowledge.reconcile.apply` persiste la evidencia documental cuando recibe una Task.
 - El MVP persiste checkpoints y ChangeSets; la restauración automática queda fuera hasta validar la política de descarte de cambios.
 - El resumen semántico del Reviewer es informativo; la decisión se basa en findings, evidencia y gates, no en una puntuación única.
 

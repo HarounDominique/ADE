@@ -38,8 +38,8 @@ Validación de manifest, compatibilidad, permisos, inputs/outputs, instalación 
 
 ## Boundaries
 
-- Always: versionar, atribuir y poder desactivar cada skill.
-- Ask first: instalar desde red, escribir código o cambiar specs canónicas.
+- Always: versionar, atribuir y poder desactivar cada skill; `read_project` y `write_docs` se conceden dentro del Project porque las modificaciones documentales son intención explícita de producto.
+- Ask first: conceder por ejecución `write_code`, `run_commands` o `network`; ADE muestra los permisos solicitados y persiste la sesión con estado `RUNNING`, `COMPLETED` o `FAILED`.
 - Never: ejecutar una skill sin declarar permisos ni ocultar qué produjo.
 
 ## Success Criteria

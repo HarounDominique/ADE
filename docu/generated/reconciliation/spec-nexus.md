@@ -4,28 +4,18 @@ Generated from the current documentation graph.
 
 ## Affected documents
 
-- [ ] Review and synchronize [README.md](../../specs/README.md)
-- [ ] Review and synchronize [docu/README.md](../../specs/docu/README.md)
-- [ ] Review and synchronize [docu/specs/SPEC-NEXUS.md](../../specs/docu/specs/SPEC-NEXUS.md)
-- [ ] Review and synchronize [docu/specs/SPEC-agent-runtime.md](../../specs/docu/specs/SPEC-agent-runtime.md)
-- [ ] Review and synchronize [docu/specs/SPEC-desktop-shell.md](../../specs/docu/specs/SPEC-desktop-shell.md)
-- [ ] Review and synchronize [docu/spikes/001-opencode-runtime.md](../../specs/docu/spikes/001-opencode-runtime.md)
-- [ ] Review and synchronize [docu/spikes/002-independent-review.md](../../specs/docu/spikes/002-independent-review.md)
-- [ ] Review and synchronize [docu/spikes/003-desktop-framework.md](../../specs/docu/spikes/003-desktop-framework.md)
+- [ ] Review and synchronize [README.md](../../../README.md)
+- [ ] Review and synchronize [docu/README.md](../../README.md)
+- [ ] Review and synchronize [docu/specs/SPEC-NEXUS.md](../../specs/SPEC-NEXUS.md)
+- [ ] Review and synchronize [docu/specs/SPEC-agent-runtime.md](../../specs/SPEC-agent-runtime.md)
+- [ ] Review and synchronize [docu/specs/SPEC-desktop-shell.md](../../specs/SPEC-desktop-shell.md)
+- [ ] Review and synchronize [docu/spikes/001-opencode-runtime.md](../../spikes/001-opencode-runtime.md)
+- [ ] Review and synchronize [docu/spikes/002-independent-review.md](../../spikes/002-independent-review.md)
+- [ ] Review and synchronize [docu/spikes/003-desktop-framework.md](../../spikes/003-desktop-framework.md)
 
 ## Broken references
 
-- docu/generated/estimates/spec-nexus.md
-- docu/generated/qa/spec-nexus.md
-- docu/generated/reconciliation/spec-nexus.md
-- docu/generated/reconciliation/spec-nexus.md → docu/specs/README.md
-- docu/generated/reconciliation/spec-nexus.md → docu/specs/docu/README.md
-- docu/generated/reconciliation/spec-nexus.md → docu/specs/docu/specs/SPEC-NEXUS.md
-- docu/generated/reconciliation/spec-nexus.md → docu/specs/docu/specs/SPEC-agent-runtime.md
-- docu/generated/reconciliation/spec-nexus.md → docu/specs/docu/specs/SPEC-desktop-shell.md
-- docu/generated/reconciliation/spec-nexus.md → docu/specs/docu/spikes/001-opencode-runtime.md
-- docu/generated/reconciliation/spec-nexus.md → docu/specs/docu/spikes/002-independent-review.md
-- docu/generated/reconciliation/spec-nexus.md → docu/specs/docu/spikes/003-desktop-framework.md
+- None.
 
 ## Mermaid UML
 
@@ -73,13 +63,7 @@ classDiagram
   class ndocuadr0011portablesidecarandautomaticreconciliationmd {
     <<document>>
   }
-  class ndocugeneratedestimatesspecnexusmd {
-    <<document>>
-  }
-  class ndocugeneratedqaspecnexusmd {
-    <<document>>
-  }
-  class ndocugeneratedreconciliationspecnexusmd {
+  class ndocuadr0012resumablesessionsandperrunpermissionsmd {
     <<document>>
   }
   class ndocuknowledgeREADMEmd {
@@ -166,8 +150,6 @@ classDiagram
   nREADMEmd --> ndocuspikes001opencoderuntimemd : references
   nREADMEmd --> ndocuspikes002independentreviewmd : references
   ndocuREADMEmd --> ndocuspecsSPECNEXUSmd : references
-  ndocugeneratedestimatesspecnexusmd --> ndocugeneratedreconciliationspecnexusmd : references
-  ndocugeneratedestimatesspecnexusmd --> ndocugeneratedqaspecnexusmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECprojecttaskworkflowmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdevelopmentworkflowmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECagentruntimemd : references

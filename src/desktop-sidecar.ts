@@ -34,7 +34,7 @@ import { installProjectSkill } from "./application/skills/skill-install.js";
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; provider?: string; sessionId?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; provider?: string; sessionId?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string };
 };
 
 export type DesktopResponse = {
@@ -170,7 +170,29 @@ export async function runDesktopSidecar(): Promise<void> {
         if (!params?.skillId || !params.intent || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "skillId, intent and repositoryPath are required" } })}\n`);
         else {
           const runtime = params.provider === "codex" ? new CodexCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
-          void runNativeSkill(runtime, { skillId: params.skillId, directory: params.repositoryPath, intent: params.intent, ...(params.sessionId ? { sessionId: params.sessionId } : {}), onEvent: (event) => process.stdout.write(`${JSON.stringify({ type: "skill.event", id: request.id, skillId: params.skillId, event })}\n`) }).then((result) => { store.saveAgentSession({ id: result.session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider: params.provider ?? "opencode", directory: params.repositoryPath!, status: "COMPLETED", createdAt: new Date().toISOString() }); process.stdout.write(`${JSON.stringify({ id: request.id, result: { skillId: result.skill.id, sessionId: result.session.id, provider: params.provider ?? "opencode", events: result.events.length, status: "COMPLETED" } })}\n`); }).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+          let sessionId: string | undefined;
+          let createdAt: string | undefined;
+          const persist = (id: string, status: string) => store.saveAgentSession({ id, ...(params.taskId ? { taskId: params.taskId } : {}), provider: params.provider ?? "opencode", directory: params.repositoryPath!, status, createdAt: createdAt ?? new Date().toISOString() });
+          void runNativeSkill(runtime, {
+            skillId: params.skillId,
+            directory: params.repositoryPath,
+            intent: params.intent,
+            ...(params.sessionId ? { sessionId: params.sessionId } : {}),
+            grantedPermissions: params.grantedPermissions ?? [],
+            onSession: (session) => {
+              sessionId = session.id;
+              createdAt = new Date().toISOString();
+              // Codex emits its real resume id only after the first prompt completes.
+              if (params.provider !== "codex") persist(session.id, "RUNNING");
+            },
+            onEvent: (event) => process.stdout.write(`${JSON.stringify({ type: "skill.event", id: request.id, skillId: params.skillId, event })}\n`),
+          }).then((result) => {
+            persist(result.session.id, "COMPLETED");
+            process.stdout.write(`${JSON.stringify({ id: request.id, result: { skillId: result.skill.id, sessionId: result.session.id, provider: params.provider ?? "opencode", events: result.events.length, status: "COMPLETED" } })}\n`);
+          }).catch((error: unknown) => {
+            if (sessionId) persist(sessionId, "FAILED");
+            process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
+          });
         }
       } else if (request.method === "skills.install") {
         const params = request.params;
@@ -212,7 +234,22 @@ export async function runDesktopSidecar(): Promise<void> {
         const root = request.params?.repositoryPath;
         const changedFile = request.params?.intent;
         if (!root || !changedFile) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and changedFile are required" } })}\n`);
-        else void applyKnowledgeReconciliation(root, changedFile).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RECONCILIATION_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        else void applyKnowledgeReconciliation(root, changedFile).then((result) => {
+          const taskId = request.params?.taskId;
+          if (taskId) {
+            const evidencePolicy = loadGatePolicy(root).evidence;
+            store.saveRuntimeEvidence(createRuntimeEvidence({
+              id: `documentation-${taskId}-${Date.now()}`,
+              taskId,
+              type: "documentation.reconciled",
+              summary: `Reconciled ${result.changedFile}`,
+              details: JSON.stringify({ affected: result.affected, broken: result.broken, artifacts: result.artifacts }),
+              policy: evidencePolicy,
+            }));
+            store.pruneRuntimeEvidence(taskId, evidencePolicy.maxItems);
+          }
+          process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`);
+        }).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RECONCILIATION_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "knowledge.impact") {
         const target = request.params?.intent;
         const root = request.params?.repositoryPath;

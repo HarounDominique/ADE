@@ -13,6 +13,13 @@ test("native skill catalog includes the daily developer workflow", () => {
   assert.deepEqual(ids, ["prompt-engineering", "pr-review", "spector", "adaptive-workflow", "uml", "functional-documentation", "task-estimation", "git-github"]);
 });
 
+test("native skills declare the capabilities that need an explicit per-run grant", () => {
+  const git = listNativeSkills().find((skill) => skill.id === "git-github");
+  const spector = listNativeSkills().find((skill) => skill.id === "spector");
+  assert.deepEqual(git?.permissions, ["read_project", "run_commands", "network"]);
+  assert.deepEqual(spector?.permissions, ["read_project", "write_docs"]);
+});
+
 test("skill manifests reject unscoped identifiers and missing permissions", () => {
   assert.throws(() => validateSkillManifest({ id: "Bad Skill", version: "1.0.0", label: "bad", description: "bad", inputs: [], outputs: [], permissions: [], source: "project" }));
 });

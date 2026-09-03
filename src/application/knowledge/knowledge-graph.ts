@@ -28,7 +28,8 @@ async function markdownFiles(root: string): Promise<string[]> {
   async function visit(directory: string): Promise<void> {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
-      if (entry.isDirectory() && !ignored.has(entry.name)) await visit(path);
+      const projectPath = relative(root, path);
+      if (entry.isDirectory() && !ignored.has(entry.name) && projectPath !== join("docu", "generated")) await visit(path);
       else if (entry.name.endsWith(".md")) result.push(relative(root, path));
     }
   }

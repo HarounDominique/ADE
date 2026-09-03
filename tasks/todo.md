@@ -159,8 +159,8 @@
   - Acceptance: `opencode serve --pure` permanece disponible y `runtime.health` responde durante el smoke empaquetado. Validado con OpenCode 1.18.26 en `127.0.0.1:4097`; la configuración con plugins mantiene `ServeError` como diagnóstico separado.
 - [x] Task: Completar declaración persistida de servicios por Project
   - Acceptance: Runtime lee servicios desde `.ade/services.json`, toma el primero declarado como default y evita comandos hardcodeados en la UI.
-- [~] Task: Cerrar contrato de evidencia y policy de gates
-  - Acceptance: límites de tamaño/retención, policy mínima por Project y evidencia de documentación quedan especificados, implementados y cubiertos por tests.
+- [x] Task: Cerrar contrato de evidencia y policy de gates
+  - Acceptance: límites de tamaño/retención, policy mínima por Project y evidencia de documentación quedan especificados, implementados y cubiertos por tests. `documentation-review` es gate por defecto y `knowledge.reconcile.apply` persiste la evidencia vinculada a la Task.
 
 ## v0.3 — Workspace agéntico local-first
 
@@ -168,16 +168,16 @@
   - Acceptance: árbol local navegable, visor/apertura y terminal nativa con cwd y permisos validados. Primer corte implementado; falta endurecer permisos y UX recursiva.
   - Verify: `npm run build`, `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y prueba manual macOS.
 - [~] Task: Integrar proveedores agénticos
-  - Acceptance: Codex/OpenCode y futuros adapters se detectan, seleccionan y diagnostican sin persistir credenciales. OpenCode HTTP y Codex CLI están conectados al runner; las sesiones se persisten por Task y las skills retransmiten eventos hasta `session.idle`. Falta una UI de historial/conversación persistente.
+  - Acceptance: Codex/OpenCode y futuros adapters se detectan, seleccionan y diagnostican sin persistir credenciales. OpenCode HTTP y Codex CLI están conectados al runner; las sesiones se persisten por Task y las skills retransmiten eventos hasta `session.idle`. Codex captura y retoma el `thread_id` real; falta una UI de historial/conversación persistente.
   - Verify: contract tests con fakes y smoke de health.
 - [~] Task: Distribuir catálogo nativo de skills
-  - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad. Catálogo, carga/ejecución de skills de proyecto, instalación local/Git y runners OpenCode/Codex están implementados; falta sandbox efectivo de permisos.
+  - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad. Catálogo, carga/ejecución de skills de proyecto, instalación local/Git y runners OpenCode/Codex están implementados; ADE bloquea `write_code`, `run_commands` y `network` sin concesión por ejecución. Falta el sandbox nativo de permisos del proveedor.
   - Verify: validación de manifests, instalación local y ejecución de una skill fixture.
 - [~] Task: Integrar Git y GitHub con Tasks
   - Acceptance: branch, diff, worktree, commit y PR muestran actor, razón, ChangeSet y gates; operaciones peligrosas piden confirmación. `gitWorkflow` admite `pull-request` o `direct` (commit+push), Task→operación se persiste y la UI muestra el resultado de PR; falta presentar ChangeSet/gates en el flujo Git.
   - Verify: fixtures Git y contract tests GitHub.
 - [~] Task: Implementar documentación viva y consultoría
-  - Acceptance: cambios en specs calculan impacto sobre Nexus, citers, diagramas, QA docs y estimaciones; la reconciliación genera automáticamente informes Markdown, QA y estimación bajo `docu/generated/`. Falta aplicar cambios semánticos a contratos canónicos cuando no existe una transformación determinista.
+  - Acceptance: cambios en specs calculan impacto sobre Nexus, citers, diagramas, QA docs y estimaciones; la reconciliación genera automáticamente informes Markdown, QA y estimación bajo `docu/generated/`, actualiza su traza idempotente en el Nexus y satisface la gate documental de la Task. Falta aplicar cambios semánticos a contratos canónicos cuando no existe una transformación determinista.
   - Verify: grafo, headings rotos, impacto transitivo y tests de sync.
 - [~] Task: Integrar Workspace v0.3 y validar release
   - Acceptance: el smoke empaquetado valida app, sidecar, OpenCode real y Task real; faltan una interacción gráfica automatizada y el recorrido Git/documentación desde la ventana.

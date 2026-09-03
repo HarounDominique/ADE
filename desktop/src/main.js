@@ -130,7 +130,48 @@ function renderTaskDetail(detail) {
   const panel = document.getElementById('task-detail-panel');
   if (!panel) return;
   const task = detail.task;
-  panel.innerHTML = `<p class="eyebrow">TASK DETAIL</p><div class="task-detail-heading"><div><span class="task-id">${escapeHTML(task.id)}</span><h2>${escapeHTML(task.intent)}</h2></div><span class="task-status building">${escapeHTML(task.status.replaceAll('_', ' '))}</span></div><p>${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p>${detail.gitOperations.length} Git operations · ${detail.agentSessions.length} resumable agent sessions · ${detail.gates.length} gates</p>`;
+  const gates = detail.gates.map((gate) => `${gate.id}: ${gate.status}`).join(' · ') || 'No gates';
+  const changeset = detail.changeSets[0] ? `${detail.changeSets[0].id} (${detail.changeSets[0].gitStatus || 'clean'})` : 'No ChangeSet';
+  const operations = detail.gitOperations.length
+    ? `<ul class="task-trace-list">${detail.gitOperations.map((operation) => `<li><strong>${escapeHTML(operation.operation)}</strong> · ${escapeHTML(operation.reference ?? 'no reference')}<small>${escapeHTML(operation.actor)} · ${escapeHTML(operation.reason)}</small></li>`).join('')}</ul>`
+    : '<p class="task-trace-empty">No Git operations linked to this Task.</p>';
+  const sessions = detail.agentSessions.length
+    ? `<ul class="task-trace-list">${detail.agentSessions.map((session) => `<li><strong>${escapeHTML(session.provider)}</strong> · ${escapeHTML(session.status)}<small>${escapeHTML(session.id)}</small><button class="text-button" data-resume-session="${escapeHTML(session.id)}" data-session-provider="${escapeHTML(session.provider)}">Resume</button></li>`).join('')}</ul>`
+    : '<p class="task-trace-empty">No agent sessions linked to this Task.</p>';
+  panel.innerHTML = `<p class="eyebrow">TASK DETAIL</p><div class="task-detail-heading"><div><span class="task-id">${escapeHTML(task.id)}</span><h2>${escapeHTML(task.intent)}</h2></div><span class="task-status building">${escapeHTML(task.status.replaceAll('_', ' '))}</span></div><p>${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p><h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}`;
+}
+
+function runSkillFromUI(sessionId) {
+  if (!nativeInvoke) { notify('Skill execution requires the sidecar.'); return; }
+  const select = document.getElementById('agent-skill');
+  const skillId = select?.value;
+  const providerSelect = document.getElementById('agent-provider');
+  selectedProvider = providerSelect?.value ?? 'opencode';
+  const feedback = document.getElementById('agent-feedback');
+  if (!skillId) { notify('No native skill selected.'); return; }
+  const declared = (select?.selectedOptions?.[0]?.dataset.permissions ?? '').split(',').filter(Boolean);
+  const explicit = declared.filter((permission) => !['read_project', 'write_docs'].includes(permission));
+  if (explicit.length && !window.confirm(`${skillId} requests: ${explicit.join(', ')}. Allow for this run?`)) {
+    if (feedback) feedback.textContent = `${skillId} cancelled: permission not granted.`;
+    return;
+  }
+  const taskId = document.getElementById('changes-task-id')?.textContent;
+  if (feedback) feedback.textContent = `${sessionId ? 'Resuming' : 'Starting'} ${skillId} with ${selectedProvider}…`;
+  nativeInvoke('sidecar_request', {
+    request: JSON.stringify({
+      id: `skill-run-${Date.now()}`,
+      method: 'skills.run',
+      params: {
+        skillId,
+        provider: selectedProvider,
+        intent: document.getElementById('task-intent')?.value || 'Inspect the active Project and propose the next useful action.',
+        repositoryPath: document.getElementById('project-path')?.textContent,
+        grantedPermissions: explicit,
+        ...(sessionId ? { sessionId } : {}),
+        ...(taskId && taskId !== '—' ? { taskId } : {}),
+      },
+    }),
+  }).catch((error) => { if (feedback) feedback.textContent = `Skill failed: ${error}`; notify('Skill execution failed.'); });
 }
 
 async function refreshProjectContext(snapshot) {
@@ -259,13 +300,13 @@ async function connectSidecar(snapshot) {
         const detail = document.getElementById('native-skills-list');
         if (detail) detail.textContent = response.result.map((skill) => skill.label).join(' · ');
         const select = document.getElementById('agent-skill');
-        if (select) select.innerHTML = response.result.map((skill) => `<option value="${escapeHTML(skill.id)}">${escapeHTML(skill.label)}</option>`).join('');
+        if (select) select.innerHTML = response.result.map((skill) => `<option value="${escapeHTML(skill.id)}" data-permissions="${escapeHTML(skill.permissions.join(','))}">${escapeHTML(skill.label)}</option>`).join('');
         notify(`${response.result.length} native skills available.`);
         return;
       }
       if (response.result?.skillId && response.result?.sessionId) {
         const feedback = document.getElementById('agent-feedback');
-        if (feedback) feedback.textContent = `${response.result.skillId} running in ${response.result.sessionId} (${selectedProvider}).`;
+        if (feedback) feedback.textContent = `${response.result.skillId} completed in ${response.result.sessionId} (${selectedProvider}).`;
         return;
       }
       if (response.type === 'review.completed' || response.type === 'review.failed') {
@@ -480,7 +521,8 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'refresh-knowledge') {
     const repositoryPath = document.getElementById('project-path')?.textContent;
-    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile.apply', params: { repositoryPath, intent: 'docu/specs/SPEC-NEXUS.md' } }) });
+    const taskId = document.getElementById('changes-task-id')?.textContent;
+    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile.apply', params: { repositoryPath, intent: 'docu/specs/SPEC-NEXUS.md', ...(taskId && taskId !== '—' ? { taskId } : {}) } }) });
     return;
   }
   if (['create-branch', 'create-commit', 'create-pr'].includes(item.dataset.action)) {
@@ -496,13 +538,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'run-skill') {
-    if (!nativeInvoke) { notify('Skill execution requires the sidecar.'); return; }
-    const skillId = document.getElementById('agent-skill')?.value;
-    selectedProvider = document.getElementById('agent-provider')?.value ?? 'opencode';
-    const feedback = document.getElementById('agent-feedback');
-    if (!skillId) { notify('No native skill selected.'); return; }
-    if (feedback) feedback.textContent = `Starting ${skillId} with ${selectedProvider}…`;
-    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `skill-run-${Date.now()}`, method: 'skills.run', params: { skillId, provider: selectedProvider, intent: document.getElementById('task-intent')?.value || 'Inspect the active Project and propose the next useful action.', repositoryPath: document.getElementById('project-path')?.textContent } }) }).catch((error) => { if (feedback) feedback.textContent = `Skill failed: ${error}`; notify('Skill execution failed.'); });
+    runSkillFromUI();
     return;
   }
   if (item.dataset.action === 'inspect-providers') {
@@ -552,6 +588,14 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
 document.addEventListener('click', (event) => {
+  const resumeButton = event.target.closest('[data-resume-session]');
+  if (resumeButton) {
+    const provider = resumeButton.dataset.sessionProvider;
+    const providerSelect = document.getElementById('agent-provider');
+    if (providerSelect && provider) providerSelect.value = provider;
+    runSkillFromUI(resumeButton.dataset.resumeSession);
+    return;
+  }
   const fileEntry = event.target.closest('[data-file-path].file');
   if (fileEntry) {
     nativeInvoke?.('open_file', { path: fileEntry.dataset.filePath }).catch((error) => console.warn('File open unavailable:', error));

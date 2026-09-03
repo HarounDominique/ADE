@@ -26,9 +26,13 @@ Fakes por capacidad, contract tests por adapter, detección de binario/endpoint 
 
 ## Boundaries
 
-- Always: usar `AgentRuntimePort`, mostrar proveedor activo y atribuir operaciones.
-- Ask first: conceder permisos de filesystem, red o ejecución ampliados.
+- Always: usar `AgentRuntimePort`, mostrar proveedor activo y atribuir operaciones; persistir el identificador real de sesión, directorio, proveedor, Task y estado.
+- Ask first: conceder por ejecución `write_code`, `run_commands` o `network`; `read_project` y `write_docs` se rigen por el alcance del Project.
 - Never: copiar tokens a SQLite, logs, prompts persistidos o ChangeSets.
+
+## Session contract
+
+OpenCode reanuda el `sessionId` HTTP almacenado. Codex inicia con `codex exec --json`, captura `thread_id` y lo retoma con `codex exec resume <thread_id>`. El shell muestra las sesiones de cada Task y permite elegir una para continuar una skill; una sesión no se declara reanudable hasta que el proveedor ha emitido su identificador real.
 
 ## Success Criteria
 

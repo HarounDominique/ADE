@@ -3,16 +3,24 @@ import { validateSkillManifest, type SkillManifest } from "../../domain/skill.js
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export const nativeSkills: readonly SkillManifest[] = ([
-  ["prompt-engineering", "Prompt engineering", "Shape intent, constraints and acceptance criteria."],
-  ["pr-review", "PR review", "Review a ChangeSet with evidence and actionable findings."],
-  ["spector", "Spector specs", "Generate and reconcile living specifications."],
-  ["adaptive-workflow", "Adaptive workflow", "Select phase, mode and re-entry without rigid ceremony."],
-  ["uml", "UML diagrams", "Generate diagrams that support specs and quality review."],
-  ["functional-documentation", "Functional documentation", "Explain scope, behavior and rationale for QA."],
-  ["task-estimation", "Task estimation", "Estimate implementation effort from functional intent."],
-  ["git-github", "Git and GitHub", "Prepare auditable branches, diffs and pull requests."],
-] as const).map(([id, label, description]) => validateSkillManifest({ id, label, description, version: "1.0.0", inputs: ["intent", "context"], outputs: ["proposal", "evidence"], permissions: ["read_project"], source: "native" }));
+const nativeSkillDefinitions: ReadonlyArray<Pick<SkillManifest, "id" | "label" | "description" | "permissions">> = [
+  { id: "prompt-engineering", label: "Prompt engineering", description: "Shape intent, constraints and acceptance criteria.", permissions: ["read_project"] },
+  { id: "pr-review", label: "PR review", description: "Review a ChangeSet with evidence and actionable findings.", permissions: ["read_project"] },
+  { id: "spector", label: "Spector specs", description: "Generate and reconcile living specifications.", permissions: ["read_project", "write_docs"] },
+  { id: "adaptive-workflow", label: "Adaptive workflow", description: "Select phase, mode and re-entry without rigid ceremony.", permissions: ["read_project"] },
+  { id: "uml", label: "UML diagrams", description: "Generate diagrams that support specs and quality review.", permissions: ["read_project", "write_docs"] },
+  { id: "functional-documentation", label: "Functional documentation", description: "Explain scope, behavior and rationale for QA.", permissions: ["read_project", "write_docs"] },
+  { id: "task-estimation", label: "Task estimation", description: "Estimate implementation effort from functional intent.", permissions: ["read_project"] },
+  { id: "git-github", label: "Git and GitHub", description: "Prepare auditable branches, diffs and pull requests.", permissions: ["read_project", "run_commands", "network"] },
+];
+
+export const nativeSkills: readonly SkillManifest[] = nativeSkillDefinitions.map((skill) => validateSkillManifest({
+  ...skill,
+  version: "1.0.0",
+  inputs: ["intent", "context"],
+  outputs: ["proposal", "evidence"],
+  source: "native",
+}));
 
 export function listNativeSkills(): readonly SkillManifest[] {
   return nativeSkills;

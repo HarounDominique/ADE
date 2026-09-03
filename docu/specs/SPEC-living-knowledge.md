@@ -28,13 +28,13 @@ Tests de referencias, grafo acíclico, headings rotos, impacto transitivo, diagr
 
 ## Boundaries
 
-- Always: detectar citers y propagar cambios antes de marcar una Task completa.
-- Ask first: cambiar contratos canónicos o resolver contradicciones automáticamente.
+- Always: detectar citers y propagar cambios antes de marcar una Task completa; generar el paquete de reconciliación y registrar su traza canónica en el Nexus sin confirmación adicional.
+- Ask first: resolver una contradicción semántica que el grafo no pueda deducir de las referencias y los contratos existentes.
 - Never: presentar una spec desactualizada como vigente ni sobrescribir decisiones históricas.
 
 ## Automatic reconciliation
 
-`knowledge.reconcile.apply` escribe tres artefactos versionables por spec afectada: `docu/generated/reconciliation/`, `docu/generated/qa/` y `docu/generated/estimates/`. Incluyen dependencias transitivas, enlaces rotos, UML Mermaid, checklist funcional y una estimación inicial.
+`knowledge.reconcile.apply` escribe tres artefactos versionables por spec afectada: `docu/generated/reconciliation/`, `docu/generated/qa/` y `docu/generated/estimates/`. Incluyen dependencias transitivas, enlaces rotos, UML Mermaid, checklist funcional y una estimación inicial. Cuando existe, `docu/specs/SPEC-NEXUS.md` recibe una entrada idempotente con la evidencia y los artefactos generados.
 
 ## Success Criteria
 
