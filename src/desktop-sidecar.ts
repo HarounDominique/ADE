@@ -16,6 +16,7 @@ import { LocalProcess } from "./adapters/local-process.js";
 import { ServiceManager, type ServiceDefinition } from "./application/local-runtime/service-manager.js";
 import type { ChangeSet } from "./domain/change-set.js";
 import { inspectProviders } from "./application/agent-providers/provider-registry.js";
+import { listNativeSkills } from "./application/skills/skill-catalog.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -55,7 +56,7 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'service.status'].includes(request.method)) {
+    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'service.status', 'skills.list'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -68,6 +69,7 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
     if (request.method === "runtime.status") {
       return { id: request.id, result: getRuntimeStatus() };
     }
+    if (request.method === "skills.list") return { id: request.id, result: listNativeSkills() };
     if (request.method === "service.status") {
       const serviceId = request.params?.serviceId;
       if (!serviceId || !serviceManager) return { id: request.id, error: { code: "INVALID_PARAMS", message: "serviceId is required" } };
