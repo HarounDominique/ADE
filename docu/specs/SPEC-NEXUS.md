@@ -103,3 +103,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-02 — spike-003 — Comparativa Tauri/Electron validada: Tauri 2 compila `.app`/`.dmg` y arranca en macOS; ADR-0009 registra la adopción para el shell MVP.
 - 2026-09-02 — desktop-shell-bootstrap — Se creó el shell visual Tauri con navegación Project/Work/Knowledge/Changes/Runtime y estados representativos; se validó bundle `.app`/`.dmg`.
 - 2026-09-02 — desktop-project-context — Se definió `ProjectSnapshot` y se añadió el comando Tauri de solo lectura `project_context`; la integración de Task/SQLite/Git completo queda para los siguientes puntos de la vertical.
+- 2026-09-03 — desktop-read-model — Se añadieron consultas de colección al store y el read model `ProjectSnapshot`, con filtrado por Project y métricas de trabajo; la UI aún consume fixture hasta cerrar el transporte Tauri.
