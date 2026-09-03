@@ -43,14 +43,18 @@ function escapeHTML(value) {
 }
 
 function renderProjectTasks(tasks) {
-  const list = document.getElementById('project-task-list');
-  if (!list || tasks.length === 0) return;
-  list.innerHTML = tasks.map((task, index) => {
+  const lists = [...document.querySelectorAll('#project-task-list, #work-task-list')];
+  if (lists.length === 0 || tasks.length === 0) return;
+  const cards = tasks.map((task, index) => {
     const status = escapeHTML(task.status.replaceAll('_', ' '));
     const tone = ['UNDER_REVIEW', 'READY_FOR_HUMAN', 'BLOCKED'].includes(task.status) ? 'review' : 'building';
     const phase = task.status === 'UNDER_REVIEW' ? 'Reviewer active' : task.status === 'READY_FOR_HUMAN' ? 'Awaiting approval' : 'Task state confirmed';
-    return `<article class="task-card${index === 0 ? ' selected-task' : ''}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from ADE metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div></article>`;
+    const transitions = { DRAFT: ['READY', 'Mark ready'], READY: ['IN_PROGRESS', 'Start task'], CHANGES_REQUESTED: ['IN_PROGRESS', 'Resume task'], BLOCKED: ['READY', 'Re-enter task'] };
+    const action = transitions[task.status];
+    const actionMarkup = action ? `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-next="${action[0]}">${action[1]}</button>` : '';
+    return `<article class="task-card${index === 0 ? ' selected-task' : ''}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from ADE metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div>${actionMarkup}</article>`;
   }).join('');
+  lists.forEach((list) => { list.innerHTML = cards; });
 }
 
 async function refreshProjectContext(snapshot) {
@@ -143,6 +147,27 @@ async function createTaskFromUI(intent) {
   });
 }
 
+async function advanceTaskFromUI(taskId, next, button) {
+  if (!nativeInvoke) {
+    notify('Task transitions require the local sidecar.');
+    return;
+  }
+  button.disabled = true;
+  try {
+    await nativeInvoke('sidecar_request', {
+      request: JSON.stringify({ id: `advance-${taskId}-${Date.now()}`, method: 'task.advance', params: { taskId, next, reason: `Transition requested from Work: ${next}`, actor: 'human' } }),
+    });
+    notify(`${taskId} moved to ${next.replaceAll('_', ' ')}.`);
+    await nativeInvoke('sidecar_request', {
+      request: JSON.stringify({ id: `refresh-${taskId}-${Date.now()}`, method: 'project.snapshot', params: { projectId: activeProjectId } }),
+    });
+  } catch (error) {
+    button.disabled = false;
+    notify('Task transition failed.');
+    console.warn('Task transition unavailable:', error);
+  }
+}
+
 function showView(view) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
@@ -170,6 +195,11 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
+document.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-task-id][data-task-next]');
+  if (!button) return;
+  advanceTaskFromUI(button.dataset.taskId, button.dataset.taskNext, button);
+});
 taskForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const intent = taskIntent?.value.trim();
