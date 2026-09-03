@@ -237,6 +237,28 @@ async function runTaskFromUI(taskId, button) {
   }
 }
 
+async function restartSidecarFromUI() {
+  if (!nativeInvoke) {
+    notify('Sidecar recovery requires the local desktop runtime.');
+    return;
+  }
+  setSyncState('stale', 'Restarting sidecar…');
+  try {
+    await nativeInvoke('sidecar_restart');
+    await nativeInvoke('sidecar_request', {
+      request: JSON.stringify({ id: `recovery-${Date.now()}`, method: 'project.snapshot', params: { projectId: activeProjectId } }),
+    });
+    await nativeInvoke('sidecar_request', {
+      request: JSON.stringify({ id: `recovery-health-${Date.now()}`, method: 'runtime.health' }),
+    });
+    notify('Sidecar restarted; refreshing project state.');
+  } catch (error) {
+    setSyncState('failed', 'Recovery required');
+    notify('Sidecar recovery failed.');
+    console.warn('Sidecar recovery unavailable:', error);
+  }
+}
+
 function showView(view) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
@@ -271,6 +293,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
       request: JSON.stringify({ id: `health-${Date.now()}`, method: 'runtime.health' }),
     }).catch((error) => console.warn('Runtime health unavailable:', error));
     notify('Checking OpenCode connection…');
+    return;
+  }
+  if (item.dataset.action === 'restart-sidecar') {
+    restartSidecarFromUI();
     return;
   }
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
