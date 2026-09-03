@@ -2,6 +2,8 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Release spec: v0.2 -->
 
+**Estado de release:** CERRADA — sus criterios quedaron verificados dentro del cierre de v0.3.
+
 ## Objective
 
 Convertir el MVP desktop en una workstation operativa para el ciclo diario de una Task: ejecutar trabajo, conservar evidencia entre sesiones, revisar cambios con gates visibles y reentrar sin perder contexto.
@@ -61,7 +63,7 @@ Cloud, cuentas, sync, colaboración realtime, worktrees paralelos, multiagente c
 2. Changes muestra evidencia real, gates y findings de la Task seleccionada.
 3. Una gate requerida bloquea aprobación/commit hasta que exista evidencia válida o waiver conforme a policy, y la aprobación/re-review se ejecutan mediante casos de uso auditables.
 4. Un servicio local declarado puede iniciarse, comprobarse y detenerse desde Runtime.
-5. El smoke empaquetado y el test de rehidratación sobreviven al reinicio de la app sin perder el historial operativo.
+5. ✅ El smoke empaquetado y el test de rehidratación sobreviven al reinicio de la app sin perder el historial operativo.
 
 ## Delivery order
 
@@ -69,11 +71,11 @@ Cloud, cuentas, sync, colaboración realtime, worktrees paralelos, multiagente c
 
 Cada corte debe actualizar las specs dependientes y el nexus antes de implementar el siguiente.
 
-## Open Questions
+## Decisions carried forward
 
-Las decisiones de cierre de esta versión son deliberadamente conservadoras:
+Las decisiones de esta versión son deliberadamente conservadoras y están cerradas. Los límites que se ampliaron posteriormente viven en [SPEC-v0.3](SPEC-v0.3.md):
 
-- La lectura visible de Runtime queda limitada a 100 evidencias por Task y 12 eventos en la shell; el límite de bytes y una política de retención configurable pasan a v0.3.
-- v0.2 usa cuatro gates estáticas (`build`, `tests`, `agent-review`, `human-approval`); la policy configurable por Project pasa a v0.3.
+- La lectura visible de Runtime queda limitada a 100 evidencias por Task y 12 eventos en la shell; v0.3 añade límites configurables de evidencia por Project.
+- v0.2 usa gates declarativas; v0.3 añade la policy configurable por Project.
 - El `ServiceManager` y sus pruebas existen; la declaración persistida se carga desde una policy local equivalente (`.ade/services.json` por defecto, configurable mediante `ADE_SERVICES_PATH`). Runtime lista los servicios del Project, su comando/cwd/healthcheck y permite start/stop individual; la validación de release sigue siendo macOS-local.
 - Tras reinicio, la evidencia mínima para reanudar es Task + historial + ChangeSet + Review + runtime evidence + gates persistidos. El contrato de rehidratación está cubierto con store reiniciado; el smoke macOS empaquetado validó sidecar, Task real, OpenCode 1.18.26 y arranque/parada limpia de `.app`.

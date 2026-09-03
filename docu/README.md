@@ -4,8 +4,9 @@ Esta es la única jerarquía normativa de documentación del proyecto.
 
 ## Organización
 
-- `specs/`: nexus y specs funcionales/técnicas. El nexus es el índice único y contiene el brief de producto, fundamentos, contrato del MVP, decisiones abiertas y change log.
+- `specs/`: nexus y specs funcionales/técnicas. El nexus es el índice único y contiene el brief de producto, fundamentos, contratos, decisiones diferidas y change log.
 - `adr/`: decisiones arquitectónicas con contexto, alternativas, decisión y consecuencias.
+- `releases/`: evidencias y límites de cada release cerrada.
 - `knowledge/`: documentación canónica, operativa y orientada a agentes cuando el proyecto empiece a producirla.
 
 ## Regla de mantenimiento

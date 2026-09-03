@@ -1,6 +1,6 @@
 # Nexus: ADE — Agentic Development Environment
 
-**Estado:** v0.1 MVP implementado; v0.2 operativo con cierre de release pendiente; v0.3 en implementación incremental
+**Estado:** v0.1 MVP implementado; v0.2 cerrada; v0.3 cerrada y validada en macOS
 **Fecha:** 2026-09-02  
 **Fuente:** informe fundacional de ADE proporcionado por el usuario
 
@@ -91,11 +91,13 @@ Los cuatro spikes previos a UI significativa son: integración OpenCode y evento
 
 La siguiente iteración está definida en [SPEC-v0.2.md](SPEC-v0.2.md): revisión y gates visibles, evidencia de runtime persistida, servicios locales declarados y navegación contextual de Tasks. Su orden de entrega es `runtime-evidence → task-detail-read-model → review-gates-ui → local-services → rehydration-smoke`. Cloud, worktrees, colaboración, multiagente complejo y commits autónomos continúan fuera de alcance.
 
-## Open decisions
+## Deferred decisions
 
-Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta con OpenCode desde Tauri; esquema SQLite; retrieval y embeddings; relación Task/branch; checkpoints; automatización de commits; esquema `.ade/`; enforcement de taxonomía documental; memoria/equipos; licensing y pricing.
+Estas decisiones no bloquean las releases cerradas y se mantienen para iteraciones posteriores: esquema SQLite definitivo; retrieval y embeddings; checkpoints; automatización de commits; evolución del esquema `.ade/`; enforcement completo de taxonomía documental; memoria/equipos; licensing y pricing; editor completo; `.dmg`; cloud y colaboración realtime.
 
 ## Change Log
+
+Las entradas siguientes son históricas y describen el estado en el momento de cada corte; el encabezado y la última entrada son la referencia vigente para el estado de release.
 
 - 2026-09-02 — initial — Se descompuso el informe fundacional en seis módulos base, se fijaron dependencias y build order; quedan abiertas las decisiones tecnológicas indicadas en Tech Foundations.
 - 2026-09-02 — development-workflow — Se añadió el módulo de workflow adaptativo y se propagó a producto, MVP y governance: fases orientativas, invariantes obligatorios, modos según riesgo y bucles de re-discuss/re-build/re-review.
@@ -180,6 +182,7 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — v0.3-packaged-pty-smoke — Se reempaquetó el `.app` con el PTY nativo y el smoke real pasó: sidecar `READY`, Task efímera, OpenCode 1.18.26 y arranque/parada limpia. El servidor temporal se detuvo tras validar.
 - 2026-09-03 — v0.3-changed-doc-reconciliation — La reconciliación detecta por Git todas las specs/ADRs Markdown modificadas y las aplica secuencialmente, preservando las trazas Nexus y asociando evidencia a la Task. 76 tests TypeScript pasan.
 - 2026-09-03 — v0.2-project-services-ui — Runtime lista los servicios declarados por Project y permite start/stop individual con estado refrescado, completando la superficie operativa de `.ade/services.json`. 76 tests TypeScript pasan.
+- 2026-09-03 — v0.3-close — Smoke empaquetado macOS validado con sidecar incluido, OpenCode 1.18.26 real, Task en repositorio efímero, evidencia y gates rehidratados tras reinicio del sidecar, y `.app` arrancando/parando limpiamente. Suites: 76 tests TypeScript, 13 tests Rust; v0.3 cerrada.
 
 ## Automatic Reconciliation Log
 

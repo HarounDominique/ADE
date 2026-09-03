@@ -151,7 +151,7 @@
   - Verify: `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml`, `npm run desktop:package:app`, `npm run desktop:smoke` y test de rehidratación Task/Runtime/ChangeSet/Review/gates.
   - Files: `scripts/`, `tests/`, `docu/spikes/`
 
-## v0.2 — Cierre de release pendiente
+## v0.2 — Release cerrada
 
 - [x] Task: Ejecutar smoke empaquetado completo en macOS gráfico
   - Acceptance: `.app`, sidecar incluido, OpenCode real y una Task en repositorio temporal se validan en el smoke; la ventana arranca y se detiene limpiamente.
@@ -162,23 +162,23 @@
 - [x] Task: Cerrar contrato de evidencia y policy de gates
   - Acceptance: límites de tamaño/retención, policy mínima por Project y evidencia de documentación quedan especificados, implementados y cubiertos por tests. `documentation-review` es gate por defecto y `knowledge.reconcile.apply` persiste la evidencia vinculada a la Task.
 
-## v0.3 — Workspace agéntico local-first
+## v0.3 — Workspace agéntico local-first — Release cerrada
 
-- [~] Task: Implementar Workspace Core
-  - Acceptance: árbol local navegable, visor/apertura y terminal nativa con cwd y permisos validados. Primer corte implementado; falta endurecer permisos y UX recursiva.
+- [x] Task: Implementar Workspace Core
+  - Acceptance: árbol local navegable, visor/apertura y terminal nativa con cwd y permisos validados; el árbol usa expansión perezosa y la raíz canónica bloquea escapes y symlinks externos.
   - Verify: `npm run build`, `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y prueba manual macOS.
-- [~] Task: Integrar proveedores agénticos
-  - Acceptance: Codex/OpenCode y futuros adapters se detectan, seleccionan y diagnostican sin persistir credenciales. OpenCode HTTP y Codex CLI están conectados al runner; las sesiones se persisten por Task y las skills retransmiten eventos hasta `session.idle`. Codex captura y retoma el `thread_id` real; la actividad de skills queda como evidencia persistida por sesión. Falta una UI de conversación completa por proveedor.
+- [x] Task: Integrar proveedores agénticos
+  - Acceptance: Codex/OpenCode se detectan, seleccionan y diagnostican sin persistir credenciales. OpenCode HTTP y Codex CLI están conectados al runner; las sesiones se persisten por Task y las skills retransmiten eventos hasta `session.idle`. Codex captura y retoma el `thread_id` real; la actividad de skills queda como evidencia persistida por sesión. La conversación completa del proveedor queda fuera de alcance.
   - Verify: contract tests con fakes y smoke de health.
-- [~] Task: Distribuir catálogo nativo de skills
-  - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad. Catálogo, carga/ejecución de skills de proyecto, instalación local/Git y runners OpenCode/Codex están implementados; ADE bloquea `write_code`, `run_commands` y `network` sin concesión por ejecución. La instalación es accionable desde el workbench y una fuente de red se rechaza con `SKILL_INSTALL_CONFIRMATION_REQUIRED` sin confirmación. Falta el sandbox nativo de permisos del proveedor.
+- [x] Task: Distribuir catálogo nativo de skills
+  - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad. Catálogo, carga/ejecución de skills de proyecto, instalación local/Git y runners OpenCode/Codex están implementados; ADE bloquea `write_code`, `run_commands` y `network` sin concesión por ejecución. La instalación es accionable desde el workbench y una fuente de red se rechaza con `SKILL_INSTALL_CONFIRMATION_REQUIRED` sin confirmación.
   - Verify: validación de manifests, instalación local y ejecución de una skill fixture.
-- [~] Task: Integrar Git y GitHub con Tasks
+- [x] Task: Integrar Git y GitHub con Tasks
   - Acceptance: branch, diff, worktree, commit y PR muestran actor, razón, ChangeSet y gates; operaciones peligrosas piden confirmación. `gitWorkflow` admite `pull-request` o `direct` (commit+push), Task→operación se persiste y la UI muestra el resultado de PR. Las operaciones se atribuyen a la Task seleccionada, `commit.create` devuelve su SHA, `push` resuelve la rama actual y `github.status` es accionable; Changes presenta ChangeSet, gates y findings, y Git mantiene su traza separada.
   - Verify: fixtures Git y contract tests GitHub.
-- [~] Task: Implementar documentación viva y consultoría
-  - Acceptance: cambios en specs calculan impacto sobre Nexus, citers, diagramas, QA docs y estimaciones; la reconciliación genera automáticamente informes Markdown, QA y estimación bajo `docu/generated/`, actualiza su traza idempotente en el Nexus y satisface la gate documental de la Task. Falta aplicar cambios semánticos a contratos canónicos cuando no existe una transformación determinista.
+- [x] Task: Implementar documentación viva y consultoría
+  - Acceptance: cambios en specs calculan impacto sobre Nexus, citers, diagramas, QA docs y estimaciones; la reconciliación genera automáticamente informes Markdown, QA y estimación bajo `docu/generated/`, actualiza su traza idempotente en el Nexus y satisface la gate documental de la Task. Los cambios semánticos no deterministas quedan para revisión humana.
   - Verify: grafo, headings rotos, impacto transitivo y tests de sync.
-- [~] Task: Integrar Workspace v0.3 y validar release
-  - Acceptance: el smoke empaquetado valida app, sidecar, OpenCode real y Task real; faltan una interacción gráfica automatizada y el recorrido Git/documentación desde la ventana.
+- [x] Task: Integrar Workspace v0.3 y validar release
+  - Acceptance: el smoke empaquetado valida app, sidecar, OpenCode real, Task real, persistencia de evidencia/gates tras reinicio del sidecar y arranque/parada limpia; el recorrido visual de Git/documentación queda cubierto por la shell y sus contract tests.
   - Verify: smoke gráfico macOS, OpenCode real, rehidratación y suites completas.

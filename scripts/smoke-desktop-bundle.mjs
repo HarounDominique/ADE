@@ -54,19 +54,24 @@ function createProtocol(process) {
   };
 }
 
-try {
-  requireExecutable(appExecutable);
-  requireExecutable(sidecar);
-  const sidecarProcess = spawn(sidecar, [], {
+function spawnPackagedSidecar() {
+  return spawn(sidecar, [], {
     cwd: "/private/tmp",
     env: { ...process.env, ADE_DB_PATH: database },
     stdio: ["pipe", "pipe", "ignore"],
   });
+}
+
+try {
+  requireExecutable(appExecutable);
+  requireExecutable(sidecar);
+  let sidecarProcess = spawnPackagedSidecar();
   const protocol = createProtocol(sidecarProcess);
   const sidecarResponse = await protocol.request({ id: "bundle-smoke", method: "runtime.status" });
   if (sidecarResponse.result?.sidecar !== "READY") throw new Error("Packaged sidecar did not report READY");
 
   let task = { checked: false };
+  let rehydration = { checked: false };
   if (process.env.ADE_SMOKE_OPENCODE === "1") {
     mkdirSync(repository, { recursive: true });
     if (spawnSync("git", ["init"], { cwd: repository }).status !== 0) throw new Error("Unable to initialize smoke repository");
@@ -77,6 +82,28 @@ try {
     if (completed.status?.agentRuntime !== "CONNECTED") throw new Error("Bundled sidecar did not complete the OpenCode Task");
     if (!existsSync(join(repository, "smoke-result.txt"))) throw new Error("OpenCode Task did not write its result inside the smoke repository");
     task = { checked: true, taskId: "bundle-task" };
+
+    await protocol.request({ id: "change-review-before-restart", method: "change.review", params: { taskId: "bundle-task" } });
+    const beforeRestart = await protocol.request({ id: "task-detail-before-restart", method: "task.detail", params: { taskId: "bundle-task" } });
+    const beforeDetail = beforeRestart.result;
+    if (beforeRestart.error || beforeDetail?.task?.status !== "IMPLEMENTED" || !beforeDetail.runtimeEvidence?.length || !beforeDetail.gates?.length) {
+      throw new Error("Packaged sidecar did not persist Task evidence and gates before restart");
+    }
+    sidecarProcess.kill("SIGTERM");
+    await waitForExit(sidecarProcess, 2000);
+    sidecarProcess = spawnPackagedSidecar();
+    const restartedProtocol = createProtocol(sidecarProcess);
+    const afterRestart = await restartedProtocol.request({ id: "task-detail-after-restart", method: "task.detail", params: { taskId: "bundle-task" } });
+    const afterDetail = afterRestart.result;
+    if (afterRestart.error || afterDetail?.task?.status !== "IMPLEMENTED" || !afterDetail.runtimeEvidence?.length || !afterDetail.gates?.length) {
+      throw new Error("Packaged sidecar did not rehydrate Task evidence and gates after restart");
+    }
+    rehydration = {
+      checked: true,
+      status: afterDetail.task.status,
+      runtimeEvidence: afterDetail.runtimeEvidence.length,
+      gates: afterDetail.gates.length,
+    };
   }
   sidecarProcess.kill("SIGTERM");
   await waitForExit(sidecarProcess, 2000);
@@ -101,7 +128,7 @@ try {
     if (!response.ok) throw new Error(`OpenCode health failed (${response.status})`);
     opencode = { checked: true, url, health: await response.json() };
   }
-  console.log(JSON.stringify({ app, sidecar, database, sidecarStatus: sidecarResponse.result.sidecar, appStarted: true, appStopped: true, opencode, task }));
+  console.log(JSON.stringify({ app, sidecar, database, sidecarStatus: sidecarResponse.result.sidecar, appStarted: true, appStopped: true, opencode, task, rehydration }));
 } finally {
   rmSync(smokeDirectory, { recursive: true, force: true });
 }

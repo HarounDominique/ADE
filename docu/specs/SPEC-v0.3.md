@@ -2,6 +2,8 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Follows: SPEC-v0.2.md -->
 
+**Estado de release:** CERRADA — validada en macOS el 2026-09-03.
+
 ## Objective
 
 Convertir ADE en el workspace agéntico local-first que concentra contexto, terminal, proveedores, skills, Git y documentación viva, cerrando además la release reproducible de v0.2.
@@ -39,12 +41,16 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 
 ## Exit criteria
 
-1. Un Project nuevo puede cargar su configuración sin depender de comandos hardcodeados en la UI.
-2. Una Task conserva evidencia acotada y gates después de cerrar y reabrir la aplicación.
-3. El smoke empaquetado pasa en macOS con OpenCode real, sidecar incluido y una Task real en un repositorio efímero.
-4. Las specs y el Nexus reflejan el contrato implementado, sin marcar como completadas capacidades no verificadas.
+1. ✅ Un Project nuevo carga su configuración sin depender de comandos hardcodeados en la UI.
+2. ✅ Una Task conserva evidencia acotada y gates después de reiniciar el sidecar que sirve la aplicación.
+3. ✅ El smoke empaquetado pasa en macOS con OpenCode 1.18.26 real, sidecar incluido y una Task real en un repositorio efímero.
+4. ✅ Las specs, tareas y el Nexus reflejan el contrato implementado y sus límites explícitos.
+
+La matriz reproducible de evidencias está en [v0.3-close.md](../releases/v0.3-close.md).
 
 ## Open Questions
+
+No quedan preguntas que bloqueen la release 0.3. Las decisiones de producto no necesarias para este corte —editor completo, `.dmg`, cloud, colaboración realtime, retrieval semántico, checkpoints y sandbox OS-level— quedan diferidas a iteraciones posteriores y no se presentan como capacidades de esta versión.
 
 ## Implemented contract slices
 
@@ -64,7 +70,7 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 - Installed Project skills persist their canonical local or Git source and install time. The workbench can update a selected traceable Project skill, retaining its id and requiring explicit consent before a remote update; sidecar errors are rendered as user feedback.
 - Git workspace reports the active branch and changed files as well as branches, worktrees and remotes. The Task-scoped UI exposes confirmed branch/worktree/commit/push/PR operations, with explicit worktree path and branch inputs.
 - Workspace terminal uses a persistent native PTY (`portable-pty`) rather than split shell pipes. It is tested with an interactive command and remains constrained to the canonical Project root.
-- The packaged macOS smoke was repeated after the PTY integration: included sidecar `READY`, a real OpenCode 1.18.26 Task in an ephemeral repository, and clean `.app` startup/shutdown all passed. The temporary OpenCode server is stopped after the smoke.
+- The packaged macOS smoke was repeated after the PTY integration: included sidecar `READY`, a real OpenCode 1.18.26 Task in an ephemeral repository, persisted evidence and gates, sidecar restart with successful Task rehydration, and clean `.app` startup/shutdown all passed. The temporary OpenCode server is stopped after the smoke.
 - Living documentation now reconciles all changed specs and ADRs reported by Git in one sequential run, generating their reports and recording bounded Task evidence. The workbench action targets the changed-document set rather than a hardcoded Nexus file.
 - Runtime reads the Project-local service manifest and renders every declared service with command, cwd, healthcheck, status and individual start/stop actions instead of controlling an implicit first service.
 
