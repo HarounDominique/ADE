@@ -116,3 +116,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — desktop-project-hub-live — El Project Hub solicita y renderiza `ProjectSnapshot` real mediante el sidecar; smoke Tauri de desarrollo completado con Project y DB explícitos.
 - 2026-09-03 — desktop-transport-state — La shell muestra estados `ready/failed` y errores del sidecar sin perder el último snapshot; queda automatizar recuperación y empaquetado.
 - 2026-09-03 — desktop-transport-recovery — Ante salida del sidecar, Tauri emite evento, la shell conserva el snapshot y realiza un único reinicio; queda el smoke automatizado y el bundle.
+- 2026-09-03 — desktop-transport-failure-tests — Se automatizaron procesos sidecar reales para respuesta por stdio y fallo sin `ADE_DB_PATH`; queda validar recuperación dentro de Tauri y empaquetado.
