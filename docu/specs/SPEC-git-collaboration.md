@@ -34,6 +34,10 @@ Fixtures Git temporales, ramas concurrentes, conflictos, worktrees, PRs simulada
 
 Una Task puede seguirse desde su branch y ChangeSet hasta commit/PR, con gates y documentación enlazadas.
 
+## Workflow policy
+
+`.ade/policy.json` define `gitWorkflow`: `pull-request` es el modo por defecto; `direct` habilita commit y push directo. Branches, worktrees, commits, pushes y PRs exigen confirmación, actor y razón, y se registran contra la Task.
+
 ## Open Questions
 
 - ¿GitHub vía CLI local, API oficial o ambos?

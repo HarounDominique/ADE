@@ -20,13 +20,17 @@ Prompt engineering, PR review, Spector/spec-driven development, workflow adaptat
 
 ## Code Style
 
-```yaml
-id: spector
-version: 1.0.0
-inputs: [intent, changed_specs]
-outputs: [specs, nexus_updates, findings]
-permissions: [read_project, write_docs]
+```json
+{
+  "id": "spector",
+  "version": "1.0.0",
+  "inputs": ["intent", "changed_specs"],
+  "outputs": ["specs", "nexus_updates", "findings"],
+  "permissions": ["read_project", "write_docs"]
+}
 ```
+
+Los manifests se instalan desde un `.json` local o un repositorio Git (URL o `owner/repository`) mediante `skills.install`; ADE los copia a `.ade/skills/<id>.json` y conserva el origen `project`.
 
 ## Testing Strategy
 

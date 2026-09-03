@@ -11,6 +11,7 @@ let terminalStarted = false;
 let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
 let activeServiceId = null;
+let gitWorkflow = 'pull-request';
 const runtimeEvents = [];
 
 function renderSnapshot(snapshot) {
@@ -150,6 +151,7 @@ async function refreshGitWorkspace(path, invoke = nativeInvoke) {
   if (!invoke || !path) return;
   try {
     const result = await invoke('sidecar_request', { request: JSON.stringify({ id: `git-workspace-${Date.now()}`, method: 'git.workspace', params: { repositoryPath: path } }) });
+    await invoke('sidecar_request', { request: JSON.stringify({ id: `git-workflow-${Date.now()}`, method: 'git.workflow', params: { repositoryPath: path } }) });
     return result;
   } catch (error) { console.warn('Git workspace unavailable:', error); }
 }
@@ -203,6 +205,12 @@ async function connectSidecar(snapshot) {
         }
         return;
       }
+      if (response.type === 'skill.event') {
+        const feedback = document.getElementById('agent-feedback');
+        const payload = response.event?.payload;
+        if (feedback) feedback.textContent = `${response.skillId}: ${payload?.type ?? response.event?.type ?? 'event'}`;
+        return;
+      }
       if (response.result?.agentRuntime) {
         renderRuntimeStatus(response.result);
         return;
@@ -216,6 +224,12 @@ async function connectSidecar(snapshot) {
       if (response.result?.branches && response.result?.worktrees) {
         const output = document.getElementById('git-workspace-output');
         if (output) output.textContent = `Branches\n${response.result.branches.join('\n') || '—'}\n\nWorktrees\n${response.result.worktrees.join('\n') || '—'}\n\nRemotes\n${response.result.remotes.join('\n') || '—'}`;
+        return;
+      }
+      if (response.result?.gitWorkflow) {
+        gitWorkflow = response.result.gitWorkflow;
+        const detail = document.getElementById('git-workspace-detail');
+        if (detail) detail.textContent = `Workflow: ${gitWorkflow === 'direct' ? 'commit and push' : 'pull request'}.`;
         return;
       }
       if (Array.isArray(response.result) && response.result[0]?.operation && response.result[0]?.taskId) {
@@ -471,7 +485,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (['create-branch', 'create-commit', 'create-pr'].includes(item.dataset.action)) {
     if (!nativeInvoke) { notify('Git operations require the sidecar.'); return; }
-    const labels = { 'create-branch': ['git.branch.create', 'feature/ade-next'], 'create-commit': ['git.commit.create', 'chore: record ADE changes'], 'create-pr': ['github.pr.create', 'ADE change'] };
+    const labels = { 'create-branch': ['git.branch.create', 'feature/ade-next'], 'create-commit': ['git.commit.create', 'chore: record ADE changes'], 'create-pr': [gitWorkflow === 'direct' ? 'git.push' : 'github.pr.create', gitWorkflow === 'direct' ? '' : 'ADE change'] };
     const [method, intent] = labels[item.dataset.action];
     if (!window.confirm(`Confirm ${method}: ${intent}?`)) return;
     nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { taskId: document.getElementById('changes-task-id')?.textContent, repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => {

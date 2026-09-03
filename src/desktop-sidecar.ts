@@ -24,11 +24,12 @@ import { findReferenceImpact } from "./application/knowledge/reference-impact.js
 import { runNativeSkill } from "./application/skills/run-skill.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
-import { createBranch, createCommit, createPullRequest, createWorktree } from "./application/git/git-mutations.js";
+import { createBranch, createCommit, createPullRequest, createWorktree, pushBranch } from "./application/git/git-mutations.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
 import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation } from "./application/knowledge/reconcile.js";
 import { loadGatePolicy } from "./application/change-review/gate-policy.js";
+import { installProjectSkill } from "./application/skills/skill-install.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -169,20 +170,27 @@ export async function runDesktopSidecar(): Promise<void> {
         if (!params?.skillId || !params.intent || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "skillId, intent and repositoryPath are required" } })}\n`);
         else {
           const runtime = params.provider === "codex" ? new CodexCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
-          void runNativeSkill(runtime, { skillId: params.skillId, directory: params.repositoryPath, intent: params.intent, ...(params.sessionId ? { sessionId: params.sessionId } : {}) }).then((result) => { store.saveAgentSession({ id: result.session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider: params.provider ?? "opencode", directory: params.repositoryPath!, status: "COMPLETED", createdAt: new Date().toISOString() }); process.stdout.write(`${JSON.stringify({ id: request.id, result: { skillId: result.skill.id, sessionId: result.session.id, provider: params.provider ?? "opencode", status: "COMPLETED" } })}\n`); }).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+          void runNativeSkill(runtime, { skillId: params.skillId, directory: params.repositoryPath, intent: params.intent, ...(params.sessionId ? { sessionId: params.sessionId } : {}), onEvent: (event) => process.stdout.write(`${JSON.stringify({ type: "skill.event", id: request.id, skillId: params.skillId, event })}\n`) }).then((result) => { store.saveAgentSession({ id: result.session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider: params.provider ?? "opencode", directory: params.repositoryPath!, status: "COMPLETED", createdAt: new Date().toISOString() }); process.stdout.write(`${JSON.stringify({ id: request.id, result: { skillId: result.skill.id, sessionId: result.session.id, provider: params.provider ?? "opencode", events: result.events.length, status: "COMPLETED" } })}\n`); }).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
         }
+      } else if (request.method === "skills.install") {
+        const params = request.params;
+        if (!params?.repositoryPath || !params.intent) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and source are required" } })}\n`);
+        else void installProjectSkill({ repositoryPath: params.repositoryPath, source: params.intent }).then((skill) => process.stdout.write(`${JSON.stringify({ id: request.id, result: skill })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_INSTALL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "git.workspace") {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
         else void inspectGitWorkspace(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "git.workflow") {
+        const directory = request.params?.repositoryPath;
+        process.stdout.write(`${JSON.stringify({ id: request.id, result: { gitWorkflow: loadGatePolicy(directory).gitWorkflow } })}\n`);
       } else if (request.method === "github.status") {
         void inspectGitHub().then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`));
-      } else if (["git.branch.create", "git.worktree.create", "git.commit.create", "github.pr.create"].includes(request.method)) {
+      } else if (["git.branch.create", "git.worktree.create", "git.commit.create", "git.push", "github.pr.create"].includes(request.method)) {
         const params = request.params;
         if (!params?.repositoryPath || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, actor and reason are required" } })}\n`);
         else {
           const base = { directory: params.repositoryPath, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true };
-          const operation = request.method === "git.branch.create" && params.intent ? createBranch({ ...base, name: params.intent }) : request.method === "git.worktree.create" && params.intent ? createWorktree({ ...base, path: params.intent, branch: params.intent }) : request.method === "git.commit.create" && params.intent ? createCommit({ ...base, message: params.intent }) : createPullRequest({ ...base, title: params.intent ?? "ADE change", body: params.reason });
+          const operation = request.method === "git.branch.create" && params.intent ? createBranch({ ...base, name: params.intent }) : request.method === "git.worktree.create" && params.intent ? createWorktree({ ...base, path: params.intent, branch: params.intent }) : request.method === "git.commit.create" && params.intent ? createCommit({ ...base, message: params.intent }) : request.method === "git.push" ? pushBranch({ ...base, ...(params.intent ? { branch: params.intent } : {}) }) : createPullRequest({ ...base, title: params.intent ?? "ADE change", body: params.reason });
           void operation.then((result) => {
             if (params.taskId) {
               const reference = "name" in result ? result.name : "url" in result ? result.url : "branch" in result ? result.branch : undefined;

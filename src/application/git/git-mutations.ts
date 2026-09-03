@@ -32,3 +32,9 @@ export async function createPullRequest(input: ConfirmedOperation & { title: str
   const result = await execFile("gh", ["pr", "create", "--title", input.title, "--body", input.body, ...(input.base ? ["--base", input.base] : [])], { cwd: input.directory });
   return { operation: "pull-request.create", url: result.stdout.trim(), actor: input.actor, reason: input.reason };
 }
+
+export async function pushBranch(input: ConfirmedOperation & { remote?: string; branch?: string }) {
+  assertConfirmed(input);
+  const result = await execFile("git", ["push", input.remote ?? "origin", ...(input.branch ? [input.branch] : [])], { cwd: input.directory });
+  return { operation: "push", output: result.stdout.trim(), actor: input.actor, reason: input.reason };
+}
