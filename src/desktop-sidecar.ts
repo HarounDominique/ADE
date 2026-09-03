@@ -15,6 +15,7 @@ import { reviewChangeSet } from "./application/review-change-set.js";
 import { LocalProcess } from "./adapters/local-process.js";
 import { ServiceManager, type ServiceDefinition } from "./application/local-runtime/service-manager.js";
 import type { ChangeSet } from "./domain/change-set.js";
+import { inspectProviders } from "./application/agent-providers/provider-registry.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -131,6 +132,10 @@ export async function runDesktopSidecar(): Promise<void> {
         startTaskRun(store, request);
       } else if (request.method === "task.rereview") {
         startTaskRereview(store, request);
+      } else if (request.method === "providers.inspect") {
+        void inspectProviders(process.env.OPENCODE_URL ? { opencodeUrl: process.env.OPENCODE_URL } : {})
+          .then((providers) => process.stdout.write(`${JSON.stringify({ id: request.id, result: providers })}\n`))
+          .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "PROVIDERS_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "service.start") {
         startLocalService(request);
       } else if (request.method === "service.stop") {
