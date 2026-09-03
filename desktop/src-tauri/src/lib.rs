@@ -9,6 +9,39 @@ struct SidecarSupervisor {
     child: Mutex<Option<Child>>,
 }
 
+#[derive(Default)]
+struct TerminalSupervisor { child: Mutex<Option<Child>> }
+
+#[tauri::command]
+fn terminal_start(app: tauri::AppHandle, state: tauri::State<'_, TerminalSupervisor>, cwd: String) -> Result<(), String> {
+    if !std::path::Path::new(&cwd).is_dir() { return Err(format!("Terminal cwd does not exist: {cwd}")); }
+    let mut shell = if cfg!(target_os = "windows") { let mut command = Command::new("cmd"); command.args(["/Q"]); command } else { let mut command = Command::new("/bin/sh"); command.args(["-i"]); command };
+    let mut child = shell.current_dir(&cwd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|error| format!("Unable to start terminal: {error}"))?;
+    let stdout = child.stdout.take().ok_or_else(|| "Terminal stdout unavailable".to_string())?;
+    let stderr = child.stderr.take().ok_or_else(|| "Terminal stderr unavailable".to_string())?;
+    let output_app = app.clone();
+    std::thread::spawn(move || { use std::io::Read; let mut bytes = [0u8; 4096]; let mut reader = std::io::BufReader::new(stdout); loop { match reader.read(&mut bytes) { Ok(0) | Err(_) => break, Ok(size) => { let _ = output_app.emit("terminal:output", String::from_utf8_lossy(&bytes[..size]).into_owned()); } } } });
+    let error_app = app.clone();
+    std::thread::spawn(move || { use std::io::Read; let mut bytes = [0u8; 4096]; let mut reader = std::io::BufReader::new(stderr); loop { match reader.read(&mut bytes) { Ok(0) | Err(_) => break, Ok(size) => { let _ = error_app.emit("terminal:output", String::from_utf8_lossy(&bytes[..size]).into_owned()); } } } });
+    *state.child.lock().map_err(|_| "Terminal state is poisoned".to_string())? = Some(child);
+    Ok(())
+}
+
+#[tauri::command]
+fn terminal_input(state: tauri::State<'_, TerminalSupervisor>, input: String) -> Result<(), String> {
+    use std::io::Write;
+    let mut guard = state.child.lock().map_err(|_| "Terminal state is poisoned".to_string())?;
+    let child = guard.as_mut().ok_or_else(|| "Terminal is not running".to_string())?;
+    child.stdin.as_mut().ok_or_else(|| "Terminal stdin unavailable".to_string())?.write_all(input.as_bytes()).and_then(|_| child.stdin.as_mut().unwrap().flush()).map_err(|error| format!("Unable to write terminal input: {error}"))
+}
+
+#[tauri::command]
+fn terminal_stop(state: tauri::State<'_, TerminalSupervisor>) -> Result<(), String> {
+    let mut guard = state.child.lock().map_err(|_| "Terminal state is poisoned".to_string())?;
+    if let Some(mut child) = guard.take() { let _ = child.kill(); let _ = child.wait(); }
+    Ok(())
+}
+
 impl SidecarSupervisor {
     fn reap_finished(&self) -> Result<bool, String> {
         let mut child = self
@@ -293,6 +326,7 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .manage(SidecarSupervisor::default())
+        .manage(TerminalSupervisor::default())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -300,6 +334,9 @@ pub fn run() {
             list_directory,
             open_file,
             terminal_exec,
+            terminal_start,
+            terminal_input,
+            terminal_stop,
             project_id,
             open_terminal,
             open_document,

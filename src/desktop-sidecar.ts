@@ -22,11 +22,13 @@ import { findReferenceImpact } from "./application/knowledge/reference-impact.js
 import { runNativeSkill } from "./application/skills/run-skill.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
+import { createBranch, createCommit, createPullRequest, createWorktree } from "./application/git/git-mutations.js";
+import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; serviceId?: string; command?: string; args?: string[]; cwd?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string };
 };
 
 export type DesktopResponse = {
@@ -153,6 +155,18 @@ export async function runDesktopSidecar(): Promise<void> {
         else void inspectGitWorkspace(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "github.status") {
         void inspectGitHub().then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`));
+      } else if (["git.branch.create", "git.worktree.create", "git.commit.create", "github.pr.create"].includes(request.method)) {
+        const params = request.params;
+        if (!params?.repositoryPath || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, actor and reason are required" } })}\n`);
+        else {
+          const base = { directory: params.repositoryPath, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true };
+          const operation = request.method === "git.branch.create" && params.intent ? createBranch({ ...base, name: params.intent }) : request.method === "git.worktree.create" && params.intent ? createWorktree({ ...base, path: params.intent, branch: params.intent }) : request.method === "git.commit.create" && params.intent ? createCommit({ ...base, message: params.intent }) : createPullRequest({ ...base, title: params.intent ?? "ADE change", body: params.reason });
+          void operation.then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_MUTATION_BLOCKED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        }
+      } else if (request.method === "knowledge.graph") {
+        const root = request.params?.repositoryPath;
+        if (!root) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+        else void buildKnowledgeGraph(root).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`));
       } else if (request.method === "knowledge.impact") {
         const target = request.params?.intent;
         const root = request.params?.repositoryPath;
