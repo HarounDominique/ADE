@@ -30,7 +30,7 @@ Es la entrada por defecto. Presenta Project, raíz del repositorio, branch detec
 
 ### Work
 
-Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y las transiciones seguras ya atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor, y refrescan el Project Hub. Falta observar eventos de runtime y conectar la ejecución del agente. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados.
+Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y las transiciones seguras ya atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor, y refrescan el Project Hub. La observación de ejecución sigue pendiente; por ahora Work sólo refleja el estado persistido de la Task. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados.
 
 ### Knowledge
 
@@ -42,7 +42,7 @@ Presenta resumen semántico, impacto, findings, archivos, diff, ChangeSets y che
 
 ### Runtime
 
-Muestra sesiones, servicios, procesos, puertos, healthchecks, terminal, stdout/stderr y tests. Un estado `RUNNING` debe provenir de evidencia de runtime, no de una inferencia visual.
+Muestra sesiones, servicios, procesos, puertos, healthchecks, terminal, stdout/stderr y tests. La primera slice expone `runtime.status` por el sidecar y presenta por separado `sidecar: READY`, `agentRuntime: DISCONNECTED`, Task activa, último evento y último error. Un estado `RUNNING` debe provenir de evidencia de runtime, no de una inferencia visual; `DISCONNECTED` no implica fallo del proyecto ni ejecución cancelada.
 
 ## Interaction states
 
@@ -115,4 +115,4 @@ Un usuario puede abrir un repositorio, crear una Task, observar la implementaci�
 
 La evidencia de adopción está documentada en [003-desktop-framework](../spikes/003-desktop-framework.md#resultado) y [ADR-0009](../adr/0009-tauri-desktop-shell.md).
 
-El transporte backend se investiga en [004-desktop-transport](../spikes/004-desktop-transport.md#recomendación-provisional); el sidecar ya implementa sólo lectura (`project.snapshot`), pero debe superar los gates de lifecycle y empaquetado antes de conectar mutaciones de Work.
+El transporte backend se investiga en [004-desktop-transport](../spikes/004-desktop-transport.md#recomendación-provisional); el sidecar implementa `project.snapshot`, `runtime.status` y las mutaciones acotadas `task.create`/`task.advance`. La ejecución del agente y el streaming de eventos siguen separados de este primer contrato de observabilidad.

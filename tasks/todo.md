@@ -63,6 +63,11 @@
   - Verify: `node --check desktop/src/main.js` y `npm run build`.
   - Files: `desktop/src/index.html`, `desktop/src/main.js`, `desktop/src/styles.css`
 
+- [x] Task: Exponer estado inicial del runtime en la shell
+  - Acceptance: Runtime distingue sidecar listo de agente desconectado y no afirma ejecución sin evidencia; muestra último evento/error cuando el contrato lo proporcione.
+  - Verify: `npm run build`, `npm test` y `node --check desktop/src/main.js`.
+  - Files: `src/desktop-sidecar.ts`, `tests/desktop-sidecar.test.ts`, `desktop/src/`
+
 - [ ] Task: Integrar lifecycle del sidecar con Tauri
   - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor, conexión de streams, render del snapshot, estados `ready/failed` y un único reintento implementados; smoke de desarrollo con `ADE_DB_PATH` y `ADE_PROJECT_ID` explícitos y pruebas de fallo de proceso superados. Falta validar recuperación dentro de la app.
   - Verify: smoke test macOS en modo desarrollo y bundle.
