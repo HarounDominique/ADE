@@ -103,6 +103,11 @@
   - Verify: `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y `node --check desktop/src/main.js`.
   - Files: `desktop/src-tauri/src/lib.rs`, `desktop/src/index.html`, `desktop/src/main.js`
 
+- [x] Task: Proteger el contrato de la vertical desktop
+  - Acceptance: una prueba verifica las cinco áreas MVP y sus acciones/puentes Tauri críticos.
+  - Verify: `npm run build`, `npm test` y `node --check desktop/src/main.js`.
+  - Files: `tests/desktop-ui-contract.test.ts`
+
 - [ ] Task: Integrar lifecycle del sidecar con Tauri
   - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor, conexión de streams, render del snapshot, estados `ready/failed`, parada segura incluso tras salida inesperada, un único reintento automático y recuperación manual desde Runtime implementados; smoke de desarrollo con `ADE_DB_PATH` y `ADE_PROJECT_ID` explícitos y pruebas de fallo de proceso superados. Falta validar el flujo dentro de una ventana Tauri empaquetada.
   - Verify: smoke test macOS en modo desarrollo y bundle.
