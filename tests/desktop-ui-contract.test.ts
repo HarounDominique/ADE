@@ -29,3 +29,12 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /Persisted activity/);
   assert.match(main, /method: 'knowledge\.reconcile\.apply'/);
 });
+
+test("workspace tree expands directories lazily and keeps symlinks non-actionable", () => {
+  assert.match(main, /renderWorkspaceEntries/);
+  assert.match(main, /data-directory-path/);
+  assert.match(main, /toggleWorkspaceDirectory/);
+  assert.match(main, /maxDepth: 0/);
+  assert.match(main, /Symlinks are not opened outside the selected Project/);
+  assert.match(main, /\[data-directory-path\]\.directory/);
+});

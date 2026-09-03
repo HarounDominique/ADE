@@ -219,12 +219,54 @@ async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke) 
   const tree = document.getElementById('workspace-tree');
   if (!tree || !invoke || !path) return;
   try {
-    const entries = await invoke('list_directory', { path, maxDepth: 2 });
-    tree.innerHTML = entries.length ? entries.map((entry) => `<li class="workspace-entry ${entry.kind}" data-file-path="${escapeHTML(entry.path)}" style="padding-left:${entry.depth * 16}px"><span>${entry.kind === 'directory' ? '▸' : entry.kind === 'symlink' ? '↗' : '·'}</span><span>${escapeHTML(entry.name)}</span></li>`).join('') : '<li>Directory is empty.</li>';
+    const entries = await invoke('list_directory', { path, maxDepth: 0 });
+    tree.innerHTML = renderWorkspaceEntries(entries);
   } catch (error) {
     tree.innerHTML = '<li>Workspace directory unavailable.</li>';
     console.warn('Workspace tree unavailable:', error);
   }
+}
+
+function renderWorkspaceEntries(entries) {
+  if (!entries.length) return '<li class="workspace-empty">Directory is empty.</li>';
+  return entries.map((entry) => {
+    const name = escapeHTML(entry.name);
+    const path = escapeHTML(entry.path);
+    if (entry.kind === 'directory') {
+      return `<li class="workspace-node directory"><button class="workspace-entry directory" type="button" data-directory-path="${path}" aria-expanded="false"><span class="workspace-arrow" aria-hidden="true">▸</span><span>${name}</span></button><ul class="workspace-children" data-directory-children hidden></ul></li>`;
+    }
+    if (entry.kind === 'symlink') {
+      return `<li class="workspace-entry symlink" title="Symlinks are not opened outside the selected Project"><span aria-hidden="true">↗</span><span>${name}</span></li>`;
+    }
+    return `<li class="workspace-node file"><button class="workspace-entry file" type="button" data-file-path="${path}"><span aria-hidden="true">·</span><span>${name}</span></button></li>`;
+  }).join('');
+}
+
+async function toggleWorkspaceDirectory(button) {
+  const children = button.parentElement?.querySelector(':scope > [data-directory-children]');
+  if (!children || !nativeInvoke) return;
+  const expanded = button.getAttribute('aria-expanded') === 'true';
+  if (expanded) {
+    button.setAttribute('aria-expanded', 'false');
+    children.hidden = true;
+    return;
+  }
+  if (button.dataset.loaded !== 'true') {
+    button.disabled = true;
+    try {
+      const entries = await nativeInvoke('list_directory', { path: button.dataset.directoryPath, maxDepth: 0 });
+      children.innerHTML = renderWorkspaceEntries(entries);
+      button.dataset.loaded = 'true';
+    } catch (error) {
+      children.innerHTML = '<li class="workspace-empty">Directory unavailable.</li>';
+      notify('Workspace directory unavailable.');
+      console.warn('Workspace directory unavailable:', error);
+    } finally {
+      button.disabled = false;
+    }
+  }
+  button.setAttribute('aria-expanded', 'true');
+  children.hidden = false;
 }
 
 async function connectSidecar(snapshot) {
@@ -639,6 +681,11 @@ document.addEventListener('click', (event) => {
     const providerSelect = document.getElementById('agent-provider');
     if (providerSelect && provider) providerSelect.value = provider;
     runSkillFromUI(resumeButton.dataset.resumeSession);
+    return;
+  }
+  const directoryEntry = event.target.closest('[data-directory-path].directory');
+  if (directoryEntry) {
+    void toggleWorkspaceDirectory(directoryEntry);
     return;
   }
   const fileEntry = event.target.closest('[data-file-path].file');

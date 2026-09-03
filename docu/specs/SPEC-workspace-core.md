@@ -12,30 +12,32 @@ Ofrecer un workspace local navegable donde el desarrollador vea el árbol de dir
 
 ## Project Structure
 
-`desktop/src/` contiene vistas y estado; `desktop/src-tauri/` comandos nativos, PTY y validación de rutas; `src/application/` casos de uso; `tests/` contratos de filesystem, terminal y sidecar.
+`desktop/src/` contiene el árbol perezoso y el estado visual; `desktop/src-tauri/` conserva la raíz canónica del Project y aplica la autorización de rutas para filesystem, terminal y apertura externa; `src/application/` contiene casos de uso; `tests/` cubre contratos de filesystem, terminal y sidecar.
 
 ## Code Style
 
-Los comandos nativos reciben rutas absolutas validadas y devuelven resultados estructurados:
+`project_context` selecciona la raíz canónica. Los comandos posteriores reciben rutas absolutas, las resuelven de nuevo y sólo actúan si siguen bajo esa raíz:
 
 ```rust
 #[tauri::command]
-fn list_directory(path: String) -> Result<Vec<DirectoryEntry>, String> { /* validated */ }
+fn list_directory(workspace: State<WorkspaceRoot>, path: String) -> Result<Vec<DirectoryEntry>, String> { /* validated */ }
 ```
+
+El árbol obtiene sólo los hijos directos y expande cada directorio bajo demanda. Los symlinks se muestran como información, pero una operación que los resuelva fuera del Project se rechaza.
 
 ## Testing Strategy
 
-Tests de rutas fuera del Project, symlinks, permisos, orden estable, apertura de archivos y lifecycle de terminal/PTY. Smoke manual y empaquetado en macOS.
+Tests de rutas fuera del Project, symlinks que escapan, orden estable, apertura de archivos y cwd de terminal. Smoke manual y empaquetado en macOS.
 
 ## Boundaries
 
-- Always: validar rutas, ordenar entradas, mostrar errores y conservar contexto.
+- Always: seleccionar una raíz canónica antes de acceder al workspace, resolver cada ruta, ordenar entradas, mostrar errores y conservar contexto.
 - Ask first: ejecutar comandos destructivos o fuera del Project.
 - Never: seguir symlinks fuera de raíces autorizadas, ocultar procesos o escribir secretos en metadata.
 
 ## Success Criteria
 
-El usuario puede seleccionar un Project, navegar su árbol, abrir un archivo y ejecutar comandos en una terminal integrada con cwd correcto.
+El usuario puede seleccionar un Project, navegar su árbol de forma perezosa, abrir un archivo interno y ejecutar comandos en una terminal integrada con cwd correcto. Ningún comando de workspace puede salir de la raíz seleccionada, ni a través de un symlink.
 
 ## Open Questions
 
