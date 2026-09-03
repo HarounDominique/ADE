@@ -474,10 +474,9 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     const skillId = document.getElementById('agent-skill')?.value;
     selectedProvider = document.getElementById('agent-provider')?.value ?? 'opencode';
     const feedback = document.getElementById('agent-feedback');
-    if (selectedProvider !== 'opencode') { if (feedback) feedback.textContent = 'Codex provider detected but this runtime adapter is not wired yet.'; notify('Provider adapter not available.'); return; }
     if (!skillId) { notify('No native skill selected.'); return; }
     if (feedback) feedback.textContent = `Starting ${skillId} with ${selectedProvider}…`;
-    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `skill-run-${Date.now()}`, method: 'skills.run', params: { skillId, intent: document.getElementById('task-intent')?.value || 'Inspect the active Project and propose the next useful action.', repositoryPath: document.getElementById('project-path')?.textContent } }) }).catch((error) => { if (feedback) feedback.textContent = `Skill failed: ${error}`; notify('Skill execution failed.'); });
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `skill-run-${Date.now()}`, method: 'skills.run', params: { skillId, provider: selectedProvider, intent: document.getElementById('task-intent')?.value || 'Inspect the active Project and propose the next useful action.', repositoryPath: document.getElementById('project-path')?.textContent } }) }).catch((error) => { if (feedback) feedback.textContent = `Skill failed: ${error}`; notify('Skill execution failed.'); });
     return;
   }
   if (item.dataset.action === 'inspect-providers') {

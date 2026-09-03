@@ -6,6 +6,7 @@ import type { TaskStatus } from "./domain/task.js";
 import { AdeStore } from "./persistence/sqlite-store.js";
 import { getProjectSnapshot } from "./application/project-snapshot.js";
 import { OpenCodeHttpRuntime } from "./adapters/opencode-http-runtime.js";
+import { CodexCliRuntime } from "./adapters/codex-cli-runtime.js";
 import { runSpike } from "./application/run-spike.js";
 import { createRuntimeEvidence } from "./domain/runtime-evidence.js";
 import { getRuntimeHistory, getTaskDetail } from "./application/task-detail.js";
@@ -32,7 +33,7 @@ import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; provider?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string };
 };
 
 export type DesktopResponse = {
@@ -165,7 +166,10 @@ export async function runDesktopSidecar(): Promise<void> {
       } else if (request.method === "skills.run") {
         const params = request.params;
         if (!params?.skillId || !params.intent || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "skillId, intent and repositoryPath are required" } })}\n`);
-        else void runNativeSkill(new OpenCodeHttpRuntime(process.env.OPENCODE_URL), { skillId: params.skillId, directory: params.repositoryPath, intent: params.intent }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { skillId: result.skill.id, sessionId: result.session.id, status: "RUNNING" } })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        else {
+          const runtime = params.provider === "codex" ? new CodexCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+          void runNativeSkill(runtime, { skillId: params.skillId, directory: params.repositoryPath, intent: params.intent }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { skillId: result.skill.id, sessionId: result.session.id, provider: params.provider ?? "opencode", status: "COMPLETED" } })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        }
       } else if (request.method === "git.workspace") {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
