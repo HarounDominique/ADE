@@ -16,6 +16,10 @@ export function listNativeSkills(): readonly SkillManifest[] {
   return nativeSkills;
 }
 
+export function getNativeSkill(id: string): SkillManifest | undefined {
+  return nativeSkills.find((skill) => skill.id === id);
+}
+
 export function listNativeProviders(): readonly string[] {
   return nativeProviders.map((provider) => provider.id);
 }

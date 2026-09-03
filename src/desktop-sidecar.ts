@@ -19,11 +19,12 @@ import { inspectProviders } from "./application/agent-providers/provider-registr
 import { listNativeSkills } from "./application/skills/skill-catalog.js";
 import { getGitStatus } from "./application/git/git-status.js";
 import { findReferenceImpact } from "./application/knowledge/reference-impact.js";
+import { runNativeSkill } from "./application/skills/run-skill.js";
 
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; serviceId?: string; command?: string; args?: string[]; cwd?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; serviceId?: string; command?: string; args?: string[]; cwd?: string };
 };
 
 export type DesktopResponse = {
@@ -140,6 +141,10 @@ export async function runDesktopSidecar(): Promise<void> {
         void inspectProviders(process.env.OPENCODE_URL ? { opencodeUrl: process.env.OPENCODE_URL } : {})
           .then((providers) => process.stdout.write(`${JSON.stringify({ id: request.id, result: providers })}\n`))
           .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "PROVIDERS_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "skills.run") {
+        const params = request.params;
+        if (!params?.skillId || !params.intent || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "skillId, intent and repositoryPath are required" } })}\n`);
+        else void runNativeSkill(new OpenCodeHttpRuntime(process.env.OPENCODE_URL), { skillId: params.skillId, directory: params.repositoryPath, intent: params.intent }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { skillId: result.skill.id, sessionId: result.session.id, status: "RUNNING" } })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "knowledge.impact") {
         const target = request.params?.intent;
         const root = request.params?.repositoryPath;
