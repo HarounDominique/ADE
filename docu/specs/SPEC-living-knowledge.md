@@ -32,9 +32,13 @@ Tests de referencias, grafo acíclico, headings rotos, impacto transitivo, diagr
 - Ask first: cambiar contratos canónicos o resolver contradicciones automáticamente.
 - Never: presentar una spec desactualizada como vigente ni sobrescribir decisiones históricas.
 
+## Automatic reconciliation
+
+`knowledge.reconcile.apply` escribe tres artefactos versionables por spec afectada: `docu/generated/reconciliation/`, `docu/generated/qa/` y `docu/generated/estimates/`. Incluyen dependencias transitivas, enlaces rotos, UML Mermaid, checklist funcional y una estimación inicial.
+
 ## Success Criteria
 
-Al cambiar una spec, ADE identifica nexus, specs dependientes, diagramas y tareas afectadas y ofrece un paquete de reconciliación revisable.
+Al cambiar una spec, ADE identifica nexus, specs dependientes, diagramas y tareas afectadas y genera un paquete de reconciliación trazable.
 
 ## Open Questions
 

@@ -16,6 +16,8 @@ export function getTaskDetail(store: AdeStore, taskId: string) {
     reviews: store.listReviews(taskId),
     runtimeEvidence: store.listRuntimeEvidence(taskId),
     gates: store.listGates(taskId),
+    gitOperations: store.listGitOperations(taskId),
+    agentSessions: store.listAgentSessions(taskId),
   };
 }
 

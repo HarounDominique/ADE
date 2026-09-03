@@ -41,7 +41,7 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 
 1. Un Project nuevo puede cargar su configuración sin depender de comandos hardcodeados en la UI.
 2. Una Task conserva evidencia acotada y gates después de cerrar y reabrir la aplicación.
-3. El smoke empaquetado pasa en macOS con OpenCode real o informa un diagnóstico reproducible y accionable.
+3. El smoke empaquetado pasa en macOS con OpenCode real, sidecar incluido y una Task real en un repositorio efímero.
 4. Las specs y el Nexus reflejan el contrato implementado, sin marcar como completadas capacidades no verificadas.
 
 ## Open Questions

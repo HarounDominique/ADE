@@ -27,7 +27,7 @@ import { inspectGitHub } from "./application/git/github-status.js";
 import { createBranch, createCommit, createPullRequest, createWorktree } from "./application/git/git-mutations.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
-import { proposeKnowledgeReconciliation } from "./application/knowledge/reconcile.js";
+import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation } from "./application/knowledge/reconcile.js";
 import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 
 export type DesktopRequest = {
@@ -200,6 +200,11 @@ export async function runDesktopSidecar(): Promise<void> {
         const changedFile = request.params?.intent;
         if (!root || !changedFile) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and changedFile are required" } })}\n`);
         else void proposeKnowledgeReconciliation(root, changedFile).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`));
+      } else if (request.method === "knowledge.reconcile.apply") {
+        const root = request.params?.repositoryPath;
+        const changedFile = request.params?.intent;
+        if (!root || !changedFile) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and changedFile are required" } })}\n`);
+        else void applyKnowledgeReconciliation(root, changedFile).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RECONCILIATION_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "knowledge.impact") {
         const target = request.params?.intent;
         const root = request.params?.repositoryPath;
@@ -210,7 +215,7 @@ export async function runDesktopSidecar(): Promise<void> {
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
         else void getGitStatus(directory).then((status) => process.stdout.write(`${JSON.stringify({ id: request.id, result: status })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "service.start") {
-        startLocalService(request);
+        void startLocalService(request);
       } else if (request.method === "service.stop") {
         stopLocalService(request);
       } else {
@@ -223,9 +228,11 @@ export async function runDesktopSidecar(): Promise<void> {
   }
 }
 
-function startLocalService(request: DesktopRequest): void {
+async function startLocalService(request: DesktopRequest): Promise<void> {
   const params = request.params ?? {};
-  const declared = params.serviceId ? declaredServices.find((service) => service.id === params.serviceId) : undefined;
+  const projectServices = params.repositoryPath ? await loadServiceDefinitions(join(params.repositoryPath, ".ade", "services.json")).catch(() => []) : [];
+  const available = projectServices.length ? projectServices : declaredServices;
+  const declared = params.serviceId ? available.find((service) => service.id === params.serviceId) : available[0];
   const definition = declared ?? (params.serviceId && params.command && params.cwd ? { id: params.serviceId, command: params.command, cwd: params.cwd, ...(params.args ? { args: params.args } : {}) } : undefined);
   if (!serviceManager || !definition) {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "serviceId must reference a declared service or provide command/cwd" } })}\n`);

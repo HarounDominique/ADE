@@ -10,6 +10,7 @@ let nativeInvoke;
 let terminalStarted = false;
 let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
+let activeServiceId = null;
 const runtimeEvents = [];
 
 function renderSnapshot(snapshot) {
@@ -128,7 +129,7 @@ function renderTaskDetail(detail) {
   const panel = document.getElementById('task-detail-panel');
   if (!panel) return;
   const task = detail.task;
-  panel.innerHTML = `<p class="eyebrow">TASK DETAIL</p><div class="task-detail-heading"><div><span class="task-id">${escapeHTML(task.id)}</span><h2>${escapeHTML(task.intent)}</h2></div><span class="task-status building">${escapeHTML(task.status.replaceAll('_', ' '))}</span></div><p>${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p>`;
+  panel.innerHTML = `<p class="eyebrow">TASK DETAIL</p><div class="task-detail-heading"><div><span class="task-id">${escapeHTML(task.id)}</span><h2>${escapeHTML(task.intent)}</h2></div><span class="task-status building">${escapeHTML(task.status.replaceAll('_', ' '))}</span></div><p>${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p>${detail.gitOperations.length} Git operations · ${detail.agentSessions.length} resumable agent sessions · ${detail.gates.length} gates</p>`;
 }
 
 async function refreshProjectContext(snapshot) {
@@ -207,6 +208,7 @@ async function connectSidecar(snapshot) {
         return;
       }
       if (response.result?.serviceId) {
+        activeServiceId = response.result.serviceId;
         renderServiceStatus(response.result);
         notify(`Local service ${response.result.status.toLowerCase()}.`);
         return;
@@ -443,8 +445,8 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     if (!nativeInvoke) { notify('Local services require the sidecar.'); return; }
     const method = item.dataset.action === 'start-service' ? 'service.start' : 'service.stop';
     const params = method === 'service.start'
-      ? { serviceId: 'ade-dev-service', command: '/bin/sh', args: ['-c', 'sleep 3600'], cwd: document.getElementById('project-path')?.textContent ?? '.' }
-      : { serviceId: 'ade-dev-service' };
+      ? { repositoryPath: document.getElementById('project-path')?.textContent }
+      : { serviceId: activeServiceId };
     nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params }) }).catch((error) => { notify('Local service action failed.'); console.warn(error); });
     return;
   }
@@ -464,7 +466,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'refresh-knowledge') {
     const repositoryPath = document.getElementById('project-path')?.textContent;
-    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile', params: { repositoryPath, intent: 'SPEC-NEXUS.md' } }) });
+    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile.apply', params: { repositoryPath, intent: 'docu/specs/SPEC-NEXUS.md' } }) });
     return;
   }
   if (['create-branch', 'create-commit', 'create-pr'].includes(item.dataset.action)) {

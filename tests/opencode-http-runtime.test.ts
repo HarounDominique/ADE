@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { OpenCodeHttpRuntime } from "../src/adapters/opencode-http-runtime.js";
 
 test("OpenCode adapter maps health, session, prompt and diff endpoints", async () => {
-  const calls: Array<{ url: string; method: string }> = [];
+  const calls: Array<{ url: string; method: string; directory?: string }> = [];
   const fetcher: typeof fetch = async (input, init) => {
     const url = String(input);
-    calls.push({ url, method: init?.method ?? "GET" });
+    calls.push({ url, method: init?.method ?? "GET", ...(new Headers(init?.headers).get("x-opencode-directory") ? { directory: new Headers(init?.headers).get("x-opencode-directory")! } : {}) });
     if (url.endsWith("/global/health")) return json({ healthy: true, version: "test" });
     if (url.endsWith("/session")) return json({ id: "session-1" });
     if (url.endsWith("/prompt_async")) return new Response(null, { status: 204 });
@@ -31,6 +31,7 @@ test("OpenCode adapter maps health, session, prompt and diff endpoints", async (
     "POST http://test/session/session-1/message",
     "GET http://test/session/session-1/diff",
   ]);
+  assert.equal(calls[1]?.directory, "/tmp/project");
 });
 
 function json(value: unknown): Response {

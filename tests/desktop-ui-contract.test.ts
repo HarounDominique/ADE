@@ -23,5 +23,5 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /renderChanges\(snapshot\.tasks/);
   assert.match(main, /list_directory/);
   assert.match(main, /method: 'skills\.run'/);
-  assert.match(main, /method: 'knowledge\.reconcile'/);
+  assert.match(main, /method: 'knowledge\.reconcile\.apply'/);
 });

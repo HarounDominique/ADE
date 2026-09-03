@@ -1,7 +1,8 @@
-import { accessSync, constants, mkdtempSync, rmSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
+import { createInterface } from "node:readline";
 
 const root = resolve(new URL("..", import.meta.url).pathname);
 const app = resolve(process.env.ADE_APP_PATH ?? join(root, "desktop/src-tauri/target/release/bundle/macos/desktop.app"));
@@ -9,6 +10,7 @@ const appExecutable = join(app, "Contents/MacOS/desktop");
 const sidecar = join(app, "Contents/Resources/sidecar-dist/ade-sidecar");
 const smokeDirectory = mkdtempSync("/private/tmp/ade-desktop-smoke-");
 const database = join(smokeDirectory, "ade.db");
+const repository = join(smokeDirectory, "repository");
 
 function requireExecutable(path) {
   accessSync(path, constants.X_OK);
@@ -21,6 +23,37 @@ async function waitForExit(child, timeoutMs) {
   ]);
 }
 
+function createProtocol(process) {
+  const waiters = new Map();
+  const buffered = new Map();
+  const stream = createInterface({ input: process.stdout });
+  stream.on("line", (line) => {
+    const message = JSON.parse(line);
+    const waiter = message.id !== undefined ? waiters.get(String(message.id)) : waiters.get(message.type);
+    const key = message.id !== undefined ? String(message.id) : message.type;
+    if (waiter) { waiters.delete(key); waiter.resolve(message); }
+    else if (key) buffered.set(key, message);
+  });
+  return {
+    request(message, timeoutMs = 15_000) {
+      return new Promise((resolve, reject) => {
+        const key = String(message.id);
+        const timeout = setTimeout(() => { waiters.delete(key); reject(new Error(`Timed out waiting for ${key}`)); }, timeoutMs);
+        waiters.set(key, { resolve: (result) => { clearTimeout(timeout); resolve(result); } });
+        process.stdin.write(`${JSON.stringify(message)}\n`);
+      });
+    },
+    waitFor(type, timeoutMs = 90_000) {
+      const early = buffered.get(type);
+      if (early) { buffered.delete(type); return Promise.resolve(early); }
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => { waiters.delete(type); reject(new Error(`Timed out waiting for ${type}`)); }, timeoutMs);
+        waiters.set(type, { resolve: (result) => { clearTimeout(timeout); resolve(result); } });
+      });
+    },
+  };
+}
+
 try {
   requireExecutable(appExecutable);
   requireExecutable(sidecar);
@@ -29,10 +62,22 @@ try {
     env: { ...process.env, ADE_DB_PATH: database },
     stdio: ["pipe", "pipe", "ignore"],
   });
-  sidecarProcess.stdin.write('{"id":"bundle-smoke","method":"runtime.status"}\n');
-  const [sidecarOutput] = await once(sidecarProcess.stdout, "data");
-  const sidecarResponse = JSON.parse(sidecarOutput.toString());
+  const protocol = createProtocol(sidecarProcess);
+  const sidecarResponse = await protocol.request({ id: "bundle-smoke", method: "runtime.status" });
   if (sidecarResponse.result?.sidecar !== "READY") throw new Error("Packaged sidecar did not report READY");
+
+  let task = { checked: false };
+  if (process.env.ADE_SMOKE_OPENCODE === "1") {
+    mkdirSync(repository, { recursive: true });
+    if (spawnSync("git", ["init"], { cwd: repository }).status !== 0) throw new Error("Unable to initialize smoke repository");
+    await protocol.request({ id: "task-create", method: "task.create", params: { taskId: "bundle-task", intent: "Create smoke-result.txt containing exactly ADE smoke complete.", projectId: "bundle", repositoryPath: repository } });
+    await protocol.request({ id: "task-ready", method: "task.advance", params: { taskId: "bundle-task", next: "READY", reason: "Smoke task accepted", actor: "smoke" } });
+    await protocol.request({ id: "task-run", method: "task.run", params: { taskId: "bundle-task" } });
+    const completed = await protocol.waitFor("runtime.completed");
+    if (completed.status?.agentRuntime !== "CONNECTED") throw new Error("Bundled sidecar did not complete the OpenCode Task");
+    if (!existsSync(join(repository, "smoke-result.txt"))) throw new Error("OpenCode Task did not write its result inside the smoke repository");
+    task = { checked: true, taskId: "bundle-task" };
+  }
   sidecarProcess.kill("SIGTERM");
   await waitForExit(sidecarProcess, 2000);
 
@@ -56,7 +101,7 @@ try {
     if (!response.ok) throw new Error(`OpenCode health failed (${response.status})`);
     opencode = { checked: true, url, health: await response.json() };
   }
-  console.log(JSON.stringify({ app, sidecar, database, sidecarStatus: sidecarResponse.result.sidecar, appStarted: true, appStopped: true, opencode }));
+  console.log(JSON.stringify({ app, sidecar, database, sidecarStatus: sidecarResponse.result.sidecar, appStarted: true, appStopped: true, opencode, task }));
 } finally {
   rmSync(smokeDirectory, { recursive: true, force: true });
 }

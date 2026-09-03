@@ -153,12 +153,12 @@
 
 ## v0.2 — Cierre de release pendiente
 
-- [ ] Task: Ejecutar smoke empaquetado completo en macOS gráfico
-  - Acceptance: `.app` permanece activo, responde al sidecar, ejecuta una Task real y se detiene limpiamente; el smoke actual aborta con `SIGABRT` en este entorno.
-- [ ] Task: Validar OpenCode real desde la aplicación
-  - Acceptance: `opencode serve` permanece disponible y `runtime.health` responde desde el `.app`; el binario está instalado pero el daemon devuelve `ServeError` aquí.
-- [~] Task: Completar declaración persistida de servicios por Project
-  - Acceptance: Runtime lee servicios declarados desde `.ade/services.yaml` o una policy equivalente, muestra comando/cwd/healthcheck y evita que la UI dependa de un comando hardcodeado.
+- [x] Task: Ejecutar smoke empaquetado completo en macOS gráfico
+  - Acceptance: `.app`, sidecar incluido, OpenCode real y una Task en repositorio temporal se validan en el smoke; la ventana arranca y se detiene limpiamente.
+- [x] Task: Validar OpenCode real desde la aplicación
+  - Acceptance: `opencode serve --pure` permanece disponible y `runtime.health` responde durante el smoke empaquetado. Validado con OpenCode 1.18.26 en `127.0.0.1:4097`; la configuración con plugins mantiene `ServeError` como diagnóstico separado.
+- [x] Task: Completar declaración persistida de servicios por Project
+  - Acceptance: Runtime lee servicios desde `.ade/services.json`, toma el primero declarado como default y evita comandos hardcodeados en la UI.
 - [~] Task: Cerrar contrato de evidencia y policy de gates
   - Acceptance: límites de tamaño/retención, policy mínima por Project y evidencia de documentación quedan especificados, implementados y cubiertos por tests.
 
@@ -177,8 +177,8 @@
   - Acceptance: branch, diff, worktree, commit y PR muestran actor, razón, ChangeSet y gates; operaciones peligrosas piden confirmación. Backend persiste Task→operación y la UI muestra el resultado del PR; falta presentar ChangeSet/gates en el flujo Git.
   - Verify: fixtures Git y contract tests GitHub.
 - [~] Task: Implementar documentación viva y consultoría
-  - Acceptance: cambios en specs calculan impacto sobre Nexus, citers, diagramas, QA docs y estimaciones; grafo recursivo, UML inicial, referencias rotas e impacto transitivo ya están implementados; falta aplicación coordinada y artefactos QA/estimación.
+  - Acceptance: cambios en specs calculan impacto sobre Nexus, citers, diagramas, QA docs y estimaciones; la reconciliación genera automáticamente informes Markdown, QA y estimación bajo `docu/generated/`. Falta aplicar cambios semánticos a contratos canónicos cuando no existe una transformación determinista.
   - Verify: grafo, headings rotos, impacto transitivo y tests de sync.
-- [ ] Task: Integrar Workspace v0.3 y validar release
-  - Acceptance: un recorrido completo se realiza dentro del `.app`, con proveedor, skill, Git y documentación contextualizados.
+- [~] Task: Integrar Workspace v0.3 y validar release
+  - Acceptance: el smoke empaquetado valida app, sidecar, OpenCode real y Task real; faltan una interacción gráfica automatizada y el recorrido Git/documentación desde la ventana.
   - Verify: smoke gráfico macOS, OpenCode real, rehidratación y suites completas.

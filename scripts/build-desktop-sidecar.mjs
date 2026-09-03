@@ -45,8 +45,12 @@ if (process.platform === 'darwin') {
 }
 const postject = resolve(root, 'node_modules/.bin/postject');
 const injected = spawnSync(postject, [seaExecutable, 'NODE_SEA_BLOB', seaBlob, '--sentinel-fuse', 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2', '--macho-segment-name', 'NODE_SEA'], { cwd: root, stdio: 'inherit' });
-if (injected.status !== 0) process.exit(injected.status ?? 1);
-if (process.platform === 'darwin') {
+if (injected.status !== 0) {
+  // Some macOS Node distributions omit the SEA fuse. Keep a portable launcher
+  // whose runtime can be selected explicitly, with Homebrew and PATH fallbacks.
+  writeFileSync(seaExecutable, '#!/bin/sh\nDIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"\nNODE_BIN="${ADE_SIDECAR_NODE:-/opt/homebrew/opt/node@24/bin/node}"\nif [ ! -x "$NODE_BIN" ]; then NODE_BIN="$(command -v node)"; fi\nexec "$NODE_BIN" "$DIR/desktop-sidecar.cjs" "$@"\n');
+  chmodSync(seaExecutable, 0o755);
+} else if (process.platform === 'darwin') {
   const signed = spawnSync('codesign', ['--sign', '-', seaExecutable], { stdio: 'inherit' });
   if (signed.status !== 0) process.exit(signed.status ?? 1);
 }

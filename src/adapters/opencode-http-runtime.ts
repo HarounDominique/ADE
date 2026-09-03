@@ -10,6 +10,7 @@ type FetchLike = typeof fetch;
 
 export class OpenCodeHttpRuntime implements AgentRuntimePort {
   private readonly fetcher: FetchLike;
+  private activeDirectory: string | undefined;
 
   constructor(
     private readonly baseUrl = "http://127.0.0.1:4096",
@@ -26,10 +27,15 @@ export class OpenCodeHttpRuntime implements AgentRuntimePort {
   async createSession(input: { directory: string; title?: string }): Promise<SessionHandle> {
     const response = await this.request("/session", {
       method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-opencode-directory": input.directory,
+      },
       body: JSON.stringify({ title: input.title }),
     });
     const session = (await response.json()) as { id?: string };
     if (!session.id) throw new Error("OpenCode returned a session without an id");
+    this.activeDirectory = input.directory;
     return { id: session.id, directory: input.directory };
   }
 
@@ -67,7 +73,10 @@ export class OpenCodeHttpRuntime implements AgentRuntimePort {
   }
 
   async *events(signal?: AbortSignal): AsyncIterable<RuntimeEvent> {
-    const response = await this.request("/event", signal ? { signal } : undefined);
+    const response = await this.request("/event", {
+      ...(signal ? { signal } : {}),
+      ...(this.activeDirectory ? { headers: { "x-opencode-directory": this.activeDirectory } } : {}),
+    });
     if (!response.body) throw new Error("OpenCode event stream has no body");
     yield* parseSse(response.body, signal);
   }
