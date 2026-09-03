@@ -2,6 +2,7 @@ import { LocalGitRepository } from "./adapters/local-git-repository.js";
 import { OpenCodeHttpRuntime } from "./adapters/opencode-http-runtime.js";
 import { OpenCodeReviewer } from "./adapters/opencode-reviewer.js";
 import { runReviewFlow } from "./application/run-review-flow.js";
+import { getProjectSnapshot } from "./application/project-snapshot.js";
 import { registerProject } from "./application/tasks/project-commands.js";
 import { advanceTask, createTask } from "./application/tasks/task-commands.js";
 import { AdeStore } from "./persistence/sqlite-store.js";
@@ -26,6 +27,10 @@ if (!command || command === "help") {
       if (!id || !name || !repositoryPath) throw new Error("Usage: project register <id> <name> <repository-path>");
       const project = await registerProject(store, new LocalGitRepository(), { id, name, repositoryPath });
       console.log(JSON.stringify(project, null, 2));
+    } else if (command === "project" && action === "snapshot") {
+      const [projectId] = args;
+      if (!projectId) throw new Error("Usage: project snapshot <project-id>");
+      console.log(JSON.stringify(getProjectSnapshot(store, projectId), null, 2));
     } else if (command === "task" && action === "create") {
       const [id, intent, projectId, repositoryPath] = args;
       if (!id || !intent) throw new Error("Usage: task create <id> <intent> [project-id] [repository-path]");
@@ -66,6 +71,7 @@ function printUsage(): void {
   console.log(`ADE CLI
 
   project register <id> <name> <repository-path>
+  project snapshot <project-id>
   task create <id> <intent> [project-id] [repository-path]
   task advance <id> <status> <reason>
   review <repository-path> <intent>

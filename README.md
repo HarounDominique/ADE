@@ -37,6 +37,7 @@ La CLI permite registrar Projects y operar Tasks sin UI:
 
 ```bash
 npm run ade -- project register ade ADE /ruta/al/repositorio
+npm run ade -- project snapshot ade
 npm run ade -- task create task-1 "Describe la tarea" ade /ruta/al/repositorio
 npm run ade -- task advance task-1 READY "Acceptance criteria recorded"
 npm run ade -- review /ruta/al/repositorio "Describe la tarea"
