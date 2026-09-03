@@ -114,3 +114,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — desktop-tauri-transport — Tauri ya arranca/supervisa el sidecar y expone requests/respuestas JSON-RPC mediante comandos y eventos; queda pendiente validar el lifecycle dentro de la app y el bundle.
 - 2026-09-03 — desktop-sidecar-path — Se hizo obligatorio `ADE_DB_PATH` en el sidecar y en el supervisor Tauri para evitar persistencia dependiente del `cwd`; el smoke siguiente debe usar una DB explícita.
 - 2026-09-03 — desktop-project-hub-live — El Project Hub solicita y renderiza `ProjectSnapshot` real mediante el sidecar; smoke Tauri de desarrollo completado con Project y DB explícitos.
+- 2026-09-03 — desktop-transport-state — La shell muestra estados `ready/failed` y errores del sidecar sin perder el último snapshot; queda automatizar recuperación y empaquetado.

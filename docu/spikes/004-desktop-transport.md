@@ -41,7 +41,7 @@ El primer corte está implementado en `src/desktop-sidecar.ts` y se ejecuta con 
 3. Una excepción del sidecar produce error estructurado y no rompe la shell.
 4. El bundle macOS incluye el ejecutable y conserva la ruta de datos elegida.
 
-**Progreso:** gates 1 y 2 cubiertos en tests/smoke de desarrollo; gates 3 (fallo en runtime) y 4 (bundle) pendientes.
+**Progreso:** gates 1 y 2 cubiertos en tests/smoke de desarrollo; la shell ya muestra `ready/failed` y conserva el último snapshot confirmado. Gate 3 (fallo y recuperación automatizada) y gate 4 (bundle) pendientes.
 
 ## Fuera de alcance
 
