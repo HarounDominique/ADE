@@ -12,4 +12,13 @@ test("knowledge graph emits Mermaid edges for valid spec references", async () =
   const graph = await buildKnowledgeGraph(root);
   assert.deepEqual(graph.edges, [{ from: "SPEC-a.md", to: "SPEC-b.md", heading: "objective" }]);
   assert.match(graph.mermaid, /graph TD/);
+  assert.match(graph.uml, /classDiagram/);
+  assert.equal(graph.brokenReferences.length, 0);
+});
+
+test("knowledge graph reports broken document references", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-graph-broken-"));
+  await writeFile(join(root, "SPEC-a.md"), "[Missing](SPEC-missing.md)");
+  const graph = await buildKnowledgeGraph(root);
+  assert.deepEqual(graph.brokenReferences, [{ from: "SPEC-a.md", target: "SPEC-missing.md" }]);
 });

@@ -223,8 +223,8 @@ async function connectSidecar(snapshot) {
       if (response.result?.graph?.mermaid && response.result?.proposal) {
         const graph = document.getElementById('knowledge-graph-output');
         const proposal = document.getElementById('knowledge-reconcile-output');
-        if (graph) graph.textContent = response.result.graph.mermaid;
-        if (proposal) proposal.textContent = `${response.result.proposal} Affected: ${response.result.affected.join(', ') || 'none'}. Broken: ${response.result.broken.join(', ') || 'none'}.`;
+        if (graph) graph.textContent = `${response.result.graph.mermaid}\n\n${response.result.graph.uml}`;
+        if (proposal) proposal.textContent = `${response.result.proposal} Affected: ${response.result.affected.join(', ') || 'none'}. Broken: ${[...(response.result.broken ?? []), ...(response.result.graph.brokenReferences ?? []).map((item) => `${item.from} → ${item.target}`)].join(', ') || 'none'}.`;
         return;
       }
       if (Array.isArray(response.result) && response.result[0]?.capability) {
