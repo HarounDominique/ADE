@@ -1,5 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { once } from "node:events";
+import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Project } from "../src/domain/project.js";
 import { Task } from "../src/domain/task.js";
@@ -31,4 +36,37 @@ test("desktop sidecar returns actionable protocol errors", () => {
     error: { code: "INVALID_PARAMS", message: "projectId is required" },
   });
   store.close();
+});
+
+test("desktop sidecar process answers over stdin/stdout", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-process-"));
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: join(directory, "ade.db") },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  child.stdin.write('{"id":"process-1","method":"project.snapshot","params":{"projectId":"missing"}}\n');
+  const [output] = await once(child.stdout, "data");
+  const response = JSON.parse(output.toString()) as { id: string; error: { code: string } };
+
+  assert.equal(response.id, "process-1");
+  assert.equal(response.error.code, "REQUEST_FAILED");
+  child.kill();
+  await once(child, "close");
+  rmSync(directory, { recursive: true, force: true });
+});
+
+test("desktop sidecar process fails fast without an explicit database", async () => {
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== "ADE_DB_PATH")),
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let errorOutput = "";
+  child.stderr.on("data", (chunk) => { errorOutput += chunk.toString(); });
+  const [code] = await once(child, "close");
+
+  assert.notEqual(code, 0);
+  assert.match(errorOutput, /ADE_DB_PATH must point/);
 });
