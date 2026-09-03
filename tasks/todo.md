@@ -164,20 +164,20 @@
 
 ## v0.3 — Workspace agéntico local-first
 
-- [ ] Task: Implementar Workspace Core
+- [~] Task: Implementar Workspace Core
   - Acceptance: árbol local navegable, visor/apertura y terminal nativa con cwd y permisos validados. Primer corte implementado; falta endurecer permisos y UX recursiva.
   - Verify: `npm run build`, `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y prueba manual macOS.
-- [ ] Task: Integrar proveedores agénticos
+- [~] Task: Integrar proveedores agénticos
   - Acceptance: Codex/OpenCode y futuros adapters se detectan, seleccionan y diagnostican sin persistir credenciales.
   - Verify: contract tests con fakes y smoke de health.
-- [ ] Task: Distribuir catálogo nativo de skills
+- [~] Task: Distribuir catálogo nativo de skills
   - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad.
   - Verify: validación de manifests, instalación local y ejecución de una skill fixture.
 - [~] Task: Integrar Git y GitHub con Tasks
   - Acceptance: branch, diff, worktree, commit y PR muestran actor, razón, ChangeSet y gates; operaciones peligrosas piden confirmación. Backend ya persiste Task→operación; falta completar la vista de PR/ChangeSet.
   - Verify: fixtures Git y contract tests GitHub.
-- [ ] Task: Implementar documentación viva y consultoría
-  - Acceptance: cambios en specs calculan impacto sobre Nexus, citers, diagramas, QA docs y estimaciones; grafo recursivo e impacto transitivo ya están implementados; falta UML y aplicación coordinada.
+- [~] Task: Implementar documentación viva y consultoría
+  - Acceptance: cambios en specs calculan impacto sobre Nexus, citers, diagramas, QA docs y estimaciones; grafo recursivo, UML inicial, referencias rotas e impacto transitivo ya están implementados; falta aplicación coordinada y artefactos QA/estimación.
   - Verify: grafo, headings rotos, impacto transitivo y tests de sync.
 - [ ] Task: Integrar Workspace v0.3 y validar release
   - Acceptance: un recorrido completo se realiza dentro del `.app`, con proveedor, skill, Git y documentación contextualizados.

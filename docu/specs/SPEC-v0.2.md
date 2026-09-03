@@ -75,5 +75,5 @@ Las decisiones de cierre de esta versión son deliberadamente conservadoras:
 
 - La lectura visible de Runtime queda limitada a 100 evidencias por Task y 12 eventos en la shell; el límite de bytes y una política de retención configurable pasan a v0.3.
 - v0.2 usa cuatro gates estáticas (`build`, `tests`, `agent-review`, `human-approval`); la policy configurable por Project pasa a v0.3.
-- El `ServiceManager` y sus pruebas ya existen, pero la declaración persistida por Project (`.ade/services.yaml` o equivalente) sigue pendiente; la UI actual es un control operativo mínimo, no el contrato final.
+- El `ServiceManager` y sus pruebas existen; la declaración persistida se carga desde una policy local equivalente (`.ade/services.json` por defecto, configurable mediante `ADE_SERVICES_PATH`). La UI sigue siendo un control operativo mínimo y requiere validación de release.
 - Tras reinicio, la evidencia mínima para reanudar es Task + historial + ChangeSet + Review + runtime evidence + gates persistidos; la validación debe ejecutarse sobre un `.app` funcional.

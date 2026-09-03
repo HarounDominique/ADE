@@ -1,6 +1,6 @@
 # Nexus: ADE — Agentic Development Environment
 
-**Estado:** v0.1 MVP implementado; v0.2 operativo con cierre de release pendiente; v0.3 en especificación
+**Estado:** v0.1 MVP implementado; v0.2 operativo con cierre de release pendiente; v0.3 en implementación incremental
 **Fecha:** 2026-09-02  
 **Fuente:** informe fundacional de ADE proporcionado por el usuario
 
@@ -162,3 +162,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — v0.3-foundation — Se implementan los primeros seams de Workspace Core (árbol local), Agent Providers (detección OpenCode/Codex), Native Skills (catálogo y manifests), Git Collaboration (read model de status) y Living Knowledge (impacto de referencias). 22 tests TypeScript y 9 tests Rust pasan; terminal PTY, GitHub mutations y ejecución real de skills siguen pendientes.
 - 2026-09-03 — v0.3-workspace-terminal — Workspace Core añade árbol recursivo, apertura de archivos y terminal nativa con cwd/exit code/salida visibles; 10 tests Rust pasan. La ejecución de skills se conecta al runtime y el catálogo conserva ocho skills nativas; siguen pendientes las mutaciones Git/GitHub, UI completa de providers/skills y reconciliación automática.
 - 2026-09-03 — v0.3-batch-foundations — Se incorporan policy por Project para gates/evidencia, límites y retención por Task, trazabilidad persistida de operaciones Git hacia Tasks y grafo documental recursivo con impacto transitivo. La reconciliación sigue siendo propuesta revisable; PR visual y smoke real del `.app` permanecen abiertos.
+- 2026-09-03 — v0.3-knowledge-uml — El grafo añade UML Mermaid derivado y diagnóstico explícito de referencias rotas; 53 tests TypeScript pasan. Quedan abiertos la aplicación automática de reconciliación y la validación gráfica de release.
