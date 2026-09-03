@@ -123,3 +123,30 @@
   - Acceptance: Project Hub, Work, Changes, Knowledge y Runtime permiten recorrer una Task con estados, gates y escape hatch visibles; el contrato de UI y el arranque/parada del bundle están cubiertos.
   - Verify: `npm run desktop:test`, `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y `npm run desktop:smoke`.
   - Files: `src/ui/`, `tests/ui/`
+
+## v0.2 — Operación verificable
+
+- [ ] Task: Persistir evidencia de runtime
+  - Acceptance: eventos resumidos de Implementer/health/logs se persisten por Task y sesión, con límites, migración y exclusión de secretos.
+  - Verify: build, tests de SQLite/migración y captura/consulta de evidencia.
+  - Files: `src/domain/`, `src/persistence/`, `src/application/`, `tests/`
+
+- [ ] Task: Exponer detalle de Task y runtime history
+  - Acceptance: `task.detail` y `runtime.history` rehidratan historial, ChangeSet, Review y evidencia de la Task seleccionada.
+  - Verify: tests de read model y protocolo sidecar.
+  - Files: `src/application/`, `src/desktop-sidecar.ts`, `tests/`
+
+- [ ] Task: Integrar gates y Review reales en Changes
+  - Acceptance: Changes muestra gates/findings/evidencia reales y exige actor/razón para re-review y aprobación; no permite saltar gates.
+  - Verify: tests de governance/UI y smoke del flujo de aprobación.
+  - Files: `desktop/src/`, `src/application/`, `tests/`
+
+- [ ] Task: Implementar servicios locales declarados
+  - Acceptance: Runtime inicia, inspecciona, comprueba y detiene servicios con timeout y lifecycle sin procesos huérfanos.
+  - Verify: tests con procesos temporales, healthcheck y parada.
+  - Files: `src/application/`, `src/adapters/`, `desktop/src-tauri/`, `tests/`
+
+- [ ] Task: Validar rehidratación completa de v0.2
+  - Acceptance: el `.app` reinicia y conserva Task, runtime evidence, ChangeSet, Review y estado de gates desde una DB externa.
+  - Verify: `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml`, `npm run desktop:package:app` y `npm run desktop:smoke`.
+  - Files: `scripts/`, `tests/`, `docu/spikes/`
