@@ -178,6 +178,7 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — v0.3-git-worktree-flow — Git muestra rama activa y cambios, y la Task seleccionada puede iniciar branch, worktree, commit, push y PR confirmados. Worktree exige ruta y rama específicas; 75 tests TypeScript pasan.
 - 2026-09-03 — v0.3-native-pty — Terminal Core sustituye los pipes por `portable-pty`, conserva la sesión interactiva y valida un comando real en PTY. La raíz autorizada del Project sigue aplicando; 13 tests Rust y 75 TypeScript pasan.
 - 2026-09-03 — v0.3-packaged-pty-smoke — Se reempaquetó el `.app` con el PTY nativo y el smoke real pasó: sidecar `READY`, Task efímera, OpenCode 1.18.26 y arranque/parada limpia. El servidor temporal se detuvo tras validar.
+- 2026-09-03 — v0.3-changed-doc-reconciliation — La reconciliación detecta por Git todas las specs/ADRs Markdown modificadas y las aplica secuencialmente, preservando las trazas Nexus y asociando evidencia a la Task. 76 tests TypeScript pasan.
 
 ## Automatic Reconciliation Log
 

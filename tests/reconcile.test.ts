@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation } from "../src/application/knowledge/reconcile.js";
+import { execFile as execFileCallback } from "node:child_process";
+import { promisify } from "node:util";
+import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation, reconcileChangedDocumentation } from "../src/application/knowledge/reconcile.js";
+
+const execFile = promisify(execFileCallback);
 
 test("reconciliation proposes affected citing documents without mutating them", async () => {
   const root = await mkdtemp(join(tmpdir(), "ade-reconcile-"));
@@ -54,4 +58,25 @@ test("reconciliation diagnoses resolved Markdown links instead of incidental tex
   const result = await proposeKnowledgeReconciliation(root, "SPEC-b.md");
   assert.deepEqual(result.broken, []);
   assert.deepEqual(result.affected, []);
+});
+
+test("reconciliation applies every changed spec and ADR detected by Git", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-reconcile-changed-"));
+  await mkdir(join(root, "docu", "specs"), { recursive: true });
+  await mkdir(join(root, "docu", "adr"), { recursive: true });
+  await writeFile(join(root, "docu", "specs", "SPEC-NEXUS.md"), "# Nexus\n");
+  await writeFile(join(root, "docu", "specs", "SPEC-a.md"), "# A\n");
+  await writeFile(join(root, "docu", "specs", "SPEC-b.md"), "# B\n[A](SPEC-a.md)\n");
+  await writeFile(join(root, "docu", "adr", "0001.md"), "# ADR\n[A](../specs/SPEC-a.md)\n");
+  await execFile("git", ["init", "-q"], { cwd: root });
+  await execFile("git", ["add", "."], { cwd: root });
+  await execFile("git", ["-c", "user.name=ADE test", "-c", "user.email=ade@example.test", "commit", "-qm", "initial"], { cwd: root });
+  await writeFile(join(root, "docu", "specs", "SPEC-a.md"), "# A\nChanged\n");
+  await writeFile(join(root, "docu", "adr", "0001.md"), "# ADR\nChanged\n");
+
+  const result = await reconcileChangedDocumentation(root);
+
+  assert.deepEqual(result.changedFiles, ["docu/adr/0001.md", "docu/specs/SPEC-a.md"]);
+  assert.equal(result.results.length, 2);
+  assert.ok(result.affected.includes("docu/specs/SPEC-b.md"));
 });

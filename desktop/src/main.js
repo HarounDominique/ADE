@@ -659,7 +659,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   if (item.dataset.action === 'refresh-knowledge') {
     const repositoryPath = document.getElementById('project-path')?.textContent;
     const taskId = selectedTaskId;
-    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile.apply', params: { repositoryPath, intent: 'docu/specs/SPEC-NEXUS.md', ...(taskId && taskId !== '—' ? { taskId } : {}) } }) });
+    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile.changed', params: { repositoryPath, ...(taskId && taskId !== '—' ? { taskId } : {}) } }) });
     return;
   }
   if (item.dataset.action === 'create-worktree') {

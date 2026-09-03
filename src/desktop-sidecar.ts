@@ -27,7 +27,7 @@ import { inspectGitHub } from "./application/git/github-status.js";
 import { createBranch, createCommit, createPullRequest, createWorktree, pushBranch } from "./application/git/git-mutations.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
-import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation } from "./application/knowledge/reconcile.js";
+import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation, reconcileChangedDocumentation } from "./application/knowledge/reconcile.js";
 import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNetwork, updateProjectSkill } from "./application/skills/skill-install.js";
 
@@ -275,6 +275,25 @@ export async function runDesktopSidecar(): Promise<void> {
               type: "documentation.reconciled",
               summary: `Reconciled ${result.changedFile}`,
               details: JSON.stringify({ affected: result.affected, broken: result.broken, artifacts: result.artifacts }),
+              policy: evidencePolicy,
+            }));
+            store.pruneRuntimeEvidence(taskId, evidencePolicy.maxItems);
+          }
+          process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`);
+        }).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RECONCILIATION_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "knowledge.reconcile.changed") {
+        const root = request.params?.repositoryPath;
+        if (!root) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+        else void reconcileChangedDocumentation(root).then((result) => {
+          const taskId = request.params?.taskId;
+          if (taskId && result.changedFiles.length) {
+            const evidencePolicy = loadGatePolicy(root).evidence;
+            store.saveRuntimeEvidence(createRuntimeEvidence({
+              id: `documentation-${taskId}-${Date.now()}`,
+              taskId,
+              type: "documentation.reconciled",
+              summary: `Reconciled ${result.changedFiles.length} changed documentation file(s)`,
+              details: JSON.stringify({ changedFiles: result.changedFiles, affected: result.affected, broken: result.broken }),
               policy: evidencePolicy,
             }));
             store.pruneRuntimeEvidence(taskId, evidencePolicy.maxItems);

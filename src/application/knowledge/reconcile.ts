@@ -1,6 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { execFile as execFileCallback } from "node:child_process";
 import { basename, dirname, join, relative } from "node:path";
+import { promisify } from "node:util";
 import { buildKnowledgeGraph } from "./knowledge-graph.js";
+
+const execFile = promisify(execFileCallback);
 
 export async function proposeKnowledgeReconciliation(root: string, changedFile: string) {
   const graph = await buildKnowledgeGraph(root);
@@ -37,6 +41,36 @@ export async function applyKnowledgeReconciliation(root: string, changedFile: st
   ]);
   await appendNexusReconciliation(root, reconciliation, { reconciliationPath, qaPath, estimatePath });
   return { ...reconciliation, artifacts: { reconciliationPath: relative(root, reconciliationPath), qaPath: relative(root, qaPath), estimatePath: relative(root, estimatePath) } };
+}
+
+export async function reconcileChangedDocumentation(root: string) {
+  const changedFiles = await changedDocumentationFiles(root);
+  const results = [] as Awaited<ReturnType<typeof applyKnowledgeReconciliation>>[];
+  for (const file of changedFiles) results.push(await applyKnowledgeReconciliation(root, file));
+  const graph = results.at(-1)?.graph ?? await buildKnowledgeGraph(root);
+  const affected = [...new Set(results.flatMap((result) => result.affected))].sort();
+  const broken = [...new Set(results.flatMap((result) => result.broken))].sort();
+  return {
+    changedFiles,
+    results,
+    graph,
+    affected,
+    broken,
+    proposal: changedFiles.length
+      ? `Reconciled ${changedFiles.length} changed documentation file(s) and found ${affected.length} dependent document(s).`
+      : "No changed specifications or ADRs require reconciliation.",
+  };
+}
+
+async function changedDocumentationFiles(root: string): Promise<string[]> {
+  const status = await execFile("git", ["status", "--porcelain"], { cwd: root });
+  return status.stdout
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => line.slice(3).split(" -> ").at(-1)?.replace(/^"|"$/g, "") ?? "")
+    .filter((file) => file.endsWith(".md"))
+    .filter((file) => (file.startsWith("docu/specs/") && file !== "docu/specs/SPEC-NEXUS.md") || file.startsWith("docu/adr/"))
+    .sort();
 }
 
 async function appendNexusReconciliation(

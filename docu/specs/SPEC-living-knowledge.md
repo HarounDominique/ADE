@@ -36,9 +36,11 @@ Tests de referencias, grafo acíclico, headings rotos, impacto transitivo, diagr
 
 `knowledge.reconcile.apply` escribe tres artefactos versionables por spec afectada: `docu/generated/reconciliation/`, `docu/generated/qa/` y `docu/generated/estimates/`. Incluyen dependencias transitivas, enlaces rotos, UML Mermaid, checklist funcional y una estimación inicial. Cuando existe, `docu/specs/SPEC-NEXUS.md` recibe una entrada idempotente con la evidencia y los artefactos generados.
 
+`knowledge.reconcile.changed` consulta `git status --porcelain`, selecciona specs y ADRs Markdown modificados (excluyendo Nexus y los artefactos generados) y ejecuta la reconciliación de cada uno en secuencia. La secuencia evita carreras al actualizar el Nexus; su resumen y evidencia se vinculan a la Task seleccionada desde el workbench.
+
 ## Success Criteria
 
-Al cambiar una spec, ADE identifica nexus, specs dependientes, diagramas y tareas afectadas y genera un paquete de reconciliación trazable.
+Al cambiar una o varias specs/ADRs, ADE identifica nexus, dependientes, diagramas y tareas afectadas y genera un paquete de reconciliación trazable para cada cambio.
 
 ## Open Questions
 
