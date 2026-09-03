@@ -394,7 +394,7 @@ async function connectSidecar(snapshot) {
       }
       if (response.result?.branches && response.result?.worktrees) {
         const output = document.getElementById('git-workspace-output');
-        if (output) output.textContent = `Branches\n${response.result.branches.join('\n') || '—'}\n\nWorktrees\n${response.result.worktrees.join('\n') || '—'}\n\nRemotes\n${response.result.remotes.join('\n') || '—'}`;
+        if (output) output.textContent = `Current branch\n${response.result.currentBranch}\n\nChanged files\n${response.result.changedFiles.join('\n') || 'clean'}\n\nBranches\n${response.result.branches.join('\n') || '—'}\n\nWorktrees\n${response.result.worktrees.join('\n') || '—'}\n\nRemotes\n${response.result.remotes.join('\n') || '—'}`;
         return;
       }
       if (response.result?.gitWorkflow) {
@@ -662,10 +662,21 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile.apply', params: { repositoryPath, intent: 'docu/specs/SPEC-NEXUS.md', ...(taskId && taskId !== '—' ? { taskId } : {}) } }) });
     return;
   }
-  if (['create-branch', 'create-commit', 'create-pr'].includes(item.dataset.action)) {
+  if (item.dataset.action === 'create-worktree') {
     if (!nativeInvoke) { notify('Git operations require the sidecar.'); return; }
     const taskSuffix = selectedTaskId ? selectedTaskId.toLowerCase().replace(/[^a-z0-9-]/g, '-') : 'ade-next';
-    const labels = { 'create-branch': ['git.branch.create', `feature/${taskSuffix}`], 'create-commit': ['git.commit.create', selectedTaskId ? `chore: record ${selectedTaskId}` : 'chore: record ADE changes'], 'create-pr': [gitWorkflow === 'direct' ? 'git.push' : 'github.pr.create', gitWorkflow === 'direct' ? '' : selectedTaskIntent || 'ADE change'] };
+    const branch = window.prompt('Branch for the new worktree:', `feature/${taskSuffix}`)?.trim();
+    if (!branch) return;
+    const path = window.prompt('Absolute path for the new worktree:', `${document.getElementById('project-path')?.textContent}-worktree-${taskSuffix}`)?.trim();
+    if (!path) return;
+    if (!window.confirm(`Create worktree ${path} on ${branch}?`)) return;
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-worktree-${Date.now()}`, method: 'git.worktree.create', params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, branch, worktreePath: path, actor: 'human', reason: 'Confirmed in ADE Git workspace', confirmed: true } }) }).catch((error) => { notify('Worktree creation failed.'); console.warn(error); });
+    return;
+  }
+  if (['create-branch', 'create-commit', 'push-branch', 'create-pr'].includes(item.dataset.action)) {
+    if (!nativeInvoke) { notify('Git operations require the sidecar.'); return; }
+    const taskSuffix = selectedTaskId ? selectedTaskId.toLowerCase().replace(/[^a-z0-9-]/g, '-') : 'ade-next';
+    const labels = { 'create-branch': ['git.branch.create', `feature/${taskSuffix}`], 'create-commit': ['git.commit.create', selectedTaskId ? `chore: record ${selectedTaskId}` : 'chore: record ADE changes'], 'push-branch': ['git.push', ''], 'create-pr': [gitWorkflow === 'direct' ? 'git.push' : 'github.pr.create', gitWorkflow === 'direct' ? '' : selectedTaskIntent || 'ADE change'] };
     const [method, intent] = labels[item.dataset.action];
     if (!window.confirm(`Confirm ${method}: ${intent}?`)) return;
     nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => {

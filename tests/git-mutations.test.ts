@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { createBranch, createCommit, pushBranch } from "../src/application/git/git-mutations.js";
+import { createBranch, createCommit, createWorktree, pushBranch } from "../src/application/git/git-mutations.js";
 const execFile = promisify(execFileCallback);
 
 test("git mutations require confirmation and preserve attribution", async () => {
@@ -47,4 +47,19 @@ test("push resolves the current branch and refuses a detached HEAD", async () =>
 
   await execFile("git", ["checkout", "-q", "--detach"], { cwd: root });
   await assert.rejects(pushBranch({ directory: root, actor: "human", reason: "publish", confirmed: true }), /without a current branch/);
+});
+
+test("worktree creation requires confirmation and returns its branch", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-git-worktree-root-"));
+  const target = join(tmpdir(), `ade-git-worktree-target-${Date.now()}`);
+  await execFile("git", ["init", "-q", root]);
+  await writeFile(join(root, "note.txt"), "initial");
+  await createCommit({ directory: root, message: "test: initial worktree", actor: "human", reason: "fixture", confirmed: true });
+  await assert.rejects(createWorktree({ directory: root, path: target, branch: "feature/worktree", actor: "human", reason: "parallel work", confirmed: false }), /confirmation/);
+
+  const worktree = await createWorktree({ directory: root, path: target, branch: "feature/worktree", actor: "human", reason: "parallel work", confirmed: true });
+
+  assert.equal(worktree.branch, "feature/worktree");
+  await execFile("git", ["worktree", "remove", "--force", target], { cwd: root });
+  await rm(target, { recursive: true, force: true });
 });

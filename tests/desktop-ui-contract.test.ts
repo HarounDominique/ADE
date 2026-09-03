@@ -10,7 +10,7 @@ test("desktop shell keeps the five MVP areas and critical actions", () => {
     assert.match(html, new RegExp(`data-view=\"${view}\"`));
     assert.match(html, new RegExp(`data-panel=\"${view}\"`));
   }
-  for (const action of ["new-task", "open-terminal", "open-document", "check-runtime", "restart-sidecar", "refresh-tree", "run-skill", "install-skill", "github-status", "refresh-knowledge"]) {
+  for (const action of ["new-task", "open-terminal", "open-document", "check-runtime", "restart-sidecar", "refresh-tree", "run-skill", "install-skill", "github-status", "create-worktree", "push-branch", "refresh-knowledge"]) {
     assert.match(html, new RegExp(`data-action=\"${action}\"`));
   }
 });

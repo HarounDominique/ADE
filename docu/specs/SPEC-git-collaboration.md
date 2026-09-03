@@ -42,6 +42,8 @@ Cada operación devuelve la referencia que la hace auditable: `commit.create` de
 
 Changes presenta el ChangeSet, gates y findings de la Task seleccionada; Git conserva sus operaciones en un panel separado para que el estado del workspace no reemplace la trazabilidad de la Task.
 
+El panel muestra rama activa, ficheros modificados, ramas, worktrees y remotos. Expone branch, worktree, commit, push y PR como acciones separadas: worktree solicita ruta y rama, y el sidecar rechaza una mutación que no reciba los parámetros específicos de su tipo. Cada acción sensible mantiene el diálogo de confirmación antes de ejecutar Git.
+
 ## Open Questions
 
 - ¿GitHub vía CLI local, API oficial o ambos?

@@ -13,12 +13,14 @@ test("service configuration loads without secret-like environment values", async
   assert.equal((await loadServiceDefinitions(file))[0]?.id, "web");
 });
 
-test("git workspace inspection returns branches and worktrees", async () => {
+test("git workspace inspection returns branch, changes and worktrees", async () => {
   const root = await mkdtemp(join(tmpdir(), "ade-git-workspace-"));
   const { execFile } = await import("node:child_process");
   await new Promise<void>((resolve, reject) => execFile("git", ["init", "-q", root], (error) => error ? reject(error) : resolve()));
   const result = await inspectGitWorkspace(root);
   const canonicalRoot = await realpath(root);
+  assert.ok(result.currentBranch);
+  assert.deepEqual(result.changedFiles, []);
   assert.ok(Array.isArray(result.branches));
   assert.ok(result.worktrees.some((path) => path === canonicalRoot));
 });

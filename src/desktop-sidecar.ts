@@ -34,7 +34,7 @@ import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNe
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; provider?: string; sessionId?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; provider?: string; sessionId?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
 };
 
 export type DesktopResponse = {
@@ -239,9 +239,11 @@ export async function runDesktopSidecar(): Promise<void> {
       } else if (["git.branch.create", "git.worktree.create", "git.commit.create", "git.push", "github.pr.create"].includes(request.method)) {
         const params = request.params;
         if (!params?.repositoryPath || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, actor and reason are required" } })}\n`);
+        else if ((request.method === "git.branch.create" || request.method === "git.commit.create") && !params.intent) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "intent is required for this Git operation" } })}\n`);
+        else if (request.method === "git.worktree.create" && (!params.worktreePath || !params.branch)) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "worktreePath and branch are required for a worktree" } })}\n`);
         else {
           const base = { directory: params.repositoryPath, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true };
-          const operation = request.method === "git.branch.create" && params.intent ? createBranch({ ...base, name: params.intent }) : request.method === "git.worktree.create" && params.intent ? createWorktree({ ...base, path: params.intent, branch: params.intent }) : request.method === "git.commit.create" && params.intent ? createCommit({ ...base, message: params.intent }) : request.method === "git.push" ? pushBranch({ ...base, ...(params.intent ? { branch: params.intent } : {}) }) : createPullRequest({ ...base, title: params.intent ?? "ADE change", body: params.reason });
+          const operation = request.method === "git.branch.create" ? createBranch({ ...base, name: params.intent! }) : request.method === "git.worktree.create" ? createWorktree({ ...base, path: params.worktreePath!, branch: params.branch! }) : request.method === "git.commit.create" ? createCommit({ ...base, message: params.intent! }) : request.method === "git.push" ? pushBranch({ ...base, ...(params.intent ? { branch: params.intent } : {}) }) : createPullRequest({ ...base, title: params.intent ?? "ADE change", body: params.reason });
           void operation.then((result) => {
             if (params.taskId) {
               const reference = "name" in result ? result.name : "url" in result ? result.url : "branch" in result ? result.branch : "commit" in result ? result.commit : undefined;
