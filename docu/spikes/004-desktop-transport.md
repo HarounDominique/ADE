@@ -41,7 +41,7 @@ El primer corte está implementado en `src/desktop-sidecar.ts` y se ejecuta con 
 3. Una excepción del sidecar produce error estructurado y no rompe la shell.
 4. El bundle macOS incluye el ejecutable y conserva la ruta de datos elegida.
 
-**Progreso:** gates 1 y 2 cubiertos en tests/smoke de desarrollo; la shell muestra `ready/failed`, conserva el último snapshot confirmado y ejecuta un único reintento ante salida del sidecar. Gate 3 cubierto por pruebas de proceso (respuesta y fallo rápido). El gate 4 está parcialmente cubierto: el `.app` incluye `sidecar-dist` como recurso y Rust resuelve `resource_dir`, pero aún depende de un runtime Node instalado.
+**Progreso:** gates 1 y 2 cubiertos en tests/smoke de desarrollo; la shell muestra `ready/failed`, conserva el último snapshot confirmado y ejecuta un único reintento ante salida del sidecar. Gate 3 cubierto por pruebas de proceso (respuesta y fallo rápido). Gate 4 cubierto en macOS arm64: el sidecar se genera como ejecutable Node SEA autocontenido, se incluye en `Contents/Resources/sidecar-dist` y responde sin Node externo.
 
 ## Fuera de alcance
 

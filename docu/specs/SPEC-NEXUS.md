@@ -118,3 +118,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — desktop-transport-recovery — Ante salida del sidecar, Tauri emite evento, la shell conserva el snapshot y realiza un único reinicio; queda el smoke automatizado y el bundle.
 - 2026-09-03 — desktop-transport-failure-tests — Se automatizaron procesos sidecar reales para respuesta por stdio y fallo sin `ADE_DB_PATH`; queda validar recuperación dentro de Tauri y empaquetado.
 - 2026-09-03 — desktop-sidecar-resource — El bundle Tauri incluye `sidecar-dist` y Rust resuelve el recurso empaquetado; el packaging autónomo queda pendiente porque aún requiere Node instalado.
+- 2026-09-03 — desktop-sidecar-standalone — Node SEA + `postject` generan un sidecar Mach-O arm64 autocontenido; el bundle `.app` lo incluye y el smoke JSON-RPC no requiere Node externo.

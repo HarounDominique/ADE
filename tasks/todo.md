@@ -54,8 +54,8 @@
   - Files: `desktop/src-tauri/`, `docu/spikes/004-desktop-transport.md`
 
 - [ ] Task: Empaquetar el sidecar para macOS
-  - Acceptance: `.app` incluye el sidecar ejecutable o un runtime autocontenido compatible, y conserva la ruta configurable de `ADE_DB_PATH`. Estado actual: `sidecar-dist` se incluye como recurso, pero requiere Node instalado.
-  - Verify: `npm run desktop:package` y ejecución sobre repositorio temporal sin depender del workspace.
+  - Acceptance: `.app` incluye un sidecar ejecutable o runtime autocontenido compatible, y conserva la ruta configurable de `ADE_DB_PATH`. Estado actual: ejecutable Node SEA arm64 generado y incluido en el recurso Tauri; falta probar instalación fuera del workspace.
+  - Verify: `npm run desktop:package` y ejecución sobre repositorio temporal sin depender del workspace; bundle arm64 verificado.
   - Files: `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/binaries/`, `scripts/build-desktop-sidecar.mjs`
 
 - [ ] Task: Implementar vertical desktop mínima
