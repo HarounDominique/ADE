@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runNativeSkill } from "../src/application/skills/run-skill.js";
-import { installProjectSkill } from "../src/application/skills/skill-install.js";
+import { installProjectSkill, skillSourceNeedsNetwork } from "../src/application/skills/skill-install.js";
 
 test("native skill catalog includes the daily developer workflow", () => {
   const ids = listNativeSkills().map((skill) => skill.id);
@@ -50,4 +50,10 @@ test("a local skill manifest installs into the Project catalog", async () => {
   const skill = await installProjectSkill({ repositoryPath: root, source });
   assert.equal(skill.id, "release-notes");
   assert.ok((await listSkills(root)).some((candidate) => candidate.id === "release-notes"));
+});
+
+test("remote skill sources are identifiable before any clone occurs", () => {
+  assert.equal(skillSourceNeedsNetwork("owner/skill-repository"), true);
+  assert.equal(skillSourceNeedsNetwork("https://example.test/skill.git"), true);
+  assert.equal(skillSourceNeedsNetwork("/tmp/skill.json"), false);
 });

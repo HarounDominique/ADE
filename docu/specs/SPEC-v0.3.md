@@ -55,6 +55,9 @@ Cloud, colaboración realtime, worktrees remotos, editor completo, commits autó
 - Skills can select the OpenCode HTTP runtime or the Codex CLI runtime without persisting credentials; both runners preserve the common `AgentRuntimePort` contract.
 - Agent sessions are persisted by Task (`runtime.sessions`) with provider, directory and status; a saved `sessionId` is selectable from Task detail to resume a skill run.
 - Native and Project skills declare least-privilege manifests. `read_project` and `write_docs` are Project-scoped; `write_code`, `run_commands` and `network` need an explicit per-run grant in the workbench.
+- The selected Task is shell state shared by Work, Changes, Git and the workbench, so skills, reconciliation and Git operations attribute their evidence to the same Task the user is looking at.
+- Git operations return an auditable reference: `commit.create` reports its SHA and `push` resolves the current branch, refusing a detached `HEAD`. `github.status` reports GitHub CLI availability without storing credentials.
+- Project skills are installable from the workbench. A network source is identified before cloning and rejected with `SKILL_INSTALL_CONFIRMATION_REQUIRED` unless the run is explicitly confirmed.
 
 - ¿Qué proveedores se incluyen de forma nativa en el primer paquete?
 - ¿La terminal usa PTY propio o una librería Tauri estable?

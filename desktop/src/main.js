@@ -12,6 +12,8 @@ let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
 let activeServiceId = null;
 let gitWorkflow = 'pull-request';
+let selectedTaskId = null;
+let selectedTaskIntent = '';
 const runtimeEvents = [];
 
 function renderSnapshot(snapshot) {
@@ -31,13 +33,15 @@ function renderSnapshot(snapshot) {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
   });
-  renderProjectTasks(snapshot.tasks ?? []);
   renderChanges(snapshot.tasks ?? []);
+  renderProjectTasks(snapshot.tasks ?? []);
   if (snapshot.sync) setSyncState(snapshot.sync.state, snapshot.sync.label);
 }
 
 function renderChanges(tasks) {
-  const task = tasks.find((item) => ['UNDER_REVIEW', 'READY_FOR_HUMAN'].includes(item.status)) ?? tasks[0];
+  const task = tasks.find((item) => item.id === selectedTaskId) ?? tasks.find((item) => ['UNDER_REVIEW', 'READY_FOR_HUMAN'].includes(item.status)) ?? tasks[0];
+  selectedTaskId = task?.id ?? null;
+  selectedTaskIntent = task?.intent ?? '';
   const values = {
     'changes-task-id': task?.id ?? '—',
     'changes-task-title': task?.intent ?? 'No Task selected',
@@ -121,7 +125,7 @@ function renderProjectTasks(tasks) {
     const actionMarkup = action ? action[0] === 'RUN'
       ? `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-run="true">${action[1]}</button>`
       : `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-next="${action[0]}">${action[1]}</button>` : '';
-    return `<article class="task-card${index === 0 ? ' selected-task' : ''}" data-task-select="${escapeHTML(task.id)}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from ADE metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div>${actionMarkup}</article>`;
+    return `<article class="task-card${task.id === selectedTaskId || (!selectedTaskId && index === 0) ? ' selected-task' : ''}" data-task-select="${escapeHTML(task.id)}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from ADE metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div>${actionMarkup}</article>`;
   }).join('');
   lists.forEach((list) => { list.innerHTML = cards; });
 }
@@ -130,6 +134,8 @@ function renderTaskDetail(detail) {
   const panel = document.getElementById('task-detail-panel');
   if (!panel) return;
   const task = detail.task;
+  selectedTaskId = task.id;
+  selectedTaskIntent = task.intent;
   const gates = detail.gates.map((gate) => `${gate.id}: ${gate.status}`).join(' · ') || 'No gates';
   const changeset = detail.changeSets[0] ? `${detail.changeSets[0].id} (${detail.changeSets[0].gitStatus || 'clean'})` : 'No ChangeSet';
   const operations = detail.gitOperations.length
@@ -155,7 +161,7 @@ function runSkillFromUI(sessionId) {
     if (feedback) feedback.textContent = `${skillId} cancelled: permission not granted.`;
     return;
   }
-  const taskId = document.getElementById('changes-task-id')?.textContent;
+  const taskId = selectedTaskId;
   if (feedback) feedback.textContent = `${sessionId ? 'Resuming' : 'Starting'} ${skillId} with ${selectedProvider}…`;
   nativeInvoke('sidecar_request', {
     request: JSON.stringify({
@@ -164,7 +170,7 @@ function runSkillFromUI(sessionId) {
       params: {
         skillId,
         provider: selectedProvider,
-        intent: document.getElementById('task-intent')?.value || 'Inspect the active Project and propose the next useful action.',
+        intent: selectedTaskIntent || document.getElementById('task-intent')?.value || 'Inspect the active Project and propose the next useful action.',
         repositoryPath: document.getElementById('project-path')?.textContent,
         grantedPermissions: explicit,
         ...(sessionId ? { sessionId } : {}),
@@ -273,14 +279,20 @@ async function connectSidecar(snapshot) {
         if (detail) detail.textContent = `Workflow: ${gitWorkflow === 'direct' ? 'commit and push' : 'pull request'}.`;
         return;
       }
-      if (Array.isArray(response.result) && response.result[0]?.operation && response.result[0]?.taskId) {
-        renderGitOperations(response.result);
+      if (response.result?.available !== undefined && response.result?.detail) {
+        const detail = document.getElementById('git-workspace-detail');
+        if (detail) detail.textContent = `GitHub: ${response.result.available ? 'available' : 'unavailable'} · ${response.result.detail}`;
         return;
       }
-      if (response.result?.operation === 'pull-request.create') {
+      if (response.result?.operation) {
         const detail = document.getElementById('git-workspace-detail');
-        if (detail) detail.textContent = `Pull request created: ${response.result.url}`;
-        notify(`Pull request created: ${response.result.url}`);
+        if (detail) detail.textContent = `${response.result.operation} completed${response.result.url ? `: ${response.result.url}` : response.result.branch ? `: ${response.result.branch}` : response.result.commit ? `: ${response.result.commit.slice(0, 12)}` : ''}.`;
+        notify(`${response.result.operation} completed.`);
+        if (selectedTaskId) nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-ops-${Date.now()}`, method: 'task.git.operations', params: { taskId: selectedTaskId } }) });
+        return;
+      }
+      if (Array.isArray(response.result) && response.result[0]?.operation && response.result[0]?.taskId) {
+        renderGitOperations(response.result);
         return;
       }
       if (response.result?.graph?.mermaid && response.result?.proposal) {
@@ -307,6 +319,12 @@ async function connectSidecar(snapshot) {
       if (response.result?.skillId && response.result?.sessionId) {
         const feedback = document.getElementById('agent-feedback');
         if (feedback) feedback.textContent = `${response.result.skillId} completed in ${response.result.sessionId} (${selectedProvider}).`;
+        return;
+      }
+      if (response.result?.id && response.result?.source && response.result?.permissions) {
+        const feedback = document.getElementById('agent-feedback');
+        if (feedback) feedback.textContent = `${response.result.label} installed in this Project.`;
+        nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list', params: { repositoryPath: document.getElementById('project-path')?.textContent } }) });
         return;
       }
       if (response.type === 'review.completed' || response.type === 'review.failed') {
@@ -521,24 +539,38 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'refresh-knowledge') {
     const repositoryPath = document.getElementById('project-path')?.textContent;
-    const taskId = document.getElementById('changes-task-id')?.textContent;
+    const taskId = selectedTaskId;
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile.apply', params: { repositoryPath, intent: 'docu/specs/SPEC-NEXUS.md', ...(taskId && taskId !== '—' ? { taskId } : {}) } }) });
     return;
   }
   if (['create-branch', 'create-commit', 'create-pr'].includes(item.dataset.action)) {
     if (!nativeInvoke) { notify('Git operations require the sidecar.'); return; }
-    const labels = { 'create-branch': ['git.branch.create', 'feature/ade-next'], 'create-commit': ['git.commit.create', 'chore: record ADE changes'], 'create-pr': [gitWorkflow === 'direct' ? 'git.push' : 'github.pr.create', gitWorkflow === 'direct' ? '' : 'ADE change'] };
+    const taskSuffix = selectedTaskId ? selectedTaskId.toLowerCase().replace(/[^a-z0-9-]/g, '-') : 'ade-next';
+    const labels = { 'create-branch': ['git.branch.create', `feature/${taskSuffix}`], 'create-commit': ['git.commit.create', selectedTaskId ? `chore: record ${selectedTaskId}` : 'chore: record ADE changes'], 'create-pr': [gitWorkflow === 'direct' ? 'git.push' : 'github.pr.create', gitWorkflow === 'direct' ? '' : selectedTaskIntent || 'ADE change'] };
     const [method, intent] = labels[item.dataset.action];
     if (!window.confirm(`Confirm ${method}: ${intent}?`)) return;
-    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { taskId: document.getElementById('changes-task-id')?.textContent, repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => {
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => {
       notify(`${method} completed.`);
-      const taskId = document.getElementById('changes-task-id')?.textContent;
+      const taskId = selectedTaskId;
       if (taskId) nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-ops-${Date.now()}`, method: 'task.git.operations', params: { taskId } }) });
     }).catch((error) => { notify('Git operation failed.'); console.warn(error); });
     return;
   }
   if (item.dataset.action === 'run-skill') {
     runSkillFromUI();
+    return;
+  }
+  if (item.dataset.action === 'install-skill') {
+    if (!nativeInvoke) { notify('Skill installation requires the sidecar.'); return; }
+    const source = document.getElementById('skill-source')?.value.trim();
+    const remote = /^(https?:\/\/|git@)/.test(source ?? '') || /^[\w.-]+\/[\w.-]+$/.test(source ?? '');
+    if (!source) { notify('Enter a local skill.json path or GitHub repository.'); return; }
+    if (remote && !window.confirm(`Install ${source} from the network into this Project?`)) return;
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `skill-install-${Date.now()}`, method: 'skills.install', params: { repositoryPath: document.getElementById('project-path')?.textContent, intent: source, confirmed: remote } }) }).catch((error) => { notify('Skill installation failed.'); console.warn(error); });
+    return;
+  }
+  if (item.dataset.action === 'github-status') {
+    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `github-${Date.now()}`, method: 'github.status' }) });
     return;
   }
   if (item.dataset.action === 'inspect-providers') {

@@ -30,7 +30,7 @@ Prompt engineering, PR review, Spector/spec-driven development, workflow adaptat
 }
 ```
 
-Los manifests se instalan desde un `.json` local o un repositorio Git (URL o `owner/repository`) mediante `skills.install`; ADE los copia a `.ade/skills/<id>.json` y conserva el origen `project`.
+Los manifests se instalan desde un `.json` local o un repositorio Git (URL o `owner/repository`) mediante `skills.install`; ADE los copia a `.ade/skills/<id>.json` y conserva el origen `project`. Una fuente de red se identifica antes de clonar y exige `confirmed`: sin consentimiento explícito el sidecar responde `SKILL_INSTALL_CONFIRMATION_REQUIRED` y no ejecuta ninguna operación de red.
 
 ## Testing Strategy
 

@@ -24,7 +24,8 @@ export async function createCommit(input: ConfirmedOperation & { message: string
   assertConfirmed(input);
   await execFile("git", ["add", "--all"], { cwd: input.directory });
   const result = await execFile("git", ["commit", "-m", input.message], { cwd: input.directory });
-  return { operation: "commit.create", message: input.message, output: result.stdout.trim(), actor: input.actor, reason: input.reason };
+  const commit = (await execFile("git", ["rev-parse", "HEAD"], { cwd: input.directory })).stdout.trim();
+  return { operation: "commit.create", message: input.message, commit, output: result.stdout.trim(), actor: input.actor, reason: input.reason };
 }
 
 export async function createPullRequest(input: ConfirmedOperation & { title: string; body: string; base?: string }) {
@@ -35,6 +36,8 @@ export async function createPullRequest(input: ConfirmedOperation & { title: str
 
 export async function pushBranch(input: ConfirmedOperation & { remote?: string; branch?: string }) {
   assertConfirmed(input);
-  const result = await execFile("git", ["push", input.remote ?? "origin", ...(input.branch ? [input.branch] : [])], { cwd: input.directory });
-  return { operation: "push", output: result.stdout.trim(), actor: input.actor, reason: input.reason };
+  const branch = input.branch ?? (await execFile("git", ["branch", "--show-current"], { cwd: input.directory })).stdout.trim();
+  if (!branch) throw new Error("Cannot push without a current branch");
+  const result = await execFile("git", ["push", input.remote ?? "origin", branch], { cwd: input.directory });
+  return { operation: "push", branch, output: result.stdout.trim(), actor: input.actor, reason: input.reason };
 }

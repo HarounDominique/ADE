@@ -160,6 +160,25 @@ test("desktop sidecar reports unavailable OpenCode health explicitly", async () 
   rmSync(directory, { recursive: true, force: true });
 });
 
+test("desktop sidecar refuses a network skill install without explicit confirmation", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-install-"));
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: join(directory, "ade.db") },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  child.stdin.write(JSON.stringify({ id: "install-1", method: "skills.install", params: { repositoryPath: directory, intent: "owner/skill-repository" } }) + "\n");
+  const [output] = await once(child.stdout, "data");
+  const response = JSON.parse(output.toString()) as { id: string; error: { code: string } };
+
+  assert.equal(response.id, "install-1");
+  assert.equal(response.error.code, "SKILL_INSTALL_CONFIRMATION_REQUIRED");
+  child.kill();
+  await once(child, "close");
+  rmSync(directory, { recursive: true, force: true });
+});
+
 test("desktop sidecar process fails fast without an explicit database", async () => {
   const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
     cwd: process.cwd(),

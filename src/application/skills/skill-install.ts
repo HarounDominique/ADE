@@ -21,6 +21,10 @@ export async function installProjectSkill(input: { repositoryPath: string; sourc
   }
 }
 
+export function skillSourceNeedsNetwork(source: string): boolean {
+  return /^(https?:\/\/|git@)/.test(source) || /^[\w.-]+\/[\w.-]+$/.test(source);
+}
+
 async function resolveSource(source: string): Promise<{ path: string; file: boolean }> {
   if (source.endsWith(".json")) return { path: source, file: true };
   const directory = await mkdtemp(join(tmpdir(), "ade-skill-install-"));

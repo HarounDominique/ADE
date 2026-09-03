@@ -38,6 +38,8 @@ Una Task puede seguirse desde su branch y ChangeSet hasta commit/PR, con gates y
 
 `.ade/policy.json` define `gitWorkflow`: `pull-request` es el modo por defecto; `direct` habilita commit y push directo. Branches, worktrees, commits, pushes y PRs exigen confirmación, actor y razón, y se registran contra la Task.
 
+Cada operación devuelve la referencia que la hace auditable: `commit.create` devuelve el SHA creado, `push` resuelve la rama actual y rechaza un `HEAD` desacoplado en lugar de empujar una referencia ambigua, y `branch.create`/`pull-request.create` devuelven nombre y URL. ADE persiste esa referencia contra la Task seleccionada en el workspace, no contra la Task que muestre otra pantalla. `github.status` expone la disponibilidad de la GitHub CLI sin almacenar credenciales.
+
 ## Open Questions
 
 - ¿GitHub vía CLI local, API oficial o ambos?

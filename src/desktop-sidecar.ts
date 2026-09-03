@@ -29,7 +29,7 @@ import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js"
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
 import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation } from "./application/knowledge/reconcile.js";
 import { loadGatePolicy } from "./application/change-review/gate-policy.js";
-import { installProjectSkill } from "./application/skills/skill-install.js";
+import { installProjectSkill, skillSourceNeedsNetwork } from "./application/skills/skill-install.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -197,6 +197,7 @@ export async function runDesktopSidecar(): Promise<void> {
       } else if (request.method === "skills.install") {
         const params = request.params;
         if (!params?.repositoryPath || !params.intent) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and source are required" } })}\n`);
+        else if (skillSourceNeedsNetwork(params.intent) && !params.confirmed) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_INSTALL_CONFIRMATION_REQUIRED", message: "Installing a skill from the network requires explicit confirmation" } })}\n`);
         else void installProjectSkill({ repositoryPath: params.repositoryPath, source: params.intent }).then((skill) => process.stdout.write(`${JSON.stringify({ id: request.id, result: skill })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_INSTALL_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "git.workspace") {
         const directory = request.params?.repositoryPath;
@@ -215,7 +216,7 @@ export async function runDesktopSidecar(): Promise<void> {
           const operation = request.method === "git.branch.create" && params.intent ? createBranch({ ...base, name: params.intent }) : request.method === "git.worktree.create" && params.intent ? createWorktree({ ...base, path: params.intent, branch: params.intent }) : request.method === "git.commit.create" && params.intent ? createCommit({ ...base, message: params.intent }) : request.method === "git.push" ? pushBranch({ ...base, ...(params.intent ? { branch: params.intent } : {}) }) : createPullRequest({ ...base, title: params.intent ?? "ADE change", body: params.reason });
           void operation.then((result) => {
             if (params.taskId) {
-              const reference = "name" in result ? result.name : "url" in result ? result.url : "branch" in result ? result.branch : undefined;
+              const reference = "name" in result ? result.name : "url" in result ? result.url : "branch" in result ? result.branch : "commit" in result ? result.commit : undefined;
               store.saveGitOperation({ id: `git-${request.id}`, taskId: params.taskId, operation: result.operation, ...(reference ? { reference } : {}), actor: params.actor!, reason: params.reason!, metadata: JSON.stringify(result) });
             }
             process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`);

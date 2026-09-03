@@ -13,7 +13,9 @@ Este repositorio comienza deliberadamente por la documentación. La documentaci�
 
 ## Estado
 
-MVP CLI y vertical desktop operables: ADE puede registrar Projects, crear y avanzar Tasks, ejecutar el flujo Implementer/Reviewer con OpenCode, persistir ChangeSets/Reviews/evidencia/gates en SQLite y aplicar aprobación humana desde Changes. Runtime incluye lifecycle mínimo de servicios locales. El cierre de release v0.2 queda condicionado al smoke gráfico empaquetado con OpenCode real; la siguiente iteración está definida en [SPEC-v0.3](docu/specs/SPEC-v0.3.md).
+MVP CLI y vertical desktop operables: ADE puede registrar Projects, crear y avanzar Tasks, ejecutar el flujo Implementer/Reviewer con OpenCode, persistir ChangeSets/Reviews/evidencia/gates en SQLite y aplicar aprobación humana desde Changes. Runtime incluye lifecycle mínimo de servicios locales.
+
+v0.2 quedó cerrada: el smoke empaquetado se validó en macOS con OpenCode 1.18.26 real, servicios declarados en `.ade/services.json` y policy de gates por Project. La iteración actual es [SPEC-v0.3](docu/specs/SPEC-v0.3.md), en implementación incremental: workspace local con terminal nativa, proveedores OpenCode/Codex con sesiones reanudables, skills instalables con permisos por ejecución, Git/GitHub enlazado a Tasks y documentación viva con reconciliación automática. El estado por módulo vive en [tasks/todo.md](tasks/todo.md).
 
 ## Quick start del spike
 
