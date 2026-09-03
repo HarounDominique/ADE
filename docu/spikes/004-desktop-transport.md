@@ -32,7 +32,7 @@ Usar un sidecar TypeScript supervisado por Tauri y un protocolo JSON-RPC sobre s
 
 El primer corte debe implementar sólo `project.snapshot`, con request id, respuesta `result/error` y cierre limpio. Las mutaciones y eventos se añaden después de validar lifecycle y empaquetado.
 
-El primer corte está implementado en `src/desktop-sidecar.ts` y se ejecuta con `npm run desktop:sidecar`. Los tests verifican snapshot, request id y errores estructurados. Tauri ya dispone de un supervisor con arranque, consulta de estado y parada idempotente; falta probar el proceso real y conectar sus streams JSON-RPC.
+El primer corte está implementado en `src/desktop-sidecar.ts` y se ejecuta con `npm run desktop:sidecar`. Los tests verifican snapshot, request id y errores estructurados, y un smoke test ya validó el proceso real sobre stdin/stdout con SQLite temporal. Tauri ya dispone de un supervisor con arranque, consulta de estado y parada idempotente; falta probarlo integrado y conectar sus streams JSON-RPC.
 
 ## Gates del spike
 
@@ -41,7 +41,7 @@ El primer corte está implementado en `src/desktop-sidecar.ts` y se ejecuta con 
 3. Una excepción del sidecar produce error estructurado y no rompe la shell.
 4. El bundle macOS incluye el ejecutable y conserva la ruta de datos elegida.
 
-**Progreso:** gate 1 y la idempotencia del supervisor cubiertos por tests; gate 2 (proceso real bajo Tauri), gate 3 (fallo en runtime) y gate 4 (bundle) pendientes.
+**Progreso:** gate 1 y el protocolo de proceso cubiertos; gate 2 (proceso real bajo Tauri), gate 3 (fallo en runtime) y gate 4 (bundle) pendientes.
 
 ## Fuera de alcance
 
