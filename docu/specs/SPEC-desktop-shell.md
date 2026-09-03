@@ -114,3 +114,5 @@ Un usuario puede abrir un repositorio, crear una Task, observar la implementaci�
 - ¿Qué esquema de navegación permite observar varias Tasks sin perder el contexto de la activa?
 
 La evidencia de adopción está documentada en [003-desktop-framework](../spikes/003-desktop-framework.md#resultado) y [ADR-0009](../adr/0009-tauri-desktop-shell.md).
+
+El transporte backend pendiente se investiga en [004-desktop-transport](../spikes/004-desktop-transport.md#recomendación-provisional); su primer corte será sólo lectura (`project.snapshot`) y deberá superar sus gates antes de conectar mutaciones de Work.

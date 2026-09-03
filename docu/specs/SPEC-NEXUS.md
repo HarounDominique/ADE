@@ -106,3 +106,4 @@ Siguen deliberadamente abiertas hasta obtener evidencia: integración concreta c
 - 2026-09-03 — desktop-read-model — Se añadieron consultas de colección al store y el read model `ProjectSnapshot`, con filtrado por Project y métricas de trabajo; la UI aún consume fixture hasta cerrar el transporte Tauri.
 - 2026-09-03 — desktop-read-model-cli — La CLI expone `project snapshot` como seam verificable del read model persistido; queda pendiente elegir y probar el transporte del backend TypeScript junto a Tauri.
 - 2026-09-03 — documentation-sync — Se cerró la tarea de sincronización documental del módulo Project/Task; las referencias y headings del contrato implementado quedan alineados.
+- 2026-09-03 — desktop-transport — Se abrió el spike 004 para decidir el transporte Tauri–TypeScript; la recomendación provisional es sidecar JSON-RPC por stdio, pendiente de validación de lifecycle y empaquetado.
