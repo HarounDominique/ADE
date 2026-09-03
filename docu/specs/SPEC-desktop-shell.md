@@ -30,7 +30,7 @@ Es la entrada por defecto. Presenta Project, raíz del repositorio, branch detec
 
 ### Work
 
-Permite crear, reanudar y observar Tasks y sus conversaciones. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados.
+Permite crear, reanudar y observar Tasks y sus conversaciones. La creación de una Task ya atraviesa `task.create` por el sidecar y refresca el Project Hub; reanudar, avanzar estados y observar eventos de runtime siguen pendientes. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados.
 
 ### Knowledge
 
