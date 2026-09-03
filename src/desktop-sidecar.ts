@@ -17,6 +17,7 @@ import { ServiceManager, type ServiceDefinition } from "./application/local-runt
 import type { ChangeSet } from "./domain/change-set.js";
 import { inspectProviders } from "./application/agent-providers/provider-registry.js";
 import { listNativeSkills } from "./application/skills/skill-catalog.js";
+import { getGitStatus } from "./application/git/git-status.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -138,6 +139,10 @@ export async function runDesktopSidecar(): Promise<void> {
         void inspectProviders(process.env.OPENCODE_URL ? { opencodeUrl: process.env.OPENCODE_URL } : {})
           .then((providers) => process.stdout.write(`${JSON.stringify({ id: request.id, result: providers })}\n`))
           .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "PROVIDERS_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "git.status") {
+        const directory = request.params?.repositoryPath;
+        if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+        else void getGitStatus(directory).then((status) => process.stdout.write(`${JSON.stringify({ id: request.id, result: status })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "service.start") {
         startLocalService(request);
       } else if (request.method === "service.stop") {
