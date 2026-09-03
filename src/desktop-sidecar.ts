@@ -68,7 +68,7 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'service.status', 'service.list', 'skills.list'].includes(request.method)) {
+    if (!['project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'service.status', 'service.list', 'skills.list'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.snapshot") {
@@ -80,6 +80,12 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
     }
     if (request.method === "runtime.status") {
       return { id: request.id, result: getRuntimeStatus() };
+    }
+    if (request.method === "task.git.operations") {
+      const taskId = request.params?.taskId;
+      if (!taskId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId is required" } };
+      if (!store.rehydrateTask(taskId)) return { id: request.id, error: { code: "TASK_NOT_FOUND", message: `Task not found: ${taskId}` } };
+      return { id: request.id, result: store.listGitOperations(taskId) };
     }
     if (request.method === "skills.list") return { id: request.id, result: listNativeSkills() };
     if (request.method === "service.status") {

@@ -59,6 +59,14 @@ function renderChangeReview(review) {
   if (gates) gates.innerHTML = review.gates.map((gate) => `<span class="gate ${gate.status === 'passed' || gate.status === 'waived' ? 'passed' : 'pending'}">${gate.status === 'passed' ? '✓' : '○'} ${escapeHTML(gate.id.replaceAll('-', ' '))}</span>`).join('');
 }
 
+function renderGitOperations(operations) {
+  const detail = document.getElementById('git-task-operations') ?? document.getElementById('git-workspace-detail');
+  if (!detail) return;
+  detail.textContent = operations.length
+    ? operations.map((item) => `${item.operation} · ${item.reference ?? '—'} · ${item.actor}`).join('\n')
+    : 'No Git operations linked to the selected Task.';
+}
+
 function setSyncState(state, message) {
   const syncLabel = document.querySelector('.sync-label');
   const syncText = document.querySelector('.sync-text');
@@ -206,6 +214,10 @@ async function connectSidecar(snapshot) {
       if (response.result?.branches && response.result?.worktrees) {
         const output = document.getElementById('git-workspace-output');
         if (output) output.textContent = `Branches\n${response.result.branches.join('\n') || '—'}\n\nWorktrees\n${response.result.worktrees.join('\n') || '—'}\n\nRemotes\n${response.result.remotes.join('\n') || '—'}`;
+        return;
+      }
+      if (Array.isArray(response.result) && response.result[0]?.operation && response.result[0]?.taskId) {
+        renderGitOperations(response.result);
         return;
       }
       if (response.result?.graph?.mermaid && response.result?.proposal) {
@@ -523,6 +535,7 @@ document.addEventListener('click', (event) => {
   const taskCard = event.target.closest('[data-task-select]');
   if (taskCard && !event.target.closest('button')) {
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `detail-${taskCard.dataset.taskSelect}-${Date.now()}`, method: 'task.detail', params: { taskId: taskCard.dataset.taskSelect } }) });
+    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `git-ops-${taskCard.dataset.taskSelect}-${Date.now()}`, method: 'task.git.operations', params: { taskId: taskCard.dataset.taskSelect } }) });
     return;
   }
   const runButton = event.target.closest('[data-task-id][data-task-run]');

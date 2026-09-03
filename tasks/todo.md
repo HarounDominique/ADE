@@ -157,9 +157,9 @@
   - Acceptance: `.app` permanece activo, responde al sidecar, ejecuta una Task real y se detiene limpiamente; el smoke actual aborta con `SIGABRT` en este entorno.
 - [ ] Task: Validar OpenCode real desde la aplicación
   - Acceptance: `opencode serve` permanece disponible y `runtime.health` responde desde el `.app`; el binario está instalado pero el daemon devuelve `ServeError` aquí.
-- [ ] Task: Completar declaración persistida de servicios por Project
+- [~] Task: Completar declaración persistida de servicios por Project
   - Acceptance: Runtime lee servicios declarados desde `.ade/services.yaml` o una policy equivalente, muestra comando/cwd/healthcheck y evita que la UI dependa de un comando hardcodeado.
-- [ ] Task: Cerrar contrato de evidencia y policy de gates
+- [~] Task: Cerrar contrato de evidencia y policy de gates
   - Acceptance: límites de tamaño/retención, policy mínima por Project y evidencia de documentación quedan especificados, implementados y cubiertos por tests.
 
 ## v0.3 — Workspace agéntico local-first
@@ -173,11 +173,11 @@
 - [ ] Task: Distribuir catálogo nativo de skills
   - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad.
   - Verify: validación de manifests, instalación local y ejecución de una skill fixture.
-- [ ] Task: Integrar Git y GitHub con Tasks
-  - Acceptance: branch, diff, worktree, commit y PR muestran actor, razón, ChangeSet y gates; operaciones peligrosas piden confirmación.
+- [~] Task: Integrar Git y GitHub con Tasks
+  - Acceptance: branch, diff, worktree, commit y PR muestran actor, razón, ChangeSet y gates; operaciones peligrosas piden confirmación. Backend ya persiste Task→operación; falta completar la vista de PR/ChangeSet.
   - Verify: fixtures Git y contract tests GitHub.
 - [ ] Task: Implementar documentación viva y consultoría
-  - Acceptance: cambios en specs calculan impacto sobre Nexus, citers, diagramas, QA docs y estimaciones; Spector produce reconciliación revisable.
+  - Acceptance: cambios en specs calculan impacto sobre Nexus, citers, diagramas, QA docs y estimaciones; grafo recursivo e impacto transitivo ya están implementados; falta UML y aplicación coordinada.
   - Verify: grafo, headings rotos, impacto transitivo y tests de sync.
 - [ ] Task: Integrar Workspace v0.3 y validar release
   - Acceptance: un recorrido completo se realiza dentro del `.app`, con proveedor, skill, Git y documentación contextualizados.
