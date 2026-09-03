@@ -6,6 +6,7 @@ import { Task, type TaskEvent, type TaskStatus } from "../domain/task.js";
 import type { Project, Repository } from "../domain/project.js";
 import type { Review } from "../domain/review.js";
 import type { RuntimeEvidence } from "../domain/runtime-evidence.js";
+import type { Gate, GateStatus } from "../domain/gate.js";
 
 export type PersistedTask = {
   id: string;
@@ -111,6 +112,15 @@ export class AdeStore {
         actor TEXT NOT NULL,
         reason TEXT NOT NULL,
         at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS gates (
+        task_id TEXT NOT NULL REFERENCES tasks(id),
+        id TEXT NOT NULL,
+        required INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        evidence_ids_json TEXT NOT NULL,
+        failure_reason TEXT,
+        PRIMARY KEY (task_id, id)
       );
     `);
     this.migrateTasks();
@@ -298,6 +308,22 @@ export class AdeStore {
 
   getApproval(taskId: string): { taskId: string; actor: string; reason: string; at: string } | undefined {
     return this.db.prepare("SELECT task_id AS taskId, actor, reason, at FROM approvals WHERE task_id = ?").get(taskId) as { taskId: string; actor: string; reason: string; at: string } | undefined;
+  }
+
+  saveGates(taskId: string, gates: readonly Gate[]): void {
+    const statement = this.db.prepare(`
+      INSERT INTO gates (task_id, id, required, status, evidence_ids_json, failure_reason)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(task_id, id) DO UPDATE SET required = excluded.required,
+        status = excluded.status, evidence_ids_json = excluded.evidence_ids_json,
+        failure_reason = excluded.failure_reason
+    `);
+    for (const gate of gates) statement.run(taskId, gate.id, gate.required ? 1 : 0, gate.status, JSON.stringify(gate.evidenceIds), gate.failureReason ?? null);
+  }
+
+  listGates(taskId: string): Gate[] {
+    const rows = this.db.prepare(`SELECT id, required, status, evidence_ids_json AS evidenceIds, failure_reason AS failureReason FROM gates WHERE task_id = ? ORDER BY id`).all(taskId) as Array<{ id: string; required: number; status: string; evidenceIds: string; failureReason: string | null }>;
+    return rows.map((row) => ({ id: row.id, required: row.required === 1, status: row.status as GateStatus, evidenceIds: JSON.parse(row.evidenceIds) as string[], ...(row.failureReason ? { failureReason: row.failureReason } : {}) }));
   }
 
   close(): void {

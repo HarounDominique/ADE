@@ -11,4 +11,5 @@ export function approveTaskFromStore(store: AdeStore, input: { id: string; reaso
   task.transition("COMPLETED", input.reason, input.actor ?? "human");
   store.saveTask(task);
   store.saveApproval({ taskId: task.id, actor: input.actor ?? "human", reason: input.reason });
+  store.saveGates(task.id, review.gates.map((gate) => gate.id === "human-approval" ? { ...gate, status: "passed", evidenceIds: [task.id] } : gate));
 }
