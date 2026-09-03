@@ -7,6 +7,7 @@ const taskDialog = document.getElementById('new-task-dialog');
 const taskForm = document.getElementById('new-task-form');
 const taskIntent = document.getElementById('task-intent');
 let nativeInvoke;
+let terminalStarted = false;
 let activeProjectId = projectSnapshot.project.id;
 const runtimeEvents = [];
 
@@ -151,6 +152,10 @@ async function connectSidecar(snapshot) {
   const listen = window.__TAURI__?.event?.listen;
   if (!invoke || !listen) return;
   nativeInvoke = invoke;
+  await listen('terminal:output', (event) => {
+    const output = document.getElementById('terminal-output');
+    if (output) output.textContent += event.payload;
+  });
   let recoveryAttempted = false;
   const requestSnapshot = async () => {
     const configuredProjectId = await invoke('project_id');
@@ -483,8 +488,9 @@ document.getElementById('terminal-form')?.addEventListener('submit', async (even
   const cwd = document.getElementById('project-path')?.textContent;
   if (!nativeInvoke || !command || !cwd) { notify('Native terminal requires the desktop runtime.'); return; }
   try {
-    const result = await nativeInvoke('terminal_exec', { cwd, command });
-    if (output) output.textContent = `$ ${result.command}\n${result.stdout}${result.stderr ? `\n${result.stderr}` : ''}\n[exit ${result.exitCode ?? 'signal'}]`;
+    if (!terminalStarted) { await nativeInvoke('terminal_start', { cwd }); terminalStarted = true; }
+    await nativeInvoke('terminal_input', { input: `${command}\n` });
+    if (output) output.textContent += `\n$ ${command}\n`;
   } catch (error) {
     if (output) output.textContent = String(error);
     notify('Terminal command failed.');
