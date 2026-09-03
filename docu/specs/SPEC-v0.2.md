@@ -58,7 +58,7 @@ Cloud, cuentas, sync, colaboración realtime, worktrees paralelos, multiagente c
 
 1. Una Task puede ejecutarse, cerrarse y reabrirse conservando eventos y contexto.
 2. Changes muestra evidencia real, gates y findings de la Task seleccionada.
-3. Una gate requerida bloquea aprobación/commit hasta que exista evidencia válida o waiver conforme a policy.
+3. Una gate requerida bloquea aprobación/commit hasta que exista evidencia válida o waiver conforme a policy, y la aprobación/re-review se ejecutan mediante casos de uso auditables.
 4. Un servicio local declarado puede iniciarse, comprobarse y detenerse desde Runtime.
 5. El smoke empaquetado y el test de rehidratación sobreviven al reinicio de la app sin perder el historial operativo.
 
