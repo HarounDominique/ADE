@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 const root = resolve(new URL('..', import.meta.url).pathname);
 const output = resolve(root, 'desktop/sidecar-dist');
 const compiler = resolve(root, 'node_modules/typescript/lib/tsc.js');
+const seaNode = process.env.ADE_SEA_NODE ?? process.execPath;
 
 rmSync(output, { recursive: true, force: true });
 mkdirSync(dirname(output), { recursive: true });
@@ -35,9 +36,9 @@ writeFileSync(seaConfig, JSON.stringify({
   output: seaBlob,
   disableExperimentalSEAWarning: true,
 }, null, 2));
-const sea = spawnSync(process.execPath, ['--experimental-sea-config', seaConfig], { cwd: root, stdio: 'inherit' });
+const sea = spawnSync(seaNode, ['--experimental-sea-config', seaConfig], { cwd: root, stdio: 'inherit' });
 if (sea.status !== 0) process.exit(sea.status ?? 1);
-copyFileSync(process.execPath, seaExecutable);
+copyFileSync(seaNode, seaExecutable);
 chmodSync(seaExecutable, 0o755);
 if (process.platform === 'darwin') {
   spawnSync('codesign', ['--remove-signature', seaExecutable], { stdio: 'inherit' });
