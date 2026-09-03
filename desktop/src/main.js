@@ -130,6 +130,11 @@ async function connectSidecar(snapshot) {
         renderRuntimeStatus(response.result);
         return;
       }
+      if (response.result?.healthy !== undefined) {
+        renderRuntimeStatus(response.result.status);
+        notify(response.result.healthy ? `OpenCode connected${response.result.version ? ` (${response.result.version})` : ''}.` : 'OpenCode is unhealthy.');
+        return;
+      }
       if (response.result) {
         renderSnapshot({
           ...snapshot,
@@ -141,6 +146,7 @@ async function connectSidecar(snapshot) {
         recoveryAttempted = false;
       }
       if (response.error) {
+        if (response.status) renderRuntimeStatus(response.status);
         setSyncState('failed', 'Snapshot unavailable');
         notify(`Sidecar: ${response.error.message}`);
       }
@@ -254,6 +260,17 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   if (item.dataset.action === 'new-task') {
     taskDialog?.showModal();
     taskIntent?.focus();
+    return;
+  }
+  if (item.dataset.action === 'check-runtime') {
+    if (!nativeInvoke) {
+      notify('Runtime diagnostics require the local sidecar.');
+      return;
+    }
+    nativeInvoke('sidecar_request', {
+      request: JSON.stringify({ id: `health-${Date.now()}`, method: 'runtime.health' }),
+    }).catch((error) => console.warn('Runtime health unavailable:', error));
+    notify('Checking OpenCode connection…');
     return;
   }
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
