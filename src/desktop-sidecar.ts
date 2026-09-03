@@ -18,6 +18,7 @@ import type { ChangeSet } from "./domain/change-set.js";
 import { inspectProviders } from "./application/agent-providers/provider-registry.js";
 import { listNativeSkills } from "./application/skills/skill-catalog.js";
 import { getGitStatus } from "./application/git/git-status.js";
+import { findReferenceImpact } from "./application/knowledge/reference-impact.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -139,6 +140,11 @@ export async function runDesktopSidecar(): Promise<void> {
         void inspectProviders(process.env.OPENCODE_URL ? { opencodeUrl: process.env.OPENCODE_URL } : {})
           .then((providers) => process.stdout.write(`${JSON.stringify({ id: request.id, result: providers })}\n`))
           .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "PROVIDERS_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "knowledge.impact") {
+        const target = request.params?.intent;
+        const root = request.params?.repositoryPath;
+        if (!target || !root) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and target are required" } })}\n`);
+        else void findReferenceImpact(root, target).then((impact) => process.stdout.write(`${JSON.stringify({ id: request.id, result: impact })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "KNOWLEDGE_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "git.status") {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
