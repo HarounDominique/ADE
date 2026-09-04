@@ -32,7 +32,11 @@ function applyTheme(theme) {
   if (themeMeta) themeMeta.content = nextTheme === 'light' ? '#f5f7fa' : '#0b0f14';
   document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
     button.setAttribute('aria-pressed', String(nextTheme === 'light'));
-    button.title = nextTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+    const nextLabel = nextTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+    button.title = nextLabel;
+    button.setAttribute('aria-label', nextLabel);
+    const label = button.querySelector('span');
+    if (label) label.textContent = nextTheme === 'light' ? 'Dark theme' : 'Light theme';
   });
 }
 

@@ -90,6 +90,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 :root[data-theme="light"] body { background: var(--bg); }
 :root[data-theme="light"] .topbar { background: color-mix(in srgb, var(--chrome) 96%, transparent); }
 :root[data-theme="light"] .rail-button:hover, :root[data-theme="light"] .rail-button.active, :root[data-theme="light"] .nav-item:hover { background: #d3e0ed; }
+:root[data-theme="light"] .sidebar-tool:hover { background: #d3e0ed; }
 :root[data-theme="light"] .nav-item.active { background: #dbe8f3; }:root[data-theme="light"] .command-button { background: var(--panel); }
 :root[data-theme="light"] .command-button, :root[data-theme="light"] .workspace-picker, :root[data-theme="light"] .explorer-filter { background: var(--panel); }
 :root[data-theme="light"] .task-status.review, :root[data-theme="light"] .gate.pending, :root[data-theme="light"] .nav-count.warning { background: #f7ebcf; }:root[data-theme="light"] .task-status.building { background: #dceafa; }

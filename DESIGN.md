@@ -135,7 +135,7 @@ The palette is a dark graphite workspace with cool neutrals and a small set of s
 ### Light Theme
 
 - **Light Workspace** (#f3f6fa): Alternate application canvas.
-- **Light Chrome** (#e8eef5): Sidebar, activity rail and toolbar surfaces.
+- **Light Chrome** (#e8eef5): Sidebar and toolbar surfaces.
 - **Light Panel** (#ffffff): Workbench panes and content surfaces.
 - **Light Soft Surface** (#edf3f8): Inputs, code surfaces and raised controls.
 - **Light Text** (#152231): Primary headings and decisions.
