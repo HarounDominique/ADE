@@ -360,3 +360,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* Navigation already identifies the view; keep only compact, actionable toolbars inside it. */
 .view-actions { display: flex; justify-content: flex-end; min-height: 32px; margin-bottom: 18px; }
 .view-actions .button { min-height: 32px; }
+
+/* Editor is a code workbench: reclaim the shared view whitespace for the document. */
+.view.view-editor { padding: 10px 12px 14px; }
+.view.view-editor .document-viewer-panel { margin: 0; }
+.view.view-editor .document-viewer-header { padding: 10px 12px 9px; }
+.view.view-editor .document-viewer-heading h1 { margin-top: 3px; margin-bottom: 3px; }
+.view.view-editor .document-viewer-body { height: max(320px, calc(100vh - var(--terminal-height, 138px) - 168px)); }
+.view.view-editor .document-content { padding: 12px 16px 18px; }
