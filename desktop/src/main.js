@@ -363,18 +363,21 @@ async function refreshGitWorkspace(path, invoke = nativeInvoke) {
   } catch (error) { console.warn('Git workspace unavailable:', error); }
 }
 
-async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke) {
+async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke, { animate = false } = {}) {
   const tree = document.getElementById('workspace-tree');
   if (!tree || !invoke || !path) return;
   workspaceRootPath = path;
+  if (animate) tree.classList.add('is-transitioning');
   try {
     const entries = await invoke('list_directory', { path, maxDepth: 0 });
     tree.innerHTML = explorerExpanded || !selectedFilePath
       ? renderWorkspaceEntries(entries)
       : await renderCompactWorkspacePath(entries, selectedFilePath, invoke);
     filterWorkspaceTree(document.getElementById('workspace-filter')?.value ?? '');
+    if (animate) requestAnimationFrame(() => tree.classList.remove('is-transitioning'));
   } catch (error) {
     tree.innerHTML = '<li>Workspace directory unavailable.</li>';
+    if (animate) requestAnimationFrame(() => tree.classList.remove('is-transitioning'));
     console.warn('Workspace tree unavailable:', error);
   }
 }
@@ -456,8 +459,10 @@ async function toggleWorkspaceDirectory(button) {
 function updateExplorerMode(expanded) {
   explorerExpanded = expanded;
   const sidebar = document.querySelector('.sidebar');
+  const primaryNav = document.querySelector('.primary-nav');
   const toggle = document.querySelector('[data-action="toggle-explorer"]');
   sidebar?.classList.toggle('explorer-expanded', expanded);
+  primaryNav?.setAttribute('aria-hidden', String(expanded));
   toggle?.setAttribute('aria-expanded', String(expanded));
   toggle?.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} workspace tree`);
   toggle?.setAttribute('title', `${expanded ? 'Collapse' : 'Expand'} workspace tree`);
@@ -466,7 +471,7 @@ function updateExplorerMode(expanded) {
 
 async function expandExplorerFrom(button) {
   updateExplorerMode(true);
-  await loadWorkspaceTree(workspaceRootPath, nativeInvoke);
+  await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
   const targetPath = button.dataset.directoryPath;
   if (!targetPath?.startsWith(`${workspaceRootPath}/`)) return;
   const segments = targetPath.slice(workspaceRootPath.length + 1).split('/').filter(Boolean);
@@ -482,7 +487,7 @@ async function expandExplorerFrom(button) {
 
 async function collapseExplorer() {
   updateExplorerMode(false);
-  await loadWorkspaceTree(workspaceRootPath, nativeInvoke);
+  await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
 }
 
 async function connectSidecar(snapshot) {
@@ -836,7 +841,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     if (explorerExpanded) void collapseExplorer();
     else {
       updateExplorerMode(true);
-      void loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
+      void loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke, { animate: true });
     }
     return;
   }

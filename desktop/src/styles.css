@@ -108,7 +108,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .sidebar { grid-column: 1; }
 .main-content { grid-column: 2; padding-bottom: calc(var(--terminal-height, 138px) + 20px); }
 .status-bar { padding-left: 12px; }
-.primary-nav { margin: 0 0 15px; padding-bottom: 15px; border-bottom: 1px solid var(--line); }
+.primary-nav { max-height: 220px; margin: 0 0 15px; padding-bottom: 15px; overflow: hidden; border-bottom: 1px solid var(--line); opacity: 1; visibility: visible; transform: translateY(0); transition: max-height .24s cubic-bezier(.16,1,.3,1), margin-bottom .24s cubic-bezier(.16,1,.3,1), padding-bottom .24s cubic-bezier(.16,1,.3,1), border-color .18s ease, opacity .16s ease, visibility 0s linear 0s, transform .24s cubic-bezier(.16,1,.3,1); }
 .nav-item { min-height: 34px; padding: 7px 9px; }
 .nav-item svg { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
 .nav-item.active svg { color: var(--cyan); }
@@ -133,13 +133,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* Explorer focus mode keeps the selected file's path visible without losing context. */
 .explorer-actions { display: flex; align-items: center; gap: 2px; }
 .explorer-actions .icon-button svg { transition: transform .16s ease; }
-.sidebar.explorer-expanded .primary-nav { display: none; }
+.sidebar.explorer-expanded .primary-nav { max-height: 0; margin-bottom: 0; padding-bottom: 0; border-bottom-color: transparent; opacity: 0; pointer-events: none; visibility: hidden; transform: translateY(-8px); transition-delay: 0s, 0s, 0s, 0s, 0s, .24s, 0s; }
 .sidebar.explorer-expanded .explorer-section { margin-top: 0; }
 .sidebar.explorer-expanded .workspace-tree { padding-top: 8px; }
+.workspace-tree { opacity: 1; transform: translateY(0); transition: opacity .16s ease, transform .24s cubic-bezier(.16,1,.3,1), padding-top .24s cubic-bezier(.16,1,.3,1); }
+.workspace-tree.is-transitioning { opacity: 0; transform: translateY(6px); }
 .workspace-entry.selected { color: var(--text); background: #1b3140; }
 .workspace-entry.selected .workspace-glyph.file { border-color: var(--cyan); }
 :root[data-theme="light"] .workspace-entry.selected { background: #dbeaf5; }
 
 @media (max-width: 1180px) {
   .explorer-heading { padding-right: 2px; padding-left: 2px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary-nav, .workspace-tree, .workspace-arrow { transition-duration: .01ms; }
+  .primary-nav, .workspace-tree { transform: none; }
 }

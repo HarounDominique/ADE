@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const html = readFileSync(new URL("../desktop/src/index.html", import.meta.url), "utf8");
 const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "utf8");
+const styles = readFileSync(new URL("../desktop/src/styles.css", import.meta.url), "utf8");
 
 test("desktop shell keeps the five MVP areas and critical actions", () => {
   for (const view of ["project", "work", "knowledge", "changes", "runtime"]) {
@@ -66,6 +67,16 @@ test("explorer keeps the active file path as a compact branch and has a full-tre
   assert.match(main, /explorerExpanded/);
   assert.match(main, /expandExplorerFrom/);
   assert.match(main, /collapseExplorer/);
+});
+
+test("explorer mode changes preserve continuity with a reduced-motion path", () => {
+  assert.match(styles, /\.sidebar\.explorer-expanded \.primary-nav/);
+  assert.match(styles, /visibility: hidden/);
+  assert.match(styles, /\.workspace-tree\.is-transitioning/);
+  assert.match(styles, /prefers-reduced-motion/);
+  assert.match(main, /loadWorkspaceTree\([^\n]+\{ animate: true \}/);
+  assert.match(main, /requestAnimationFrame\(\(\) => tree\.classList\.remove\('is-transitioning'\)\)/);
+  assert.match(main, /primaryNav\?\.setAttribute\('aria-hidden', String\(expanded\)\)/);
 });
 
 test("theme switch is visible in the topbar and exposes light/dark state", () => {
