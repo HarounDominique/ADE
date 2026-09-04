@@ -24,6 +24,17 @@ El shell debe funcionar sin cloud y conservar la capacidad de abrir el repositor
 
 Las cinco áreas visibles son `PROJECT`, `WORK`, `KNOWLEDGE`, `CHANGES` y `RUNTIME`. El Project Hub comunica rama, estado Git, Tasks, agentes, cambios, gates, revisiones y servicios. La pantalla de resultado debe permitir entender una Task antes de abrir el diff.
 
+### Git context bar
+
+La topbar no duplica el buscador del Explorer. En su lugar presenta dos selectores persistentes y navegables, inspirados en los gestores Git de escritorio:
+
+- `Current repository` muestra el Project Git activo y abre los Projects locales previamente registrados, con nombre y ruta suficiente para distinguirlos.
+- `Current branch` muestra la rama activa y abre las ramas locales del Project activo, consultadas bajo demanda desde `git.workspace`.
+
+Seleccionar un Project cambia el contexto canónico de Tauri, refresca snapshot, árbol, branch, servicios, skills y estado Git, y conserva la selección de fichero sólo si sigue perteneciendo a la nueva raíz. Seleccionar una rama ejecuta `git switch` mediante el sidecar; no fuerza ni descarta cambios. Si Git rechaza la operación, se muestra el error y permanece visible el contexto anterior. Los menús deben exponer estados `loading`, `empty`, `failed` y `switching`, cerrar al seleccionar o pulsar fuera y ser navegables por teclado.
+
+El Explorer mantiene el buscador como única búsqueda de ficheros. Una lupa accionable junto al título `Explorer` enfoca el filtro sin crear una segunda búsqueda.
+
 ### Project Hub
 
 Es la entrada por defecto. Presenta Project, raíz del repositorio, branch detectada, estado Git, servicios activos y Tasks recientes. Una Task muestra intención, modo, fase, última evidencia, gate bloqueante y acción siguiente.
@@ -99,7 +110,7 @@ npm run desktop:package
 
 La shell actual se verifica con `npm run build`, `npm test`, `npm run desktop:test` y smoke macOS; los flujos CLI descritos en las specs de runtime y governance siguen siendo el fallback operativo.
 
-El shell visual inicial vive en `desktop/src/`. Su fixture `project-snapshot.js` define el boundary de datos y el comando Tauri `project_context` ya aporta contexto local de repositorio en modo solo lectura. La UI no accede directamente a SQLite, Git ni procesos.
+El shell visual inicial vive en `desktop/src/`. Su fixture `project-snapshot.js` define el boundary de datos y el comando Tauri `project_context` aporta contexto local de repositorio y selecciona la raíz canónica. La UI no accede directamente a SQLite, Git ni procesos: Projects y ramas se obtienen mediante el sidecar y el cambio de raíz pasa por Tauri.
 
 El read model de aplicación `ProjectSnapshot` compone el Project seleccionado, sus Tasks, el último evento de cada Task y las métricas `activeTasks`/`inReview`. La shell debe consumir este modelo y no consultar tablas de SQLite directamente.
 
@@ -119,7 +130,7 @@ La primera vertical de UI debe probar: abrir Project → seleccionar fichero, ed
 
 - **Always:** Project Hub primero; hacer visible estado Git, Task, agentes, gates y runtime; ofrecer escape hatch a IDE/terminal.
 - **Ask first:** adoptar editor completo, soporte cloud, cuentas, sync o colaboración realtime.
-- **Never:** abrir un fichero seleccionado automáticamente fuera de ADE; esconder operaciones peligrosas detrás de una acción ambigua; convertir la conversación en única representación del trabajo.
+- **Never:** abrir un fichero seleccionado automáticamente fuera de ADE; esconder operaciones peligrosas detrás de una acción ambigua; convertir la conversación en única representación del trabajo; duplicar el buscador del Explorer o forzar un cambio de branch que pueda descartar cambios locales.
 
 ## Success Criteria
 

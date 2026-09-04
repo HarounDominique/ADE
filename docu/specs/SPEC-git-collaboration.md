@@ -44,6 +44,14 @@ Changes presenta el ChangeSet, gates y findings de la Task seleccionada; Git con
 
 El panel muestra rama activa, ficheros modificados, ramas, worktrees y remotos. Expone branch, worktree, commit, push y PR como acciones separadas: worktree solicita ruta y rama, y el sidecar rechaza una mutación que no reciba los parámetros específicos de su tipo. Cada acción sensible mantiene el diálogo de confirmación antes de ejecutar Git.
 
+## Git context selectors
+
+La shell muestra en la topbar `Current repository` y `Current branch` como contexto persistente. `project.list` devuelve los Projects locales registrados, sin descubrir ni registrar rutas nuevas; el menú de repositorio muestra nombre y `repositoryPath` y marca el Project activo. `git.workspace` carga bajo demanda las ramas locales del Project seleccionado y alimenta el menú de branch.
+
+La selección de un repositorio llama a `project_context`, cambia la raíz canónica de la shell y refresca el read model y los recursos dependientes. La selección de una rama usa `git.branch.switch`, que ejecuta `git switch` con actor, razón y confirmación explícita de la acción de UI. No se hace force checkout, reset ni descarte automático; un working tree incompatible produce un fallo visible y conserva el contexto anterior. Tras éxito, la shell vuelve a consultar `git.workspace` y el snapshot para mostrar la rama real.
+
+La topbar sustituye `Quick Open`; el único buscador de ficheros es el filtro del Explorer.
+
 ## Open Questions
 
 - ¿GitHub vía CLI local, API oficial o ambos?

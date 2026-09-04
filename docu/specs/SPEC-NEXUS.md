@@ -1,6 +1,6 @@
 # Nexus: ADE — Agentic Development Environment
 
-**Estado:** v0.1 MVP implementado; v0.2 cerrada; v0.3 cerrada; slice v0.4 file-workspace implementada y validada en build/tests
+**Estado:** v0.1 MVP implementado; v0.2 cerrada; v0.3 cerrada; slice v0.4 file-workspace y contexto Git de shell implementados y validados en build/tests
 **Última actualización:** 2026-09-04
 **Fuente:** informe fundacional de ADE proporcionado por el usuario
 
@@ -82,7 +82,7 @@ La v0.3 prioriza `workspace-core`: sin contexto local navegable y terminal integ
 
 ## Current implementation baseline
 
-La aplicación macOS actual ofrece una shell desktop Tauri con navegación lateral única, Project Hub, Work, Knowledge, Changes y Runtime. El Explorer mantiene como hint la rama del archivo activo y puede convertirse en un árbol completo; la búsqueda muestra ficheros directamente, añade una ruta relativa legible para distinguir homónimos, mantiene el input responsivo con índice normalizado, debounce y spinner de carga, y al seleccionarlos restaura la rama breadcrumb. Ambos cambios tienen transición fluida. El lateral tiene un divisor vertical redimensionable por pointer o teclado hasta un máximo responsive de 720 px y conserva su ancho por Project. El tema claro/oscuro se alterna desde la esquina superior derecha y se conserva entre sesiones.
+La aplicación macOS actual ofrece una shell desktop Tauri con navegación lateral única, Project Hub, Work, Knowledge, Changes y Runtime. El Explorer mantiene como hint la rama del archivo activo y puede convertirse en un árbol completo; la búsqueda muestra ficheros directamente, añade una ruta relativa legible para distinguir homónimos, mantiene el input responsivo con índice normalizado, debounce y spinner de carga, y al seleccionarlos restaura la rama breadcrumb. La lupa junto a `Explorer` enfoca ese filtro. Ambos cambios tienen transición fluida. El lateral tiene un divisor vertical redimensionable por pointer o teclado hasta un máximo responsive de 720 px y conserva su ancho por Project. La topbar muestra el repositorio y branch Git activos; sus menús permiten cambiar entre Projects registrados y ramas locales, refrescando el contexto sin force checkout. El tema claro/oscuro se alterna desde la esquina superior derecha y se conserva entre sesiones.
 
 El dock inferior expone tabs de terminal PTY persistentes, redimensionables y confinados a la raíz del Project. Cada tab conserva su proceso, transcript, cwd, historial y completado; cambiar de tab no mezcla salida y cerrar uno detiene sólo su sesión. El prompt mínimo, Enter, historial con `↑`/`↓`, completado de directorios para `cd` con `Tab` e interpretación ANSI de cursor, borrado y pantalla alternativa están implementados; las sugerencias ambiguas se recorren con `↑`/`↓` y se cierran con `Esc`. La baseline de verificación actual es 88 tests TypeScript y 17 tests Rust. El `.app` macOS se empaqueta y se ha arrancado manualmente; el smoke gráfico automatizado sigue pendiente. La selección de ficheros abre ahora dentro de ADE en el editor de texto definido en [SPEC-file-workspace](SPEC-file-workspace.md), con edición, guardado y descarte acotados al Project.
 
