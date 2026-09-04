@@ -12,6 +12,7 @@ Permitir que seleccionar un fichero del Explorer lo abra dentro de ADE, mantenie
 
 - Al seleccionar un fichero de texto válido dentro de la raíz canónica, ADE lo convierte en el documento activo y muestra su contenido en el workbench.
 - El editor interno muestra nombre, ruta relativa al Project, contenido y estados de carga/error; permite editar texto, identificar cambios sin guardar, guardar con `Save` o `⌘/Ctrl+S` y descartarlos con `Discard`.
+- `Editor` permanece montado como superficie fija y exclusiva de código incluso sin documento activo; no muestra CTA de búsqueda ni paneles auxiliares de Git, agentes o documentación. El layout usa densidad de workbench y reserva el dock de terminal como superficie transversal.
 - El documento activo permanece sincronizado con la selección del Explorer y con la rama compacta que el Explorer muestra como hint.
 - La navegación de Project, la Task seleccionada y el dock de terminal no se pierden al abrir o cambiar de fichero.
 - Al cambiar de Project, el contexto del shell se actualiza primero y el Editor sólo conserva un documento si su ruta sigue dentro de la nueva raíz; en caso contrario invalida el documento activo.

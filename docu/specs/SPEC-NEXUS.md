@@ -1,7 +1,7 @@
 # Nexus: ADE — Agentic Development Environment
 
 **Estado:** v0.1 MVP implementado; v0.2 cerrada; v0.3 cerrada; slice v0.4 con Projects, Editor, Projects Git/No Git y contexto de shell implementada y validada en build/tests
-**Última actualización:** 2026-09-04
+**Última actualización:** 2026-09-05
 **Fuente:** informe fundacional de ADE proporcionado por el usuario
 
 Este nexus es el índice único de las specs de ADE. Las specs se citan por `module id + heading`, nunca por número de línea.
@@ -89,6 +89,8 @@ El dock inferior expone tabs de terminal `portable-pty` persistentes, redimensio
 ## Current v0.4 slice
 
 La vista `Editor` es una superficie fija y exclusiva de código: no muestra los paneles auxiliares de Git, agentes ni documentación. La terminal nativa sí permanece como dock transversal del shell y sigue disponible al cambiar de vista.
+
+El layout del Editor aplica una densidad específica de workbench: reduce el padding heredado de las vistas generales y calcula la altura del área de código con el espacio disponible sobre el dock de terminal, evitando márgenes muertos sin convertir el editor en una superficie ilegible.
 
 La slice v0.4 implementa [SPEC-file-workspace](SPEC-file-workspace.md#product-contract): el fichero de texto seleccionado aparece dentro de ADE en `Editor`, con superficie completa, lectura y escritura Tauri autorizadas, estado dirty, `Save`, `Discard`, límite de 2 MiB y apertura externa únicamente mediante una acción explícita. `Projects` permite registrar carpetas Git y No Git desde el selector nativo de macOS. El cambio de Project conserva la identidad activa en toda la shell y descarta únicamente el documento seleccionado si queda fuera de la nueva raíz. No se adelanta un editor completo.
 
@@ -220,6 +222,8 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-04 — version-control-live-pending — `Version control > Changes` actualiza silenciosamente `git.pending` mientras la vista está visible, reflejando cambios externos, del Editor y de la terminal sin Refresh manual; las respuestas de un Project anterior se descartan.
 - 2026-09-04 — version-control-desktop-flow — `Changes` adopta el flujo familiar de GitHub Desktop: `Commit` crea sólo el commit local y `Push origin` se habilita como paso posterior independiente. La UI elimina la acción ambigua `Commit & Push`, conserva confirmación y deja el commit local visible aunque falle el push.
 - 2026-09-04 — version-control-file-diff — `Changes` muestra un diff por fichero seleccionable con líneas resaltadas y desplaza la captura de título/cuerpo a un diálogo modal abierto desde la cabecera; `Commit` y `Push origin` permanecen como acciones separadas.
+- 2026-09-05 — file-workspace + desktop-shell — `Editor` queda como superficie exclusiva de código, sin paneles auxiliares ni CTA de búsqueda duplicada; la terminal permanece transversal. Se compactan márgenes, padding y altura disponible para priorizar código visible. La baseline vigente es 92 tests TypeScript y 18 Rust.
+- 2026-09-05 — git-collaboration — Se formaliza en ADR-0022 la separación entre `Commit` local y `Push origin`, con diálogo modal y diff como superficie principal; ADR-0020 queda supersedida.
 
 ## Automatic Reconciliation Log
 
