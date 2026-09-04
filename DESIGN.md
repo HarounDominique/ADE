@@ -216,7 +216,7 @@ The explorer is persistent, filterable and lazily expanded. In compact mode it s
 
 - **Behavior:** The native PTY dock is always available above the status bar. Its top grip resizes the panel by pointer; focused resizing also supports Arrow keys, Shift+Arrow larger steps, Home and End. The chosen height is persisted for the active Project.
 
-The native terminal is a fixed bottom dock with one familiar console surface: a scrollable transcript, echoed commands, live PTY output and an integrated prompt line. Enter executes the current command; Arrow Up/Down navigates command history. The current Project path stays visible in the terminal header, and the dock is present across views and can be focused from the breadcrumb-area command actions.
+The native terminal is a fixed bottom dock with one familiar console surface: a scrollable PTY transcript and an integrated prompt line. The shell owns command echo and prompt rendering so output is never duplicated by the UI. Enter executes the current command; Arrow Up/Down navigates command history. The current Project path stays visible in the terminal header, and the dock is present across views and can be focused from the breadcrumb-area command actions.
 
 ### Workbench Pane
 

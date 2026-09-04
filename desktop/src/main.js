@@ -67,14 +67,6 @@ function appendTerminalTranscript(text) {
   output.scrollTop = output.scrollHeight;
 }
 
-function appendTerminalCommand(command) {
-  const output = document.getElementById('terminal-output');
-  if (!output) return;
-  const separator = output.textContent && !output.textContent.endsWith('\n') ? '\n' : '';
-  output.textContent += `${separator}$ ${command}\n`;
-  output.scrollTop = output.scrollHeight;
-}
-
 try {
   const storedTerminalHeight = Number(localStorage.getItem(terminalStorageKey));
   if (Number.isFinite(storedTerminalHeight)) terminalHeight = storedTerminalHeight;
@@ -1053,7 +1045,6 @@ document.getElementById('terminal-form')?.addEventListener('submit', async (even
   if (!nativeInvoke || !command || !cwd) { notify('Native terminal requires the desktop runtime.'); return; }
   try {
     if (!terminalStarted) { await nativeInvoke('terminal_start', { cwd }); terminalStarted = true; }
-    appendTerminalCommand(command);
     terminalHistory.push(command);
     terminalHistoryIndex = -1;
     terminalHistoryDraft = '';

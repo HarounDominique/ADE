@@ -60,7 +60,8 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(html, /class="terminal-surface"/);
   assert.match(html, /class="terminal-input-line"/);
   assert.match(html, /placeholder="Type a command…"/);
-  assert.match(main, /appendTerminalCommand/);
+  assert.doesNotMatch(html, /ADE terminal ready/);
+  assert.doesNotMatch(main, /appendTerminalCommand/);
   assert.match(main, /terminalHistory/);
   assert.match(main, /ArrowDown/);
 });

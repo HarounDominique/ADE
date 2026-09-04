@@ -117,6 +117,8 @@ fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Sen
     } else {
         let mut command = CommandBuilder::new("/bin/sh");
         command.arg("-i");
+        command.env("PS1", "$ ");
+        command.env("PS2", "> ");
         command
     };
     shell.cwd(&cwd);
