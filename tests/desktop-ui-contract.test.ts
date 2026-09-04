@@ -92,6 +92,8 @@ test("explorer keeps the active file path as a compact branch and has a full-tre
   assert.match(main, /selectedFilePath/);
   assert.match(main, /explorerExpanded/);
   assert.match(main, /expandExplorerFrom/);
+  assert.match(main, /revealSelectedFileBranch/);
+  assert.match(main, /await revealSelectedFileBranch\(\)/);
   assert.match(main, /collapseExplorer/);
 });
 

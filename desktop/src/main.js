@@ -747,6 +747,26 @@ async function expandExplorerFrom(button) {
   }
 }
 
+async function revealSelectedFileBranch() {
+  if (!explorerExpanded || !selectedFilePath?.startsWith(`${workspaceRootPath}/`)) return;
+  const segments = selectedFilePath.slice(workspaceRootPath.length + 1).split('/').filter(Boolean);
+  let currentPath = workspaceRootPath;
+  for (const segment of segments.slice(0, -1)) {
+    currentPath = `${currentPath}/${segment}`;
+    const directoryButton = [...document.querySelectorAll('[data-directory-path].directory')]
+      .find((candidate) => candidate.dataset.directoryPath === currentPath);
+    if (!directoryButton) return;
+    if (directoryButton.getAttribute('aria-expanded') !== 'true') await toggleWorkspaceDirectory(directoryButton);
+  }
+  updateWorkspaceFileSelection(selectedFilePath);
+}
+
+async function expandExplorer() {
+  updateExplorerMode(true);
+  await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
+  await revealSelectedFileBranch();
+}
+
 async function collapseExplorer() {
   updateExplorerMode(false);
   await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
@@ -1100,10 +1120,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'toggle-explorer') {
     if (explorerExpanded) void collapseExplorer();
-    else {
-      updateExplorerMode(true);
-      void loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke, { animate: true });
-    }
+    else void expandExplorer();
     return;
   }
   if (item.dataset.action === 'refresh-git') {
