@@ -36,6 +36,7 @@ const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
 const sidebarStorageKey = `ade-sidebar-width:${activeProjectId}`;
 let terminalHeight = 138;
 let terminalResizeState = null;
+let terminalFitFrame = null;
 let sidebarWidth = 246;
 let sidebarResizeState = null;
 let activeServiceId = null;
@@ -86,9 +87,20 @@ function setTerminalHeight(nextHeight, persist = true) {
   document.documentElement.style.setProperty('--terminal-height', `${terminalHeight}px`);
   terminalResizer?.setAttribute('aria-valuemax', String(maxHeight));
   terminalResizer?.setAttribute('aria-valuenow', String(terminalHeight));
+  scheduleTerminalFit();
   if (persist) {
     try { localStorage.setItem(terminalStorageKey, String(terminalHeight)); } catch { /* Persistence is optional. */ }
   }
+}
+
+function scheduleTerminalFit() {
+  if (terminalFitFrame !== null) return;
+  const fit = () => {
+    terminalFitFrame = null;
+    activeTerminal()?.fitAddon?.fit();
+  };
+  if (typeof requestAnimationFrame === 'function') terminalFitFrame = requestAnimationFrame(fit);
+  else fit();
 }
 
 function sidebarWidthBounds() {
@@ -119,7 +131,7 @@ function renderTerminalOutput() {
   });
   const cwd = document.getElementById('terminal-cwd');
   if (cwd) cwd.textContent = `${tab.label} · ${tab.completionCwd}`;
-  tab.fitAddon?.fit();
+  scheduleTerminalFit();
   tab.terminal?.focus();
 }
 
@@ -213,7 +225,7 @@ async function startTerminal(tab) {
     await nativeInvoke('terminal_start', { sessionId: tab.id, cwd: workspaceRootPath });
     tab.started = true;
     renderTerminalTabs();
-    tab.fitAddon?.fit();
+    scheduleTerminalFit();
   })().finally(() => { tab.startPromise = null; });
   return tab.startPromise;
 }
@@ -240,6 +252,10 @@ try {
   if (Number.isFinite(storedTerminalHeight)) terminalHeight = storedTerminalHeight;
 } catch { /* Persistence is optional. */ }
 setTerminalHeight(terminalHeight, false);
+const terminalSurface = document.querySelector('.terminal-surface');
+if (terminalSurface && typeof ResizeObserver === 'function') {
+  new ResizeObserver(scheduleTerminalFit).observe(terminalSurface);
+}
 try {
   const storedSidebarWidth = Number(localStorage.getItem(sidebarStorageKey));
   if (Number.isFinite(storedSidebarWidth)) sidebarWidth = storedSidebarWidth;
