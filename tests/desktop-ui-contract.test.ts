@@ -67,3 +67,12 @@ test("explorer keeps the active file path as a compact branch and has a full-tre
   assert.match(main, /expandExplorerFrom/);
   assert.match(main, /collapseExplorer/);
 });
+
+test("theme switch is visible in the topbar and exposes light/dark state", () => {
+  assert.match(html, /class="top-actions"[\s\S]*class="theme-switch"/);
+  assert.match(html, /class="theme-switch"[^>]*role="switch"[^>]*aria-checked="false"/);
+  assert.match(html, /class="theme-switch-thumb"/);
+  assert.match(main, /querySelector\('\.theme-switch-label'\)/);
+  assert.match(main, /setAttribute\('aria-checked', String\(nextTheme === 'light'\)\)/);
+  assert.match(main, /localStorage\.setItem\('ade-theme'/);
+});

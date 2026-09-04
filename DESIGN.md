@@ -205,6 +205,7 @@ The form language is compact and restrained: mostly square corners, 2–4px radi
 
 - **Style:** A single labeled navigation controls views inside the project sidebar; the same sidebar owns the Explorer below it. Active items use a 2px cyan edge and a slightly raised surface. Utility actions expose their labels as well as their keyboard affordances.
 - **Interaction:** Hover changes surface and text contrast; focus remains visible; labels and ARIA names are always available for icon-only controls.
+- **Theme control:** The persistent light/dark switch lives in the top-right global toolbar, beside sync and utility actions. It uses a compact circular thumb with a visible track, keeps dark as the default, and exposes the next action through its label and ARIA state.
 
 ### Explorer
 

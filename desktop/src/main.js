@@ -31,12 +31,12 @@ function applyTheme(theme) {
   try { localStorage.setItem('ade-theme', nextTheme); } catch { /* Tauri privacy settings may disable storage. */ }
   if (themeMeta) themeMeta.content = nextTheme === 'light' ? '#f5f7fa' : '#0b0f14';
   document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
-    button.setAttribute('aria-pressed', String(nextTheme === 'light'));
+    button.setAttribute('aria-checked', String(nextTheme === 'light'));
     const nextLabel = nextTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
     button.title = nextLabel;
     button.setAttribute('aria-label', nextLabel);
-    const label = button.querySelector('span');
-    if (label) label.textContent = nextTheme === 'light' ? 'Dark theme' : 'Light theme';
+    const label = button.querySelector('.theme-switch-label');
+    if (label) label.textContent = nextTheme === 'light' ? 'Dark' : 'Light';
   });
 }
 
