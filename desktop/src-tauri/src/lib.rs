@@ -261,6 +261,7 @@ struct ProjectContext {
     name: String,
     repository_path: String,
     branch: String,
+    version_control: String,
     working_tree: String,
 }
 
@@ -540,6 +541,7 @@ fn project_context_for(
 ) -> Result<ProjectContext, String> {
     let repository = workspace.select(repository_path)?;
 
+    let is_git = repository.join(".git").exists();
     let branch = std::fs::read_to_string(repository.join(".git/HEAD"))
         .ok()
         .and_then(|head| {
@@ -558,8 +560,28 @@ fn project_context_for(
         name,
         repository_path: repository.to_string_lossy().into_owned(),
         branch,
+        version_control: if is_git { "git" } else { "none" }.to_string(),
         working_tree: "detected".to_string(),
     })
+}
+
+#[tauri::command]
+fn select_project_directory() -> Result<Option<String>, String> {
+    let script = r#"try
+        set selectedFolder to choose folder with prompt "Add project to ADE"
+        return POSIX path of selectedFolder
+    on error number -128
+        return ""
+    end try"#;
+    let output = Command::new("osascript")
+        .args(["-e", script])
+        .output()
+        .map_err(|error| format!("Unable to open folder picker: {error}"))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok((!path.is_empty()).then_some(path))
 }
 
 #[tauri::command]
@@ -755,6 +777,7 @@ pub fn run() {
             terminal_stop,
             terminal_stop_all,
             project_id,
+            select_project_directory,
             open_terminal,
             open_document,
             sidecar_start,
@@ -803,12 +826,24 @@ mod tests {
 
         assert_eq!(context.name, root.file_name().unwrap().to_string_lossy());
         assert_eq!(context.branch, "feature/ui");
+        assert_eq!(context.version_control, "git");
         assert_eq!(context.working_tree, "detected");
         assert_eq!(
             context.repository_path,
             root.canonicalize().unwrap().to_string_lossy()
         );
         fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn project_context_marks_a_folder_without_git() {
+        let root = fixture_root("project-context-no-git");
+        let workspace = WorkspaceRoot::default();
+
+        let context = project_context_for(&workspace, &root.to_string_lossy()).expect("read context");
+
+        assert_eq!(context.version_control, "none");
+        assert_eq!(context.branch, "detached");
     }
 
     #[test]

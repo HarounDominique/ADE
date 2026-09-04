@@ -15,6 +15,6 @@ export class LocalGitRepository implements GitRepositoryPort {
     ]);
     const gitRoot = await realpath(rootResult.stdout.trim());
     const branch = branchResult.stdout.trim();
-    return branch ? { path, gitRoot, branch } : { path, gitRoot };
+    return branch ? { path, gitRoot, branch, versionControl: "git" } : { path, gitRoot, versionControl: "git" };
   }
 }

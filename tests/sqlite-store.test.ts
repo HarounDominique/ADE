@@ -44,6 +44,7 @@ test("SQLite persists Project and rehydrates a Task with its history", () => {
   const persistedProject = store.getProject(project.id);
   const rehydrated = store.rehydrateTask(task.id);
   assert.equal(persistedProject?.gitRoot, "/tmp/ade");
+  assert.equal(persistedProject?.versionControl, "git");
   assert.equal(rehydrated?.currentStatus, "READY");
   assert.equal(rehydrated?.projectId, project.id);
   assert.deepEqual(rehydrated?.history(), task.history());

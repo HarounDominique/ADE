@@ -22,6 +22,7 @@ export type PersistedProject = {
   name: string;
   repositoryPath: string;
   gitRoot: string;
+  versionControl: "git" | "none";
   branch: string | null;
   createdAt: string;
 };
@@ -76,7 +77,8 @@ export class AdeStore {
         repository_path TEXT NOT NULL,
         git_root TEXT NOT NULL UNIQUE,
         branch TEXT,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        version_control TEXT NOT NULL DEFAULT 'git'
       );
       CREATE TABLE IF NOT EXISTS change_sets (
         id TEXT PRIMARY KEY,
@@ -146,6 +148,7 @@ export class AdeStore {
     `);
     this.migrateTasks();
     this.migrateChangeSets();
+    this.migrateProjects();
   }
 
   private migrateTasks(): void {
@@ -159,6 +162,11 @@ export class AdeStore {
     if (!columns.some((column) => column.name === "directory")) {
       this.db.exec("ALTER TABLE change_sets ADD COLUMN directory TEXT NOT NULL DEFAULT ''");
     }
+  }
+
+  private migrateProjects(): void {
+    const columns = this.db.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "version_control")) this.db.exec("ALTER TABLE projects ADD COLUMN version_control TEXT NOT NULL DEFAULT 'git'");
   }
 
   saveTask(task: Task): void {
@@ -176,14 +184,15 @@ export class AdeStore {
 
   saveProject(project: Project, repository: Repository): void {
     this.db.prepare(`
-      INSERT INTO projects (id, name, repository_path, git_root, branch, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO projects (id, name, repository_path, git_root, branch, created_at, version_control)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         repository_path = excluded.repository_path,
         git_root = excluded.git_root,
-        branch = excluded.branch
-    `).run(project.id, project.name, project.repositoryPath, repository.gitRoot, repository.branch ?? null, project.createdAt);
+        branch = excluded.branch,
+        version_control = excluded.version_control
+    `).run(project.id, project.name, project.repositoryPath, repository.gitRoot ?? project.repositoryPath, repository.branch ?? null, project.createdAt, repository.versionControl ?? "git");
   }
 
   saveChangeSet(changeSet: ChangeSet): void {
@@ -229,7 +238,7 @@ export class AdeStore {
   getProject(id: string): PersistedProject | undefined {
     return this.db.prepare(`
       SELECT id, name, repository_path AS repositoryPath, git_root AS gitRoot,
-             branch, created_at AS createdAt
+             branch, created_at AS createdAt, version_control AS versionControl
       FROM projects WHERE id = ?
     `).get(id) as PersistedProject | undefined;
   }
@@ -237,7 +246,7 @@ export class AdeStore {
   listProjects(): PersistedProject[] {
     return this.db.prepare(`
       SELECT id, name, repository_path AS repositoryPath, git_root AS gitRoot,
-             branch, created_at AS createdAt
+             branch, created_at AS createdAt, version_control AS versionControl
       FROM projects ORDER BY created_at, id
     `).all() as PersistedProject[];
   }
@@ -245,9 +254,17 @@ export class AdeStore {
   getProjectByGitRoot(gitRoot: string): PersistedProject | undefined {
     return this.db.prepare(`
       SELECT id, name, repository_path AS repositoryPath, git_root AS gitRoot,
-             branch, created_at AS createdAt
+             branch, created_at AS createdAt, version_control AS versionControl
       FROM projects WHERE git_root = ?
     `).get(gitRoot) as PersistedProject | undefined;
+  }
+
+  getProjectByRepositoryPath(repositoryPath: string): PersistedProject | undefined {
+    return this.db.prepare(`
+      SELECT id, name, repository_path AS repositoryPath, git_root AS gitRoot,
+             branch, created_at AS createdAt, version_control AS versionControl
+      FROM projects WHERE repository_path = ?
+    `).get(repositoryPath) as PersistedProject | undefined;
   }
 
   getChangeSet(id: string): PersistedChangeSet | undefined {

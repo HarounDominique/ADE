@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { registerProject } from "../src/application/tasks/project-commands.js";
 import { advanceTask, createTask, getTask } from "../src/application/tasks/task-commands.js";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
+import { mkdtemp, mkdir, realpath, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 test("task commands create, advance and rehydrate a Task", () => {
   const store = new AdeStore();
@@ -34,5 +37,20 @@ test("registerProject canonicalizes and rejects duplicate Git roots", async () =
   assert.equal(project.repositoryPath, "/repo");
   assert.equal(store.getProjectByGitRoot("/repo")?.id, project.id);
   await assert.rejects(() => registerProject(store, git, { id: "project-duplicate", name: "Other", repositoryPath: "/repo" }), /already exists/);
+  store.close();
+});
+
+test("registerProject accepts a local folder without Git", async () => {
+  const store = new AdeStore();
+  const root = await mkdtemp(join(tmpdir(), "ade-project-no-git-"));
+  await mkdir(join(root, "src"));
+  const git = { inspect: async () => { throw new Error("not a Git repository"); } };
+
+  const project = await registerProject(store, git, { id: "plain-project", name: "Plain", repositoryPath: root });
+
+  assert.equal(project.repositoryPath, await realpath(root));
+  assert.equal(store.getProject(project.id)?.versionControl, "none");
+  await assert.rejects(() => registerProject(store, git, { id: "duplicate-plain", name: "Duplicate", repositoryPath: root }), /folder/);
+  await rm(root, { recursive: true, force: true });
   store.close();
 });

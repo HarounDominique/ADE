@@ -6,8 +6,8 @@ const html = readFileSync(new URL("../desktop/src/index.html", import.meta.url),
 const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../desktop/src/styles.css", import.meta.url), "utf8");
 
-test("desktop shell keeps the five MVP areas and critical actions", () => {
-  for (const view of ["project", "work", "knowledge", "changes", "runtime"]) {
+test("desktop shell keeps the project workbench areas and critical actions", () => {
+  for (const view of ["projects", "editor", "work", "knowledge", "changes", "runtime"]) {
     assert.match(html, new RegExp(`data-view=\"${view}\"`));
     assert.match(html, new RegExp(`data-panel=\"${view}\"`));
   }
@@ -28,6 +28,13 @@ test("desktop shell exposes the Git context bar and Explorer search affordance",
   assert.match(main, /git.branch.switch/);
   assert.match(main, /switchProjectFromContext/);
   assert.match(main, /switchBranchFromContext/);
+  assert.match(main, /select_project_directory/);
+  assert.match(main, /project\.register/);
+  assert.match(main, /showView\('editor'\)/);
+  assert.match(html, /data-action="add-project"/);
+  assert.match(html, /id="projects-list"/);
+  assert.match(html, /data-panel="editor"/);
+  assert.match(html, /id="editor-empty-state"/);
   assert.match(styles, /\.git-context-bar/);
   assert.match(styles, /\.git-context-menu/);
 });
@@ -80,7 +87,8 @@ test("workspace tree expands directories lazily and keeps symlinks non-actionabl
 test("desktop navigation is labeled and terminal dock supports persisted resizing", () => {
   assert.doesNotMatch(html, /class="activity-rail"/);
   assert.match(html, /class="primary-nav"/);
-  assert.match(html, />Overview<\/span>/);
+  assert.match(html, />Projects<\/span>/);
+  assert.match(html, />Editor<\/span>/);
   assert.match(html, /id="terminal-resizer" role="separator"/);
   assert.match(main, /ade-terminal-height/);
   assert.match(main, /ArrowUp/);

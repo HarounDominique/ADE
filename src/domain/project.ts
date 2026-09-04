@@ -1,7 +1,8 @@
 export type Repository = {
   path: string;
-  gitRoot: string;
+  gitRoot?: string;
   branch?: string;
+  versionControl?: "git" | "none";
 };
 
 export type ProjectInput = {

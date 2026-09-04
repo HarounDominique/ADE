@@ -18,6 +18,7 @@ let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
 let workspaceRootPath = projectSnapshot.project.repositoryPath;
 let activeGitBranch = null;
+let activeVersionControl = 'git';
 let selectedFilePath = null;
 let activeDocument = null;
 let documentOriginalContent = '';
@@ -339,7 +340,9 @@ sidebarResizer?.addEventListener('keydown', (event) => {
 window.addEventListener('resize', () => setSidebarWidth(sidebarWidth, false));
 
 function renderSnapshot(snapshot) {
-  const currentBranch = activeGitBranch ?? snapshot.project.branch ?? 'detached';
+  activeVersionControl = snapshot.project.versionControl ?? activeVersionControl;
+  const hasGit = activeVersionControl !== 'none';
+  const currentBranch = hasGit ? (activeGitBranch ?? snapshot.project.branch ?? 'detached') : 'No Git';
   const values = {
     'project-name': snapshot.project.name,
     'project-description': snapshot.project.description ?? 'Local ADE project',
@@ -360,13 +363,44 @@ function renderSnapshot(snapshot) {
   if (statusBranch) statusBranch.textContent = currentBranch;
   const repositoryName = document.getElementById('current-repository-name');
   if (repositoryName) repositoryName.textContent = snapshot.project.name;
+  const breadcrumbRoot = document.querySelector('.breadcrumb-root');
+  if (breadcrumbRoot) breadcrumbRoot.textContent = snapshot.project.name;
   const branchName = document.getElementById('current-branch-name');
   if (branchName) branchName.textContent = currentBranch;
+  const branchButton = document.getElementById('branch-context-button');
+  if (branchButton) {
+    branchButton.disabled = !hasGit;
+    branchButton.setAttribute('aria-disabled', String(!hasGit));
+    branchButton.title = hasGit ? 'Switch local branch' : 'This project is not a Git repository';
+  }
   const terminalCwd = document.getElementById('terminal-cwd');
   if (terminalCwd) terminalCwd.textContent = snapshot.project.repositoryPath;
   renderChanges(snapshot.tasks ?? []);
   renderProjectTasks(snapshot.tasks ?? []);
   if (snapshot.sync) setSyncState(snapshot.sync.state, snapshot.sync.label);
+  renderProjectsList();
+}
+
+function renderProjectsList() {
+  const list = document.getElementById('projects-list');
+  const status = document.getElementById('projects-list-status');
+  if (!list) return;
+  if (!projectCatalogLoaded) {
+    list.innerHTML = '<div class="projects-list-empty">Loading projects…</div>';
+    if (status) status.textContent = 'Loading…';
+    return;
+  }
+  if (!registeredProjects.length) {
+    list.innerHTML = '<div class="projects-list-empty">No projects registered yet. Add a local folder to get started.</div>';
+    if (status) status.textContent = '0 projects';
+    return;
+  }
+  list.innerHTML = registeredProjects.map((project) => {
+    const isActive = project.id === activeProjectId;
+    const versionControl = project.versionControl === 'none' ? 'No Git' : 'Git';
+    return `<button class="project-list-item${isActive ? ' active' : ''}" type="button" data-project-id="${escapeHTML(project.id)}"><span class="project-list-icon" aria-hidden="true">${isActive ? '●' : '○'}</span><span class="project-list-copy"><strong>${escapeHTML(project.name)}</strong><small>${escapeHTML(project.repositoryPath)}</small></span><span class="project-list-vcs">${versionControl}</span><span class="project-list-arrow" aria-hidden="true">→</span></button>`;
+  }).join('');
+  if (status) status.textContent = `${registeredProjects.length} project${registeredProjects.length === 1 ? '' : 's'}`;
 }
 
 function sendContextRequest(method, params = {}, purpose = method) {
@@ -398,6 +432,7 @@ function renderBranchMenu() {
 }
 
 function toggleGitContextMenu(kind) {
+  if (kind === 'branch' && activeVersionControl === 'none') return;
   const menu = document.getElementById(`${kind}-context-menu`);
   const button = document.getElementById(`${kind}-context-button`);
   if (!menu || !button) return;
@@ -458,6 +493,26 @@ async function switchBranchFromContext(branch) {
   } catch (error) {
     setSyncState('failed', 'Branch switch failed');
     notify(error instanceof Error ? error.message : 'Branch switch failed.');
+  }
+}
+
+function projectIdForPath(path) {
+  const base = path.split('/').filter(Boolean).at(-1) ?? 'project';
+  const slug = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
+  if (!registeredProjects.some((project) => project.id === slug)) return slug;
+  return `${slug}-${Date.now().toString(36)}`;
+}
+
+async function addProjectFromUI() {
+  if (!nativeInvoke) { notify('Adding a project requires the local desktop runtime.'); return; }
+  try {
+    const selectedPath = await nativeInvoke('select_project_directory');
+    if (!selectedPath) return;
+    const name = selectedPath.split('/').filter(Boolean).at(-1) ?? 'Project';
+    setSyncState('stale', `Adding ${name}…`);
+    await sendContextRequest('project.register', { projectId: projectIdForPath(selectedPath), name, repositoryPath: selectedPath }, 'register-project');
+  } catch (error) {
+    notify(error instanceof Error ? error.message : 'Unable to add project.');
   }
 }
 
@@ -595,6 +650,7 @@ function renderDocumentLoading(filePath) {
   const content = document.getElementById('document-content');
   if (!viewer || !status || !content) return;
   viewer.hidden = false;
+  document.getElementById('editor-empty-state')?.setAttribute('hidden', '');
   setDocumentHeader({ title: filePath.split('/').at(-1) ?? 'File', path: documentRelativePath(filePath), kind: 'LOADING' });
   status.hidden = false;
   status.textContent = 'Reading file…';
@@ -611,6 +667,7 @@ function renderDocumentResult(result) {
   const content = document.getElementById('document-content');
   if (!viewer || !status || !content) return;
   viewer.hidden = false;
+  document.getElementById('editor-empty-state')?.setAttribute('hidden', '');
   activeDocument = result;
   setDocumentHeader({ title: result.name, path: result.relativePath, kind: result.kind === 'text' ? 'TEXT' : result.kind.toUpperCase(), externalDisabled: false });
   const isText = result.kind === 'text';
@@ -630,6 +687,7 @@ function renderDocumentError(filePath, error) {
   const content = document.getElementById('document-content');
   if (!viewer || !status || !content) return;
   viewer.hidden = false;
+  document.getElementById('editor-empty-state')?.setAttribute('hidden', '');
   activeDocument = { path: filePath };
   setDocumentHeader({ title: filePath.split('/').at(-1) ?? 'File', path: documentRelativePath(filePath), kind: 'FAILED', externalDisabled: false });
   status.hidden = false;
@@ -646,6 +704,7 @@ async function openFileInADE(filePath) {
     notify('Opening files requires the local desktop runtime.');
     return;
   }
+  showView('editor');
   updateWorkspaceFileSelection(filePath);
   renderDocumentLoading(filePath);
   try {
@@ -662,6 +721,7 @@ function closeFilePreview() {
   if (documentDirty && !window.confirm('Discard unsaved changes to this file?')) return;
   const viewer = document.getElementById('document-viewer');
   if (viewer) viewer.hidden = true;
+  document.getElementById('editor-empty-state')?.removeAttribute('hidden');
   activeDocument = null;
   documentOriginalContent = '';
   documentDirty = false;
@@ -844,7 +904,11 @@ async function refreshProjectContext(snapshot) {
 }
 
 async function refreshGitWorkspace(path, invoke = nativeInvoke) {
-  if (!invoke || !path) return;
+  if (!invoke || !path || activeVersionControl === 'none') {
+    const output = document.getElementById('git-workspace-output');
+    if (activeVersionControl === 'none' && output) output.textContent = 'This Project is not a Git repository.';
+    return;
+  }
   try {
     const result = await invoke('sidecar_request', { request: JSON.stringify({ id: `git-workspace-${Date.now()}`, method: 'git.workspace', params: { repositoryPath: path } }) });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `git-workflow-${Date.now()}`, method: 'git.workflow', params: { repositoryPath: path } }) });
@@ -1087,6 +1151,7 @@ async function connectSidecar(snapshot) {
   const requestSnapshot = async () => {
     const configuredProjectId = await invoke('project_id');
     activeProjectId = configuredProjectId;
+    await sendContextRequest('project.list', {}, 'projects');
     await invoke('sidecar_request', {
       request: JSON.stringify({ id: `snapshot-${Date.now()}`, method: 'project.snapshot', params: { projectId: configuredProjectId } }),
     });
@@ -1121,6 +1186,15 @@ async function connectSidecar(snapshot) {
         registeredProjects = response.result;
         projectCatalogLoaded = true;
         renderRepositoryMenu();
+        renderProjectsList();
+        return;
+      }
+      if (contextPurpose === 'register-project' && response.result?.id) {
+        registeredProjects = [...registeredProjects.filter((project) => project.id !== response.result.id), response.result];
+        projectCatalogLoaded = true;
+        renderRepositoryMenu();
+        renderProjectsList();
+        await switchProjectFromContext(response.result);
         return;
       }
       if (contextPurpose === 'branches' && response.result?.branches) {
@@ -1309,7 +1383,7 @@ async function createTaskFromUI(intent) {
     request: JSON.stringify({
       id: `create-${taskId}`,
       method: 'task.create',
-      params: { taskId, intent, projectId: activeProjectId, repositoryPath: projectSnapshot.project.repositoryPath },
+      params: { taskId, intent, projectId: activeProjectId, repositoryPath: document.getElementById('project-path')?.textContent },
     }),
   });
   notify(`Created ${taskId}.`);
@@ -1382,7 +1456,7 @@ async function restartSidecarFromUI() {
 function showView(view) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
-  const labels = { project: 'Overview', work: 'Tasks', knowledge: 'Project context', changes: 'Review queue', runtime: 'Local runtime' };
+  const labels = { projects: 'Projects', editor: 'Editor', work: 'Tasks', knowledge: 'Project context', changes: 'Review queue', runtime: 'Local runtime' };
   const crumb = document.getElementById('breadcrumb-current');
   if (crumb) crumb.textContent = labels[view] ?? view;
 }
@@ -1424,6 +1498,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     taskIntent?.focus();
     return;
   }
+  if (item.dataset.action === 'add-project') {
+    void addProjectFromUI();
+    return;
+  }
   if (item.dataset.action === 'check-runtime') {
     if (!nativeInvoke) {
       notify('Runtime diagnostics require the local sidecar.');
@@ -1449,7 +1527,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'open-terminal') {
-    showView('project');
+    showView('projects');
     document.querySelector('.terminal-dock')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     document.getElementById('terminal-command')?.focus();
     notify('Integrated terminal focused at the project root.');

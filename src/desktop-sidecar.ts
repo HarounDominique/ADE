@@ -30,11 +30,13 @@ import { loadServiceDefinitions } from "./application/local-runtime/service-conf
 import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation, reconcileChangedDocumentation } from "./application/knowledge/reconcile.js";
 import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNetwork, updateProjectSkill } from "./application/skills/skill-install.js";
+import { registerProject } from "./application/tasks/project-commands.js";
+import { LocalGitRepository } from "./adapters/local-git-repository.js";
 
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; skillId?: string; provider?: string; sessionId?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; name?: string; skillId?: string; provider?: string; sessionId?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
 };
 
 export type DesktopResponse = {
@@ -163,6 +165,12 @@ export async function runDesktopSidecar(): Promise<void> {
         const repositoryPath = request.params?.repositoryPath;
         const definitions = repositoryPath ? await loadServiceDefinitions(join(repositoryPath, ".ade", "services.json")).catch(() => []) : declaredServices;
         process.stdout.write(`${JSON.stringify({ id: request.id, result: definitions.map((service) => ({ id: service.id, command: service.command, cwd: service.cwd, healthcheck: service.healthcheck ? true : false, status: serviceManager?.status(service.id) ?? "DECLARED" })) })}\n`);
+      } else if (request.method === "project.register") {
+        const params = request.params;
+        if (!params?.projectId || !params.name || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "projectId, name and repositoryPath are required" } })}\n`);
+        else void registerProject(store, new LocalGitRepository(), { id: params.projectId, name: params.name, repositoryPath: params.repositoryPath })
+          .then((project) => process.stdout.write(`${JSON.stringify({ id: request.id, result: store.getProject(project.id) ?? project })}\n`))
+          .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "PROJECT_REGISTER_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "task.run") {
         startTaskRun(store, request);
       } else if (request.method === "task.rereview") {
