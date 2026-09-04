@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { encodeTerminalKey, isInteractiveTerminal } from "../desktop/src/terminal-input.js";
+import { commandMayOpenInteractiveTerminal, encodeTerminalKey, isInteractiveTerminal } from "../desktop/src/terminal-input.js";
 
 const key = (value: string, overrides: Record<string, boolean> = {}) => ({ key: value, metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, ...overrides });
 
@@ -25,4 +25,11 @@ test("only an active alternate-screen PTY enters interactive mode", () => {
   assert.equal(isInteractiveTerminal({ started: false, emulator: { alternate: true } }), false);
   assert.equal(isInteractiveTerminal({ started: true, emulator: { alternate: false } }), false);
   assert.equal(isInteractiveTerminal({ started: true, emulator: { alternate: true } }), true);
+  assert.equal(isInteractiveTerminal({ started: true, interactive: true, emulator: { alternate: false } }), true);
+});
+
+test("known interactive commands enter passthrough before their first TUI frame", () => {
+  assert.equal(commandMayOpenInteractiveTerminal("claude"), true);
+  assert.equal(commandMayOpenInteractiveTerminal("cd src && claude --continue"), true);
+  assert.equal(commandMayOpenInteractiveTerminal("pwd"), false);
 });

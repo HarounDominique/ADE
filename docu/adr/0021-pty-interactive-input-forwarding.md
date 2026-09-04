@@ -14,7 +14,7 @@ La terminal de ADE usa un campo HTML para introducir comandos y un emulador ANSI
 
 ## Decision
 
-Cuando el emulador detecta que el tab PTY está en pantalla alternativa, ADE entra en modo interactivo. El campo se vuelve de sólo lectura para impedir que el navegador capture texto, y cada tecla soportada se codifica como entrada de terminal y se envía mediante `terminal_input` al mismo `sessionId`. Se cubren caracteres imprimibles, flechas, navegación, espacio, Enter, Escape, Tab/Shift+Tab, borrado y controles `Ctrl`. Al volver a la pantalla principal se restaura el modo shell, incluido historial y completado de rutas `cd`.
+Cuando el emulador detecta que el tab PTY está en pantalla alternativa, o se lanza un comando interactivo conocido como `claude`, ADE entra en modo interactivo. El foco se puede recuperar pulsando cualquier zona no accionable del panel. El campo se vuelve de sólo lectura para impedir que el navegador capture texto, y cada tecla soportada se codifica como entrada de terminal y se envía mediante `terminal_input` al mismo `sessionId`. Se cubren caracteres imprimibles, flechas, navegación, espacio, Enter, Escape, Tab/Shift+Tab, borrado y controles `Ctrl`. Al volver a la pantalla principal o reaparecer el prompt del shell se restaura el modo shell, incluido historial y completado de rutas `cd`.
 
 ## Alternatives considered
 

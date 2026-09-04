@@ -41,5 +41,9 @@ export function encodeTerminalKey(event) {
 }
 
 export function isInteractiveTerminal(tab) {
-  return Boolean(tab?.started && tab?.emulator?.alternate);
+  return Boolean(tab?.started && (tab?.interactive || tab?.emulator?.alternate));
+}
+
+export function commandMayOpenInteractiveTerminal(command) {
+  return /\b(?:claude|opencode|codex|vim|nvim|nano|top|htop|less|fzf|ssh)\b/i.test(String(command));
 }

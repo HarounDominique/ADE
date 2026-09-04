@@ -1,7 +1,7 @@
 import { projectSnapshot } from './project-snapshot.js';
 import { mergeActiveProject } from './project-context.js';
 import { TerminalEmulator } from './terminal-emulator.js';
-import { encodeTerminalKey, isInteractiveTerminal } from './terminal-input.js';
+import { commandMayOpenInteractiveTerminal, encodeTerminalKey, isInteractiveTerminal } from './terminal-input.js';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 const panels = [...document.querySelectorAll('.view')];
@@ -125,12 +125,34 @@ function syncTerminalInputMode(tab = activeTerminal()) {
   input.placeholder = interactive ? 'Interactive process…' : 'Type a command…';
   input.setAttribute('aria-label', interactive ? 'Interactive terminal input' : 'Terminal command');
   input.classList.toggle('interactive', interactive);
+  if (interactive && document.activeElement !== input) input.focus();
+}
+
+function forwardInteractiveTerminalKey(event, tab) {
+  if (!isInteractiveTerminal(tab)) return false;
+  const encoded = encodeTerminalKey(event);
+  if (encoded === null || !nativeInvoke) return true;
+  event.preventDefault();
+  event.stopPropagation();
+  void nativeInvoke('terminal_input', { sessionId: tab.id, input: encoded }).catch((error) => {
+    notify('Interactive terminal input failed.');
+    console.warn('Interactive terminal input unavailable:', error);
+  });
+  return true;
+}
+
+function shellPromptVisible(tab) {
+  return /(?:^|\n)[^\n]*[>$#]\s*$/.test(tab.emulator.text());
 }
 
 function appendTerminalTranscript(sessionId, text) {
   const tab = terminalTabs.find((candidate) => candidate.id === sessionId);
   if (!tab) return;
   tab.emulator.write(text);
+  if (tab.interactive && !tab.emulator.alternate && shellPromptVisible(tab)) {
+    tab.interactive = false;
+    if (activeTerminalId === tab.id) renderTerminalOutput();
+  }
 }
 
 function renderTerminalTabs() {
@@ -2011,17 +2033,7 @@ document.getElementById('terminal-command')?.addEventListener('keydown', (event)
   const input = event.currentTarget;
   const tab = activeTerminal();
   if (!tab) return;
-  if (isInteractiveTerminal(tab)) {
-    const encoded = encodeTerminalKey(event);
-    if (encoded === null || !nativeInvoke) return;
-    event.preventDefault();
-    event.stopPropagation();
-    void nativeInvoke('terminal_input', { sessionId: tab.id, input: encoded }).catch((error) => {
-      notify('Interactive terminal input failed.');
-      console.warn('Interactive terminal input unavailable:', error);
-    });
-    return;
-  }
+  if (forwardInteractiveTerminalKey(event, tab)) return;
   if (event.key === 'Tab') {
     event.preventDefault();
     void completeTerminalInput(input);
@@ -2055,6 +2067,14 @@ document.getElementById('terminal-command')?.addEventListener('input', (event) =
   event.currentTarget.dataset.terminalSuggestionIndex = '-1';
   hideTerminalSuggestions();
 });
+document.querySelector('.terminal-surface')?.addEventListener('click', (event) => {
+  if (event.target.closest('button, input, textarea, a')) return;
+  document.getElementById('terminal-command')?.focus();
+});
+document.querySelector('.terminal-surface')?.addEventListener('keydown', (event) => {
+  const tab = activeTerminal();
+  if (tab) forwardInteractiveTerminalKey(event, tab);
+});
 document.getElementById('terminal-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const tab = activeTerminal();
@@ -2065,6 +2085,7 @@ document.getElementById('terminal-form')?.addEventListener('submit', async (even
   try {
     if (!tab.started) { await nativeInvoke('terminal_start', { sessionId: tab.id, cwd }); tab.started = true; renderTerminalTabs(); }
     tab.history.push(command);
+    tab.interactive = commandMayOpenInteractiveTerminal(command);
     updateTerminalCompletionCwd(command, tab);
     renderTerminalOutput();
     hideTerminalSuggestions();
