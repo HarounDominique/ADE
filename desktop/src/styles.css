@@ -99,3 +99,30 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 :root[data-theme="light"] .runtime-icon { background: var(--panel); }:root[data-theme="light"] .review-panel { background: var(--panel); }
 
 @media (max-width: 1180px) { .terminal-dock { left: 264px; padding-right: 16px; padding-left: 16px; } }
+
+/* The workbench has one labeled navigation surface; the Explorer stays adjacent to it. */
+.app-shell { grid-template-columns: 246px minmax(0, 1fr); }
+.sidebar { grid-column: 1; }
+.main-content { grid-column: 2; padding-bottom: calc(var(--terminal-height, 138px) + 20px); }
+.status-bar { padding-left: 12px; }
+.primary-nav { margin: 0 0 15px; padding-bottom: 15px; border-bottom: 1px solid var(--line); }
+.nav-item { min-height: 34px; padding: 7px 9px; }
+.nav-item svg { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
+.nav-item.active svg { color: var(--cyan); }
+.sidebar-tools { display: grid; gap: 2px; margin: 0 0 13px; padding-bottom: 11px; border-bottom: 1px solid var(--line); }
+.sidebar-tool { display: flex; align-items: center; gap: 9px; min-height: 29px; padding: 5px 9px; border: 0; color: var(--muted); background: transparent; font-size: 10px; text-align: left; }
+.sidebar-tool:hover { color: var(--text); background: #18212b; }
+.sidebar-tool svg { width: 14px; height: 14px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
+.sidebar-tool kbd { margin-left: auto; color: var(--faint); font: 9px var(--mono); }
+.terminal-dock { left: 246px; display: flex; height: var(--terminal-height, 138px); flex-direction: column; }
+.terminal-resizer { position: relative; flex: 0 0 7px; margin: 0 -22px; cursor: row-resize; touch-action: none; }
+.terminal-resizer::after { position: absolute; top: 3px; left: 50%; width: 38px; height: 2px; border-radius: 2px; background: var(--line-strong); content: ''; transform: translateX(-50%); }
+.terminal-resizer:hover::after, .terminal-resizer:focus-visible::after { background: var(--cyan); }
+.terminal-resizer:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.terminal-dock pre { min-height: 36px; max-height: calc(var(--terminal-height, 138px) - 84px); flex: 1; }
+
+@media (max-width: 1180px) {
+  .app-shell { grid-template-columns: 218px minmax(0, 1fr); }
+  .terminal-dock { left: 218px; padding-right: 16px; padding-left: 16px; }
+  .terminal-resizer { margin-right: -16px; margin-left: -16px; }
+}

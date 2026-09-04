@@ -11,6 +11,10 @@ let nativeInvoke;
 let terminalStarted = false;
 let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
+const terminalResizer = document.getElementById('terminal-resizer');
+const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
+let terminalHeight = 138;
+let terminalResizeState = null;
 let activeServiceId = null;
 let gitWorkflow = 'pull-request';
 let selectedTaskId = null;
@@ -33,6 +37,51 @@ let initialTheme = 'dark';
 const requestedTheme = new URLSearchParams(window.location.search).get('theme');
 try { initialTheme = requestedTheme ?? localStorage.getItem('ade-theme') ?? 'dark'; } catch { initialTheme = requestedTheme ?? 'dark'; }
 applyTheme(initialTheme);
+
+function setTerminalHeight(nextHeight, persist = true) {
+  const minHeight = 110;
+  const maxHeight = Math.max(260, Math.round(window.innerHeight * 0.72));
+  terminalHeight = Math.max(minHeight, Math.min(maxHeight, Math.round(nextHeight)));
+  document.documentElement.style.setProperty('--terminal-height', `${terminalHeight}px`);
+  terminalResizer?.setAttribute('aria-valuemax', String(maxHeight));
+  terminalResizer?.setAttribute('aria-valuenow', String(terminalHeight));
+  if (persist) {
+    try { localStorage.setItem(terminalStorageKey, String(terminalHeight)); } catch { /* Persistence is optional. */ }
+  }
+}
+
+try {
+  const storedTerminalHeight = Number(localStorage.getItem(terminalStorageKey));
+  if (Number.isFinite(storedTerminalHeight)) terminalHeight = storedTerminalHeight;
+} catch { /* Persistence is optional. */ }
+setTerminalHeight(terminalHeight, false);
+
+terminalResizer?.addEventListener('pointerdown', (event) => {
+  event.preventDefault();
+  terminalResizeState = { pointerId: event.pointerId, startY: event.clientY, startHeight: terminalHeight };
+  terminalResizer.setPointerCapture?.(event.pointerId);
+});
+terminalResizer?.addEventListener('pointermove', (event) => {
+  if (!terminalResizeState || event.pointerId !== terminalResizeState.pointerId) return;
+  setTerminalHeight(terminalResizeState.startHeight + terminalResizeState.startY - event.clientY, false);
+});
+const finishTerminalResize = (event) => {
+  if (!terminalResizeState || (event?.pointerId !== undefined && event.pointerId !== terminalResizeState.pointerId)) return;
+  setTerminalHeight(terminalHeight);
+  terminalResizeState = null;
+};
+terminalResizer?.addEventListener('pointerup', finishTerminalResize);
+terminalResizer?.addEventListener('pointercancel', finishTerminalResize);
+terminalResizer?.addEventListener('keydown', (event) => {
+  const step = event.shiftKey ? 48 : 16;
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault();
+    setTerminalHeight(terminalHeight + (event.key === 'ArrowUp' ? step : -step));
+  }
+  if (event.key === 'Home') { event.preventDefault(); setTerminalHeight(110); }
+  if (event.key === 'End') { event.preventDefault(); setTerminalHeight(window.innerHeight * 0.72); }
+});
+window.addEventListener('resize', () => setTerminalHeight(terminalHeight, false));
 
 function renderSnapshot(snapshot) {
   const values = {

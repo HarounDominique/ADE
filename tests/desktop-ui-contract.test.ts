@@ -47,3 +47,13 @@ test("workspace tree expands directories lazily and keeps symlinks non-actionabl
   assert.match(main, /Symlinks are not opened outside the selected Project/);
   assert.match(main, /\[data-directory-path\]\.directory/);
 });
+
+test("desktop navigation is labeled and terminal dock supports persisted resizing", () => {
+  assert.doesNotMatch(html, /class="activity-rail"/);
+  assert.match(html, /class="primary-nav"/);
+  assert.match(html, />Overview<\/span>/);
+  assert.match(html, /id="terminal-resizer" role="separator"/);
+  assert.match(main, /ade-terminal-height/);
+  assert.match(main, /ArrowUp/);
+  assert.match(main, /setPointerCapture/);
+});
