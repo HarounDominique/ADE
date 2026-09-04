@@ -70,7 +70,7 @@ La terminal nativa ocupa un dock inferior redimensionable: el usuario puede aume
 
 Cada tab presenta una única superficie de consola familiar, compuesta por un transcript PTY desplazable y una línea de prompt integrada. El shell conserva el cwd del Project, posee el eco y el prompt mínimos y la UI no añade una bienvenida ni repite la salida del proceso. El transcript interpreta ANSI para que el cursor, el borrado y la pantalla alternativa de una TUI como Claude se rendericen correctamente.
 
-La interacción mínima es la esperada en una terminal: `Enter` ejecuta el comando, `↑`/`↓` recorren el historial del tab activo y `cd <ruta>` admite completado de directorios con `Tab`. Cuando existen varias coincidencias, el dock muestra una lista de sugerencias accesible que puede recorrerse con `↑`/`↓`; `Esc` la cierra. El completado es deliberadamente acotado a rutas de `cd`, no sustituye un shell completo ni un language server.
+La interacción mínima es la esperada en una terminal: `Enter` ejecuta el comando, `↑`/`↓` recorren el historial del tab activo y `cd <ruta>` admite completado de directorios con `Tab`. Cuando el proceso activa una pantalla alternativa ANSI —como Claude Code u otra TUI— la línea de prompt pasa a modo interactivo: deja de consumir teclas como historial o completado y reenvía al mismo PTY las teclas imprimibles, `↑`/`↓`/`←`/`→`, `Space`, `Enter`, `Esc`, `Tab`, borrado y combinaciones `Ctrl`. Al salir de la pantalla alternativa se restaura automáticamente el modo shell. Cuando existen varias coincidencias, el dock muestra una lista de sugerencias accesible que puede recorrerse con `↑`/`↓`; `Esc` la cierra. El completado es deliberadamente acotado a rutas de `cd`, no sustituye un shell completo ni un language server.
 
 ### Work
 

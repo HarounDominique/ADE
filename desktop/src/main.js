@@ -1,6 +1,7 @@
 import { projectSnapshot } from './project-snapshot.js';
 import { mergeActiveProject } from './project-context.js';
 import { TerminalEmulator } from './terminal-emulator.js';
+import { encodeTerminalKey, isInteractiveTerminal } from './terminal-input.js';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 const panels = [...document.querySelectorAll('.view')];
@@ -112,6 +113,18 @@ function renderTerminalOutput() {
   output.scrollTop = output.scrollHeight;
   const cwd = document.getElementById('terminal-cwd');
   if (cwd) cwd.textContent = `${tab.label} · ${tab.completionCwd}`;
+  syncTerminalInputMode(tab);
+}
+
+function syncTerminalInputMode(tab = activeTerminal()) {
+  const input = document.getElementById('terminal-command');
+  if (!input || !tab) return;
+  const interactive = isInteractiveTerminal(tab);
+  input.readOnly = interactive;
+  input.value = interactive ? '' : tab.inputDraft;
+  input.placeholder = interactive ? 'Interactive process…' : 'Type a command…';
+  input.setAttribute('aria-label', interactive ? 'Interactive terminal input' : 'Terminal command');
+  input.classList.toggle('interactive', interactive);
 }
 
 function appendTerminalTranscript(sessionId, text) {
@@ -130,7 +143,7 @@ function syncActiveTerminalInput(focus = true) {
   const input = document.getElementById('terminal-command');
   const tab = activeTerminal();
   if (!input || !tab) return;
-  input.value = tab.inputDraft;
+  syncTerminalInputMode(tab);
   input.dataset.terminalSuggestionIndex = '-1';
   if (focus) input.focus();
 }
@@ -1998,6 +2011,17 @@ document.getElementById('terminal-command')?.addEventListener('keydown', (event)
   const input = event.currentTarget;
   const tab = activeTerminal();
   if (!tab) return;
+  if (isInteractiveTerminal(tab)) {
+    const encoded = encodeTerminalKey(event);
+    if (encoded === null || !nativeInvoke) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void nativeInvoke('terminal_input', { sessionId: tab.id, input: encoded }).catch((error) => {
+      notify('Interactive terminal input failed.');
+      console.warn('Interactive terminal input unavailable:', error);
+    });
+    return;
+  }
   if (event.key === 'Tab') {
     event.preventDefault();
     void completeTerminalInput(input);
