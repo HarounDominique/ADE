@@ -2,7 +2,7 @@
 
 Esta es la única jerarquía normativa de documentación del proyecto.
 
-La release v0.3 está cerrada y validada en macOS. La aplicación actual combina Project/Task, Explorer local, terminal PTY, proveedores agénticos, skills, Git/GitHub y documentación viva; los refinamientos de shell posteriores al cierre están descritos en las specs y en el cierre de release.
+La release v0.3 está cerrada y validada en macOS. La aplicación actual combina Project/Task, Explorer local, terminal PTY, proveedores agénticos, skills, Git/GitHub y documentación viva. La slice v0.4 de editor interno y los refinamientos posteriores del shell también están implementados y descritos en sus specs; la única validación pendiente del recorrido visual es el smoke gráfico automatizado.
 
 ## Organización
 
@@ -10,6 +10,7 @@ La release v0.3 está cerrada y validada en macOS. La aplicación actual combina
 - `adr/`: decisiones arquitectónicas con contexto, alternativas, decisión y consecuencias.
 - `releases/`: evidencias y límites de cada release cerrada.
 - `knowledge/`: documentación canónica, operativa y orientada a agentes cuando el proyecto empiece a producirla.
+- `generated/`: artefactos derivados de reconciliación (QA, estimación, UML e informes); no son fuente normativa y pueden regenerarse.
 
 ## Regla de mantenimiento
 
@@ -26,3 +27,5 @@ ADE DB          → metadata operativa futura
 ```
 
 Para empezar, consultar [SPEC-NEXUS.md](specs/SPEC-NEXUS.md).
+
+La baseline técnica vigente es `npm test` con 88 tests TypeScript y `cargo test --manifest-path desktop/src-tauri/Cargo.toml` con 17 tests Rust. Las cifras de cortes anteriores se conservan únicamente como evidencia histórica en sus respectivos documentos de release.

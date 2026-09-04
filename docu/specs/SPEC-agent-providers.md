@@ -46,5 +46,5 @@ ADE detecta proveedores disponibles, permite elegir uno para una Task y mantiene
 
 ## Open Questions
 
-- ¿Qué proveedores entran en el paquete inicial?
+- ¿Qué proveedores adicionales entran después del paquete inicial de Codex CLI y OpenCode HTTP?
 - ¿Cómo mostrar el estado de una licencia sin duplicar el login?

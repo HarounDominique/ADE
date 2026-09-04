@@ -1,7 +1,7 @@
 # Nexus: ADE — Agentic Development Environment
 
-**Estado:** v0.1 MVP implementado; v0.2 cerrada; v0.3 cerrada; slice v0.4 file-workspace implementada y validada
-**Fecha:** 2026-09-02  
+**Estado:** v0.1 MVP implementado; v0.2 cerrada; v0.3 cerrada; slice v0.4 file-workspace implementada y validada en build/tests
+**Última actualización:** 2026-09-04
 **Fuente:** informe fundacional de ADE proporcionado por el usuario
 
 Este nexus es el índice único de las specs de ADE. Las specs se citan por `module id + heading`, nunca por número de línea.
@@ -84,7 +84,7 @@ La v0.3 prioriza `workspace-core`: sin contexto local navegable y terminal integ
 
 La aplicación macOS actual ofrece una shell desktop Tauri con navegación lateral única, Project Hub, Work, Knowledge, Changes y Runtime. El Explorer mantiene como hint la rama del archivo activo y puede convertirse en un árbol completo; la búsqueda muestra ficheros directamente, añade una ruta relativa legible para distinguir homónimos, mantiene el input responsivo con índice normalizado, debounce y spinner de carga, y al seleccionarlos restaura la rama breadcrumb. Ambos cambios tienen transición fluida. El lateral tiene un divisor vertical redimensionable por pointer o teclado hasta un máximo responsive de 720 px y conserva su ancho por Project. El tema claro/oscuro se alterna desde la esquina superior derecha y se conserva entre sesiones.
 
-El dock inferior expone un único transcript de terminal PTY persistente, redimensionable y confinado a la raíz del Project. El prompt mínimo, Enter, historial con `↑`/`↓`, completado de directorios para `cd` con `Tab` e interpretación ANSI de cursor, borrado y pantalla alternativa están implementados; las sugerencias ambiguas se recorren con `↑`/`↓` y se cierran con `Esc`. La baseline de verificación actual es 86 tests TypeScript y 17 tests Rust; el `.app` macOS se empaqueta y el smoke de OpenCode real sigue validado históricamente. La selección de ficheros abre ahora dentro de ADE en el editor de texto definido en [SPEC-file-workspace](SPEC-file-workspace.md), con guardado y descarte acotados al Project.
+El dock inferior expone un único transcript de terminal PTY persistente, redimensionable y confinado a la raíz del Project. El prompt mínimo, Enter, historial con `↑`/`↓`, completado de directorios para `cd` con `Tab` e interpretación ANSI de cursor, borrado y pantalla alternativa están implementados; las sugerencias ambiguas se recorren con `↑`/`↓` y se cierran con `Esc`. La baseline de verificación actual es 88 tests TypeScript y 17 tests Rust. El `.app` macOS se empaqueta y se ha arrancado manualmente; el smoke gráfico automatizado sigue pendiente. La selección de ficheros abre ahora dentro de ADE en el editor de texto definido en [SPEC-file-workspace](SPEC-file-workspace.md), con edición, guardado y descarte acotados al Project.
 
 ## Current v0.4 slice
 
@@ -92,7 +92,7 @@ La slice v0.4 implementa [SPEC-file-workspace](SPEC-file-workspace.md): el fiche
 
 ## Scope boundary
 
-Este nexus cubre MVP, v0.2 y la planificación v0.3. AgentMemory, ASK como dependencia, browser automation, cloud, sync realtime, colaboración multiusuario y productización siguen fuera. Los worktrees entran en v0.3 sólo como aislamiento Git local.
+Este nexus cubre MVP, v0.2 y v0.3 cerradas, además de la slice v0.4 de editor interno y sus refinamientos de shell. AgentMemory, ASK como dependencia, browser automation, cloud, sync realtime, colaboración multiusuario y productización siguen fuera. Los worktrees entran en v0.3 sólo como aislamiento Git local.
 
 ## MVP contract
 
@@ -205,6 +205,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-04 — workspace-core — Los resultados file-first muestran una ruta relativa compacta para distinguir ficheros homónimos, manteniendo la restauración de la rama breadcrumb. La suite pasa con 88 tests.
 - 2026-09-04 — desktop-shell + workspace-core — El lateral admite mayor anchura responsive y la ruta contextual de resultados se muestra adyacente, envolvente y legible para distinguir homónimos. La suite pasa con 88 tests.
 - 2026-09-04 — workspace-core — La búsqueda mantiene la escritura responsiva con debounce, cancelación lógica, índice normalizado reutilizable y spinner mientras los resultados actuales están pendientes. La suite pasa con 88 tests.
+- 2026-09-04 — documentation-alignment — Se sincroniza la documentación vigente: 88 tests TypeScript y 17 tests Rust, editor interno v0.4 implementado, bundle `.app` arrancado manualmente y smoke gráfico automatizado pendiente; se conservan sin cambios las cifras históricas de los cortes de release.
 
 ## Automatic Reconciliation Log
 
@@ -224,3 +225,5 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-04 — automatic-reconciliation — docu/adr/0014-internal-file-viewer.md; 2 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/0014-internal-file-viewer.md, ../generated/qa/0014-internal-file-viewer.md, ../generated/estimates/0014-internal-file-viewer.md.
 <!-- reconciliation:docu/specs/SPEC-file-workspace.md -->
 - 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-file-workspace.md; 13 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-file-workspace.md, ../generated/qa/spec-file-workspace.md, ../generated/estimates/spec-file-workspace.md.
+<!-- reconciliation:docu/specs/SPEC-agent-providers.md -->
+- 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-agent-providers.md; 12 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-agent-providers.md, ../generated/qa/spec-agent-providers.md, ../generated/estimates/spec-agent-providers.md.

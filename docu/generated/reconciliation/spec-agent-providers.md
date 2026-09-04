@@ -1,4 +1,4 @@
-# Reconciliation: docu/specs/SPEC-v0.3.md
+# Reconciliation: docu/specs/SPEC-agent-providers.md
 
 Generated from the current documentation graph.
 
@@ -10,6 +10,7 @@ Generated from the current documentation graph.
 - [ ] Review and synchronize [docu/specs/SPEC-NEXUS.md](../../specs/SPEC-NEXUS.md)
 - [ ] Review and synchronize [docu/specs/SPEC-agent-runtime.md](../../specs/SPEC-agent-runtime.md)
 - [ ] Review and synchronize [docu/specs/SPEC-desktop-shell.md](../../specs/SPEC-desktop-shell.md)
+- [ ] Review and synchronize [docu/specs/SPEC-living-knowledge.md](../../specs/SPEC-living-knowledge.md)
 - [ ] Review and synchronize [docu/specs/SPEC-v0.2.md](../../specs/SPEC-v0.2.md)
 - [ ] Review and synchronize [docu/specs/SPEC-v0.3.md](../../specs/SPEC-v0.3.md)
 - [ ] Review and synchronize [docu/spikes/001-opencode-runtime.md](../../spikes/001-opencode-runtime.md)

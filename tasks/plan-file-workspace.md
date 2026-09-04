@@ -3,7 +3,7 @@
 <!-- Spec: docu/specs/SPEC-file-workspace.md -->
 <!-- ADR: docu/adr/0014-internal-file-viewer.md -->
 
-**Estado:** completado y validado a nivel de build/tests; smoke gráfico pendiente por limitación del entorno.
+**Estado:** completado y validado a nivel de build/tests; bundle `.app` generado y arrancado manualmente en macOS; smoke gráfico automatizado pendiente.
 
 ## Delivery order
 
@@ -15,7 +15,7 @@
 
 ## Acceptance gate
 
-La tarea queda cerrada cuando la selección de un fichero de texto no lanza macOS, el contenido se ve y puede editarse dentro de ADE, el guardado queda confinado a la raíz del Project, las rutas externas quedan rechazadas y cualquier apertura externa requiere una acción separada. Este contrato está implementado; el smoke gráfico queda pendiente por `SIGABRT` de arranque en el entorno actual.
+La tarea queda cerrada cuando la selección de un fichero de texto no lanza macOS, el contenido se ve y puede editarse dentro de ADE, el guardado queda confinado a la raíz del Project, las rutas externas quedan rechazadas y cualquier apertura externa requiere una acción separada. Este contrato está implementado y el bundle se ha arrancado manualmente; sólo queda pendiente automatizar el smoke gráfico completo.
 
 ## Out of scope
 

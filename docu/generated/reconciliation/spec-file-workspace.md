@@ -381,11 +381,13 @@ classDiagram
   nREADMEmd --> ndocuREADMEmd : references
   nREADMEmd --> ntaskstodomd : references
   nREADMEmd --> ndocuspecsSPECv03md : references
+  nREADMEmd --> ndocuspecsSPECfileworkspacemd : references
   nREADMEmd --> ndocureleasesv03closemd : references
   nREADMEmd --> ndocuspikes001opencoderuntimemd : references
   nREADMEmd --> ndocuspikes002independentreviewmd : references
   ndocuREADMEmd --> ndocuspecsSPECNEXUSmd : references
   ndocureleasesv03closemd --> ndocuspecsSPECv03md : references
+  ndocureleasesv03closemd --> ndocuspecsSPECfileworkspacemd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECprojecttaskworkflowmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdevelopmentworkflowmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECagentruntimemd : references
@@ -420,6 +422,7 @@ classDiagram
   ndocuspecsSPECv03md --> ndocuspecsSPEClivingknowledgemd : references
   ndocuspecsSPECv03md --> ndocuspecsSPECdevelopmentworkflowmd : adaptive-modes
   ndocuspecsSPECv03md --> ndocureleasesv03closemd : references
+  ndocuspecsSPECv03md --> ndocuspecsSPECfileworkspacemd : references
   ndocuspecsSPECworkspacecoremd --> ndocuspecsSPECfileworkspacemd : references
   ndocuspecsSPECworkspacecoremd --> ndocuspecsSPECfileworkspacemd : references
   ndocuspikes001opencoderuntimemd --> ndocuspecsSPECagentruntimemd : success-criteria

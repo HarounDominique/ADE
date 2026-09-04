@@ -196,5 +196,5 @@
   - Spec: [SPEC-file-workspace.md](../docu/specs/SPEC-file-workspace.md)
   - ADR: [0014-internal-file-viewer.md](../docu/adr/0014-internal-file-viewer.md)
   - Acceptance: seleccionar un fichero de texto abre un editor interno que ocupa toda su superficie; permite editar, guardar con `Save` o `⌘/Ctrl+S`, descartar cambios y abrir externamente de forma explícita. Binarios, errores y ficheros demasiado grandes muestran estado explicativo. La escritura queda confinada a la raíz canónica del Project.
-  - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`; smoke gráfico pendiente por limitación del entorno (`SIGABRT` al arrancar el `.app`).
+  - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`; bundle `.app` generado y arrancado manualmente en macOS; smoke gráfico automatizado pendiente.
   - Files: `desktop/src/`, `desktop/src-tauri/src/lib.rs`, `tests/`, `docu/specs/`.
