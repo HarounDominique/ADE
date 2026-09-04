@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { inspectPendingGitChanges, listGitCommits, readGitCommitDiff } from "../src/application/git/version-control.js";
+import { inspectPendingGitChanges, listGitCommits, readGitCommitDiff, readPendingGitDiff } from "../src/application/git/version-control.js";
 
 const execFile = promisify(execFileCallback);
 
@@ -50,4 +50,6 @@ test("version control read model exposes tracked, staged and untracked pending f
   const pending = await inspectPendingGitChanges(directory);
   assert.deepEqual(pending.files.map((file) => file.path).sort(), ["new.txt", "tracked.txt"]);
   assert.match(pending.diff, /changed/);
+  assert.match((await readPendingGitDiff(directory, "tracked.txt")).diff, /changed/);
+  assert.match((await readPendingGitDiff(directory, "new.txt")).diff, /new/);
 });

@@ -25,7 +25,7 @@ import { runNativeSkill } from "./application/skills/run-skill.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
 import { commitAndPush, createBranch, createCommit, createPullRequest, createWorktree, fetchOrigin, pushBranch, switchBranch } from "./application/git/git-mutations.js";
-import { inspectPendingGitChanges, listGitCommits, readGitCommitDiff } from "./application/git/version-control.js";
+import { inspectPendingGitChanges, listGitCommits, readGitCommitDiff, readPendingGitDiff } from "./application/git/version-control.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
 import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation, reconcileChangedDocumentation } from "./application/knowledge/reconcile.js";
@@ -264,6 +264,11 @@ export async function runDesktopSidecar(): Promise<void> {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
         else void inspectPendingGitChanges(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "git.pending.diff") {
+        const directory = request.params?.repositoryPath;
+        const file = request.params?.file;
+        if (!directory || !file) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and file are required" } })}\n`);
+        else void readPendingGitDiff(directory, file).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "git.fetch.origin") {
         const params = request.params;
         if (!params?.repositoryPath || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, actor and reason are required" } })}\n`);

@@ -53,6 +53,7 @@ let projectCatalogLoaded = false;
 let gitBranches = [];
 let gitHistoryCommits = [];
 let selectedGitCommit = null;
+let selectedPendingGitFile = null;
 let gitCommitNeedsPush = false;
 const pendingContextRequests = new Map();
 const pendingSnapshotProjects = new Map();
@@ -453,6 +454,7 @@ async function switchProjectFromContext(project) {
     workspaceRootPath = context.repositoryPath;
     activeGitBranch = context.branch;
     gitBranches = [];
+    selectedPendingGitFile = null;
     gitCommitNeedsPush = false;
     renderCommitControls();
     if (selectedFilePath && !selectedFilePath.startsWith(`${workspaceRootPath}/`)) {
@@ -622,7 +624,7 @@ function renderGitCommitDetail(commit, diff = null) {
     if (meta) meta.textContent = 'Commit details will appear here.';
     if (count) count.textContent = '—';
     if (files) files.innerHTML = '<div class="git-empty-state">Select a commit to inspect its files.</div>';
-    if (output) output.textContent = 'Select a commit to inspect its diff.';
+    renderDiffOutput(output, null, 'Select a commit to inspect its diff.');
     return;
   }
   if (hash) hash.textContent = commit.shortHash;
@@ -632,7 +634,19 @@ function renderGitCommitDetail(commit, diff = null) {
   if (files) files.innerHTML = commit.files.length
     ? commit.files.map((file) => `<button class="git-commit-file" type="button" data-git-commit-file="${escapeHTML(file.path)}" title="Show diff for ${escapeHTML(file.path)}"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></button>`).join('')
     : '<div class="git-empty-state">No file changes recorded.</div>';
-  if (output && diff !== null) output.textContent = diff || 'No textual diff for this commit.';
+  if (output) renderDiffOutput(output, diff, diff === null ? 'Loading commit diff…' : 'No textual diff for this commit.');
+}
+
+function renderDiffOutput(output, diff, emptyMessage) {
+  if (!output) return;
+  if (!diff) {
+    output.innerHTML = `<span class="git-diff-empty">${escapeHTML(emptyMessage)}</span>`;
+    return;
+  }
+  output.innerHTML = diff.split('\n').map((line) => {
+    const kind = line.startsWith('@@') ? 'hunk' : line.startsWith('+++') || line.startsWith('---') ? 'meta' : line.startsWith('+') ? 'added' : line.startsWith('-') ? 'removed' : 'context';
+    return `<span class="git-diff-line ${kind}">${escapeHTML(line) || ' '}</span>`;
+  }).join('');
 }
 
 function selectGitCommit(hash, file = null) {
@@ -649,12 +663,24 @@ function renderPendingGitChanges(result) {
   const files = document.getElementById('git-pending-files');
   const diff = document.getElementById('git-pending-diff');
   const pendingFiles = result?.files ?? [];
+  const nextSelectedFile = pendingFiles.find((file) => file.path === selectedPendingGitFile)?.path ?? pendingFiles[0]?.path ?? null;
+  const selectionChanged = nextSelectedFile !== selectedPendingGitFile;
+  selectedPendingGitFile = nextSelectedFile;
   if (status) status.textContent = pendingFiles.length ? `${pendingFiles.length} pending file${pendingFiles.length === 1 ? '' : 's'}` : 'Working tree clean';
   if (files) files.innerHTML = pendingFiles.length
-    ? pendingFiles.map((file) => `<div class="git-pending-file"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></div>`).join('')
+    ? pendingFiles.map((file) => `<button class="git-pending-file${file.path === selectedPendingGitFile ? ' active' : ''}" type="button" data-git-pending-file="${escapeHTML(file.path)}"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></button>`).join('')
     : '<div class="git-empty-state">No changes pending.</div>';
-  if (diff) diff.textContent = result?.diff || 'No pending textual diff.';
+  if (!pendingFiles.length) renderDiffOutput(diff, null, 'No pending changes.');
+  else if (selectionChanged) {
+    renderDiffOutput(diff, null, 'Loading file diff…');
+    requestPendingGitDiff(selectedPendingGitFile);
+  }
   renderCommitControls();
+}
+
+function requestPendingGitDiff(file) {
+  if (!nativeInvoke || !workspaceRootPath || !file) return;
+  void sendContextRequest('git.pending.diff', { repositoryPath: workspaceRootPath, file }, 'git-pending-diff').catch((error) => notify(error instanceof Error ? error.message : 'Unable to load file diff.'));
 }
 
 function requestPendingGitChanges(path = workspaceRootPath, { showLoading = false } = {}) {
@@ -1368,6 +1394,10 @@ async function connectSidecar(snapshot) {
         renderPendingGitChanges(response.result);
         return;
       }
+      if (contextPurpose === 'git-pending-diff' && response.result?.file === selectedPendingGitFile) {
+        renderDiffOutput(document.getElementById('git-pending-diff'), response.result.diff, 'No textual diff for this file.');
+        return;
+      }
       if (contextPurpose === 'git-diff' && response.result?.commit && selectedGitCommit?.hash === response.result.commit) {
         renderGitCommitDetail(selectedGitCommit, response.result.diff);
         return;
@@ -1387,6 +1417,7 @@ async function connectSidecar(snapshot) {
         const body = document.getElementById('commit-body');
         if (title) title.value = '';
         if (body) body.value = '';
+        document.getElementById('commit-dialog')?.close();
         requestVersionControlData(workspaceRootPath);
         return;
       }
@@ -1759,6 +1790,21 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     void sendContextRequest('git.fetch.origin', { repositoryPath: workspaceRootPath, actor: 'human', reason: 'Fetch requested from Version control', confirmed: true }, 'git-fetch').catch((error) => notify(error instanceof Error ? error.message : 'Fetch failed.'));
     return;
   }
+  if (item.dataset.action === 'open-commit-dialog') {
+    if (!nativeInvoke || activeVersionControl === 'none') { notify('Commit requires a Git Project.'); return; }
+    const pendingStatus = document.getElementById('git-pending-status')?.textContent ?? '';
+    if (pendingStatus === 'Working tree clean' || pendingStatus.startsWith('This Project')) { notify('There are no pending changes to commit.'); return; }
+    const dialog = document.getElementById('commit-dialog');
+    if (dialog?.showModal) {
+      dialog.showModal();
+      requestAnimationFrame(() => document.getElementById('commit-title')?.focus());
+    }
+    return;
+  }
+  if (item.dataset.action === 'close-commit-dialog') {
+    document.getElementById('commit-dialog')?.close();
+    return;
+  }
   if (item.dataset.action === 'commit-local') return;
   if (item.dataset.action === 'push-origin') {
     if (!nativeInvoke || activeVersionControl === 'none') { notify('Push requires a Git Project.'); return; }
@@ -1921,6 +1967,14 @@ document.addEventListener('click', (event) => {
   const commitFile = event.target.closest('[data-git-commit-file]');
   if (commitFile && selectedGitCommit) {
     selectGitCommit(selectedGitCommit.hash, commitFile.dataset.gitCommitFile);
+    return;
+  }
+  const pendingFile = event.target.closest('[data-git-pending-file]');
+  if (pendingFile) {
+    selectedPendingGitFile = pendingFile.dataset.gitPendingFile;
+    document.querySelectorAll('[data-git-pending-file]').forEach((file) => file.classList.toggle('active', file === pendingFile));
+    renderDiffOutput(document.getElementById('git-pending-diff'), null, 'Loading file diff…');
+    requestPendingGitDiff(selectedPendingGitFile);
     return;
   }
   const commitOption = event.target.closest('[data-git-commit]');

@@ -312,3 +312,47 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .version-control-tab { flex: 1; }
   .changes-section-heading { align-items: start; flex-direction: column; gap: 4px; }
 }
+
+/* Changes is a two-pane diff workbench; commit is an intentional modal action. */
+.version-control-tab-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.version-control-tab-row .version-control-tabs { margin-bottom: 0; }
+.version-control-actions { display: flex; align-items: center; gap: 8px; }
+.version-control-actions .button { min-height: 32px; padding: 6px 13px; border-radius: 5px; }
+.version-control-push-button:disabled { color: var(--faint); border-color: var(--line); background: var(--panel-soft); cursor: not-allowed; opacity: .6; }
+.pending-changes-layout { grid-template-columns: 1fr; min-height: 560px; }
+.changes-workspace { display: grid; grid-column: 1; grid-template-columns: minmax(235px, .7fr) minmax(0, 1.3fr); grid-template-rows: auto minmax(0, 1fr); gap: 0; min-height: 560px; }
+.changes-section-heading { grid-column: 1 / -1; min-height: 65px; align-items: center; }
+.changes-section-heading h2 { margin: 0; }
+.pending-changes-layout .git-pending-files { grid-column: 1; grid-row: 2; align-content: start; min-height: 0; max-height: none; margin: 12px 0 12px 12px; border-right: 0; border-radius: 5px 0 0 5px; }
+.pending-changes-layout .pending-diff { grid-column: 2; grid-row: 2; min-height: 0; max-height: none; margin: 12px 12px 12px 0; border-left: 1px solid var(--line); border-radius: 0 5px 5px 0; }
+.git-pending-file { cursor: pointer; }
+.git-pending-file.active { color: var(--text); background: color-mix(in srgb, var(--blue) 15%, var(--panel)); box-shadow: inset 3px 0 0 var(--blue); }
+.git-diff-output { padding: 0; font-size: 10px; line-height: 1.55; white-space: pre; tab-size: 4; }
+.git-diff-line { display: block; min-height: 1.55em; padding: 0 12px; }
+.git-diff-line.added { color: var(--green); background: color-mix(in srgb, var(--green) 11%, transparent); }
+.git-diff-line.removed { color: var(--red); background: color-mix(in srgb, var(--red) 11%, transparent); }
+.git-diff-line.hunk { color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); }
+.git-diff-line.meta { color: var(--muted); background: color-mix(in srgb, var(--muted) 7%, transparent); }
+.git-diff-line.context { color: var(--text-soft); }
+.git-diff-empty { display: block; padding: 14px; color: var(--muted); font: 10px var(--sans); white-space: normal; }
+.commit-dialog { width: min(520px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--panel); box-shadow: 0 24px 70px #0008; }
+.commit-dialog::backdrop { background: #07101899; backdrop-filter: blur(5px); }
+.commit-dialog .commit-form { min-height: 0; padding: 22px; border: 0; border-radius: 9px; box-shadow: none; }
+.commit-dialog .commit-form-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.commit-dialog .commit-form-heading h2 { flex: 1; }
+.commit-dialog-close { width: 28px; height: 28px; border: 0; border-radius: 5px; color: var(--muted); background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
+.commit-dialog-close:hover { color: var(--text); background: var(--panel-soft); }
+.commit-dialog-close:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.commit-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.commit-dialog-actions .button { min-width: 86px; }
+
+:root[data-theme="light"] .git-pending-file.active { background: #e3eef9; }
+:root[data-theme="light"] .commit-dialog { box-shadow: 0 24px 70px #15324d38; }
+
+@media (max-width: 760px) {
+  .version-control-tab-row { align-items: stretch; flex-direction: column; gap: 10px; }
+  .version-control-actions { justify-content: flex-end; }
+  .pending-changes-layout, .changes-workspace { min-height: 0; }
+  .changes-workspace { display: block; }
+  .pending-changes-layout .git-pending-files, .pending-changes-layout .pending-diff { margin: 12px; border: 1px solid var(--line); border-radius: 5px; }
+}

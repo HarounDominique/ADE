@@ -57,9 +57,10 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /method: 'skills\.run'/);
   assert.match(main, /method: 'skills\.install'/);
   assert.match(main, /method: 'github\.status'/);
-  for (const id of ["git-commit-list", "git-commit-files", "git-commit-diff", "git-pending-files", "git-pending-diff", "commit-title", "commit-body", "git-push-origin", "commit-branch-name"]) assert.match(html, new RegExp(`id="${id}"`));
+  for (const id of ["git-commit-list", "git-commit-files", "git-commit-diff", "git-pending-files", "git-pending-diff", "commit-dialog", "commit-title", "commit-body", "git-push-origin", "commit-branch-name"]) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(html, /data-action="commit-local"/);
   assert.match(html, /data-action="push-origin"/);
+  assert.match(html, /data-action="open-commit-dialog"/);
   assert.doesNotMatch(html, /Commit &amp; Push/);
   assert.match(main, /Persisted activity/);
   assert.match(main, /method: 'knowledge\.reconcile\.changed'/);
@@ -76,6 +77,8 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /git\.history/);
   assert.match(main, /git\.commit\.diff/);
   assert.match(main, /git\.pending/);
+  assert.match(main, /git\.pending\.diff/);
+  assert.match(main, /data-git-pending-file/);
   assert.match(main, /requestPendingGitChanges/);
   assert.match(main, /activeView === 'changes'/);
   assert.match(main, /setInterval\(\(\) =>/);

@@ -40,3 +40,21 @@ export async function inspectPendingGitChanges(directory: string) {
   const files = status.stdout.split("\n").filter(Boolean).map((line) => ({ status: line.slice(0, 2).trim() || "?", path: line.slice(3).trim() })).filter((file) => file.path.length > 0);
   return { files, diff: diff.stdout };
 }
+
+export async function readPendingGitDiff(directory: string, file: string): Promise<{ file: string; diff: string }> {
+  const pending = await inspectPendingGitChanges(directory);
+  if (!pending.files.some((candidate) => candidate.path === file)) throw new Error("The requested file is not pending in this repository");
+  try {
+    const result = await execFile("git", ["diff", "HEAD", "--binary", "--", file], { cwd: directory });
+    if (result.stdout) return { file, diff: result.stdout };
+  } catch (error) {
+    const output = error && typeof error === "object" && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "";
+    if (output) return { file, diff: output };
+    throw error;
+  }
+  const result = await execFile("git", ["diff", "--no-index", "--binary", "/dev/null", file], { cwd: directory }).catch((error: unknown) => {
+    const output = error && typeof error === "object" && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "";
+    return { stdout: output };
+  });
+  return { file, diff: result.stdout };
+}
