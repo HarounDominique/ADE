@@ -1,4 +1,5 @@
 import { projectSnapshot } from './project-snapshot.js';
+import { mergeActiveProject } from './project-context.js';
 import { TerminalEmulator } from './terminal-emulator.js';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
@@ -16,6 +17,7 @@ let terminalSuggestionCandidates = [];
 let terminalSuggestionContext = null;
 let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
+let activeProject = mergeActiveProject({}, projectSnapshot.project);
 let workspaceRootPath = projectSnapshot.project.repositoryPath;
 let activeGitBranch = null;
 let activeVersionControl = 'git';
@@ -46,6 +48,7 @@ let registeredProjects = [];
 let projectCatalogLoaded = false;
 let gitBranches = [];
 const pendingContextRequests = new Map();
+const pendingSnapshotProjects = new Map();
 
 function applyTheme(theme) {
   const nextTheme = theme === 'light' ? 'light' : 'dark';
@@ -340,13 +343,15 @@ sidebarResizer?.addEventListener('keydown', (event) => {
 window.addEventListener('resize', () => setSidebarWidth(sidebarWidth, false));
 
 function renderSnapshot(snapshot) {
-  activeVersionControl = snapshot.project.versionControl ?? activeVersionControl;
+  activeProject = mergeActiveProject(activeProject, snapshot.project);
+  activeProjectId = activeProject.id;
+  activeVersionControl = activeProject.versionControl ?? activeVersionControl;
   const hasGit = activeVersionControl !== 'none';
-  const currentBranch = hasGit ? (activeGitBranch ?? snapshot.project.branch ?? 'detached') : 'No Git';
+  const currentBranch = hasGit ? (activeGitBranch ?? activeProject.branch ?? 'detached') : 'No Git';
   const values = {
-    'project-name': snapshot.project.name,
-    'project-description': snapshot.project.description ?? 'Local ADE project',
-    'project-path': snapshot.project.repositoryPath,
+    'project-name': activeProject.name,
+    'project-description': activeProject.description ?? 'Local ADE project',
+    'project-path': activeProject.repositoryPath,
     'project-branch': currentBranch,
     'working-tree-state': snapshot.project.workingTree,
     'active-task-count': snapshot.metrics.activeTasks,
@@ -362,9 +367,9 @@ function renderSnapshot(snapshot) {
   const statusBranch = document.getElementById('status-branch-name');
   if (statusBranch) statusBranch.textContent = currentBranch;
   const repositoryName = document.getElementById('current-repository-name');
-  if (repositoryName) repositoryName.textContent = snapshot.project.name;
+  if (repositoryName) repositoryName.textContent = activeProject.name;
   const breadcrumbRoot = document.querySelector('.breadcrumb-root');
-  if (breadcrumbRoot) breadcrumbRoot.textContent = snapshot.project.name;
+  if (breadcrumbRoot) breadcrumbRoot.textContent = activeProject.name;
   const branchName = document.getElementById('current-branch-name');
   if (branchName) branchName.textContent = currentBranch;
   const branchButton = document.getElementById('branch-context-button');
@@ -374,7 +379,7 @@ function renderSnapshot(snapshot) {
     branchButton.title = hasGit ? 'Switch local branch' : 'This project is not a Git repository';
   }
   const terminalCwd = document.getElementById('terminal-cwd');
-  if (terminalCwd) terminalCwd.textContent = snapshot.project.repositoryPath;
+  if (terminalCwd) terminalCwd.textContent = activeProject.repositoryPath;
   renderChanges(snapshot.tasks ?? []);
   renderProjectTasks(snapshot.tasks ?? []);
   if (snapshot.sync) setSyncState(snapshot.sync.state, snapshot.sync.label);
@@ -408,6 +413,14 @@ function sendContextRequest(method, params = {}, purpose = method) {
   const id = `context-${purpose}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   pendingContextRequests.set(String(id), purpose);
   return nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method, params }) });
+}
+
+function requestProjectSnapshot(projectId = activeProjectId, purpose = 'snapshot') {
+  if (!nativeInvoke) return Promise.reject(new Error('Local sidecar unavailable'));
+  const id = `snapshot-${purpose}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  pendingContextRequests.set(String(id), purpose);
+  pendingSnapshotProjects.set(String(id), projectId);
+  return nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'project.snapshot', params: { projectId } }) });
 }
 
 function closeGitContextMenus() {
@@ -457,14 +470,16 @@ async function switchProjectFromContext(project) {
   try {
     const context = await nativeInvoke('project_context', { repositoryPath: project.repositoryPath });
     activeProjectId = project.id;
+    activeProject = mergeActiveProject(project, context);
     workspaceRootPath = context.repositoryPath;
     activeGitBranch = context.branch;
+    gitBranches = [];
     if (selectedFilePath && !selectedFilePath.startsWith(`${workspaceRootPath}/`)) {
       selectedFilePath = null;
       activeDocument = null;
       document.getElementById('document-viewer')?.setAttribute('hidden', '');
     }
-    renderSnapshot({ ...projectSnapshot, project: { ...project, ...context, branch: context.branch }, metrics: { ...projectSnapshot.metrics, activeTasks: 0, inReview: 0 } });
+    renderSnapshot({ ...projectSnapshot, project: activeProject, metrics: { ...projectSnapshot.metrics, activeTasks: 0, inReview: 0 } });
     window.clearTimeout(workspaceSearchTimer);
     workspaceSearchToken += 1;
     setWorkspaceSearchLoading(false);
@@ -887,9 +902,10 @@ async function refreshProjectContext(snapshot) {
   const invoke = window.__TAURI__?.core?.invoke;
   if (!invoke) return;
   try {
-    const context = await invoke('project_context', { repositoryPath: snapshot.project.repositoryPath });
+    const context = await invoke('project_context', { repositoryPath: activeProject.repositoryPath });
     activeGitBranch = context.branch;
-    renderSnapshot({ ...snapshot, project: { ...snapshot.project, ...context } });
+    activeProject = mergeActiveProject(activeProject, context);
+    renderSnapshot({ ...snapshot, project: activeProject });
     window.clearTimeout(workspaceSearchTimer);
     workspaceSearchToken += 1;
     setWorkspaceSearchLoading(false);
@@ -1152,21 +1168,24 @@ async function connectSidecar(snapshot) {
     const configuredProjectId = await invoke('project_id');
     activeProjectId = configuredProjectId;
     await sendContextRequest('project.list', {}, 'projects');
-    await invoke('sidecar_request', {
-      request: JSON.stringify({ id: `snapshot-${Date.now()}`, method: 'project.snapshot', params: { projectId: configuredProjectId } }),
-    });
+    await requestProjectSnapshot(configuredProjectId);
     await invoke('sidecar_request', {
       request: JSON.stringify({ id: `runtime-${Date.now()}`, method: 'runtime.status' }),
     });
-    await invoke('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list', params: { repositoryPath: snapshot.project.repositoryPath } }) });
+    await invoke('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list', params: { repositoryPath: activeProject.repositoryPath } }) });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `providers-${Date.now()}`, method: 'providers.inspect' }) });
-    await invoke('sidecar_request', { request: JSON.stringify({ id: `services-${Date.now()}`, method: 'service.list', params: { repositoryPath: snapshot.project.repositoryPath } }) });
+    await invoke('sidecar_request', { request: JSON.stringify({ id: `services-${Date.now()}`, method: 'service.list', params: { repositoryPath: activeProject.repositoryPath } }) });
   };
   try {
     await listen('sidecar:response', async (event) => {
       const response = JSON.parse(event.payload);
       const contextPurpose = pendingContextRequests.get(String(response.id));
       if (contextPurpose) pendingContextRequests.delete(String(response.id));
+      const snapshotProjectId = pendingSnapshotProjects.get(String(response.id));
+      if (snapshotProjectId) {
+        pendingSnapshotProjects.delete(String(response.id));
+        if (snapshotProjectId !== activeProjectId) return;
+      }
       if (response.error) {
         if (contextPurpose === 'projects') {
           projectCatalogLoaded = false;
@@ -1215,9 +1234,7 @@ async function connectSidecar(snapshot) {
         if (response.type === 'runtime.completed') notify(`Implementer completed ${response.taskId}.`);
         if (response.type === 'runtime.failed') notify(`Implementer failed: ${response.status.lastError}`);
         if (response.type !== 'runtime.event') {
-          await nativeInvoke('sidecar_request', {
-            request: JSON.stringify({ id: `refresh-${response.taskId}-${Date.now()}`, method: 'project.snapshot', params: { projectId: activeProjectId } }),
-          });
+          await requestProjectSnapshot(activeProjectId, `runtime-${response.taskId}`);
         }
         return;
       }
@@ -1325,10 +1342,11 @@ async function connectSidecar(snapshot) {
         return;
       }
       if (response.result) {
+        const nextProject = mergeActiveProject(activeProject, response.result.project);
         renderSnapshot({
           ...snapshot,
           ...response.result,
-          project: { ...snapshot.project, ...response.result.project },
+          project: nextProject,
           metrics: { ...snapshot.metrics, ...response.result.metrics },
         });
         setSyncState('ready', 'Synced just now');
@@ -1387,9 +1405,7 @@ async function createTaskFromUI(intent) {
     }),
   });
   notify(`Created ${taskId}.`);
-  await nativeInvoke('sidecar_request', {
-    request: JSON.stringify({ id: `refresh-${taskId}`, method: 'project.snapshot', params: { projectId: activeProjectId } }),
-  });
+  await requestProjectSnapshot(activeProjectId, `create-${taskId}`);
 }
 
 async function advanceTaskFromUI(taskId, next, button) {
@@ -1403,9 +1419,7 @@ async function advanceTaskFromUI(taskId, next, button) {
       request: JSON.stringify({ id: `advance-${taskId}-${Date.now()}`, method: 'task.advance', params: { taskId, next, reason: `Transition requested from Work: ${next}`, actor: 'human' } }),
     });
     notify(`${taskId} moved to ${next.replaceAll('_', ' ')}.`);
-    await nativeInvoke('sidecar_request', {
-      request: JSON.stringify({ id: `refresh-${taskId}-${Date.now()}`, method: 'project.snapshot', params: { projectId: activeProjectId } }),
-    });
+    await requestProjectSnapshot(activeProjectId, `advance-${taskId}`);
   } catch (error) {
     button.disabled = false;
     notify('Task transition failed.');
@@ -1439,9 +1453,7 @@ async function restartSidecarFromUI() {
   setSyncState('stale', 'Restarting sidecar…');
   try {
     await nativeInvoke('sidecar_restart');
-    await nativeInvoke('sidecar_request', {
-      request: JSON.stringify({ id: `recovery-${Date.now()}`, method: 'project.snapshot', params: { projectId: activeProjectId } }),
-    });
+    await requestProjectSnapshot(activeProjectId, 'recovery');
     await nativeInvoke('sidecar_request', {
       request: JSON.stringify({ id: `recovery-health-${Date.now()}`, method: 'runtime.health' }),
     });
@@ -1660,7 +1672,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
       request: JSON.stringify({ id: `approve-${taskId}-${Date.now()}`, method: 'task.approve', params: { taskId, reason: 'Human approval confirmed in Changes', actor: 'human' } }),
     }).then(() => {
       notify('Task approved and completed.');
-      return nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `refresh-approve-${Date.now()}`, method: 'project.snapshot', params: { projectId: activeProjectId } }) });
+      return requestProjectSnapshot(activeProjectId, 'approve');
     }).catch((error) => {
       notify('Approval blocked by required gates.');
       console.warn('Approval unavailable:', error);

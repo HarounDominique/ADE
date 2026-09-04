@@ -185,6 +185,11 @@
 
 ## Post-v0.3 — Refinamiento de shell (2026-09-04)
 
+- [x] Task: Mantener sincronizada la identidad del Project seleccionado en toda la shell
+  - Spec: [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md) · [SPEC-git-collaboration.md](../docu/specs/SPEC-git-collaboration.md)
+  - ADR: [0018-active-project-context-state.md](../docu/adr/0018-active-project-context-state.md)
+  - Acceptance: cambiar de Project desde Projects o la topbar actualiza nombre, ruta, Git/No Git y branch sin que un snapshot asíncrono restaure el Project inicial.
+
 - [x] Task: Sincronizar la interacción de Explorer y terminal con la shell actual
   - Acceptance: tema claro/oscuro persistente, navegación lateral redimensionable y persistida por Project, Explorer compacto/expandido con animación fluida, búsqueda recursiva file-first con índice reutilizable, debounce, spinner de carga, ruta contextual para distinguir homónimos y restauración de la rama breadcrumb al seleccionar, dock inferior redimensionable y terminal PTY con transcript único, prompt mínimo, historial y completado de rutas `cd`.
   - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`.
