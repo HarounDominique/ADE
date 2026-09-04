@@ -24,7 +24,8 @@ import { findReferenceImpact } from "./application/knowledge/reference-impact.js
 import { runNativeSkill } from "./application/skills/run-skill.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
-import { createBranch, createCommit, createPullRequest, createWorktree, pushBranch, switchBranch } from "./application/git/git-mutations.js";
+import { commitAndPush, createBranch, createCommit, createPullRequest, createWorktree, fetchOrigin, pushBranch, switchBranch } from "./application/git/git-mutations.js";
+import { inspectPendingGitChanges, listGitCommits, readGitCommitDiff } from "./application/git/version-control.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
 import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation, reconcileChangedDocumentation } from "./application/knowledge/reconcile.js";
@@ -36,7 +37,7 @@ import { LocalGitRepository } from "./adapters/local-git-repository.js";
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; name?: string; skillId?: string; provider?: string; sessionId?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; sessionId?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
 };
 
 export type DesktopResponse = {
@@ -250,6 +251,23 @@ export async function runDesktopSidecar(): Promise<void> {
             return updateProjectSkill({ repositoryPath, skillId }).then((skill) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { ...skill, updated: true } })}\n`));
           }).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SKILL_UPDATE_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
         }
+      } else if (request.method === "git.history") {
+        const directory = request.params?.repositoryPath;
+        if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+        else void listGitCommits(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "git.commit.diff") {
+        const directory = request.params?.repositoryPath;
+        const commit = request.params?.commit;
+        if (!directory || !commit) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and commit are required" } })}\n`);
+        else void readGitCommitDiff(directory, commit, request.params?.file).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "git.pending") {
+        const directory = request.params?.repositoryPath;
+        if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+        else void inspectPendingGitChanges(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "git.fetch.origin") {
+        const params = request.params;
+        if (!params?.repositoryPath || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, actor and reason are required" } })}\n`);
+        else void fetchOrigin({ directory: params.repositoryPath, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_MUTATION_BLOCKED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "git.workspace") {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
@@ -259,18 +277,19 @@ export async function runDesktopSidecar(): Promise<void> {
         process.stdout.write(`${JSON.stringify({ id: request.id, result: { gitWorkflow: loadGatePolicy(directory).gitWorkflow } })}\n`);
       } else if (request.method === "github.status") {
         void inspectGitHub().then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`));
-      } else if (["git.branch.create", "git.branch.switch", "git.worktree.create", "git.commit.create", "git.push", "github.pr.create"].includes(request.method)) {
+      } else if (["git.branch.create", "git.branch.switch", "git.worktree.create", "git.commit.create", "git.commit.push", "git.push", "github.pr.create"].includes(request.method)) {
         const params = request.params;
         if (!params?.repositoryPath || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, actor and reason are required" } })}\n`);
-        else if ((request.method === "git.branch.create" || request.method === "git.commit.create") && !params.intent) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "intent is required for this Git operation" } })}\n`);
+        else if ((request.method === "git.branch.create" || request.method === "git.commit.create" || request.method === "git.commit.push") && !params.intent) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "intent is required for this Git operation" } })}\n`);
         else if (request.method === "git.branch.switch" && !params.branch) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "branch is required for branch switching" } })}\n`);
         else if (request.method === "git.worktree.create" && (!params.worktreePath || !params.branch)) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "worktreePath and branch are required for a worktree" } })}\n`);
         else {
           const base = { directory: params.repositoryPath, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true };
-          const operation = request.method === "git.branch.create" ? createBranch({ ...base, name: params.intent! }) : request.method === "git.branch.switch" ? switchBranch({ ...base, branch: params.branch! }) : request.method === "git.worktree.create" ? createWorktree({ ...base, path: params.worktreePath!, branch: params.branch! }) : request.method === "git.commit.create" ? createCommit({ ...base, message: params.intent! }) : request.method === "git.push" ? pushBranch({ ...base, ...(params.intent ? { branch: params.intent } : {}) }) : createPullRequest({ ...base, title: params.intent ?? "ADE change", body: params.reason });
+          const operation = request.method === "git.branch.create" ? createBranch({ ...base, name: params.intent! }) : request.method === "git.branch.switch" ? switchBranch({ ...base, branch: params.branch! }) : request.method === "git.worktree.create" ? createWorktree({ ...base, path: params.worktreePath!, branch: params.branch! }) : request.method === "git.commit.create" ? createCommit({ ...base, message: params.intent! }) : request.method === "git.commit.push" ? commitAndPush({ ...base, message: params.intent!, ...(params.body ? { body: params.body } : {}) }) : request.method === "git.push" ? pushBranch({ ...base, ...(params.intent ? { branch: params.intent } : {}) }) : createPullRequest({ ...base, title: params.intent ?? "ADE change", body: params.reason });
           void operation.then((result) => {
             if (params.taskId) {
-              const reference = "name" in result ? result.name : "url" in result ? result.url : "branch" in result ? result.branch : "commit" in result ? result.commit : undefined;
+              const candidate = "name" in result ? result.name : "url" in result ? result.url : "branch" in result ? result.branch : "commit" in result ? result.commit : undefined;
+              const reference = typeof candidate === "string" ? candidate : undefined;
               store.saveGitOperation({ id: `git-${request.id}`, taskId: params.taskId, operation: result.operation, ...(reference ? { reference } : {}), actor: params.actor!, reason: params.reason!, metadata: JSON.stringify(result) });
             }
             process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`);

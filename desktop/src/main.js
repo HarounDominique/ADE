@@ -47,6 +47,8 @@ const runtimeEvents = [];
 let registeredProjects = [];
 let projectCatalogLoaded = false;
 let gitBranches = [];
+let gitHistoryCommits = [];
+let selectedGitCommit = null;
 const pendingContextRequests = new Map();
 const pendingSnapshotProjects = new Map();
 const pendingProjectRemovals = new Map();
@@ -591,6 +593,101 @@ function renderGitOperations(operations) {
     : 'No Git operations linked to the selected Task.';
 }
 
+function renderVersionControlTabs(activeTab) {
+  document.querySelectorAll('[data-version-control-tab]').forEach((tab) => {
+    const active = tab.dataset.versionControlTab === activeTab;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+  });
+  document.querySelectorAll('[data-version-control-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.versionControlPanel !== activeTab;
+  });
+}
+
+function renderGitHistory(commits) {
+  const list = document.getElementById('git-commit-list');
+  const status = document.getElementById('git-history-status');
+  if (!list) return;
+  gitHistoryCommits = Array.isArray(commits) ? commits : [];
+  if (!gitHistoryCommits.length) {
+    list.innerHTML = '<div class="git-empty-state">No commits found.</div>';
+    if (status) status.textContent = 'No commits';
+    selectedGitCommit = null;
+    renderGitCommitDetail(null);
+    return;
+  }
+  list.innerHTML = gitHistoryCommits.map((commit) => `<button class="git-commit-item${commit.hash === selectedGitCommit?.hash ? ' active' : ''}" type="button" data-git-commit="${escapeHTML(commit.hash)}"><span class="git-commit-subject">${escapeHTML(commit.subject)}</span><span class="git-commit-item-meta"><code>${escapeHTML(commit.shortHash)}</code><span>${escapeHTML(commit.author)}</span><time>${escapeHTML(formatGitDate(commit.date))}</time></span></button>`).join('');
+  if (status) status.textContent = `${gitHistoryCommits.length} recent commit${gitHistoryCommits.length === 1 ? '' : 's'}`;
+}
+
+function formatGitDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function renderGitCommitDetail(commit, diff = null) {
+  const hash = document.getElementById('git-commit-hash');
+  const title = document.getElementById('git-commit-title');
+  const meta = document.getElementById('git-commit-meta');
+  const count = document.getElementById('git-commit-files-count');
+  const files = document.getElementById('git-commit-files');
+  const output = document.getElementById('git-commit-diff');
+  if (!commit) {
+    if (hash) hash.textContent = 'No commit selected';
+    if (title) title.textContent = 'Select a commit';
+    if (meta) meta.textContent = 'Commit details will appear here.';
+    if (count) count.textContent = '—';
+    if (files) files.innerHTML = '<div class="git-empty-state">Select a commit to inspect its files.</div>';
+    if (output) output.textContent = 'Select a commit to inspect its diff.';
+    return;
+  }
+  if (hash) hash.textContent = commit.shortHash;
+  if (title) title.textContent = commit.subject;
+  if (meta) meta.textContent = `${commit.author} · ${formatGitDate(commit.date)} · ${commit.hash}`;
+  if (count) count.textContent = `${commit.files.length} file${commit.files.length === 1 ? '' : 's'}`;
+  if (files) files.innerHTML = commit.files.length
+    ? commit.files.map((file) => `<button class="git-commit-file" type="button" data-git-commit-file="${escapeHTML(file.path)}" title="Show diff for ${escapeHTML(file.path)}"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></button>`).join('')
+    : '<div class="git-empty-state">No file changes recorded.</div>';
+  if (output && diff !== null) output.textContent = diff || 'No textual diff for this commit.';
+}
+
+function selectGitCommit(hash, file = null) {
+  const commit = gitHistoryCommits.find((candidate) => candidate.hash === hash);
+  if (!commit) return;
+  selectedGitCommit = commit;
+  renderGitHistory(gitHistoryCommits);
+  renderGitCommitDetail(commit, null);
+  if (nativeInvoke) void sendContextRequest('git.commit.diff', { repositoryPath: workspaceRootPath, commit: hash, ...(file ? { file } : {}) }, 'git-diff').catch((error) => notify(error instanceof Error ? error.message : 'Unable to load commit diff.'));
+}
+
+function renderPendingGitChanges(result) {
+  const status = document.getElementById('git-pending-status');
+  const files = document.getElementById('git-pending-files');
+  const diff = document.getElementById('git-pending-diff');
+  const pendingFiles = result?.files ?? [];
+  if (status) status.textContent = pendingFiles.length ? `${pendingFiles.length} pending file${pendingFiles.length === 1 ? '' : 's'}` : 'Working tree clean';
+  if (files) files.innerHTML = pendingFiles.length
+    ? pendingFiles.map((file) => `<div class="git-pending-file"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></div>`).join('')
+    : '<div class="git-empty-state">No changes pending.</div>';
+  if (diff) diff.textContent = result?.diff || 'No pending textual diff.';
+}
+
+function requestVersionControlData(path = workspaceRootPath) {
+  if (!nativeInvoke || !path) return;
+  if (activeVersionControl === 'none') {
+    const message = 'This Project is not a Git repository.';
+    document.getElementById('git-history-status')?.replaceChildren(document.createTextNode(message));
+    document.getElementById('git-pending-status')?.replaceChildren(document.createTextNode(message));
+    renderGitHistory([]);
+    renderPendingGitChanges({ files: [], diff: '' });
+    return;
+  }
+  document.getElementById('git-history-status')?.replaceChildren(document.createTextNode('Loading history…'));
+  document.getElementById('git-pending-status')?.replaceChildren(document.createTextNode('Loading pending changes…'));
+  void sendContextRequest('git.history', { repositoryPath: path }, 'git-history').catch((error) => notify(error instanceof Error ? error.message : 'Unable to load commit history.'));
+  void sendContextRequest('git.pending', { repositoryPath: path }, 'git-pending').catch((error) => notify(error instanceof Error ? error.message : 'Unable to load pending changes.'));
+}
+
 function setSyncState(state, message) {
   const syncLabel = document.querySelector('.sync-label');
   const syncText = document.querySelector('.sync-text');
@@ -936,14 +1033,19 @@ async function refreshProjectContext(snapshot) {
 }
 
 async function refreshGitWorkspace(path, invoke = nativeInvoke) {
-  if (!invoke || !path || activeVersionControl === 'none') {
+  if (!invoke || !path) {
+    return;
+  }
+  if (activeVersionControl === 'none') {
     const output = document.getElementById('git-workspace-output');
     if (activeVersionControl === 'none' && output) output.textContent = 'This Project is not a Git repository.';
+    requestVersionControlData(path);
     return;
   }
   try {
     const result = await invoke('sidecar_request', { request: JSON.stringify({ id: `git-workspace-${Date.now()}`, method: 'git.workspace', params: { repositoryPath: path } }) });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `git-workflow-${Date.now()}`, method: 'git.workflow', params: { repositoryPath: path } }) });
+    requestVersionControlData(path);
     return result;
   } catch (error) { console.warn('Git workspace unavailable:', error); }
 }
@@ -1254,6 +1356,36 @@ async function connectSidecar(snapshot) {
         renderBranchMenu();
         return;
       }
+      if (contextPurpose === 'git-history' && Array.isArray(response.result)) {
+        renderGitHistory(response.result);
+        const first = response.result.find((commit) => commit.hash === selectedGitCommit?.hash) ?? response.result[0];
+        if (first) selectGitCommit(first.hash);
+        return;
+      }
+      if (contextPurpose === 'git-pending' && response.result?.files) {
+        renderPendingGitChanges(response.result);
+        return;
+      }
+      if (contextPurpose === 'git-diff' && response.result?.commit && selectedGitCommit?.hash === response.result.commit) {
+        renderGitCommitDetail(selectedGitCommit, response.result.diff);
+        return;
+      }
+      if (contextPurpose === 'git-fetch') {
+        setSyncState('ready', 'Fetched just now');
+        notify('Fetched origin.');
+        requestVersionControlData(workspaceRootPath);
+        return;
+      }
+      if (contextPurpose === 'git-commit-push') {
+        setSyncState('ready', 'Synced just now');
+        notify('Commit created and pushed.');
+        const title = document.getElementById('commit-title');
+        const body = document.getElementById('commit-body');
+        if (title) title.value = '';
+        if (body) body.value = '';
+        requestVersionControlData(workspaceRootPath);
+        return;
+      }
       if (contextPurpose === 'switch-branch' && response.result?.operation === 'branch.switch') {
         const path = document.getElementById('project-path')?.textContent;
         if (path) await refreshGitWorkspace(path, nativeInvoke);
@@ -1501,7 +1633,7 @@ async function restartSidecarFromUI() {
 function showView(view) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
-  const labels = { projects: 'Projects', editor: 'Editor', work: 'Tasks', knowledge: 'Project context', changes: 'Review queue', runtime: 'Local runtime' };
+  const labels = { projects: 'Projects', editor: 'Editor', work: 'Tasks', knowledge: 'Project context', changes: 'Version control', runtime: 'Local runtime' };
   const crumb = document.getElementById('breadcrumb-current');
   if (crumb) crumb.textContent = labels[view] ?? view;
 }
@@ -1596,6 +1728,18 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     refreshGitWorkspace(document.getElementById('project-path')?.textContent, nativeInvoke);
     return;
   }
+  if (item.dataset.action === 'refresh-version-control') {
+    requestVersionControlData(workspaceRootPath);
+    return;
+  }
+  if (item.dataset.action === 'fetch-origin') {
+    if (!nativeInvoke || activeVersionControl === 'none') { notify('Fetch requires a Git Project.'); return; }
+    if (!window.confirm('Fetch origin for the active Project?')) return;
+    setSyncState('stale', 'Fetching origin…');
+    void sendContextRequest('git.fetch.origin', { repositoryPath: workspaceRootPath, actor: 'human', reason: 'Fetch requested from Version control', confirmed: true }, 'git-fetch').catch((error) => notify(error instanceof Error ? error.message : 'Fetch failed.'));
+    return;
+  }
+  if (item.dataset.action === 'commit-push') return;
   if (item.dataset.action === 'refresh-knowledge') {
     const repositoryPath = document.getElementById('project-path')?.textContent;
     const taskId = selectedTaskId;
@@ -1727,7 +1871,35 @@ document.getElementById('terminal-new-tab')?.addEventListener('click', () => {
 });
 document.getElementById('repository-context-button')?.addEventListener('click', () => toggleGitContextMenu('repository'));
 document.getElementById('branch-context-button')?.addEventListener('click', () => toggleGitContextMenu('branch'));
+document.getElementById('git-commit-form')?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (!nativeInvoke || activeVersionControl === 'none') { notify('Commit requires a Git Project.'); return; }
+  const title = document.getElementById('commit-title')?.value.trim();
+  const body = document.getElementById('commit-body')?.value.trim() ?? '';
+  const pendingStatus = document.getElementById('git-pending-status')?.textContent ?? '';
+  if (!title) { notify('Enter a commit title.'); return; }
+  if (pendingStatus === 'Working tree clean' || pendingStatus.startsWith('This Project')) { notify('There are no pending changes to commit.'); return; }
+  if (!window.confirm(`Commit and push “${title}”?`)) return;
+  setSyncState('stale', 'Committing and pushing…');
+  void sendContextRequest('git.commit.push', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), reason: 'Commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-push').catch((error) => notify(error instanceof Error ? error.message : 'Commit and push failed.'));
+});
 document.addEventListener('click', (event) => {
+  const versionControlTab = event.target.closest('[data-version-control-tab]');
+  if (versionControlTab) {
+    const tab = versionControlTab.dataset.versionControlTab;
+    renderVersionControlTabs(tab);
+    return;
+  }
+  const commitFile = event.target.closest('[data-git-commit-file]');
+  if (commitFile && selectedGitCommit) {
+    selectGitCommit(selectedGitCommit.hash, commitFile.dataset.gitCommitFile);
+    return;
+  }
+  const commitOption = event.target.closest('[data-git-commit]');
+  if (commitOption) {
+    selectGitCommit(commitOption.dataset.gitCommit);
+    return;
+  }
   const removeProjectButton = event.target.closest('[data-remove-project-id]');
   if (removeProjectButton) {
     const project = registeredProjects.find((candidate) => candidate.id === removeProjectButton.dataset.removeProjectId);

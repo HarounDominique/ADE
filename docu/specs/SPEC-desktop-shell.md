@@ -4,7 +4,7 @@
 
 ## Objective
 
-Ofrecer una superficie desktop centrada en proyectos y Tasks, con navegación por Knowledge, Changes y Runtime, incorporando un editor interno de texto acotado sin construir todavía un editor completo.
+Ofrecer una superficie desktop centrada en proyectos y Tasks, con navegación por Knowledge, Version control y Runtime, incorporando un editor interno de texto acotado sin construir todavía un editor completo.
 
 ## Shell contract
 
@@ -22,7 +22,7 @@ El shell debe funcionar sin cloud y conservar la capacidad de abrir el repositor
 
 ## Information architecture
 
-Las áreas visibles son `PROJECTS`, `EDITOR`, `WORK`, `KNOWLEDGE`, `CHANGES` y `RUNTIME`. `Projects` administra el catálogo local y el Project activo; `Editor` es la superficie de ficheros. El resumen del Project comunica branch o ausencia de Git, Tasks, agentes, cambios, gates, revisiones y servicios. La pantalla de resultado debe permitir entender una Task antes de abrir el diff.
+Las áreas visibles son `PROJECTS`, `EDITOR`, `WORK`, `KNOWLEDGE`, `VERSION CONTROL` y `RUNTIME`. `Projects` administra el catálogo local y el Project activo; `Editor` es la superficie de ficheros. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y runtime vive en sus áreas respectivas.
 
 ### Projects
 
@@ -80,9 +80,9 @@ Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y la
 
 Muestra documentos seleccionados, motivo de inclusión, clase (`canonical`, `operational`, `agent`) e impacto pendiente. Los documentos canónicos se abren para consulta mediante Tauri, limitado a `docu/specs`, y sus cambios pasan por la gate documental.
 
-### Changes
+### Version control
 
-Presenta resumen semántico, impacto, findings, archivos, diff, ChangeSets y checkpoints en ese orden. La primera slice selecciona la Task real del `ProjectSnapshot`, priorizando `UNDER_REVIEW` y `READY_FOR_HUMAN`, y muestra un estado vacío explícito si no existe. Las acciones de corregir, aceptar riesgo, descartar y re-review deben mostrar actor, razón y evidencia.
+Conserva el icono de control de versiones y sustituye la antigua cola de revisión. La pestaña `History` lista los commits recientes del Project activo; al seleccionar uno muestra autor, fecha, ficheros modificados y el diff del commit, con selección opcional de un fichero para aislar su diff. La pestaña `Changes` muestra ficheros pendientes y diff local, y ofrece título de commit, cuerpo opcional y `Commit & Push`. `Fetch origin` actualiza las referencias remotas bajo confirmación explícita. Los estados `No Git`, `loading`, `empty`, `failed`, `fetching` y `committing` deben ser visibles; un fallo de push no oculta el commit si ya llegó a crearse.
 
 ### Runtime
 
@@ -116,7 +116,7 @@ npm run desktop:test
 npm run desktop:package:app
 ```
 
-La shell actual se verifica con `npm run build`, `npm test` (94 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
+La shell actual se verifica con `npm run build`, `npm test` (96 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
 
 El shell visual vive en `desktop/src/`. `project-snapshot.js` define el boundary de arranque y `project-context.js` conserva la fusión del Project activo. El comando Tauri `project_context` aporta contexto local y selecciona la raíz canónica. La UI no accede directamente a SQLite, Git ni procesos: Projects y ramas se obtienen mediante el sidecar y el cambio de raíz pasa por Tauri.
 
@@ -132,7 +132,7 @@ La revisión se presenta de mayor a menor nivel de detalle: resumen semántico, 
 
 Tests de componentes para estados de Task y gates; tests de integración para crear Project, crear/reanudar Task, observar ChangeSet y revisar; test end-to-end del flujo principal con adapters fake; smoke test del shell en el sistema operativo objetivo; y test de escape hatch para IDE/terminal.
 
-La primera vertical de UI debe probar: abrir `Projects` → seleccionar fichero → editarlo y guardarlo dentro de ADE → crear Task → observar Implementer → consultar Review → reconciliar documentación → aprobar → preparar commit. No se exige editor completo, autocompletado general de comandos, language server ni colaboración realtime; el completado de rutas de `cd` forma parte del contrato de terminal.
+La primera vertical de UI debe probar: abrir `Projects` → seleccionar fichero → editarlo y guardarlo dentro de ADE → crear Task → observar Implementer → consultar Version control → revisar historial o cambios pendientes → preparar commit. No se exige editor completo, autocompletado general de comandos, language server ni colaboración realtime; el completado de rutas de `cd` forma parte del contrato de terminal.
 
 ## Boundaries
 

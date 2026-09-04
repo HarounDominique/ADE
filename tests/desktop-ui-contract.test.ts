@@ -57,7 +57,7 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /method: 'skills\.run'/);
   assert.match(main, /method: 'skills\.install'/);
   assert.match(main, /method: 'github\.status'/);
-  for (const id of ["changes-changeset", "changes-findings", "git-task-operations"]) assert.match(html, new RegExp(`id="${id}"`));
+  for (const id of ["git-commit-list", "git-commit-files", "git-commit-diff", "git-pending-files", "git-pending-diff", "commit-title", "commit-body"]) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(main, /Persisted activity/);
   assert.match(main, /method: 'knowledge\.reconcile\.changed'/);
   assert.match(main, /renderProviders/);
@@ -70,6 +70,11 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /renderServices/);
   assert.match(html, /id="runtime-service-list"/);
   assert.match(html, /id="document-viewer"/);
+  assert.match(main, /git\.history/);
+  assert.match(main, /git\.commit\.diff/);
+  assert.match(main, /git\.pending/);
+  assert.match(main, /git\.fetch\.origin/);
+  assert.match(main, /git\.commit\.push/);
   assert.match(html, /data-action="open-file-external"/);
   assert.match(html, /data-action="save-file"/);
   assert.match(html, /data-action="discard-file"/);

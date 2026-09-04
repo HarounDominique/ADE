@@ -27,12 +27,25 @@ export async function createWorktree(input: ConfirmedOperation & { path: string;
   return { operation: "worktree.create", path: input.path, branch: input.branch, actor: input.actor, reason: input.reason };
 }
 
-export async function createCommit(input: ConfirmedOperation & { message: string }) {
+export async function createCommit(input: ConfirmedOperation & { message: string; body?: string }) {
   assertConfirmed(input);
   await execFile("git", ["add", "--all"], { cwd: input.directory });
-  const result = await execFile("git", ["commit", "-m", input.message], { cwd: input.directory });
+  const result = await execFile("git", ["commit", "-m", input.message, ...(input.body ? ["-m", input.body] : [])], { cwd: input.directory });
   const commit = (await execFile("git", ["rev-parse", "HEAD"], { cwd: input.directory })).stdout.trim();
   return { operation: "commit.create", message: input.message, commit, output: result.stdout.trim(), actor: input.actor, reason: input.reason };
+}
+
+export async function commitAndPush(input: ConfirmedOperation & { message: string; body?: string }) {
+  assertConfirmed(input);
+  const commit = await createCommit(input);
+  const push = await pushBranch(input);
+  return { operation: "commit.push", commit: commit.commit, branch: push.branch, output: `${commit.output}\n${push.output}`.trim(), actor: input.actor, reason: input.reason };
+}
+
+export async function fetchOrigin(input: ConfirmedOperation & { remote?: string }) {
+  assertConfirmed(input);
+  const result = await execFile("git", ["fetch", input.remote ?? "origin"], { cwd: input.directory });
+  return { operation: "fetch.origin", output: result.stdout.trim(), actor: input.actor, reason: input.reason };
 }
 
 export async function createPullRequest(input: ConfirmedOperation & { title: string; body: string; base?: string }) {
