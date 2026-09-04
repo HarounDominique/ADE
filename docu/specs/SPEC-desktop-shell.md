@@ -22,16 +22,24 @@ El shell debe funcionar sin cloud y conservar la capacidad de abrir el repositor
 
 ## Information architecture
 
-Las cinco áreas visibles son `PROJECT`, `WORK`, `KNOWLEDGE`, `CHANGES` y `RUNTIME`. El Project Hub comunica rama, estado Git, Tasks, agentes, cambios, gates, revisiones y servicios. La pantalla de resultado debe permitir entender una Task antes de abrir el diff.
+Las áreas visibles son `PROJECTS`, `EDITOR`, `WORK`, `KNOWLEDGE`, `CHANGES` y `RUNTIME`. `Projects` administra el catálogo local y el Project activo; `Editor` es la superficie de ficheros. El resumen del Project comunica branch o ausencia de Git, Tasks, agentes, cambios, gates, revisiones y servicios. La pantalla de resultado debe permitir entender una Task antes de abrir el diff.
+
+### Projects
+
+La entrada `Projects` lista los Projects registrados y ofrece `Add project`, que abre el selector nativo de carpetas. Cada fila muestra nombre, ruta y `Git`/`No Git`, permite activar el Project y refleja estados de carga, vacío, error y cambio. La pantalla y el selector `Current project` de la topbar consumen el mismo catálogo persistido.
+
+### Editor
+
+`Editor` muestra el fichero de texto activo con nombre, ruta relativa, estado dirty, `Save`, `Discard` y apertura externa explícita. Seleccionar un fichero en Explorer o encontrarlo mediante búsqueda activa esta vista automáticamente. Sin fichero activo se muestra un estado vacío accionable; cerrar el documento no abre aplicaciones externas ni cambia el Project.
 
 ### Git context bar
 
 La topbar no duplica el buscador del Explorer. En su lugar presenta dos selectores persistentes y navegables, inspirados en los gestores Git de escritorio:
 
-- `Current repository` muestra el Project Git activo y abre los Projects locales previamente registrados, con nombre y ruta suficiente para distinguirlos.
-- `Current branch` muestra la rama activa y abre las ramas locales del Project activo, consultadas bajo demanda desde `git.workspace`.
+- `Current project` muestra el Project activo —Git o No Git— y abre los Projects locales previamente registrados, con nombre, ruta y tipo de control de versiones.
+- `Current branch` muestra la rama activa y abre las ramas locales del Project Git activo, consultadas bajo demanda desde `git.workspace`; en un Project No Git muestra `No Git` y queda deshabilitado.
 
-Seleccionar un Project cambia el contexto canónico de Tauri, refresca snapshot, árbol, branch, servicios, skills y estado Git, y conserva la selección de fichero sólo si sigue perteneciendo a la nueva raíz. Seleccionar una rama ejecuta `git switch` mediante el sidecar; no fuerza ni descarta cambios. Si Git rechaza la operación, se muestra el error y permanece visible el contexto anterior. Los menús deben exponer estados `loading`, `empty`, `failed` y `switching`, cerrar al seleccionar o pulsar fuera y ser navegables por teclado.
+Seleccionar un Project cambia el contexto canónico de Tauri, refresca snapshot, árbol, Editor, branch, servicios, skills y estado Git, y conserva la selección de fichero sólo si sigue perteneciendo a la nueva raíz. Seleccionar una rama ejecuta `git switch` mediante el sidecar sólo si el Project es Git; no fuerza ni descarta cambios. Si Git rechaza la operación, se muestra el error y permanece visible el contexto anterior. Los menús deben exponer estados `loading`, `empty`, `failed` y `switching`, cerrar al seleccionar o pulsar fuera y ser navegables por teclado.
 
 El Explorer mantiene el buscador como única búsqueda de ficheros. Una lupa accionable junto al título `Explorer` enfoca el filtro sin crear una segunda búsqueda.
 

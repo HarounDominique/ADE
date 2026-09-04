@@ -4,7 +4,7 @@
 
 ## Objective
 
-Ofrecer un workspace local navegable donde el desarrollador vea el árbol de directorios, abra archivos dentro de ADE y use una terminal nativa del sistema sin perder el Project y la Task activa. El árbol debe mantener visible la ruta del archivo activo y permitir convertir el Explorer en el foco principal cuando el usuario lo necesite.
+Ofrecer un workspace local navegable donde el desarrollador vea el árbol de directorios, abra archivos dentro de ADE y use una terminal nativa del sistema sin perder el Project y la Task activa. El workspace puede pertenecer a un Project Git o No Git. El árbol debe mantener visible la ruta del archivo activo y permitir convertir el Explorer en el foco principal cuando el usuario lo necesite.
 
 ## Commands
 

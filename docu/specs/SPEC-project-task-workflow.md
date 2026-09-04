@@ -22,7 +22,7 @@ Workspace → Project → Task
 
 ## Project and Repository contract
 
-`Project` es la identidad estable que agrupa un repositorio local y su configuración de ADE. `Repository` representa la ubicación Git concreta. En v0.1 la relación es `Project 1 → 1 Repository`, pero `Task` sólo conserva `projectId` y `repositoryPath` como referencias; no incorpora la lógica de Git ni crea branches automáticamente.
+`Project` es la identidad estable que agrupa una carpeta local y su configuración de ADE. `Repository` representa el control de versiones detectado, que puede ser Git o ninguno. En v0.1 la relación era `Project 1 → 1 Repository` Git; la shell actual mantiene la misma relación operativa para carpetas `No Git`, pero `Task` sólo conserva `projectId` y `repositoryPath` como referencias y no incorpora lógica de Git ni crea branches automáticamente.
 
 ```ts
 type Project = {
@@ -34,8 +34,9 @@ type Project = {
 
 type Repository = {
   path: string;
-  gitRoot: string;
+  gitRoot?: string;
   branch?: string;
+  versionControl: "git" | "none";
 };
 ```
 
@@ -43,12 +44,12 @@ Invariantes del contrato:
 
 - `id`, `name` y `repositoryPath` no pueden estar vacíos.
 - `repositoryPath` debe ser absoluto y apuntar a un directorio existente.
-- El repositorio debe poder identificarse mediante `git rev-parse --show-toplevel`; la validación no modifica el árbol de trabajo.
-- Dos Projects no pueden registrar el mismo `gitRoot` dentro de la misma base ADE.
+- La carpeta debe existir y resolverse a una ruta canónica; si contiene Git se identifica mediante `git rev-parse --show-toplevel`, sin modificar el árbol de trabajo.
+- Dos Projects no pueden registrar el mismo `gitRoot` Git ni la misma carpeta local `No Git` dentro de la misma base ADE.
 - Una Task puede existir antes de que se complete la detección de branch; el branch es metadata mutable, no identidad.
 - El dominio no depende de un cliente Git concreto: la detección se realiza detrás de un puerto/adaptador.
 
-La creación de Project falla de forma explícita si la ruta no existe, no es un repositorio Git o ya está registrada. La operación debe devolver la raíz Git canónica para evitar duplicados por rutas relativas o subdirectorios.
+La creación de Project falla de forma explícita si la ruta no existe o ya está registrada. Una carpeta sin Git se acepta y se marca `versionControl: "none"`; un repositorio Git devuelve además su raíz canónica para evitar duplicados por rutas relativas o subdirectorios.
 
 ### Acceptance criteria
 

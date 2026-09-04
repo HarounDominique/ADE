@@ -208,6 +208,16 @@
   - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`; bundle `.app` generado y arrancado manualmente en macOS; smoke gráfico automatizado pendiente.
   - Files: `desktop/src/`, `desktop/src-tauri/src/lib.rs`, `tests/`, `docu/specs/`.
 
+- [x] Task: Convertir Overview en Projects y admitir carpetas No Git
+  - Spec: [SPEC-project-task-workflow.md](../docu/specs/SPEC-project-task-workflow.md) · [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md)
+  - ADR: [0017-projects-and-editor-navigation.md](../docu/adr/0017-projects-and-editor-navigation.md)
+  - Acceptance: Projects lista Projects persistidos, permite añadir una carpeta local desde el selector macOS y distingue Git/No Git; el selector superior usa el mismo catálogo.
+  - Verify: `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml`, build desktop y alta manual de una carpeta con y sin Git.
+
+- [x] Task: Convertir el visor en Editor navegable
+  - Acceptance: Editor es una opción lateral explícita; abrir o buscar un fichero activa Editor y conserva edición, guardado, descarte y estado vacío.
+  - Verify: contrato UI, `node --check desktop/src/main.js` y prueba manual de apertura desde Explorer.
+
 - [x] Task: Añadir selector visual de repositorio y branch
   - Spec: [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md) · [SPEC-git-collaboration.md](../docu/specs/SPEC-git-collaboration.md)
   - ADR: [0016-git-context-switcher.md](../docu/adr/0016-git-context-switcher.md)
