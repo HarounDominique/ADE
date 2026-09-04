@@ -94,6 +94,9 @@ let gitWorkflow = 'pull-request';
 let selectedTaskId = null;
 let selectedTaskIntent = '';
 let providerStatuses = [];
+let agentSessions = [];
+let activeAgentSessionId = null;
+let agentPromptRunning = false;
 const runtimeEvents = [];
 let activeView = 'projects';
 let pendingGitRefreshInFlight = false;
@@ -1244,6 +1247,96 @@ function renderSkills(skills) {
   refreshSelectedSkill();
 }
 
+function requestAgentSessions(path = workspaceRootPath) {
+  if (!nativeInvoke || !path) return;
+  const id = `agent-sessions-${Date.now()}`;
+  pendingContextRequests.set(id, 'agent-sessions');
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.sessions', params: { repositoryPath: path } }) });
+}
+
+function requestAgentMessages(sessionId) {
+  if (!nativeInvoke || !sessionId) return;
+  const id = `agent-messages-${Date.now()}`;
+  pendingContextRequests.set(id, 'agent-messages');
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.messages', params: { sessionId } }) });
+}
+
+function renderAgentSessions(sessions) {
+  agentSessions = sessions;
+  const list = document.getElementById('agent-session-list');
+  if (!list) return;
+  if (!sessions.length) {
+    list.innerHTML = '<p class="agent-empty-state">No persisted sessions for this Project.</p>';
+    return;
+  }
+  list.innerHTML = sessions.map((session) => `<button class="agent-session-item${session.id === activeAgentSessionId ? ' active' : ''}" type="button" data-agent-session-id="${escapeHTML(session.id)}"><span class="agent-session-item-top"><strong>${escapeHTML(session.provider)}</strong><span>${escapeHTML(session.status.toLowerCase())}</span></span><span class="agent-session-item-id">${escapeHTML(session.id)}</span><small>${escapeHTML(new Date(session.updatedAt).toLocaleString())}</small></button>`).join('');
+}
+
+function renderAgentMessages(messages) {
+  const list = document.getElementById('agent-message-list');
+  if (!list) return;
+  if (!messages.length) {
+    list.innerHTML = '<li class="agent-empty-state">Send a prompt to begin.</li>';
+    return;
+  }
+  list.innerHTML = messages.map((message) => `<li class="agent-message agent-message-${escapeHTML(message.role)}"><div class="agent-message-meta"><strong>${escapeHTML(message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Agent' : 'ADE')}</strong><time>${escapeHTML(new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time></div><div class="agent-message-content">${escapeHTML(message.content)}</div></li>`).join('');
+  list.scrollTop = list.scrollHeight;
+}
+
+function selectAgentSession(sessionId) {
+  const session = agentSessions.find((candidate) => candidate.id === sessionId);
+  if (!session) return;
+  activeAgentSessionId = session.id;
+  selectedProvider = session.provider;
+  const provider = document.getElementById('agent-provider');
+  if (provider) provider.value = selectedProvider;
+  const providerLabel = document.getElementById('agent-session-provider');
+  const title = document.getElementById('agent-session-title');
+  const context = document.getElementById('agent-session-context');
+  if (providerLabel) providerLabel.textContent = `${session.provider} · ${session.status.toLowerCase()}`;
+  if (title) title.textContent = `Session ${session.id.slice(0, 18)}`;
+  if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
+  renderAgentSessions(agentSessions);
+  requestAgentMessages(session.id);
+}
+
+function startNewAgentSession() {
+  activeAgentSessionId = null;
+  renderAgentSessions(agentSessions);
+  renderAgentMessages([]);
+  const providerLabel = document.getElementById('agent-session-provider');
+  const title = document.getElementById('agent-session-title');
+  const context = document.getElementById('agent-session-context');
+  if (providerLabel) providerLabel.textContent = `${selectedProvider} · new session`;
+  if (title) title.textContent = 'Start an agent session';
+  if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
+  document.getElementById('agent-prompt-input')?.focus();
+}
+
+function sendAgentPrompt(event) {
+  event.preventDefault();
+  if (!nativeInvoke || agentPromptRunning) return;
+  const input = document.getElementById('agent-prompt-input');
+  const prompt = input?.value.trim();
+  const provider = document.getElementById('agent-provider')?.value ?? selectedProvider;
+  if (!prompt) return;
+  if (!providerIsAvailable(provider)) { notify('Selected agent provider is unavailable.'); return; }
+  const permissions = [...document.querySelectorAll('#agent-prompt-form input[type="checkbox"]:checked')].map((item) => item.value);
+  if (permissions.length && !window.confirm(`Allow this agent to: ${permissions.join(', ')}?`)) return;
+  selectedProvider = provider;
+  agentPromptRunning = true;
+  const button = document.getElementById('agent-send-button');
+  const feedback = document.getElementById('agent-feedback');
+  if (button) button.disabled = true;
+  if (feedback) feedback.textContent = `Sending prompt to ${provider}…`;
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `agent-prompt-${Date.now()}`, method: 'agent.prompt', params: { provider, repositoryPath: workspaceRootPath, prompt, ...(activeAgentSessionId ? { sessionId: activeAgentSessionId } : {}), ...(selectedTaskId && selectedTaskId !== '—' ? { taskId: selectedTaskId } : {}), grantedPermissions: permissions } }) }).catch((error) => {
+    agentPromptRunning = false;
+    if (button) button.disabled = false;
+    if (feedback) feedback.textContent = `Agent failed: ${error}`;
+  });
+  if (input) input.value = '';
+}
+
 function renderProjectTasks(tasks) {
   const lists = [...document.querySelectorAll('#project-task-list, #work-task-list')];
   if (lists.length === 0 || tasks.length === 0) return;
@@ -1601,6 +1694,7 @@ async function connectSidecar(snapshot) {
     await invoke('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list', params: { repositoryPath: activeProject.repositoryPath } }) });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `providers-${Date.now()}`, method: 'providers.inspect' }) });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `services-${Date.now()}`, method: 'service.list', params: { repositoryPath: activeProject.repositoryPath } }) });
+    requestAgentSessions(activeProject.repositoryPath);
   };
   try {
     await listen('sidecar:response', async (event) => {
@@ -1614,6 +1708,11 @@ async function connectSidecar(snapshot) {
         if (snapshotProjectId !== activeProjectId) return;
       }
       if (response.error) {
+        if (String(response.id).startsWith('agent-prompt-')) {
+          agentPromptRunning = false;
+          const sendButton = document.getElementById('agent-send-button');
+          if (sendButton) sendButton.disabled = false;
+        }
         if (contextPurpose === 'remove-project') pendingProjectRemovals.delete(String(response.id));
         if (contextPurpose === 'projects') {
           projectCatalogLoaded = false;
@@ -1684,6 +1783,14 @@ async function connectSidecar(snapshot) {
         renderDiffOutput(document.getElementById('git-pending-diff'), response.result.diff, 'No textual diff for this file.');
         return;
       }
+      if (contextPurpose === 'agent-sessions' && Array.isArray(response.result)) {
+        renderAgentSessions(response.result);
+        return;
+      }
+      if (contextPurpose === 'agent-messages' && Array.isArray(response.result)) {
+        renderAgentMessages(response.result);
+        return;
+      }
       if (contextPurpose === 'git-diff' && response.result?.commit && selectedGitCommit?.hash === response.result.commit) {
         renderGitCommitDetail(selectedGitCommit, response.result.diff);
         return;
@@ -1739,6 +1846,27 @@ async function connectSidecar(snapshot) {
         const payload = response.event?.payload;
         if (feedback) feedback.textContent = `${response.skillId}: ${payload?.type ?? response.event?.type ?? 'event'}`;
         renderRuntimeEvent(selectedTaskId ?? 'skill', response.event);
+        return;
+      }
+      if (response.type === 'agent.started') {
+        activeAgentSessionId = response.sessionId;
+        const providerLabel = document.getElementById('agent-session-provider');
+        const title = document.getElementById('agent-session-title');
+        const context = document.getElementById('agent-session-context');
+        if (providerLabel) providerLabel.textContent = `${response.provider} · running`;
+        if (title) title.textContent = `Session ${response.sessionId.slice(0, 18)}`;
+        if (context) context.textContent = `${activeProject.name} · ${response.taskId ?? 'no Task selected'}`;
+        return;
+      }
+      if (response.result?.sessionId && response.result?.provider && response.result?.status === 'COMPLETED') {
+        activeAgentSessionId = response.result.sessionId;
+        agentPromptRunning = false;
+        const button = document.getElementById('agent-send-button');
+        const feedback = document.getElementById('agent-feedback');
+        if (button) button.disabled = false;
+        if (feedback) feedback.textContent = `${response.result.provider} completed this turn.`;
+        requestAgentSessions(workspaceRootPath);
+        requestAgentMessages(activeAgentSessionId);
         return;
       }
       if (response.result?.agentRuntime) {
@@ -1967,10 +2095,11 @@ function showView(view) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
   document.querySelector('.main-content')?.classList.toggle('editor-focus', view === 'editor');
-  const labels = { projects: 'Projects', editor: 'Editor', work: 'Tasks', knowledge: 'Project context', changes: 'Version control', runtime: 'Local runtime' };
+  const labels = { projects: 'Projects', editor: 'Editor', agents: 'Agents', work: 'Tasks', knowledge: 'Project context', changes: 'Version control', runtime: 'Local runtime' };
   const crumb = document.getElementById('breadcrumb-current');
   if (crumb) crumb.textContent = labels[view] ?? view;
   if (view === 'changes') requestVersionControlData(workspaceRootPath);
+  if (view === 'agents') requestAgentSessions(workspaceRootPath);
 }
 
 function notify(message) {
@@ -2320,6 +2449,11 @@ document.addEventListener('click', (event) => {
     runSkillFromUI(resumeButton.dataset.resumeSession);
     return;
   }
+  const agentSession = event.target.closest('[data-agent-session-id]');
+  if (agentSession) {
+    selectAgentSession(agentSession.dataset.agentSessionId);
+    return;
+  }
   const directoryEntry = event.target.closest('[data-directory-path].directory');
   if (directoryEntry) {
     if (!explorerExpanded) void expandExplorerFrom(directoryEntry);
@@ -2358,6 +2492,8 @@ document.getElementById('agent-provider')?.addEventListener('change', (event) =>
   selectedProvider = event.target.value;
   renderProviderSelection();
 });
+document.getElementById('agent-prompt-form')?.addEventListener('submit', sendAgentPrompt);
+document.querySelector('[data-action="new-agent-session"]')?.addEventListener('click', startNewAgentSession);
 initializeCodeEditor();
 document.getElementById('agent-skill')?.addEventListener('change', refreshSelectedSkill);
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });

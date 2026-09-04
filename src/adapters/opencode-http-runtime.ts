@@ -39,7 +39,7 @@ export class OpenCodeHttpRuntime implements AgentRuntimePort {
     return { id: session.id, directory: input.directory };
   }
 
-  async prompt(session: SessionHandle, input: { text: string; agent?: string }): Promise<void> {
+  async prompt(session: SessionHandle, input: { text: string; agent?: string }): Promise<unknown> {
     const response = await this.request(`/session/${encodeURIComponent(session.id)}/prompt_async`, {
       method: "POST",
       headers: {
@@ -54,6 +54,7 @@ export class OpenCodeHttpRuntime implements AgentRuntimePort {
     if (response.status !== 204) {
       throw new Error(`Unexpected prompt response: ${response.status}`);
     }
+    return undefined;
   }
 
   async promptAndWait(session: SessionHandle, input: StructuredPrompt): Promise<unknown> {

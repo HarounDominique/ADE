@@ -54,6 +54,7 @@ export type PersistedReview = {
 export type PersistedRuntimeEvidence = RuntimeEvidence;
 export type GitOperation = { id: string; taskId: string; operation: string; reference?: string; actor: string; reason: string; at: string; metadata?: string };
 export type AgentSession = { id: string; taskId?: string; provider: string; directory: string; status: string; createdAt: string; updatedAt: string };
+export type AgentMessage = { id: string; sessionId: string; role: "user" | "assistant" | "system"; content: string; createdAt: string };
 
 export class AdeStore {
   readonly db: DatabaseSync;
@@ -144,6 +145,13 @@ export class AdeStore {
         status TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS agent_messages (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL REFERENCES agent_sessions(id) ON DELETE CASCADE,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL
       );
     `);
     this.migrateTasks();
@@ -365,6 +373,14 @@ export class AdeStore {
   listAgentSessions(taskId?: string): AgentSession[] {
     const query = taskId ? `SELECT id, task_id AS taskId, provider, directory, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE task_id = ? ORDER BY updated_at DESC` : `SELECT id, task_id AS taskId, provider, directory, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions ORDER BY updated_at DESC`;
     return (taskId ? this.db.prepare(query).all(taskId) : this.db.prepare(query).all()) as AgentSession[];
+  }
+
+  saveAgentMessage(input: Omit<AgentMessage, "createdAt"> & { createdAt?: string }): void {
+    this.db.prepare(`INSERT INTO agent_messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content = excluded.content`).run(input.id, input.sessionId, input.role, input.content, input.createdAt ?? new Date().toISOString());
+  }
+
+  listAgentMessages(sessionId: string): AgentMessage[] {
+    return this.db.prepare(`SELECT id, session_id AS sessionId, role, content, created_at AS createdAt FROM agent_messages WHERE session_id = ? ORDER BY created_at ASC, id ASC`).all(sessionId) as AgentMessage[];
   }
 
   saveApproval(input: { taskId: string; actor: string; reason: string; at?: string }): void {

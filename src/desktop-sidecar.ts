@@ -37,7 +37,7 @@ import { LocalGitRepository } from "./adapters/local-git-repository.js";
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; sessionId?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; sessionId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
 };
 
 export type DesktopResponse = {
@@ -189,6 +189,16 @@ export async function runDesktopSidecar(): Promise<void> {
         void inspectProviders(process.env.OPENCODE_URL ? { opencodeUrl: process.env.OPENCODE_URL } : {})
           .then((providers) => process.stdout.write(`${JSON.stringify({ id: request.id, result: providers })}\n`))
           .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "PROVIDERS_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "agent.sessions") {
+        const repositoryPath = request.params?.repositoryPath;
+        const sessions = store.listAgentSessions().filter((session) => !repositoryPath || session.directory === repositoryPath);
+        process.stdout.write(`${JSON.stringify({ id: request.id, result: sessions })}\n`);
+      } else if (request.method === "agent.messages") {
+        const sessionId = request.params?.sessionId;
+        if (!sessionId) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "sessionId is required" } })}\n`);
+        else process.stdout.write(`${JSON.stringify({ id: request.id, result: store.listAgentMessages(sessionId) })}\n`);
+      } else if (request.method === "agent.prompt") {
+        startAgentPrompt(store, request);
       } else if (request.method === "skills.run") {
         const params = request.params;
         if (!params?.skillId || !params.intent || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "skillId, intent and repositoryPath are required" } })}\n`);
@@ -421,6 +431,84 @@ async function checkRuntimeHealth(request: DesktopRequest): Promise<void> {
     runtimeStatus.lastError = error instanceof Error ? error.message : String(error);
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RUNTIME_UNAVAILABLE", message: runtimeStatus.lastError }, status: getRuntimeStatus() })}\n`);
   }
+}
+
+function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
+  const params = request.params;
+  if (!params?.provider || !params.repositoryPath || !params.prompt?.trim()) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "provider, repositoryPath and prompt are required" } })}\n`);
+    return;
+  }
+  const provider = params.provider;
+  if (provider !== "codex" && provider !== "opencode") {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "PROVIDER_NOT_SUPPORTED", message: `Unsupported agent provider: ${provider}` } })}\n`);
+    return;
+  }
+  void (async () => {
+    const runtime = provider === "codex" ? new CodexCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+    const session = params.sessionId
+      ? { id: params.sessionId, directory: params.repositoryPath! }
+      : await runtime.createSession({ directory: params.repositoryPath!, title: `ADE ${params.taskId ?? "agent"}` });
+    const isNewCodexSession = provider === "codex" && session.id.startsWith("codex-pending-");
+    const createdAt = new Date().toISOString();
+    if (!isNewCodexSession) {
+      store.saveAgentSession({ id: session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider, directory: params.repositoryPath!, status: "RUNNING", createdAt });
+    }
+    process.stdout.write(`${JSON.stringify({ type: "agent.started", id: request.id, sessionId: session.id, provider, taskId: params.taskId ?? null })}\n`);
+    const eventTexts: string[] = [];
+    const eventPromise = provider === "opencode"
+      ? collectAgentEvents(runtime, eventTexts)
+      : Promise.resolve();
+    const rawOutput = await runtime.prompt(session, { text: params.prompt! });
+    await eventPromise;
+    if (isNewCodexSession && session.id.startsWith("codex-pending-")) throw new Error("Codex completed without reporting a resumable session id");
+    store.saveAgentSession({ id: session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider, directory: params.repositoryPath!, status: "COMPLETED", createdAt });
+    store.saveAgentMessage({ id: `agent-${request.id}-user`, sessionId: session.id, role: "user", content: params.prompt!, createdAt });
+    const output = provider === "codex" ? extractCodexText(rawOutput) : eventTexts.join("\n\n").trim();
+    if (output) store.saveAgentMessage({ id: `agent-${request.id}-assistant`, sessionId: session.id, role: "assistant", content: output, createdAt: new Date().toISOString() });
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: { sessionId: session.id, provider, status: "COMPLETED", output } })}\n`);
+  })().catch((error: unknown) => {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "AGENT_PROMPT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
+  });
+}
+
+async function collectAgentEvents(runtime: import("./ports/agent-runtime.js").AgentRuntimePort, texts: string[]): Promise<void> {
+  const controller = new AbortController();
+  const collect = (async () => {
+    for await (const event of runtime.events(controller.signal)) {
+      const text = extractAgentEventText(event.payload);
+      if (text && !texts.includes(text)) texts.push(text);
+      const payload = event.payload as { type?: string };
+      if (payload.type === "session.idle") break;
+    }
+  })();
+  await Promise.race([collect, new Promise<void>((resolve) => setTimeout(resolve, 45_000))]);
+  controller.abort();
+}
+
+function extractAgentEventText(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return typeof value === "string" ? value : undefined;
+  const item = value as Record<string, unknown>;
+  const direct = [item.text, item.output, (item.item as Record<string, unknown> | undefined)?.text, (item.message as Record<string, unknown> | undefined)?.text, (item.part as Record<string, unknown> | undefined)?.text, (item.properties as Record<string, unknown> | undefined)?.text];
+  const found = direct.find((candidate): candidate is string => typeof candidate === "string" && candidate.trim().length > 0);
+  if (found) return found.trim();
+  const parts = item.parts;
+  if (Array.isArray(parts)) return parts.map(extractAgentEventText).filter((candidate): candidate is string => Boolean(candidate)).join("\n").trim() || undefined;
+  return undefined;
+}
+
+function extractCodexText(value: unknown): string {
+  if (typeof value !== "string") return value ? JSON.stringify(value) : "";
+  const outputs: string[] = [];
+  for (const line of value.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    try {
+      const event = JSON.parse(line) as Record<string, unknown>;
+      const text = extractAgentEventText(event) ?? extractAgentEventText(event.message);
+      if (text && !outputs.includes(text)) outputs.push(text);
+    } catch { /* Codex may emit a human-readable line alongside JSONL. */ }
+  }
+  return outputs.join("\n\n").trim() || value.trim();
 }
 
 function startTaskRun(store: AdeStore, request: DesktopRequest): void {

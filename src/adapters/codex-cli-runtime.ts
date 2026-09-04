@@ -25,8 +25,8 @@ export class CodexCliRuntime implements AgentRuntimePort {
     return { id: `codex-pending-${randomUUID()}`, directory: input.directory };
   }
 
-  async prompt(session: SessionHandle, input: { text: string }): Promise<void> {
-    await this.executePrompt(session, input.text);
+  async prompt(session: SessionHandle, input: { text: string }): Promise<unknown> {
+    return this.executePrompt(session, input.text);
   }
 
   async promptAndWait(session: SessionHandle, input: StructuredPrompt): Promise<unknown> {

@@ -7,13 +7,27 @@ const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "u
 const styles = readFileSync(new URL("../desktop/src/styles.css", import.meta.url), "utf8");
 
 test("desktop shell keeps the project workbench areas and critical actions", () => {
-  for (const view of ["projects", "editor", "work", "knowledge", "changes", "runtime"]) {
+  for (const view of ["projects", "editor", "agents", "work", "knowledge", "changes", "runtime"]) {
     assert.match(html, new RegExp(`data-view=\"${view}\"`));
     assert.match(html, new RegExp(`data-panel=\"${view}\"`));
   }
-  for (const action of ["new-task", "open-document", "check-runtime", "restart-sidecar", "refresh-tree", "run-skill", "install-skill", "github-status", "create-worktree", "push-branch", "refresh-knowledge"]) {
+  for (const action of ["new-task", "open-document", "check-runtime", "restart-sidecar", "refresh-tree", "run-skill", "install-skill", "new-agent-session", "github-status", "create-worktree", "push-branch", "refresh-knowledge"]) {
     assert.match(html, new RegExp(`data-action=\"${action}\"`));
   }
+});
+
+test("Agents exposes provider selection, resumable sessions and a permission-aware prompt", () => {
+  assert.match(html, /id="agent-session-list"/);
+  assert.match(html, /id="agent-message-list"/);
+  assert.match(html, /id="agent-prompt-form"/);
+  assert.match(html, /id="agent-prompt-input"/);
+  assert.match(html, /value="write_code"/);
+  assert.match(html, /value="run_commands"/);
+  assert.match(main, /method: 'agent\.sessions'/);
+  assert.match(main, /method: 'agent\.messages'/);
+  assert.match(main, /method: 'agent\.prompt'/);
+  assert.match(main, /selectAgentSession/);
+  assert.match(main, /sendAgentPrompt/);
 });
 
 test("desktop shell exposes the Git context bar and Explorer search affordance", () => {

@@ -84,5 +84,8 @@ test("SQLite persists resumable agent sessions per Task", () => {
   store.saveAgentSession({ id: "session-1", taskId: task.id, provider: "codex", directory: "/tmp/project", status: "COMPLETED", createdAt: "2026-09-03T00:00:00.000Z" });
   assert.deepEqual(store.listAgentSessions(task.id).map((session) => session.id), ["session-1"]);
   assert.equal(store.listAgentSessions(task.id)[0]?.provider, "codex");
+  store.saveAgentMessage({ id: "message-1", sessionId: "session-1", role: "user", content: "Inspect this project", createdAt: "2026-09-03T00:01:00.000Z" });
+  store.saveAgentMessage({ id: "message-2", sessionId: "session-1", role: "assistant", content: "I found the project root.", createdAt: "2026-09-03T00:02:00.000Z" });
+  assert.deepEqual(store.listAgentMessages("session-1").map((message) => message.content), ["Inspect this project", "I found the project root."]);
   store.close();
 });

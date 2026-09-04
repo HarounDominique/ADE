@@ -1,6 +1,6 @@
 # Nexus: ADE — Agentic Development Environment
 
-**Estado:** v0.1 MVP implementado; v0.2 cerrada; v0.3 cerrada; slice v0.4 con Projects, Editor multimotor, Projects Git/No Git y contexto de shell implementada y validada en build/tests
+**Estado:** v0.1 MVP implementado; v0.2 cerrada; v0.3 cerrada; slice v0.4 con Projects, Editor multimotor, Agents conversacionales, Projects Git/No Git y contexto de shell implementada y validada en build/tests
 **Última actualización:** 2026-09-05
 **Fuente:** informe fundacional de ADE proporcionado por el usuario
 
@@ -229,6 +229,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-05 — file-workspace — El `textarea` se sustituye por CodeMirror 6 con resaltado y navegación de código para 11 familias de lenguaje; Prettier añade `Format` explícito para los parsers compatibles. ADR-0023 fija la selección MIT y los límites de los formatters.
 - 2026-09-05 — file-workspace — CodeMirror incorpora paquetes oficiales MIT para C++, Java y PHP y Monaco Editor MIT pasa a ser fallback selectivo para 19 familias adicionales; la interfaz común conserva edición, guardado, descarte, temas y atajos. ADR-0023 queda ampliada y el inventario directo de licencias se sincroniza.
 - 2026-09-05 — documentation-alignment — Se sincronizan PRODUCT, índice documental, plan v0.4 y SPEC-workspace-core con la decisión multimotor; no quedan referencias normativas que describan el Editor como textarea o CodeMirror único.
+- 2026-09-05 — agent-surface — Se añade `Agents` a la shell: sesiones Codex/OpenCode persistidas por Project, transcript de mensajes, prompts libres asociados opcionalmente a Task y permisos sensibles explícitos por ejecución. ADR-0024 fija que ADE invoca runtimes locales y no incrusta el chat remoto; `npm run build` y 93 tests TypeScript pasan.
 
 ## Automatic Reconciliation Log
 

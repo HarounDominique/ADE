@@ -22,7 +22,7 @@ El shell debe funcionar sin cloud y conservar la capacidad de abrir el repositor
 
 ## Information architecture
 
-Las áreas visibles son `PROJECTS`, `EDITOR`, `WORK`, `KNOWLEDGE`, `VERSION CONTROL` y `RUNTIME`. `Projects` administra el catálogo local y el Project activo; `Editor` es la superficie de ficheros. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y runtime vive en sus áreas respectivas.
+Las áreas visibles son `PROJECTS`, `EDITOR`, `AGENTS`, `WORK`, `KNOWLEDGE`, `VERSION CONTROL` y `RUNTIME`. `Projects` administra el catálogo local y el Project activo; `Editor` es la superficie de ficheros; `Agents` es la superficie conversacional para runtimes locales. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y runtime vive en sus áreas respectivas.
 
 ### Projects
 
@@ -75,6 +75,10 @@ El shell real conserva `Enter`, `↑`/`↓`, `Tab`, el completado, el historial 
 ### Work
 
 Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y las transiciones seguras atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor, y refrescan el resumen de `Projects`. Una Task en `READY`, `CHANGES_REQUESTED` o `BLOCKED` puede iniciar `task.run`; la shell recibe aceptación inmediata y eventos de Implementer, mientras el sidecar persiste la transición, diff y ChangeSet. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados.
+
+### Agents
+
+`Agents` presenta una lista de sesiones persistidas del Project y un transcript central. El usuario puede crear una sesión nueva, reanudar una existente, cambiar entre Codex/OpenCode y enviar prompts asociados al Project activo y a la Task seleccionada. El panel muestra disponibilidad, autenticación y capacidades del proveedor, feedback de ejecución y permisos explícitos para editar código, editar documentación, ejecutar comandos o usar red. Las respuestas se almacenan como mensajes de sesión en el SQLite local para que el menú pueda reconstruirse tras reiniciar ADE. La superficie no afirma integrar el chat remoto de ChatGPT: usa los adapters locales detectados por ADE y muestra el fallo del provider cuando no está disponible.
 
 ### Knowledge
 
