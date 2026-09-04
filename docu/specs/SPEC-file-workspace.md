@@ -14,6 +14,7 @@ Permitir que seleccionar un fichero del Explorer lo abra dentro de ADE, mantenie
 - El editor interno muestra nombre, ruta relativa al Project, contenido y estados de carga/error; permite editar texto, identificar cambios sin guardar, guardar con `Save` o `⌘/Ctrl+S` y descartarlos con `Discard`.
 - El documento activo permanece sincronizado con la selección del Explorer y con la rama compacta que el Explorer muestra como hint.
 - La navegación de Project, la Task seleccionada y el dock de terminal no se pierden al abrir o cambiar de fichero.
+- Al cambiar de Project, el contexto del shell se actualiza primero y el Editor sólo conserva un documento si su ruta sigue dentro de la nueva raíz; en caso contrario invalida el documento activo.
 - El botón `Open externally` es una acción explícita y conserva la validación de la raíz antes de invocar el sistema operativo.
 - Los ficheros binarios, ilegibles o que superen el límite seguro de preview muestran un estado no previsualizable y ofrecen abrir externamente; nunca se lanzan fuera automáticamente por una selección.
 - El guardado sólo afecta a ficheros de texto UTF-8 de hasta 2 MiB y conserva la misma frontera de seguridad que la lectura.

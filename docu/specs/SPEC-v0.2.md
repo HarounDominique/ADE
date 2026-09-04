@@ -33,7 +33,7 @@ Un Project puede declarar servicios locales con comando, directorio, puertos, he
 
 ### Task navigation and context
 
-Work debe permitir seleccionar una Task, ver su historial y saltar a Runtime, Changes y Knowledge conservando el contexto. El Project Hub debe mostrar la Task activa y la última evidencia confirmada.
+Work debe permitir seleccionar una Task, ver su historial y saltar a Runtime, Changes y Knowledge conservando el contexto. El resumen operativo dentro de `Projects` debe mostrar la Task activa y la última evidencia confirmada.
 
 ## Out of scope
 

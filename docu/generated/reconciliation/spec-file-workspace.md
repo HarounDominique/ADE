@@ -203,6 +203,18 @@ classDiagram
   class ndocuadr0014internalfileviewermd {
     <<document>>
   }
+  class ndocuadr0015terminaltabsmd {
+    <<document>>
+  }
+  class ndocuadr0016gitcontextswitchermd {
+    <<document>>
+  }
+  class ndocuadr0017projectsandeditornavigationmd {
+    <<document>>
+  }
+  class ndocuadr0018activeprojectcontextstatemd {
+    <<document>>
+  }
   class ndocuknowledgeREADMEmd {
     <<document>>
   }
@@ -401,15 +413,15 @@ classDiagram
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECgitcollaborationmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPEClivingknowledgemd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : references
-  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : references
-  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : references
+  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : product-contract
+  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : product-contract
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdevelopmentworkflowmd : gates-and-invariants
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECv02md : references
   ndocuspecsSPECagentruntimemd --> ndocuspikes001opencoderuntimemd : smoke-test-real
   ndocuspecsSPECagentruntimemd --> ndocuspikes002independentreviewmd : implementacion
   ndocuspecsSPECagentruntimemd --> ndocuspikes002independentreviewmd : implementacion
   ndocuspecsSPECchangesreviewgovernancemd --> ndocuspecsSPECdevelopmentworkflowmd : transitions-and-triggers
-  ndocuspecsSPECdesktopshellmd --> ndocuspecsSPECfileworkspacemd : references
+  ndocuspecsSPECdesktopshellmd --> ndocuspecsSPECfileworkspacemd : product-contract
   ndocuspecsSPECdesktopshellmd --> ndocuspikes003desktopframeworkmd : resultado
   ndocuspecsSPECdesktopshellmd --> ndocuadr0009tauridesktopshellmd : references
   ndocuspecsSPECdesktopshellmd --> ndocuspikes004desktoptransportmd : recomendación-provisional
@@ -433,6 +445,18 @@ classDiagram
   ndocuspikes003desktopframeworkmd --> ndocuspecsSPECNEXUSmd : open-decisions
   ntaskstodomd --> ntasksprojectrepositoryplanmd : references
   ntaskstodomd --> ntasksdesktopshellplanmd : references
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
+  ntaskstodomd --> ndocuspecsSPECgitcollaborationmd : references
+  ntaskstodomd --> ndocuadr0018activeprojectcontextstatemd : references
+  ntaskstodomd --> ndocuspecsSPECworkspacecoremd : references
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
+  ntaskstodomd --> ndocuadr0015terminaltabsmd : references
   ntaskstodomd --> ndocuspecsSPECfileworkspacemd : references
   ntaskstodomd --> ndocuadr0014internalfileviewermd : references
+  ntaskstodomd --> ndocuspecsSPECprojecttaskworkflowmd : references
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
+  ntaskstodomd --> ndocuadr0017projectsandeditornavigationmd : references
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
+  ntaskstodomd --> ndocuspecsSPECgitcollaborationmd : references
+  ntaskstodomd --> ndocuadr0016gitcontextswitchermd : references
 ```

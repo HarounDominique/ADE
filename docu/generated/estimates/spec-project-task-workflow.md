@@ -1,8 +1,8 @@
-# Estimate: docu/specs/SPEC-desktop-shell.md
+# Estimate: docu/specs/SPEC-project-task-workflow.md
 
 ## Inputs
 
-- Changed spec: docu/specs/SPEC-desktop-shell.md
+- Changed spec: docu/specs/SPEC-project-task-workflow.md
 - Direct and transitive dependents: 9
 - Broken references: 1
 
@@ -16,4 +16,4 @@
 
 ## Traceability
 
-See [reconciliation report](../reconciliation/spec-desktop-shell.md) and [QA impact](../qa/spec-desktop-shell.md).
+See [reconciliation report](../reconciliation/spec-project-task-workflow.md) and [QA impact](../qa/spec-project-task-workflow.md).

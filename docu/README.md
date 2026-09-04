@@ -2,7 +2,7 @@
 
 Esta es la única jerarquía normativa de documentación del proyecto.
 
-La release v0.3 está cerrada y validada en macOS. La aplicación actual combina Project/Task, Explorer local, terminal PTY, proveedores agénticos, skills, Git/GitHub y documentación viva. La slice v0.4 de editor interno y los refinamientos posteriores del shell también están implementados y descritos en sus specs; la única validación pendiente del recorrido visual es el smoke gráfico automatizado.
+La release v0.3 está cerrada y validada en macOS. La aplicación actual combina Project/Task, Explorer local, terminal PTY, proveedores agénticos, skills, Git/GitHub y documentación viva. La slice v0.4 de editor interno y los refinamientos posteriores del shell también están implementados y descritos en sus specs; el Project activo se mantiene sincronizado en todas las superficies aunque lleguen respuestas asíncronas; la única validación pendiente del recorrido visual es el smoke gráfico automatizado.
 
 ## Organización
 

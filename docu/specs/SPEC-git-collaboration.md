@@ -46,7 +46,7 @@ El panel muestra rama activa, ficheros modificados, ramas, worktrees y remotos. 
 
 ## Git context selectors
 
-La shell muestra en la topbar `Current repository` y `Current branch` como contexto persistente. `project.list` devuelve los Projects locales registrados, sin descubrir ni registrar rutas nuevas; el menú de repositorio muestra nombre y `repositoryPath` y marca el Project activo. `git.workspace` carga bajo demanda las ramas locales del Project seleccionado y alimenta el menú de branch.
+La shell muestra en la topbar `Current project` y `Current branch` como contexto persistente. `project.list` devuelve los Projects locales registrados, sin descubrir ni registrar rutas nuevas; el selector de Project muestra nombre, `repositoryPath` y tipo `Git`/`No Git`, y marca el Project activo. `git.workspace` carga bajo demanda las ramas locales del Project Git seleccionado y alimenta el selector de branch.
 
 La selección de un repositorio llama a `project_context`, cambia la raíz canónica de la shell y refresca el read model y los recursos dependientes. El contexto seleccionado se conserva en un estado único y las respuestas posteriores de `project.snapshot` no pueden reintroducir el nombre o la ruta del Project inicial. La selección de una rama usa `git.branch.switch`, que ejecuta `git switch` con actor, razón y confirmación explícita de la acción de UI. No se hace force checkout, reset ni descarte automático; un working tree incompatible produce un fallo visible y conserva el contexto anterior. Tras éxito, la shell vuelve a consultar `git.workspace` y el snapshot para mostrar la rama real.
 
@@ -54,5 +54,5 @@ La topbar sustituye `Quick Open`; el único buscador de ficheros es el filtro de
 
 ## Open Questions
 
-- ¿GitHub vía CLI local, API oficial o ambos?
-- ¿Los worktrees se crean automáticamente sólo en modo standard?
+- La integración actual usa la CLI local `gh`; queda abierta una API oficial sólo si aporta capacidades que `gh` no cubra.
+- Los worktrees se crean bajo demanda desde Git; queda abierta la automatización por modo de workflow, que no forma parte del contrato actual.

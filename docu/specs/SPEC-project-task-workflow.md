@@ -119,6 +119,6 @@ Una Task de ejemplo puede crearse, reanudarse, bloquearse, pasar a revisión y c
 
 ## Open Questions
 
-- ¿Qué campos de Project y Repository deben persistirse antes de construir la UI?
-- ¿Cuándo se crea una rama o worktree y cómo se vincula al `taskId`? En v0.1 no se crean automáticamente.
-- ¿Necesitamos un event bus observable en v0.1 o basta la secuencia persistida en `TaskEvent[]`?
+- ¿Qué metadata editable adicional —por ejemplo icono o descripción— debe incorporar Project en una iteración futura? El contrato actual persiste `id`, `name`, `repositoryPath`, tipo de control de versiones y metadata de branch.
+- ¿Cuándo debe proponerse automáticamente una rama o worktree y cómo se vincula al `taskId`? Hoy se crean bajo demanda desde Git y no se crean automáticamente.
+- ¿Cuándo necesita el dominio un event bus independiente? La shell actual usa la secuencia persistida de `TaskEvent[]` y eventos Tauri para transporte; no hay un bloqueo vigente.

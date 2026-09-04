@@ -1,9 +1,9 @@
-# Estimate: docu/specs/SPEC-desktop-shell.md
+# Estimate: docu/specs/SPEC-git-collaboration.md
 
 ## Inputs
 
-- Changed spec: docu/specs/SPEC-desktop-shell.md
-- Direct and transitive dependents: 9
+- Changed spec: docu/specs/SPEC-git-collaboration.md
+- Direct and transitive dependents: 12
 - Broken references: 1
 
 ## Estimate
@@ -16,4 +16,4 @@
 
 ## Traceability
 
-See [reconciliation report](../reconciliation/spec-desktop-shell.md) and [QA impact](../qa/spec-desktop-shell.md).
+See [reconciliation report](../reconciliation/spec-git-collaboration.md) and [QA impact](../qa/spec-git-collaboration.md).

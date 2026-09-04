@@ -43,13 +43,13 @@ Seleccionar un Project cambia el contexto canónico de Tauri, refresca snapshot,
 
 El Explorer mantiene el buscador como única búsqueda de ficheros. Una lupa accionable junto al título `Explorer` enfoca el filtro sin crear una segunda búsqueda.
 
-### Project Hub
+### Project detail
 
-Es la entrada por defecto. Presenta Project, raíz del repositorio, branch detectada, estado Git, servicios activos y Tasks recientes. Una Task muestra intención, modo, fase, última evidencia, gate bloqueante y acción siguiente.
+Es el resumen operativo dentro de `Projects`, no una entrada separada de navegación. Presenta el Project activo, su raíz local, branch o ausencia de Git, servicios activos y Tasks recientes. Una Task muestra intención, modo, fase, última evidencia, gate bloqueante y acción siguiente.
 
 ### Sidebar and Explorer
 
-El lateral combina una navegación etiquetada para `Overview`, `Tasks`, `Project context`, `Review queue` y `Local runtime` con el Explorer del Project. No se muestran simultáneamente dos menús que representen las mismas vistas. Un divisor vertical visible permite redimensionar el lateral por pointer o teclado, con límites de 190–720 px (acotados responsivamente al ancho de ventana) y ancho persistido por Project. El Explorer tiene dos estados:
+El lateral combina una navegación etiquetada para `Projects`, `Editor`, `Work`, `Knowledge`, `Changes` y `Runtime` con el Explorer del Project. No se muestran simultáneamente dos menús que representen las mismas vistas. Un divisor vertical visible permite redimensionar el lateral por pointer o teclado, con límites de 190–720 px (acotados responsivamente al ancho de ventana) y ancho persistido por Project. El Explorer tiene dos estados:
 
 - **Compacto:** cuando existe un archivo activo, muestra su rama de carpetas desde la raíz del Project hasta el archivo, ocultando hermanos no relevantes y manteniendo el contexto como un breadcrumb en formato árbol. Si todavía no hay archivo activo, muestra los hijos directos de la raíz.
 - **Expandido:** al pulsar el control de expansión o una carpeta de la rama compacta, oculta las opciones de navegación y convierte el árbol en la superficie principal del lateral. Los hijos se cargan perezosamente y la rama seleccionada permanece resaltada.
@@ -58,11 +58,11 @@ El control de contraer restaura la navegación y reconstruye la rama compacta de
 
 El filtro del Explorer busca recursivamente por nombre y ruta, pero muestra como resultado directo el fichero coincidente, no la carpeta contenedora. Cada resultado incluye el nombre del fichero y una ruta relativa legible, adyacente y envolvente de sus carpetas padre para distinguir ficheros homónimos; la ruta no se trunca visualmente y el tooltip conserva la ruta completa. El input permanece responsivo mientras se construye el primer índice recursivo: las pulsaciones se agrupan con un debounce corto, las búsquedas obsoletas se ignoran y un spinner visible indica que aún no están listos los resultados actuales. El índice normalizado se reutiliza durante la sesión del Project para que las siguientes búsquedas sean filtrados locales ligeros. Al seleccionar un resultado, la consulta se limpia, se abre el fichero dentro de ADE y el Explorer vuelve a la rama breadcrumb compacta del archivo activo.
 
-### Internal file viewer
+### Editor
 
 Seleccionar un fichero de texto en el Explorer abre su contenido dentro del workbench, en un editor acotado, mostrando nombre, ruta relativa y estado de carga. El documento activo se mantiene sincronizado con la rama compacta del Explorer, permite `Save`, `Discard` y `⌘/Ctrl+S`, y no altera la Task ni el dock de terminal.
 
-El visor trata binarios, ficheros ilegibles y previews demasiado grandes con estados explicativos. `Open externally` es una acción separada y explícita; seleccionar un fichero nunca debe lanzar automáticamente una aplicación del sistema. La lectura se solicita al backend Tauri y queda sometida a la autorización de la raíz del Project. El alcance completo está en [file-workspace](SPEC-file-workspace.md).
+El Editor trata binarios, ficheros ilegibles y previews demasiado grandes con estados explicativos. `Open externally` es una acción separada y explícita; seleccionar un fichero nunca debe lanzar automáticamente una aplicación del sistema. La lectura se solicita al backend Tauri y queda sometida a la autorización de la raíz del Project. El alcance completo está en [file-workspace](SPEC-file-workspace.md#product-contract).
 
 ### Terminal dock
 
@@ -74,7 +74,7 @@ La interacción mínima es la esperada en una terminal: `Enter` ejecuta el coman
 
 ### Work
 
-Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y las transiciones seguras atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor, y refrescan el Project Hub. Una Task en `READY`, `CHANGES_REQUESTED` o `BLOCKED` puede iniciar `task.run`; la shell recibe aceptación inmediata y eventos de Implementer, mientras el sidecar persiste la transición, diff y ChangeSet. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados.
+Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y las transiciones seguras atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor, y refrescan el resumen de `Projects`. Una Task en `READY`, `CHANGES_REQUESTED` o `BLOCKED` puede iniciar `task.run`; la shell recibe aceptación inmediata y eventos de Implementer, mientras el sidecar persiste la transición, diff y ChangeSet. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados.
 
 ### Knowledge
 
@@ -86,7 +86,7 @@ Presenta resumen semántico, impacto, findings, archivos, diff, ChangeSets y che
 
 ### Runtime
 
-Muestra sesiones, servicios, procesos, puertos, healthchecks, terminal, stdout/stderr y tests. Expone `runtime.status` y `runtime.health` por el sidecar; Runtime puede comprobar OpenCode y presenta versión o `RUNTIME_UNAVAILABLE` como evidencia. También muestra por separado `sidecar: READY`, `agentRuntime`, Task activa, último evento y último error. `task.run` sólo acepta `READY`, `CHANGES_REQUESTED` o `BLOCKED`, emite `runtime.event`, `runtime.completed` o `runtime.failed`; si falla durante la ejecución, la Task queda en `BLOCKED`. La UI conserva hasta 12 eventos recientes con hora, tipo y Task, y refresca el Project Hub al finalizar. Un estado `RUNNING` debe provenir de evidencia de runtime, no de una inferencia visual; `DISCONNECTED` no implica fallo del proyecto ni ejecución cancelada.
+Muestra sesiones, servicios, procesos, puertos, healthchecks, terminal, stdout/stderr y tests. Expone `runtime.status` y `runtime.health` por el sidecar; Runtime puede comprobar OpenCode y presenta versión o `RUNTIME_UNAVAILABLE` como evidencia. También muestra por separado `sidecar: READY`, `agentRuntime`, Task activa, último evento y último error. `task.run` sólo acepta `READY`, `CHANGES_REQUESTED` o `BLOCKED`, emite `runtime.event`, `runtime.completed` o `runtime.failed`; si falla durante la ejecución, la Task queda en `BLOCKED`. La UI conserva hasta 12 eventos recientes con hora, tipo y Task, y refresca el resumen de `Projects` al finalizar. Un estado `RUNNING` debe provenir de evidencia de runtime, no de una inferencia visual; `DISCONNECTED` no implica fallo del proyecto ni ejecución cancelada.
 
 ## Interaction states
 
@@ -97,12 +97,12 @@ Las acciones peligrosas requieren confirmación contextual con comando, director
 ## Project Structure
 
 ```text
-src/ui/project/       → Project Hub
-src/ui/work/          → Tasks, conversaciones y agentes
-src/ui/knowledge/     → Documentos y skills
-src/ui/changes/       → Resumen, diff, review y commit
-src/ui/runtime/       → Servicios, terminal, tests y logs
-tests/ui/              → Tests de flujos críticos
+desktop/src/index.html   → Shell, Projects, Editor y paneles visibles
+desktop/src/main.js      → Estado, navegación y orquestación Tauri/sidecar
+desktop/src/styles.css   → Temas, layout y estados visuales
+desktop/src-tauri/       → Commands nativos, raíz del Project y PTY
+src/                     → Dominio, casos de uso, adapters y sidecar
+tests/                   → Tests de dominio, integración, contrato y UI
 ```
 
 ## Commands
@@ -113,12 +113,12 @@ El shell usa Tauri 2 y proporciona estos comandos desde la raíz del repositorio
 npm run desktop:dev
 npm run desktop:build
 npm run desktop:test
-npm run desktop:package
+npm run desktop:package:app
 ```
 
-La shell actual se verifica con `npm run build`, `npm test`, `npm run desktop:test` y smoke macOS; los flujos CLI descritos en las specs de runtime y governance siguen siendo el fallback operativo.
+La shell actual se verifica con `npm run build`, `npm test` (93 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
 
-El shell visual inicial vive en `desktop/src/`. Su fixture `project-snapshot.js` define el boundary de datos y el comando Tauri `project_context` aporta contexto local de repositorio y selecciona la raíz canónica. La UI no accede directamente a SQLite, Git ni procesos: Projects y ramas se obtienen mediante el sidecar y el cambio de raíz pasa por Tauri.
+El shell visual vive en `desktop/src/`. `project-snapshot.js` define el boundary de arranque y `project-context.js` conserva la fusión del Project activo. El comando Tauri `project_context` aporta contexto local y selecciona la raíz canónica. La UI no accede directamente a SQLite, Git ni procesos: Projects y ramas se obtienen mediante el sidecar y el cambio de raíz pasa por Tauri.
 
 El read model de aplicación `ProjectSnapshot` compone el Project seleccionado, sus Tasks, el último evento de cada Task y las métricas `activeTasks`/`inReview`. La shell debe consumir este modelo y no consultar tablas de SQLite directamente.
 
@@ -132,11 +132,11 @@ La revisión se presenta de mayor a menor nivel de detalle: resumen semántico, 
 
 Tests de componentes para estados de Task y gates; tests de integración para crear Project, crear/reanudar Task, observar ChangeSet y revisar; test end-to-end del flujo principal con adapters fake; smoke test del shell en el sistema operativo objetivo; y test de escape hatch para IDE/terminal.
 
-La primera vertical de UI debe probar: abrir Project → seleccionar fichero, editarlo y guardarlo dentro de ADE → crear Task → observar Implementer → consultar Review → reconciliar documentación → aprobar → preparar commit. No se exige editor completo, autocompletado general de comandos, language server ni colaboración realtime; el completado de rutas de `cd` forma parte del contrato de terminal.
+La primera vertical de UI debe probar: abrir `Projects` → seleccionar fichero → editarlo y guardarlo dentro de ADE → crear Task → observar Implementer → consultar Review → reconciliar documentación → aprobar → preparar commit. No se exige editor completo, autocompletado general de comandos, language server ni colaboración realtime; el completado de rutas de `cd` forma parte del contrato de terminal.
 
 ## Boundaries
 
-- **Always:** Project Hub primero; hacer visible estado Git, Task, agentes, gates y runtime; ofrecer escape hatch a IDE/terminal.
+- **Always:** `Projects` primero; mantener visible el Project activo, estado Git/No Git, Task, agentes, gates y runtime; ofrecer escape hatch a IDE/terminal.
 - **Ask first:** adoptar editor completo, soporte cloud, cuentas, sync o colaboración realtime.
 - **Never:** abrir un fichero seleccionado automáticamente fuera de ADE; esconder operaciones peligrosas detrás de una acción ambigua; convertir la conversación en única representación del trabajo; duplicar el buscador del Explorer o forzar un cambio de branch que pueda descartar cambios locales.
 
@@ -154,8 +154,8 @@ Un usuario puede abrir un repositorio, crear una Task, observar la implementaci�
 
 ## Open Questions
 
-- ¿Qué mecanismo de eventos usa la UI: polling, SSE local o un event bus nativo?
-- ¿Qué esquema de navegación permite observar varias Tasks sin perder el contexto de la activa?
+- El transporte actual usa eventos Tauri para respuestas del sidecar y `terminal:output`; queda abierta una evolución a un event bus más rico si aumenta la concurrencia.
+- Queda abierta una navegación especializada para observar varias Tasks simultáneas sin perder la Task activa; la shell actual mantiene una Task seleccionada compartida.
 
 La evidencia de adopción está documentada en [003-desktop-framework](../spikes/003-desktop-framework.md#resultado) y [ADR-0009](../adr/0009-tauri-desktop-shell.md).
 

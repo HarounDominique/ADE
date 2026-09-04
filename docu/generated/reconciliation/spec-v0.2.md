@@ -1,4 +1,4 @@
-# Reconciliation: docu/specs/SPEC-desktop-shell.md
+# Reconciliation: docu/specs/SPEC-v0.2.md
 
 Generated from the current documentation graph.
 

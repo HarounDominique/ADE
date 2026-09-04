@@ -11,8 +11,8 @@ Completar la primera base operativa de ADE alrededor del agregado `Task`, de mod
 - `Task` ya valida intención, estados, transiciones y eventos.
 - `AdeStore` ya persiste Task, ChangeSet y Review en SQLite.
 - El flujo CLI ya crea una Task y la deja en `READY_FOR_HUMAN` después de una Review.
-- Project/Repository, persistencia/rehidratación, casos de uso, gates y CLI básica ya están implementados.
-- `runSpike` ya crea Tasks mediante el caso de uso; falta completar la integración CLI de `review` y construir la vertical desktop.
+- Project/Repository, persistencia/rehidratación, casos de uso, gates y CLI básica están implementados.
+- La vertical desktop está implementada con Projects, Editor, Workspace, terminal PTY, Git, skills y sidecar; este documento conserva el orden histórico de v0.1 y no representa tareas abiertas actuales.
 
 ## Implementation order
 

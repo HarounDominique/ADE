@@ -1,8 +1,8 @@
-# QA impact: docu/specs/SPEC-desktop-shell.md
+# QA impact: docu/specs/SPEC-v0.2.md
 
 ## Functional scope
 
-Validate the behavior and acceptance criteria changed by docu/specs/SPEC-desktop-shell.md.
+Validate the behavior and acceptance criteria changed by docu/specs/SPEC-v0.2.md.
 
 ## Affected specifications
 
