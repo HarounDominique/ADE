@@ -60,7 +60,7 @@ El filtro del Explorer busca recursivamente por nombre y ruta, pero muestra como
 
 ### Editor
 
-Seleccionar un fichero de texto en el Explorer abre su contenido dentro del workbench, en un editor acotado, mostrando nombre, ruta relativa y estado de carga. El documento activo se mantiene sincronizado con la rama compacta del Explorer, permite `Save`, `Discard` y `⌘/Ctrl+S`, y no altera la Task ni el dock de terminal.
+Seleccionar un fichero de texto en el Explorer abre su contenido dentro del workbench, en un editor CodeMirror acotado, mostrando nombre, ruta relativa, lenguaje detectado y estado de carga. El documento activo se mantiene sincronizado con la rama compacta del Explorer, permite resaltado sintáctico, navegación estructural básica, `Format` cuando el lenguaje tiene formatter aprobado, `Save`, `Discard` y `⌘/Ctrl+S`, y no altera la Task ni el dock de terminal.
 
 El Editor trata binarios, ficheros ilegibles y previews demasiado grandes con estados explicativos. `Open externally` es una acción separada y explícita; seleccionar un fichero nunca debe lanzar automáticamente una aplicación del sistema. La lectura se solicita al backend Tauri y queda sometida a la autorización de la raíz del Project. El alcance completo está en [file-workspace](SPEC-file-workspace.md#product-contract).
 

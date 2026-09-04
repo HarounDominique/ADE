@@ -3,6 +3,29 @@ import { mergeActiveProject } from './project-context.js';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
+import { basicSetup } from 'codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { python } from '@codemirror/lang-python';
+import { rust } from '@codemirror/lang-rust';
+import { css } from '@codemirror/lang-css';
+import { html } from '@codemirror/lang-html';
+import { json } from '@codemirror/lang-json';
+import { markdown } from '@codemirror/lang-markdown';
+import { sql } from '@codemirror/lang-sql';
+import { xml } from '@codemirror/lang-xml';
+import { yaml } from '@codemirror/lang-yaml';
+import { defaultHighlightStyle, bracketMatching, indentOnInput, syntaxHighlighting } from '@codemirror/language';
+import { EditorState, Compartment } from '@codemirror/state';
+import { EditorView, keymap } from '@codemirror/view';
+import { defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands';
+import * as prettier from 'prettier/standalone';
+import * as prettierBabel from 'prettier/plugins/babel';
+import * as prettierEstree from 'prettier/plugins/estree';
+import * as prettierTypescript from 'prettier/plugins/typescript';
+import * as prettierPostcss from 'prettier/plugins/postcss';
+import * as prettierHtml from 'prettier/plugins/html';
+import * as prettierMarkdown from 'prettier/plugins/markdown';
+import * as prettierYaml from 'prettier/plugins/yaml';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 const panels = [...document.querySelectorAll('.view')];
@@ -55,6 +78,8 @@ let gitHistoryCommits = [];
 let selectedGitCommit = null;
 let selectedPendingGitFile = null;
 let gitCommitNeedsPush = false;
+let codeEditorView = null;
+const codeEditorLanguage = new Compartment();
 const pendingContextRequests = new Map();
 const pendingSnapshotProjects = new Map();
 const pendingProjectRemovals = new Map();
@@ -782,16 +807,105 @@ function setDocumentHeader({ title, path, kind, externalDisabled = true }) {
   if (externalButton) externalButton.disabled = externalDisabled;
 }
 
+const codeLanguageDefinitions = [
+  { label: 'JavaScript', extensions: ['js', 'mjs', 'cjs', 'jsx'], language: () => javascript({ jsx: true }) },
+  { label: 'TypeScript', extensions: ['ts', 'mts', 'cts', 'tsx'], language: () => javascript({ jsx: true, typescript: true }) },
+  { label: 'Python', extensions: ['py', 'pyw'], language: () => python() },
+  { label: 'Rust', extensions: ['rs'], language: () => rust() },
+  { label: 'CSS', extensions: ['css', 'scss'], language: () => css() },
+  { label: 'HTML', extensions: ['html', 'htm'], language: () => html() },
+  { label: 'JSON', extensions: ['json', 'jsonc'], language: () => json() },
+  { label: 'Markdown', extensions: ['md', 'markdown'], language: () => markdown() },
+  { label: 'SQL', extensions: ['sql'], language: () => sql() },
+  { label: 'XML', extensions: ['xml', 'svg', 'xsl', 'xsd'], language: () => xml() },
+  { label: 'YAML', extensions: ['yml', 'yaml'], language: () => yaml() },
+];
+
+const formatterParsers = {
+  js: 'babel', mjs: 'babel', cjs: 'babel', jsx: 'babel',
+  ts: 'typescript', mts: 'typescript', cts: 'typescript', tsx: 'typescript',
+  json: 'json-stringify', jsonc: 'json', css: 'css', scss: 'scss',
+  html: 'html', htm: 'html', md: 'markdown', markdown: 'markdown', yaml: 'yaml', yml: 'yaml',
+};
+const prettierPlugins = [prettierBabel, prettierEstree, prettierTypescript, prettierPostcss, prettierHtml, prettierMarkdown, prettierYaml];
+
+function fileExtension(filePath = '') {
+  return String(filePath).split('/').at(-1)?.toLowerCase().split('.').at(-1) ?? '';
+}
+
+function languageDefinitionForPath(filePath) {
+  const extension = fileExtension(filePath);
+  return codeLanguageDefinitions.find((definition) => definition.extensions.includes(extension));
+}
+
+function languageLabelForPath(filePath) {
+  return languageDefinitionForPath(filePath)?.label ?? 'Plain text';
+}
+
+function formatterParserForPath(filePath) {
+  return formatterParsers[fileExtension(filePath)] ?? null;
+}
+
+function initializeCodeEditor() {
+  const parent = document.getElementById('document-content');
+  if (!parent || codeEditorView) return;
+  codeEditorView = new EditorView({
+    state: EditorState.create({
+      doc: '',
+      extensions: [
+        basicSetup,
+        codeEditorLanguage.of([]),
+        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        bracketMatching(),
+        indentOnInput(),
+        EditorView.lineWrapping,
+        keymap.of([
+          indentWithTab,
+          { key: 'Mod-s', run: () => { void saveActiveDocument(); return true; } },
+        ]),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) updateDocumentEditState();
+        }),
+      ],
+    }),
+    parent,
+  });
+}
+
+function setCodeEditorContent(content = '', filePath = '', focus = false) {
+  initializeCodeEditor();
+  if (!codeEditorView) return;
+  const current = codeEditorView.state.doc.toString();
+  const language = languageDefinitionForPath(filePath);
+  codeEditorView.dispatch({
+    changes: { from: 0, to: current.length, insert: content },
+    effects: codeEditorLanguage.reconfigure(language ? language.language() : []),
+  });
+  if (focus) codeEditorView.focus();
+}
+
+function codeEditorValue() {
+  return codeEditorView?.state.doc.toString() ?? '';
+}
+
 function updateDocumentEditState() {
   const editor = document.getElementById('document-content');
   const saveButton = document.getElementById('save-file');
   const discardButton = document.getElementById('discard-file');
+  const formatButton = document.getElementById('format-document');
   const kindElement = document.getElementById('document-kind');
   const editable = Boolean(activeDocument?.kind === 'text' && editor && !editor.hidden);
-  documentDirty = editable && editor.value !== documentOriginalContent;
+  documentDirty = editable && codeEditorValue() !== documentOriginalContent;
   if (saveButton) saveButton.disabled = !documentDirty;
   if (discardButton) discardButton.disabled = !documentDirty;
-  if (kindElement && activeDocument?.kind === 'text') kindElement.textContent = documentDirty ? 'TEXT · UNSAVED' : 'TEXT';
+  if (formatButton) {
+    formatButton.disabled = !editable || !formatterParserForPath(activeDocument?.path);
+    formatButton.title = formatButton.disabled && editable ? 'No formatter available for this language' : 'Format document';
+  }
+  if (kindElement && activeDocument?.kind === 'text') {
+    const language = languageLabelForPath(activeDocument.path);
+    kindElement.textContent = documentDirty ? `${language} · UNSAVED` : language;
+  }
 }
 
 function renderDocumentLoading(filePath) {
@@ -804,7 +918,7 @@ function renderDocumentLoading(filePath) {
   status.hidden = false;
   status.textContent = 'Reading file…';
   content.hidden = true;
-  content.value = '';
+  setCodeEditorContent('', filePath);
   documentOriginalContent = '';
   documentDirty = false;
   updateDocumentEditState();
@@ -822,11 +936,11 @@ function renderDocumentResult(result) {
   status.hidden = isText;
   status.textContent = isText ? '' : (result.message ?? 'This file cannot be previewed inside ADE.');
   content.hidden = !isText;
-  content.value = isText ? (result.content ?? '') : '';
+  setCodeEditorContent(isText ? (result.content ?? '') : '', result.path ?? result.name, isText);
   documentOriginalContent = isText ? (result.content ?? '') : '';
   documentDirty = false;
   updateDocumentEditState();
-  if (isText) content.focus({ preventScroll: true });
+  if (isText) codeEditorView?.focus();
 }
 
 function renderDocumentError(filePath, error) {
@@ -840,7 +954,7 @@ function renderDocumentError(filePath, error) {
   status.hidden = false;
   status.textContent = `Unable to read file: ${String(error)}`;
   content.hidden = true;
-  content.value = '';
+  setCodeEditorContent('', filePath);
   documentOriginalContent = '';
   documentDirty = false;
   updateDocumentEditState();
@@ -871,7 +985,8 @@ function closeFilePreview() {
   const status = document.getElementById('document-viewer-status');
   const content = document.getElementById('document-content');
   if (status) status.hidden = true;
-  if (content) { content.hidden = false; content.value = ''; }
+  if (content) content.hidden = false;
+  setCodeEditorContent('');
   setDocumentHeader({ title: 'No file selected', path: 'Select a file from Explorer to open its code.', kind: '—', externalDisabled: true });
   activeDocument = null;
   documentOriginalContent = '';
@@ -882,10 +997,11 @@ function closeFilePreview() {
 async function saveActiveDocument() {
   const editor = document.getElementById('document-content');
   if (!nativeInvoke || !editor || activeDocument?.kind !== 'text' || !activeDocument.path) return;
+  const content = codeEditorValue();
   try {
-    await nativeInvoke('write_file', { path: activeDocument.path, content: editor.value });
-    documentOriginalContent = editor.value;
-    activeDocument = { ...activeDocument, content: editor.value, size: new TextEncoder().encode(editor.value).length };
+    await nativeInvoke('write_file', { path: activeDocument.path, content });
+    documentOriginalContent = content;
+    activeDocument = { ...activeDocument, content, size: new TextEncoder().encode(content).length };
     updateDocumentEditState();
     notify('File saved in ADE.');
   } catch (error) {
@@ -897,9 +1013,34 @@ async function saveActiveDocument() {
 function discardDocumentChanges() {
   const editor = document.getElementById('document-content');
   if (!editor || !documentDirty) return;
-  editor.value = documentOriginalContent;
+  setCodeEditorContent(documentOriginalContent, activeDocument?.path ?? '', true);
   updateDocumentEditState();
   notify('Unsaved changes discarded.');
+}
+
+async function formatActiveDocument() {
+  const editor = document.getElementById('document-content');
+  const parser = formatterParserForPath(activeDocument?.path);
+  if (!editor || editor.hidden || activeDocument?.kind !== 'text' || !parser) return;
+  const formatButton = document.getElementById('format-document');
+  if (formatButton) formatButton.disabled = true;
+  try {
+    const formatted = await prettier.format(codeEditorValue(), {
+      parser,
+      plugins: prettierPlugins,
+      filepath: activeDocument.path,
+      tabWidth: 2,
+      useTabs: false,
+    });
+    setCodeEditorContent(formatted, activeDocument.path, true);
+    updateDocumentEditState();
+    notify('Document formatted.');
+  } catch (error) {
+    notify('Unable to format this document.');
+    console.warn('Document formatting unavailable:', error);
+  } finally {
+    updateDocumentEditState();
+  }
 }
 
 function providerIsAvailable(providerId) {
@@ -1835,6 +1976,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     void saveActiveDocument();
     return;
   }
+  if (item.dataset.action === 'format-document') {
+    void formatActiveDocument();
+    return;
+  }
   if (item.dataset.action === 'discard-file') {
     discardDocumentChanges();
     return;
@@ -2069,13 +2214,7 @@ document.getElementById('agent-provider')?.addEventListener('change', (event) =>
   selectedProvider = event.target.value;
   renderProviderSelection();
 });
-document.getElementById('document-content')?.addEventListener('input', updateDocumentEditState);
-document.getElementById('document-content')?.addEventListener('keydown', (event) => {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
-    event.preventDefault();
-    void saveActiveDocument();
-  }
-});
+initializeCodeEditor();
 document.getElementById('agent-skill')?.addEventListener('change', refreshSelectedSkill);
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });
 window.addEventListener('beforeunload', () => {

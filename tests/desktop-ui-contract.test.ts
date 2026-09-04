@@ -206,12 +206,17 @@ test("explorer mode changes preserve continuity with a reduced-motion path", () 
 });
 
 test("document editor fills its viewport and exposes save state", () => {
-  assert.match(html, /<textarea[^>]+id="document-content"/);
+  assert.match(html, /class="document-content" id="document-content" role="textbox"/);
+  assert.match(html, /data-action="format-document"/);
   assert.match(html, /id="save-file"/);
   assert.match(html, /id="discard-file"/);
-  assert.match(styles, /\.document-viewer-body \{ display: flex; height: min\(52vh, 520px\)/);
-  assert.match(styles, /\.document-content \{ display: block; width: 100%;/);
-  assert.match(main, /event\.key\.toLowerCase\(\) === 's'/);
+  assert.match(styles, /\.document-content \.cm-editor \{ height: 100%;/);
+  assert.match(styles, /\.document-content \.cm-gutters/);
+  assert.match(main, /from 'codemirror'/);
+  assert.match(main, /defaultHighlightStyle/);
+  assert.match(main, /function formatActiveDocument/);
+  assert.match(main, /prettier\.format/);
+  assert.match(main, /Mod-s/);
 });
 
 test("theme switch is visible in the topbar and exposes light/dark state", () => {

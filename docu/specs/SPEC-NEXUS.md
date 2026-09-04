@@ -92,6 +92,8 @@ La vista `Editor` es una superficie fija y exclusiva de código: no muestra los 
 
 El layout del Editor aplica una densidad específica de workbench: reduce el padding heredado de las vistas generales y calcula la altura del área de código con el espacio disponible sobre el dock de terminal, evitando márgenes muertos sin convertir el editor en una superficie ilegible.
 
+El Editor usa CodeMirror 6 con lenguajes oficiales MIT y Prettier MIT para el formateado explícito de los lenguajes compatibles. Su contrato detallado y sus límites están en [SPEC-file-workspace](SPEC-file-workspace.md#product-contract) y la decisión en [ADR-0023](../adr/0023-code-editor-and-formatting.md).
+
 La slice v0.4 implementa [SPEC-file-workspace](SPEC-file-workspace.md#product-contract): el fichero de texto seleccionado aparece dentro de ADE en `Editor`, con superficie completa, lectura y escritura Tauri autorizadas, estado dirty, `Save`, `Discard`, límite de 2 MiB y apertura externa únicamente mediante una acción explícita. `Projects` permite registrar carpetas Git y No Git desde el selector nativo de macOS. El cambio de Project conserva la identidad activa en toda la shell y descarta únicamente el documento seleccionado si queda fuera de la nueva raíz. No se adelanta un editor completo.
 
 ## Scope boundary
@@ -224,6 +226,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-04 — version-control-file-diff — `Changes` muestra un diff por fichero seleccionable con líneas resaltadas y desplaza la captura de título/cuerpo a un diálogo modal abierto desde la cabecera; `Commit` y `Push origin` permanecen como acciones separadas.
 - 2026-09-05 — file-workspace + desktop-shell — `Editor` queda como superficie exclusiva de código, sin paneles auxiliares ni CTA de búsqueda duplicada; la terminal permanece transversal. Se compactan márgenes, padding y altura disponible para priorizar código visible. La baseline vigente es 92 tests TypeScript y 18 Rust.
 - 2026-09-05 — git-collaboration — Se formaliza en ADR-0022 la separación entre `Commit` local y `Push origin`, con diálogo modal y diff como superficie principal; ADR-0020 queda supersedida.
+- 2026-09-05 — file-workspace — El `textarea` se sustituye por CodeMirror 6 con resaltado y navegación de código para 11 familias de lenguaje; Prettier añade `Format` explícito para los parsers compatibles. ADR-0023 fija la selección MIT y los límites de los formatters.
 
 ## Automatic Reconciliation Log
 

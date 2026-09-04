@@ -12,6 +12,8 @@ Permitir que seleccionar un fichero del Explorer lo abra dentro de ADE, mantenie
 
 - Al seleccionar un fichero de texto válido dentro de la raíz canónica, ADE lo convierte en el documento activo y muestra su contenido en el workbench.
 - El editor interno muestra nombre, ruta relativa al Project, contenido y estados de carga/error; permite editar texto, identificar cambios sin guardar, guardar con `Save` o `⌘/Ctrl+S` y descartarlos con `Discard`.
+- El editor usa CodeMirror 6 con paquetes oficiales MIT: números de línea, resaltado sintáctico, plegado, búsqueda, undo/redo, indentación, bracket matching y wrapping legible. La detección de lenguaje se realiza por extensión para JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown, Python, Rust, SQL, XML y YAML.
+- `Format` aplica Prettier, también MIT, de forma explícita para JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown y YAML. Para Python, Rust, SQL y XML se conserva resaltado e indentación de CodeMirror hasta incorporar formatters específicos con una estrategia de ejecución y licencia revisadas.
 - `Editor` permanece montado como superficie fija y exclusiva de código incluso sin documento activo; no muestra CTA de búsqueda ni paneles auxiliares de Git, agentes o documentación. El layout usa densidad de workbench y reserva el dock de terminal como superficie transversal.
 - El documento activo permanece sincronizado con la selección del Explorer y con la rama compacta que el Explorer muestra como hint.
 - La navegación de Project, la Task seleccionada y el dock de terminal no se pierden al abrir o cambiar de fichero.
@@ -32,7 +34,7 @@ El editor representa `loading`, `ready`, `empty`, `binary`, `too-large`, `failed
 
 ## Out of scope
 
-Undo/redo avanzado, language server, colaboración realtime, resolución de conflictos, resaltado de sintaxis, tabs avanzadas, preview de formatos binarios y sustitución de un IDE completo.
+Language server, colaboración realtime, resolución de conflictos, formatters específicos para lenguajes no cubiertos por Prettier, tabs avanzadas, preview de formatos binarios y sustitución de un IDE completo.
 
 ## Acceptance criteria
 
@@ -44,6 +46,7 @@ Undo/redo avanzado, language server, colaboración realtime, resolución de conf
 6. ✅ `write_file` sólo escribe dentro del Project seleccionado y rechaza contenido binario o superior a 2 MiB.
 7. ✅ Project, Task, Explorer y terminal conservan su estado al cambiar de documento.
 8. ✅ Existen tests nativos, de UI y de contrato para apertura interna, edición, guardado seguro, errores, límite y escape hatch externo.
+9. ✅ El Editor muestra sintaxis y estructura de código de los lenguajes soportados, permite formateado explícito donde existe formatter aprobado y mantiene edición/guardado sobre el modelo CodeMirror.
 
 ## Verification
 
@@ -55,4 +58,5 @@ cargo test --manifest-path desktop/src-tauri/Cargo.toml
 
 ## Open Questions
 
-- ¿Qué componente de resaltado de sintaxis aporta valor sin convertir ADE en un editor completo?
+- ¿Qué estrategia local y trazable se adoptará para formatters de Python, Rust, SQL y XML sin convertir ADE en un IDE completo?
+- ¿Cuándo aporta suficiente valor una integración LSP, y qué permisos/runtime necesitaría por Project?

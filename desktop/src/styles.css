@@ -368,3 +368,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .view.view-editor .document-viewer-heading h1 { margin-top: 3px; margin-bottom: 3px; }
 .view.view-editor .document-viewer-body { height: max(320px, calc(100vh - var(--terminal-height, 138px) - 168px)); }
 .view.view-editor .document-content { padding: 12px 16px 18px; }
+
+/* CodeMirror owns editing, syntax tokens and the document scroll surface. */
+.document-content { padding: 0; overflow: hidden; }
+.document-content .cm-editor { height: 100%; color: var(--text-soft); background: var(--panel-soft); font: 12px/1.55 var(--mono); }
+.document-content .cm-editor.cm-focused { outline: 1px solid var(--cyan); outline-offset: -1px; }
+.document-content .cm-scroller { overflow: auto; font: inherit; }
+.document-content .cm-content { min-height: 100%; padding: 14px 18px 24px 12px; caret-color: var(--cyan); }
+.document-content .cm-line { padding: 0; }
+.document-content .cm-gutters { border-right: 1px solid var(--line); color: var(--faint); background: var(--panel); }
+.document-content .cm-activeLineGutter { color: var(--text-soft); background: color-mix(in srgb, var(--cyan) 10%, var(--panel)); }
+.document-content .cm-activeLine { background: color-mix(in srgb, var(--cyan) 5%, transparent); }
+.document-content .cm-selectionBackground, .document-content .cm-content ::selection { background: color-mix(in srgb, var(--blue) 32%, transparent); }
