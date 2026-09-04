@@ -30,7 +30,7 @@ La entrada `Projects` es una pantalla de gestión deliberadamente mínima. Muest
 
 ### Editor
 
-`Editor` muestra el fichero de texto activo con nombre, ruta relativa, estado dirty, `Save`, `Discard` y apertura externa explícita. Seleccionar un fichero en Explorer o encontrarlo mediante búsqueda activa esta vista automáticamente. Sin fichero activo se muestra un estado vacío accionable; cerrar el documento no abre aplicaciones externas ni cambia el Project.
+`Editor` es una superficie fija y exclusiva para editar el fichero activo: muestra nombre, ruta relativa, estado dirty, `Save`, `Discard` y apertura externa explícita. Seleccionar un fichero en Explorer o encontrarlo mediante búsqueda activa esta vista automáticamente. Sin fichero activo conserva el editor vacío, listo para recibir la siguiente selección, sin CTA de búsqueda duplicada. Los paneles auxiliares de Git, agentes y documentación no se muestran en esta vista; la terminal nativa permanece como dock transversal. Cerrar el documento no abre aplicaciones externas ni cambia el Project.
 
 ### Git context bar
 

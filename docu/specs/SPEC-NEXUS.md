@@ -88,6 +88,8 @@ El dock inferior expone tabs de terminal `portable-pty` persistentes, redimensio
 
 ## Current v0.4 slice
 
+La vista `Editor` es una superficie fija y exclusiva de código: no muestra los paneles auxiliares de Git, agentes ni documentación. La terminal nativa sí permanece como dock transversal del shell y sigue disponible al cambiar de vista.
+
 La slice v0.4 implementa [SPEC-file-workspace](SPEC-file-workspace.md#product-contract): el fichero de texto seleccionado aparece dentro de ADE en `Editor`, con superficie completa, lectura y escritura Tauri autorizadas, estado dirty, `Save`, `Discard`, límite de 2 MiB y apertura externa únicamente mediante una acción explícita. `Projects` permite registrar carpetas Git y No Git desde el selector nativo de macOS. El cambio de Project conserva la identidad activa en toda la shell y descarta únicamente el documento seleccionado si queda fuera de la nueva raíz. No se adelanta un editor completo.
 
 ## Scope boundary

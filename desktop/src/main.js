@@ -460,7 +460,7 @@ async function switchProjectFromContext(project) {
     if (selectedFilePath && !selectedFilePath.startsWith(`${workspaceRootPath}/`)) {
       selectedFilePath = null;
       activeDocument = null;
-      document.getElementById('document-viewer')?.setAttribute('hidden', '');
+      document.getElementById('document-viewer')?.removeAttribute('hidden');
     }
     renderSnapshot({ ...projectSnapshot, project: activeProject, metrics: { ...projectSnapshot.metrics, activeTasks: 0, inReview: 0 } });
     window.clearTimeout(workspaceSearchTimer);
@@ -800,7 +800,6 @@ function renderDocumentLoading(filePath) {
   const content = document.getElementById('document-content');
   if (!viewer || !status || !content) return;
   viewer.hidden = false;
-  document.getElementById('editor-empty-state')?.setAttribute('hidden', '');
   setDocumentHeader({ title: filePath.split('/').at(-1) ?? 'File', path: documentRelativePath(filePath), kind: 'LOADING' });
   status.hidden = false;
   status.textContent = 'Reading file…';
@@ -817,7 +816,6 @@ function renderDocumentResult(result) {
   const content = document.getElementById('document-content');
   if (!viewer || !status || !content) return;
   viewer.hidden = false;
-  document.getElementById('editor-empty-state')?.setAttribute('hidden', '');
   activeDocument = result;
   setDocumentHeader({ title: result.name, path: result.relativePath, kind: result.kind === 'text' ? 'TEXT' : result.kind.toUpperCase(), externalDisabled: false });
   const isText = result.kind === 'text';
@@ -837,7 +835,6 @@ function renderDocumentError(filePath, error) {
   const content = document.getElementById('document-content');
   if (!viewer || !status || !content) return;
   viewer.hidden = false;
-  document.getElementById('editor-empty-state')?.setAttribute('hidden', '');
   activeDocument = { path: filePath };
   setDocumentHeader({ title: filePath.split('/').at(-1) ?? 'File', path: documentRelativePath(filePath), kind: 'FAILED', externalDisabled: false });
   status.hidden = false;
@@ -870,8 +867,12 @@ async function openFileInADE(filePath) {
 function closeFilePreview() {
   if (documentDirty && !window.confirm('Discard unsaved changes to this file?')) return;
   const viewer = document.getElementById('document-viewer');
-  if (viewer) viewer.hidden = true;
-  document.getElementById('editor-empty-state')?.removeAttribute('hidden');
+  if (viewer) viewer.hidden = false;
+  const status = document.getElementById('document-viewer-status');
+  const content = document.getElementById('document-content');
+  if (status) status.hidden = true;
+  if (content) { content.hidden = false; content.value = ''; }
+  setDocumentHeader({ title: 'No file selected', path: 'Select a file from Explorer to open its code.', kind: '—', externalDisabled: true });
   activeDocument = null;
   documentOriginalContent = '';
   documentDirty = false;
@@ -1680,6 +1681,7 @@ function showView(view) {
   activeView = view;
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
+  document.querySelector('.main-content')?.classList.toggle('editor-focus', view === 'editor');
   const labels = { projects: 'Projects', editor: 'Editor', work: 'Tasks', knowledge: 'Project context', changes: 'Version control', runtime: 'Local runtime' };
   const crumb = document.getElementById('breadcrumb-current');
   if (crumb) crumb.textContent = labels[view] ?? view;

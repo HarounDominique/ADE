@@ -42,9 +42,12 @@ test("desktop shell exposes the Git context bar and Explorer search affordance",
   assert.doesNotMatch(html, /Task workbench/);
   assert.match(main, /project\.remove/);
   assert.match(html, /data-panel="editor"/);
-  assert.match(html, /id="editor-empty-state"/);
+  assert.doesNotMatch(html, /id="editor-empty-state"/);
+  assert.doesNotMatch(html, /Focus Explorer search/);
+  assert.match(main, /classList\.toggle\('editor-focus', view === 'editor'\)/);
   assert.match(styles, /\.git-context-bar/);
   assert.match(styles, /\.git-context-menu/);
+  assert.match(styles, /\.main-content\.editor-focus \.git-panel/);
 });
 
 test("desktop shell wires critical actions to Tauri commands", () => {
