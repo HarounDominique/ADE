@@ -186,7 +186,7 @@
 ## Post-v0.3 — Refinamiento de shell (2026-09-04)
 
 - [x] Task: Sincronizar la interacción de Explorer y terminal con la shell actual
-  - Acceptance: tema claro/oscuro persistente, navegación lateral redimensionable y persistida por Project, Explorer compacto/expandido con animación fluida, búsqueda recursiva file-first que restaura la rama breadcrumb al seleccionar, dock inferior redimensionable y terminal PTY con transcript único, prompt mínimo, historial y completado de rutas `cd`.
+  - Acceptance: tema claro/oscuro persistente, navegación lateral redimensionable y persistida por Project, Explorer compacto/expandido con animación fluida, búsqueda recursiva file-first con ruta contextual para distinguir homónimos y restauración de la rama breadcrumb al seleccionar, dock inferior redimensionable y terminal PTY con transcript único, prompt mínimo, historial y completado de rutas `cd`.
   - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`.
   - Files: `desktop/src/`, `desktop/src-tauri/src/lib.rs`, `DESIGN.md`, `docu/specs/`.
 

@@ -697,7 +697,7 @@ async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke, 
   }
 }
 
-function renderWorkspaceEntry(entry, childMarkup = '') {
+function renderWorkspaceEntry(entry, childMarkup = '', { showPathHint = false } = {}) {
   const name = escapeHTML(entry.name);
   const path = escapeHTML(entry.path);
   if (entry.kind === 'directory') {
@@ -708,7 +708,12 @@ function renderWorkspaceEntry(entry, childMarkup = '') {
     return `<li class="workspace-entry symlink" data-entry-name="${name.toLowerCase()}" title="Symlinks are not opened outside the selected Project"><span class="workspace-glyph symlink" aria-hidden="true"></span><span class="workspace-name">${name}</span></li>`;
   }
   const selected = entry.path === selectedFilePath;
-  return `<li class="workspace-node file" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry file${selected ? ' selected' : ''}" type="button" data-file-path="${path}" aria-current="${selected ? 'page' : 'false'}" aria-label="Open ${name}"><span class="workspace-glyph file" aria-hidden="true"></span><span class="workspace-name">${name}</span></button></li>`;
+  const relativePath = documentRelativePath(entry.path);
+  const pathSegments = relativePath.split('/').filter(Boolean);
+  const parentPath = pathSegments.slice(0, -1).join(' / ') || 'Project root';
+  const pathHint = showPathHint ? `<span class="workspace-path-hint" title="${escapeHTML(relativePath)}">${escapeHTML(parentPath)}</span>` : '';
+  const resultClass = showPathHint ? ' search-result' : '';
+  return `<li class="workspace-node file" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry file${selected ? ' selected' : ''}${resultClass}" type="button" data-file-path="${path}" aria-current="${selected ? 'page' : 'false'}" aria-label="Open ${name} in ${escapeHTML(parentPath)}"><span class="workspace-glyph file" aria-hidden="true"></span><span class="workspace-name">${name}</span>${pathHint}</button></li>`;
 }
 
 function renderWorkspaceEntries(entries) {
@@ -732,7 +737,7 @@ async function searchWorkspaceFiles(query) {
     if (!workspaceSearchEntries) workspaceSearchEntries = await invoke('list_directory', { path: workspaceRootPath, maxDepth: 99 });
     if (token !== workspaceSearchToken) return;
     const matches = workspaceSearchEntries.filter((entry) => entry.kind === 'file' && `${entry.name} ${entry.path}`.toLowerCase().includes(needle));
-    tree.innerHTML = matches.length ? matches.map((entry) => renderWorkspaceEntry(entry)).join('') : '<li class="workspace-empty">No matching files.</li>';
+    tree.innerHTML = matches.length ? matches.map((entry) => renderWorkspaceEntry(entry, '', { showPathHint: true })).join('') : '<li class="workspace-empty">No matching files.</li>';
     tree.classList.add('is-searching');
   } catch (error) {
     if (token !== workspaceSearchToken) return;

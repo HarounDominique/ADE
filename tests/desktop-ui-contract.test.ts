@@ -116,10 +116,14 @@ test("workspace search returns files directly and restores their compact branch 
   assert.match(main, /maxDepth: 99/);
   assert.match(main, /entry\.kind === 'file'/);
   assert.match(main, /No matching files/);
+  assert.match(main, /workspace-path-hint/);
+  assert.match(main, /parentPath/);
+  assert.match(main, /showPathHint: true/);
   assert.match(main, /const wasSearching = Boolean\(filter\?\.value\.trim\(\)\)/);
   assert.match(main, /if \(filter\) filter\.value = ''/);
   assert.match(main, /void collapseExplorer\(\)/);
   assert.match(styles, /\.workspace-tree\.is-searching \.workspace-entry\.directory \{ display: none; \}/);
+  assert.match(styles, /\.workspace-entry\.search-result \.workspace-path-hint/);
 });
 
 test("explorer mode changes preserve continuity with a reduced-motion path", () => {
