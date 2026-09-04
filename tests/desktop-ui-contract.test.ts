@@ -57,3 +57,13 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(main, /ArrowUp/);
   assert.match(main, /setPointerCapture/);
 });
+
+test("explorer keeps the active file path as a compact branch and has a full-tree mode", () => {
+  assert.match(html, /data-action="toggle-explorer"/);
+  assert.match(html, /aria-label="Expand workspace tree"/);
+  assert.match(main, /renderCompactWorkspacePath/);
+  assert.match(main, /selectedFilePath/);
+  assert.match(main, /explorerExpanded/);
+  assert.match(main, /expandExplorerFrom/);
+  assert.match(main, /collapseExplorer/);
+});

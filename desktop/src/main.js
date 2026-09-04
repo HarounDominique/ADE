@@ -11,6 +11,9 @@ let nativeInvoke;
 let terminalStarted = false;
 let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
+let workspaceRootPath = projectSnapshot.project.repositoryPath;
+let selectedFilePath = null;
+let explorerExpanded = false;
 const terminalResizer = document.getElementById('terminal-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
 let terminalHeight = 138;
@@ -359,9 +362,12 @@ async function refreshGitWorkspace(path, invoke = nativeInvoke) {
 async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke) {
   const tree = document.getElementById('workspace-tree');
   if (!tree || !invoke || !path) return;
+  workspaceRootPath = path;
   try {
     const entries = await invoke('list_directory', { path, maxDepth: 0 });
-    tree.innerHTML = renderWorkspaceEntries(entries);
+    tree.innerHTML = explorerExpanded || !selectedFilePath
+      ? renderWorkspaceEntries(entries)
+      : await renderCompactWorkspacePath(entries, selectedFilePath, invoke);
     filterWorkspaceTree(document.getElementById('workspace-filter')?.value ?? '');
   } catch (error) {
     tree.innerHTML = '<li>Workspace directory unavailable.</li>';
@@ -369,19 +375,42 @@ async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke) 
   }
 }
 
+function renderWorkspaceEntry(entry, childMarkup = '') {
+  const name = escapeHTML(entry.name);
+  const path = escapeHTML(entry.path);
+  if (entry.kind === 'directory') {
+    const expanded = Boolean(childMarkup);
+    return `<li class="workspace-node directory" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry directory${expanded ? ' compact-branch' : ''}" type="button" data-directory-path="${path}" aria-expanded="${expanded}" aria-label="${expanded ? 'Expand' : 'Open'} ${name}"><span class="workspace-arrow" aria-hidden="true"></span><span class="workspace-glyph directory" aria-hidden="true"></span><span class="workspace-name">${name}</span></button><ul class="workspace-children" data-directory-children${expanded ? '' : ' hidden'}>${childMarkup}</ul></li>`;
+  }
+  if (entry.kind === 'symlink') {
+    return `<li class="workspace-entry symlink" data-entry-name="${name.toLowerCase()}" title="Symlinks are not opened outside the selected Project"><span class="workspace-glyph symlink" aria-hidden="true"></span><span class="workspace-name">${name}</span></li>`;
+  }
+  const selected = entry.path === selectedFilePath;
+  return `<li class="workspace-node file" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry file${selected ? ' selected' : ''}" type="button" data-file-path="${path}" aria-current="${selected ? 'page' : 'false'}" aria-label="Open ${name}"><span class="workspace-glyph file" aria-hidden="true"></span><span class="workspace-name">${name}</span></button></li>`;
+}
+
 function renderWorkspaceEntries(entries) {
   if (!entries.length) return '<li class="workspace-empty">Directory is empty.</li>';
-  return entries.map((entry) => {
-    const name = escapeHTML(entry.name);
-    const path = escapeHTML(entry.path);
-    if (entry.kind === 'directory') {
-      return `<li class="workspace-node directory" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry directory" type="button" data-directory-path="${path}" aria-expanded="false" aria-label="Expand ${name}"><span class="workspace-arrow" aria-hidden="true"></span><span class="workspace-glyph directory" aria-hidden="true"></span><span class="workspace-name">${name}</span></button><ul class="workspace-children" data-directory-children hidden></ul></li>`;
-    }
-    if (entry.kind === 'symlink') {
-      return `<li class="workspace-entry symlink" data-entry-name="${name.toLowerCase()}" title="Symlinks are not opened outside the selected Project"><span class="workspace-glyph symlink" aria-hidden="true"></span><span class="workspace-name">${name}</span></li>`;
-    }
-    return `<li class="workspace-node file" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry file" type="button" data-file-path="${path}" aria-label="Open ${name}"><span class="workspace-glyph file" aria-hidden="true"></span><span class="workspace-name">${name}</span></button></li>`;
-  }).join('');
+  return entries.map((entry) => renderWorkspaceEntry(entry)).join('');
+}
+
+async function renderCompactWorkspacePath(rootEntries, filePath, invoke) {
+  if (!filePath || !filePath.startsWith(`${workspaceRootPath}/`)) return renderWorkspaceEntries(rootEntries);
+  const segments = filePath.slice(workspaceRootPath.length + 1).split('/').filter(Boolean);
+  if (!segments.length) return renderWorkspaceEntries(rootEntries);
+  const chain = [];
+  let entries = rootEntries;
+  for (const segment of segments) {
+    const entry = entries.find((candidate) => candidate.name === segment);
+    if (!entry) return renderWorkspaceEntries(rootEntries);
+    chain.push(entry);
+    if (entry.kind === 'directory') entries = await invoke('list_directory', { path: entry.path, maxDepth: 0 });
+  }
+  let branchMarkup = '';
+  for (let index = chain.length - 1; index >= 0; index -= 1) {
+    branchMarkup = renderWorkspaceEntry(chain[index], branchMarkup);
+  }
+  return branchMarkup;
 }
 
 function filterWorkspaceTree(query) {
@@ -418,6 +447,38 @@ async function toggleWorkspaceDirectory(button) {
   }
   button.setAttribute('aria-expanded', 'true');
   children.hidden = false;
+}
+
+function updateExplorerMode(expanded) {
+  explorerExpanded = expanded;
+  const sidebar = document.querySelector('.sidebar');
+  const toggle = document.querySelector('[data-action="toggle-explorer"]');
+  sidebar?.classList.toggle('explorer-expanded', expanded);
+  toggle?.setAttribute('aria-expanded', String(expanded));
+  toggle?.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} workspace tree`);
+  toggle?.setAttribute('title', `${expanded ? 'Collapse' : 'Expand'} workspace tree`);
+  toggle?.querySelector('svg')?.style.setProperty('transform', expanded ? 'rotate(90deg)' : 'none');
+}
+
+async function expandExplorerFrom(button) {
+  updateExplorerMode(true);
+  await loadWorkspaceTree(workspaceRootPath, nativeInvoke);
+  const targetPath = button.dataset.directoryPath;
+  if (!targetPath?.startsWith(`${workspaceRootPath}/`)) return;
+  const segments = targetPath.slice(workspaceRootPath.length + 1).split('/').filter(Boolean);
+  let currentPath = workspaceRootPath;
+  for (const segment of segments) {
+    currentPath = `${currentPath}/${segment}`;
+    const matchingButton = [...document.querySelectorAll('[data-directory-path].directory')]
+      .find((candidate) => candidate.dataset.directoryPath === currentPath);
+    if (!matchingButton) break;
+    if (matchingButton.getAttribute('aria-expanded') !== 'true') await toggleWorkspaceDirectory(matchingButton);
+  }
+}
+
+async function collapseExplorer() {
+  updateExplorerMode(false);
+  await loadWorkspaceTree(workspaceRootPath, nativeInvoke);
 }
 
 async function connectSidecar(snapshot) {
@@ -767,6 +828,14 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
     return;
   }
+  if (item.dataset.action === 'toggle-explorer') {
+    if (explorerExpanded) void collapseExplorer();
+    else {
+      updateExplorerMode(true);
+      void loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
+    }
+    return;
+  }
   if (item.dataset.action === 'refresh-git') {
     refreshGitWorkspace(document.getElementById('project-path')?.textContent, nativeInvoke);
     return;
@@ -893,12 +962,24 @@ document.addEventListener('click', (event) => {
   }
   const directoryEntry = event.target.closest('[data-directory-path].directory');
   if (directoryEntry) {
-    void toggleWorkspaceDirectory(directoryEntry);
+    if (!explorerExpanded) void expandExplorerFrom(directoryEntry);
+    else void toggleWorkspaceDirectory(directoryEntry);
     return;
   }
   const fileEntry = event.target.closest('[data-file-path].file');
   if (fileEntry) {
-    nativeInvoke?.('open_file', { path: fileEntry.dataset.filePath }).catch((error) => console.warn('File open unavailable:', error));
+    const filePath = fileEntry.dataset.filePath;
+    if (!nativeInvoke) {
+      notify('Opening files requires the local desktop runtime.');
+      return;
+    }
+    nativeInvoke('open_file', { path: filePath }).then(() => {
+      selectedFilePath = filePath;
+      fileEntry.closest('.workspace-tree')?.querySelectorAll('[data-file-path].selected').forEach((entry) => entry.classList.remove('selected'));
+      fileEntry.classList.add('selected');
+      fileEntry.setAttribute('aria-current', 'page');
+      if (!explorerExpanded) void loadWorkspaceTree(workspaceRootPath, nativeInvoke);
+    }).catch((error) => console.warn('File open unavailable:', error));
     return;
   }
   const taskCard = event.target.closest('[data-task-select]');

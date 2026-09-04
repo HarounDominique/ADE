@@ -208,7 +208,7 @@ The form language is compact and restrained: mostly square corners, 2–4px radi
 
 ### Explorer
 
-The explorer is persistent, filterable and lazily expanded. Directory rows have a clear disclosure affordance, file rows open through the native shell, and symlinks are visibly non-actionable when they leave the selected project root.
+The explorer is persistent, filterable and lazily expanded. In compact mode it shows the active file's parent branch from the Project root as a constant path hint, hiding sibling noise. Selecting Expand switches the sidebar into tree focus mode: labeled view navigation disappears, the full tree becomes the primary surface, and directory rows can be explored recursively. Collapse restores navigation and the compact active-file branch. Directory rows have a clear disclosure affordance, file rows open through the native shell, and symlinks are visibly non-actionable when they leave the selected project root.
 
 ### Terminal Dock
 

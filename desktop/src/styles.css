@@ -126,3 +126,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .terminal-dock { left: 218px; padding-right: 16px; padding-left: 16px; }
   .terminal-resizer { margin-right: -16px; margin-left: -16px; }
 }
+
+/* Explorer focus mode keeps the selected file's path visible without losing context. */
+.explorer-actions { display: flex; align-items: center; gap: 2px; }
+.explorer-actions .icon-button svg { transition: transform .16s ease; }
+.sidebar.explorer-expanded .primary-nav { display: none; }
+.sidebar.explorer-expanded .explorer-section { margin-top: 0; }
+.sidebar.explorer-expanded .workspace-tree { padding-top: 8px; }
+.workspace-entry.selected { color: var(--text); background: #1b3140; }
+.workspace-entry.selected .workspace-glyph.file { border-color: var(--cyan); }
+:root[data-theme="light"] .workspace-entry.selected { background: #dbeaf5; }
+
+@media (max-width: 1180px) {
+  .explorer-heading { padding-right: 2px; padding-left: 2px; }
+}
