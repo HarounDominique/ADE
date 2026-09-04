@@ -1338,7 +1338,9 @@ document.getElementById('terminal-form')?.addEventListener('submit', async (even
     terminalHistoryIndex = -1;
     terminalHistoryDraft = '';
     if (input) input.value = '';
-    await nativeInvoke('terminal_input', { input: `${command}\n` });
+    // Shells map CR to a line feed in canonical mode; TUIs in raw mode need
+    // the actual Enter key code to submit prompts and actions.
+    await nativeInvoke('terminal_input', { input: `${command}\r` });
   } catch (error) {
     appendTerminalTranscript(`\n[ADE] ${String(error)}\n`);
     notify('Terminal command failed.');

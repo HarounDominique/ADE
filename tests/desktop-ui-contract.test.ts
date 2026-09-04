@@ -82,6 +82,7 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(main, /completeTerminalInput/);
   assert.match(main, /event\.key === 'Tab'/);
   assert.match(main, /data-terminal-suggestion/);
+  assert.match(main, /terminal_input', \{ input: `\$\{command\}\\r` \}/);
 });
 
 test("explorer keeps the active file path as a compact branch and has a full-tree mode", () => {
