@@ -111,6 +111,17 @@ test("explorer keeps the active file path as a compact branch and has a full-tre
   assert.match(main, /collapseExplorer/);
 });
 
+test("workspace search returns files directly and restores their compact branch on selection", () => {
+  assert.match(main, /searchWorkspaceFiles/);
+  assert.match(main, /maxDepth: 99/);
+  assert.match(main, /entry\.kind === 'file'/);
+  assert.match(main, /No matching files/);
+  assert.match(main, /const wasSearching = Boolean\(filter\?\.value\.trim\(\)\)/);
+  assert.match(main, /if \(filter\) filter\.value = ''/);
+  assert.match(main, /void collapseExplorer\(\)/);
+  assert.match(styles, /\.workspace-tree\.is-searching \.workspace-entry\.directory \{ display: none; \}/);
+});
+
 test("explorer mode changes preserve continuity with a reduced-motion path", () => {
   assert.match(styles, /\.sidebar\.explorer-expanded \.primary-nav/);
   assert.match(styles, /visibility: hidden/);

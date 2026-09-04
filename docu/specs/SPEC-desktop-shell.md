@@ -37,6 +37,8 @@ El lateral combina una navegación etiquetada para `Overview`, `Tasks`, `Project
 
 El control de contraer restaura la navegación y reconstruye la rama compacta del archivo activo. La transición no cambia el Project ni la Task seleccionada.
 
+El filtro del Explorer busca recursivamente por nombre y ruta, pero muestra como resultado directo el fichero coincidente, no la carpeta contenedora. Al seleccionar un resultado, la consulta se limpia, se abre el fichero dentro de ADE y el Explorer vuelve a la rama breadcrumb compacta del archivo activo.
+
 ### Internal file viewer
 
 Seleccionar un fichero de texto en el Explorer abre su contenido dentro del workbench, en un editor acotado, mostrando nombre, ruta relativa y estado de carga. El documento activo se mantiene sincronizado con la rama compacta del Explorer, permite `Save`, `Discard` y `⌘/Ctrl+S`, y no altera la Task ni el dock de terminal.

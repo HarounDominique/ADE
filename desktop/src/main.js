@@ -25,6 +25,8 @@ let activeDocument = null;
 let documentOriginalContent = '';
 let documentDirty = false;
 let explorerExpanded = false;
+let workspaceSearchEntries = null;
+let workspaceSearchToken = 0;
 const terminalResizer = document.getElementById('terminal-resizer');
 const sidebarResizer = document.getElementById('sidebar-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
@@ -392,7 +394,7 @@ function updateWorkspaceFileSelection(filePath) {
   const selectedEntry = [...document.querySelectorAll('[data-file-path]')].find((entry) => entry.dataset.filePath === filePath);
   selectedEntry?.classList.add('selected');
   selectedEntry?.setAttribute('aria-current', 'page');
-  if (!explorerExpanded) void loadWorkspaceTree(workspaceRootPath, nativeInvoke);
+  if (!explorerExpanded && !document.getElementById('workspace-filter')?.value.trim()) void loadWorkspaceTree(workspaceRootPath, nativeInvoke);
 }
 
 function setDocumentHeader({ title, path, kind, externalDisabled = true }) {
@@ -658,6 +660,7 @@ async function refreshProjectContext(snapshot) {
   try {
     const context = await invoke('project_context', { repositoryPath: snapshot.project.repositoryPath });
     renderSnapshot({ ...snapshot, project: { ...snapshot.project, ...context } });
+    workspaceSearchEntries = null;
     await loadWorkspaceTree(context.repositoryPath, invoke);
     await refreshGitWorkspace(context.repositoryPath, invoke);
     notify('Project context loaded from the local repository.');
@@ -713,6 +716,32 @@ function renderWorkspaceEntries(entries) {
   return entries.map((entry) => renderWorkspaceEntry(entry)).join('');
 }
 
+async function searchWorkspaceFiles(query) {
+  const tree = document.getElementById('workspace-tree');
+  const invoke = nativeInvoke ?? window.__TAURI__?.core?.invoke;
+  const needle = query.trim().toLowerCase();
+  if (!tree || !needle) {
+    workspaceSearchToken += 1;
+    await loadWorkspaceTree(workspaceRootPath, invoke, { animate: true });
+    return;
+  }
+  const token = ++workspaceSearchToken;
+  tree.classList.add('is-searching');
+  tree.innerHTML = '<li class="workspace-empty">Searching files…</li>';
+  try {
+    if (!workspaceSearchEntries) workspaceSearchEntries = await invoke('list_directory', { path: workspaceRootPath, maxDepth: 99 });
+    if (token !== workspaceSearchToken) return;
+    const matches = workspaceSearchEntries.filter((entry) => entry.kind === 'file' && `${entry.name} ${entry.path}`.toLowerCase().includes(needle));
+    tree.innerHTML = matches.length ? matches.map((entry) => renderWorkspaceEntry(entry)).join('') : '<li class="workspace-empty">No matching files.</li>';
+    tree.classList.add('is-searching');
+  } catch (error) {
+    if (token !== workspaceSearchToken) return;
+    tree.innerHTML = '<li class="workspace-empty">File search unavailable.</li>';
+    notify('Workspace file search unavailable.');
+    console.warn('Workspace file search unavailable:', error);
+  }
+}
+
 async function renderCompactWorkspacePath(rootEntries, filePath, invoke) {
   if (!filePath || !filePath.startsWith(`${workspaceRootPath}/`)) return renderWorkspaceEntries(rootEntries);
   const segments = filePath.slice(workspaceRootPath.length + 1).split('/').filter(Boolean);
@@ -734,10 +763,13 @@ async function renderCompactWorkspacePath(rootEntries, filePath, invoke) {
 
 function filterWorkspaceTree(query) {
   const needle = query.trim().toLowerCase();
-  document.querySelectorAll('#workspace-tree > .workspace-node').forEach((node) => {
-    const name = node.dataset.entryName ?? '';
-    const matches = !needle || name.includes(needle) || node.textContent.toLowerCase().includes(needle);
-    node.hidden = !matches;
+  const tree = document.getElementById('workspace-tree');
+  tree?.classList.toggle('is-searching', Boolean(needle));
+  document.querySelectorAll('#workspace-tree .workspace-node').forEach((node) => {
+    const filePath = node.dataset.filePath ?? node.querySelector('[data-file-path]')?.dataset.filePath ?? '';
+    const isFile = node.classList.contains('file');
+    const matches = !needle || (isFile && `${node.dataset.entryName ?? ''} ${filePath}`.toLowerCase().includes(needle));
+    node.hidden = Boolean(needle) && !matches;
   });
 }
 
@@ -1165,6 +1197,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'refresh-tree') {
+    workspaceSearchEntries = null;
     loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
     return;
   }
@@ -1326,7 +1359,13 @@ document.addEventListener('click', (event) => {
   }
   const fileEntry = event.target.closest('[data-file-path].file');
   if (fileEntry) {
-    void openFileInADE(fileEntry.dataset.filePath);
+    const filter = document.getElementById('workspace-filter');
+    const wasSearching = Boolean(filter?.value.trim());
+    void openFileInADE(fileEntry.dataset.filePath).finally(() => {
+      if (!wasSearching) return;
+      if (filter) filter.value = '';
+      void collapseExplorer();
+    });
     return;
   }
   const taskCard = event.target.closest('[data-task-select]');
@@ -1357,7 +1396,7 @@ document.getElementById('document-content')?.addEventListener('keydown', (event)
   }
 });
 document.getElementById('agent-skill')?.addEventListener('change', refreshSelectedSkill);
-document.getElementById('workspace-filter')?.addEventListener('input', (event) => filterWorkspaceTree(event.target.value));
+document.getElementById('workspace-filter')?.addEventListener('input', (event) => { void searchWorkspaceFiles(event.target.value); });
 document.getElementById('terminal-command')?.addEventListener('keydown', (event) => {
   const input = event.currentTarget;
   if (event.key === 'Tab') {
