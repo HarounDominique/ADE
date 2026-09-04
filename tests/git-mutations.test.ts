@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { createBranch, createCommit, createWorktree, pushBranch } from "../src/application/git/git-mutations.js";
+import { createBranch, createCommit, createWorktree, pushBranch, switchBranch } from "../src/application/git/git-mutations.js";
 const execFile = promisify(execFileCallback);
 
 test("git mutations require confirmation and preserve attribution", async () => {
@@ -21,6 +21,19 @@ test("git mutations require confirmation and preserve attribution", async () => 
 
 test("direct push also requires explicit confirmation", async () => {
   await assert.rejects(pushBranch({ directory: "/tmp", actor: "human", reason: "publish", confirmed: false }), /explicit confirmation/);
+});
+
+test("branch switching is confirmed and does not force-discard local work", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-git-switch-"));
+  await execFile("git", ["init", "-q", root]);
+  await writeFile(join(root, "note.txt"), "initial");
+  await createCommit({ directory: root, message: "test: initial branch", actor: "human", reason: "fixture", confirmed: true });
+  await createBranch({ directory: root, name: "feature/selector", actor: "human", reason: "fixture", confirmed: true });
+  await execFile("git", ["switch", "-q", "-"] , { cwd: root });
+  await assert.rejects(() => switchBranch({ directory: root, branch: "feature/selector", actor: "human", reason: "select branch", confirmed: false }), /confirmation/);
+  const result = await switchBranch({ directory: root, branch: "feature/selector", actor: "human", reason: "select branch", confirmed: true });
+  assert.equal(result.operation, "branch.switch");
+  assert.equal((await execFile("git", ["branch", "--show-current"], { cwd: root })).stdout.trim(), "feature/selector");
 });
 
 test("a commit reports the revision it created so a Task can reference it", async () => {

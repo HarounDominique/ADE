@@ -24,6 +24,18 @@ test("desktop sidecar answers project.snapshot with a structured result", () => 
   store.close();
 });
 
+test("desktop sidecar lists registered projects for the Git context selector", () => {
+  const store = new AdeStore();
+  const first = Project.create({ id: "project-a", name: "Alpha", repositoryPath: "/tmp/alpha" });
+  const second = Project.create({ id: "project-b", name: "Beta", repositoryPath: "/tmp/beta" });
+  store.saveProject(first, { path: "/tmp/alpha", gitRoot: "/tmp/alpha", branch: "main" });
+  store.saveProject(second, { path: "/tmp/beta", gitRoot: "/tmp/beta", branch: "develop" });
+  const response = handleDesktopRequest(store, { id: "projects-1", method: "project.list" });
+
+  assert.deepEqual((response.result as Array<{ id: string }>).map((project) => project.id), ["project-a", "project-b"]);
+  store.close();
+});
+
 test("desktop sidecar returns actionable protocol errors", () => {
   const store = new AdeStore();
 

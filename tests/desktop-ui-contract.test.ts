@@ -16,6 +16,22 @@ test("desktop shell keeps the five MVP areas and critical actions", () => {
   }
 });
 
+test("desktop shell exposes the Git context bar and Explorer search affordance", () => {
+  assert.match(html, /id="repository-context-button"/);
+  assert.match(html, /id="branch-context-button"/);
+  assert.match(html, /id="repository-context-menu"/);
+  assert.match(html, /id="branch-context-menu"/);
+  assert.match(html, /class="explorer-search-trigger"/);
+  assert.match(html, /data-action="focus-search"/);
+  assert.doesNotMatch(html, /Quick Open/);
+  assert.match(main, /project.list/);
+  assert.match(main, /git.branch.switch/);
+  assert.match(main, /switchProjectFromContext/);
+  assert.match(main, /switchBranchFromContext/);
+  assert.match(styles, /\.git-context-bar/);
+  assert.match(styles, /\.git-context-menu/);
+});
+
 test("desktop shell wires critical actions to Tauri commands", () => {
   for (const command of ["sidecar_request", "sidecar_restart", "open_document", "open_file", "read_file", "write_file", "terminal_start", "terminal_input", "terminal_stop", "terminal_stop_all"]) {
     assert.match(main, new RegExp(`['\"]${command}['\"]`));

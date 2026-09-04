@@ -17,6 +17,7 @@ let terminalSuggestionContext = null;
 let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
 let workspaceRootPath = projectSnapshot.project.repositoryPath;
+let activeGitBranch = null;
 let selectedFilePath = null;
 let activeDocument = null;
 let documentOriginalContent = '';
@@ -40,6 +41,10 @@ let selectedTaskId = null;
 let selectedTaskIntent = '';
 let providerStatuses = [];
 const runtimeEvents = [];
+let registeredProjects = [];
+let projectCatalogLoaded = false;
+let gitBranches = [];
+const pendingContextRequests = new Map();
 
 function applyTheme(theme) {
   const nextTheme = theme === 'light' ? 'light' : 'dark';
@@ -334,11 +339,12 @@ sidebarResizer?.addEventListener('keydown', (event) => {
 window.addEventListener('resize', () => setSidebarWidth(sidebarWidth, false));
 
 function renderSnapshot(snapshot) {
+  const currentBranch = activeGitBranch ?? snapshot.project.branch ?? 'detached';
   const values = {
     'project-name': snapshot.project.name,
     'project-description': snapshot.project.description ?? 'Local ADE project',
     'project-path': snapshot.project.repositoryPath,
-    'project-branch': snapshot.project.branch,
+    'project-branch': currentBranch,
     'working-tree-state': snapshot.project.workingTree,
     'active-task-count': snapshot.metrics.activeTasks,
     'review-count': snapshot.metrics.inReview,
@@ -351,12 +357,108 @@ function renderSnapshot(snapshot) {
     if (element) element.textContent = value;
   });
   const statusBranch = document.getElementById('status-branch-name');
-  if (statusBranch) statusBranch.textContent = snapshot.project.branch;
+  if (statusBranch) statusBranch.textContent = currentBranch;
+  const repositoryName = document.getElementById('current-repository-name');
+  if (repositoryName) repositoryName.textContent = snapshot.project.name;
+  const branchName = document.getElementById('current-branch-name');
+  if (branchName) branchName.textContent = currentBranch;
   const terminalCwd = document.getElementById('terminal-cwd');
   if (terminalCwd) terminalCwd.textContent = snapshot.project.repositoryPath;
   renderChanges(snapshot.tasks ?? []);
   renderProjectTasks(snapshot.tasks ?? []);
   if (snapshot.sync) setSyncState(snapshot.sync.state, snapshot.sync.label);
+}
+
+function sendContextRequest(method, params = {}, purpose = method) {
+  if (!nativeInvoke) return Promise.reject(new Error('Local sidecar unavailable'));
+  const id = `context-${purpose}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  pendingContextRequests.set(String(id), purpose);
+  return nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method, params }) });
+}
+
+function closeGitContextMenus() {
+  document.querySelectorAll('.git-context-menu').forEach((menu) => { menu.hidden = true; });
+  document.querySelectorAll('.git-context-button').forEach((button) => button.setAttribute('aria-expanded', 'false'));
+}
+
+function renderRepositoryMenu() {
+  const menu = document.getElementById('repository-context-menu');
+  if (!menu) return;
+  menu.innerHTML = registeredProjects.length
+    ? registeredProjects.map((project) => `<button class="git-context-option${project.id === activeProjectId ? ' selected' : ''}" type="button" role="menuitem" data-project-id="${escapeHTML(project.id)}"><span class="git-option-mark" aria-hidden="true">${project.id === activeProjectId ? '✓' : ''}</span><span><strong>${escapeHTML(project.name)}</strong><small>${escapeHTML(project.repositoryPath)}</small></span></button>`).join('')
+    : '<p class="git-context-empty">No registered repositories.</p>';
+}
+
+function renderBranchMenu() {
+  const menu = document.getElementById('branch-context-menu');
+  if (!menu) return;
+  menu.innerHTML = gitBranches.length
+    ? gitBranches.map((branch) => `<button class="git-context-option${branch === document.getElementById('current-branch-name')?.textContent ? ' selected' : ''}" type="button" role="menuitem" data-branch-name="${escapeHTML(branch)}"><span class="git-option-mark" aria-hidden="true">${branch === document.getElementById('current-branch-name')?.textContent ? '✓' : ''}</span><span><strong>${escapeHTML(branch)}</strong></span></button>`).join('')
+    : '<p class="git-context-empty">No local branches found.</p>';
+}
+
+function toggleGitContextMenu(kind) {
+  const menu = document.getElementById(`${kind}-context-menu`);
+  const button = document.getElementById(`${kind}-context-button`);
+  if (!menu || !button) return;
+  const wasOpen = !menu.hidden;
+  closeGitContextMenus();
+  if (wasOpen) return;
+  menu.hidden = false;
+  button.setAttribute('aria-expanded', 'true');
+  if (kind === 'repository') {
+    renderRepositoryMenu();
+    if (!projectCatalogLoaded) void sendContextRequest('project.list', {}, 'projects');
+  } else {
+    menu.innerHTML = '<p class="git-context-empty">Loading branches…</p>';
+    void sendContextRequest('git.workspace', { repositoryPath: document.getElementById('project-path')?.textContent }, 'branches');
+  }
+}
+
+async function switchProjectFromContext(project) {
+  if (!nativeInvoke || !project?.repositoryPath) return;
+  closeGitContextMenus();
+  setSyncState('stale', `Switching to ${project.name}…`);
+  try {
+    const context = await nativeInvoke('project_context', { repositoryPath: project.repositoryPath });
+    activeProjectId = project.id;
+    workspaceRootPath = context.repositoryPath;
+    activeGitBranch = context.branch;
+    if (selectedFilePath && !selectedFilePath.startsWith(`${workspaceRootPath}/`)) {
+      selectedFilePath = null;
+      activeDocument = null;
+      document.getElementById('document-viewer')?.setAttribute('hidden', '');
+    }
+    renderSnapshot({ ...projectSnapshot, project: { ...project, ...context, branch: context.branch }, metrics: { ...projectSnapshot.metrics, activeTasks: 0, inReview: 0 } });
+    window.clearTimeout(workspaceSearchTimer);
+    workspaceSearchToken += 1;
+    setWorkspaceSearchLoading(false);
+    workspaceSearchEntries = null;
+    workspaceSearchIndex = null;
+    await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
+    await refreshGitWorkspace(workspaceRootPath, nativeInvoke);
+    await sendContextRequest('project.snapshot', { projectId: activeProjectId }, 'snapshot');
+    await sendContextRequest('skills.list', { repositoryPath: workspaceRootPath }, 'skills');
+    await sendContextRequest('service.list', { repositoryPath: workspaceRootPath }, 'services');
+    notify(`Project switched to ${project.name}.`);
+  } catch (error) {
+    setSyncState('failed', 'Project switch failed');
+    notify(error instanceof Error ? error.message : 'Project switch failed.');
+    console.warn('Project switch unavailable:', error);
+  }
+}
+
+async function switchBranchFromContext(branch) {
+  const path = document.getElementById('project-path')?.textContent;
+  if (!nativeInvoke || !path || !branch) return;
+  closeGitContextMenus();
+  setSyncState('stale', `Switching to ${branch}…`);
+  try {
+    await sendContextRequest('git.branch.switch', { repositoryPath: path, branch, actor: 'human', reason: 'Branch selected from ADE Git context bar', confirmed: true }, 'switch-branch');
+  } catch (error) {
+    setSyncState('failed', 'Branch switch failed');
+    notify(error instanceof Error ? error.message : 'Branch switch failed.');
+  }
 }
 
 function renderChanges(tasks) {
@@ -726,6 +828,7 @@ async function refreshProjectContext(snapshot) {
   if (!invoke) return;
   try {
     const context = await invoke('project_context', { repositoryPath: snapshot.project.repositoryPath });
+    activeGitBranch = context.branch;
     renderSnapshot({ ...snapshot, project: { ...snapshot.project, ...context } });
     window.clearTimeout(workspaceSearchTimer);
     workspaceSearchToken += 1;
@@ -997,10 +1100,39 @@ async function connectSidecar(snapshot) {
   try {
     await listen('sidecar:response', async (event) => {
       const response = JSON.parse(event.payload);
+      const contextPurpose = pendingContextRequests.get(String(response.id));
+      if (contextPurpose) pendingContextRequests.delete(String(response.id));
       if (response.error) {
+        if (contextPurpose === 'projects') {
+          projectCatalogLoaded = false;
+          const menu = document.getElementById('repository-context-menu');
+          if (menu && !menu.hidden) menu.innerHTML = `<p class="git-context-empty">${escapeHTML(response.error.message)}</p>`;
+        }
+        if (contextPurpose === 'branches') {
+          const menu = document.getElementById('branch-context-menu');
+          if (menu && !menu.hidden) menu.innerHTML = `<p class="git-context-empty">${escapeHTML(response.error.message)}</p>`;
+        }
         const feedback = document.getElementById('agent-feedback');
         if (feedback) feedback.textContent = `${response.error.code}: ${response.error.message}`;
         notify(response.error.message);
+        return;
+      }
+      if (contextPurpose === 'projects' && Array.isArray(response.result)) {
+        registeredProjects = response.result;
+        projectCatalogLoaded = true;
+        renderRepositoryMenu();
+        return;
+      }
+      if (contextPurpose === 'branches' && response.result?.branches) {
+        gitBranches = response.result.branches;
+        renderBranchMenu();
+        return;
+      }
+      if (contextPurpose === 'switch-branch' && response.result?.operation === 'branch.switch') {
+        const path = document.getElementById('project-path')?.textContent;
+        if (path) await refreshGitWorkspace(path, nativeInvoke);
+        setSyncState('ready', 'Synced just now');
+        notify(`Branch switched to ${response.result.branch}.`);
         return;
       }
       if (response.type?.startsWith('runtime.') && response.status) {
@@ -1038,6 +1170,15 @@ async function connectSidecar(snapshot) {
         return;
       }
       if (response.result?.branches && response.result?.worktrees) {
+        gitBranches = response.result.branches;
+        const branchName = response.result.currentBranch || 'detached';
+        activeGitBranch = branchName;
+        document.getElementById('current-branch-name')?.replaceChildren(document.createTextNode(branchName));
+        const projectBranch = document.getElementById('project-branch');
+        if (projectBranch) projectBranch.textContent = branchName;
+        const statusBranch = document.getElementById('status-branch-name');
+        if (statusBranch) statusBranch.textContent = branchName;
+        renderBranchMenu();
         const output = document.getElementById('git-workspace-output');
         if (output) output.textContent = `Current branch\n${response.result.currentBranch}\n\nChanged files\n${response.result.changedFiles.join('\n') || 'clean'}\n\nBranches\n${response.result.branches.join('\n') || '—'}\n\nWorktrees\n${response.result.worktrees.join('\n') || '—'}\n\nRemotes\n${response.result.remotes.join('\n') || '—'}`;
         return;
@@ -1461,7 +1602,20 @@ document.getElementById('terminal-new-tab')?.addEventListener('click', () => {
   createTerminalTab();
   notify('New terminal session opened.');
 });
+document.getElementById('repository-context-button')?.addEventListener('click', () => toggleGitContextMenu('repository'));
+document.getElementById('branch-context-button')?.addEventListener('click', () => toggleGitContextMenu('branch'));
 document.addEventListener('click', (event) => {
+  const projectOption = event.target.closest('[data-project-id]');
+  if (projectOption) {
+    const project = registeredProjects.find((candidate) => candidate.id === projectOption.dataset.projectId);
+    if (project) void switchProjectFromContext(project);
+    return;
+  }
+  const branchOption = event.target.closest('[data-branch-name]');
+  if (branchOption) {
+    void switchBranchFromContext(branchOption.dataset.branchName);
+    return;
+  }
   const closeButton = event.target.closest('[data-terminal-close-id]');
   if (closeButton) {
     closeTerminalTab(closeButton.dataset.terminalCloseId);
@@ -1469,6 +1623,12 @@ document.addEventListener('click', (event) => {
   }
   const tabButton = event.target.closest('[data-terminal-tab-id]');
   if (tabButton) selectTerminalTab(tabButton.dataset.terminalTabId);
+});
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('.git-context-control')) closeGitContextMenus();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeGitContextMenus();
 });
 document.addEventListener('click', (event) => {
   const serviceButton = event.target.closest('[data-service-action][data-service-id]');

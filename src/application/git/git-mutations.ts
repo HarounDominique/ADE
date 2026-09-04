@@ -14,6 +14,13 @@ export async function createBranch(input: ConfirmedOperation & { name: string })
   return { operation: "branch.create", name: input.name, actor: input.actor, reason: input.reason };
 }
 
+export async function switchBranch(input: ConfirmedOperation & { branch: string }) {
+  assertConfirmed(input);
+  if (!input.branch.trim()) throw new Error("Cannot switch to an empty branch");
+  await execFile("git", ["switch", input.branch], { cwd: input.directory });
+  return { operation: "branch.switch", branch: input.branch, actor: input.actor, reason: input.reason };
+}
+
 export async function createWorktree(input: ConfirmedOperation & { path: string; branch: string }) {
   assertConfirmed(input);
   await execFile("git", ["worktree", "add", "-b", input.branch, input.path], { cwd: input.directory });

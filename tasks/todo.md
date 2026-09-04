@@ -208,13 +208,13 @@
   - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`; bundle `.app` generado y arrancado manualmente en macOS; smoke gráfico automatizado pendiente.
   - Files: `desktop/src/`, `desktop/src-tauri/src/lib.rs`, `tests/`, `docu/specs/`.
 
-- [ ] Task: Añadir selector visual de repositorio y branch
+- [x] Task: Añadir selector visual de repositorio y branch
   - Spec: [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md) · [SPEC-git-collaboration.md](../docu/specs/SPEC-git-collaboration.md)
   - ADR: [0016-git-context-switcher.md](../docu/adr/0016-git-context-switcher.md)
   - Acceptance: la topbar sustituye Quick Open por selectores de Project Git y branch; Project lista los repositorios persistidos, branch lista las ramas locales bajo demanda y ambos estados son accesibles.
   - Verify: `npm test`, `node --check desktop/src/main.js`, build desktop y prueba manual de cambio de Project/branch en macOS.
   - Files: `desktop/src/index.html`, `desktop/src/main.js`, `desktop/src/styles.css`, `src/desktop-sidecar.ts`, `src/application/git/git-mutations.ts`, `tests/`.
 
-- [ ] Task: Añadir affordance de búsqueda al Explorer
+- [x] Task: Añadir affordance de búsqueda al Explorer
   - Acceptance: una lupa junto a `Explorer` enfoca el buscador existente sin duplicar la lógica de búsqueda.
   - Verify: test de contrato UI y navegación por teclado.

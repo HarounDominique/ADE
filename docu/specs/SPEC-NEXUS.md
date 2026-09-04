@@ -207,6 +207,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-04 — workspace-core — La búsqueda mantiene la escritura responsiva con debounce, cancelación lógica, índice normalizado reutilizable y spinner mientras los resultados actuales están pendientes. La suite pasa con 88 tests.
 - 2026-09-04 — documentation-alignment — Se sincroniza la documentación vigente: 88 tests TypeScript y 17 tests Rust, editor interno v0.4 implementado, bundle `.app` arrancado manualmente y smoke gráfico automatizado pendiente; se conservan sin cambios las cifras históricas de los cortes de release.
 - 2026-09-04 — terminal-tabs — El dock pasa de un transcript PTY único a tabs con sesiones independientes: el supervisor Rust enruta eventos por `sessionId` y la UI conserva proceso, transcript, cwd, historial y completado por tab. La suite TypeScript sigue en 88 tests y Rust en 17.
+- 2026-09-04 — git-context — Se sustituyó Quick Open por selectores de repositorio y branch Git, con Projects persistidos, ramas locales bajo demanda y cambio no destructivo mediante `git switch`; Explorer incorpora una lupa accionable. La suite pasa con 91 tests TypeScript y 17 Rust.
 
 ## Automatic Reconciliation Log
 
