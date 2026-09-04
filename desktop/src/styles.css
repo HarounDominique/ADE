@@ -202,3 +202,53 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .primary-nav, .workspace-tree, .workspace-arrow, .document-viewer-panel, .search-spinner { transition-duration: .01ms; animation: none; }
   .primary-nav, .workspace-tree { transform: none; }
 }
+
+/* Version control follows the familiar Changes / History workbench pattern. */
+.version-control-view { padding-top: 24px; }
+.version-control-view > .page-header { margin-bottom: 18px; }
+.version-control-view > .page-header .eyebrow { margin-bottom: 5px; color: var(--cyan); }
+.version-control-view > .page-header h1 { font-size: 22px; }
+.version-control-tabs { gap: 0; margin-bottom: 12px; }
+.version-control-tab { min-width: 92px; padding: 0 15px 10px; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.version-control-toolbar { min-height: 42px; margin-bottom: 10px; padding: 6px 10px; border: 1px solid var(--line); background: var(--panel); }
+.version-control-toolbar > div { gap: 8px; }
+.version-control-status { padding: 4px 7px; border: 1px solid var(--line); border-radius: 2px; color: var(--text-soft); background: var(--panel-soft); font-size: 9px; }
+.version-history-layout { grid-template-columns: minmax(235px, .7fr) minmax(0, 1.3fr); min-height: 500px; }
+.git-commit-list { max-height: none; border-right: 1px solid var(--line); }
+.git-commit-item { gap: 6px; padding: 12px 14px; }
+.git-commit-item.active { color: var(--text); background: color-mix(in srgb, var(--blue) 16%, var(--panel)); }
+.git-commit-subject { font-size: 11px; line-height: 1.35; white-space: normal; }
+.git-commit-detail { display: grid; grid-template-columns: minmax(190px, .78fr) minmax(0, 1.22fr); grid-template-rows: auto auto minmax(0, 1fr); gap: 10px; min-height: 500px; padding: 15px; }
+.git-commit-heading { grid-column: 1 / -1; min-width: 0; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.git-commit-heading h2 { margin: 4px 0; font-size: 16px; line-height: 1.3; }
+.git-commit-files-heading { grid-column: 1; margin: 0; align-self: end; }
+.git-commit-files { grid-column: 1; grid-row: 3; align-content: start; max-height: none; margin: 0; }
+.git-diff-output { grid-column: 2; grid-row: 2 / 4; min-height: 0; max-height: none; margin: 0; padding: 13px; overflow: auto; font-size: 10px; line-height: 1.55; white-space: pre; tab-size: 4; }
+.pending-changes-layout { grid-template-columns: minmax(210px, .72fr) minmax(260px, 1fr) minmax(245px, .78fr); gap: 10px; min-height: 500px; }
+.pending-changes-layout > section { display: grid; grid-column: span 2; grid-template-columns: minmax(190px, .72fr) minmax(0, 1.28fr); grid-template-rows: auto minmax(0, 1fr); gap: 10px; min-width: 0; }
+.pending-changes-layout > section > h2 { grid-column: 1; align-self: center; }
+.pending-changes-layout .git-pending-files { grid-column: 1; grid-row: 2; align-content: start; max-height: none; margin: 0; }
+.pending-changes-layout .pending-diff { grid-column: 2; grid-row: 1 / 3; min-height: 0; max-height: none; margin: 0; }
+.git-pending-file { min-height: 36px; padding: 9px 11px; }
+.git-pending-file:hover { color: var(--text); background: var(--panel-raised); }
+.commit-form { grid-column: 3; align-self: start; min-height: 100%; padding: 16px; gap: 10px; }
+.commit-form h2 { font-size: 13px; }
+.commit-form .button.primary { width: 100%; min-height: 34px; margin-top: 4px; }
+
+:root[data-theme="light"] .version-control-toolbar,
+:root[data-theme="light"] .version-control-status { background: #ffffff; }
+:root[data-theme="light"] .git-commit-item.active { background: #e3eef9; }
+:root[data-theme="light"] .git-pending-file:hover { background: #e3eef9; }
+
+@media (max-width: 1180px) {
+  .pending-changes-layout { grid-template-columns: 1fr; }
+  .pending-changes-layout > section { grid-column: 1; }
+  .commit-form { grid-column: 1; min-height: auto; }
+}
+
+@media (max-width: 760px) {
+  .git-commit-detail { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; }
+  .git-commit-heading, .git-commit-files-heading, .git-commit-files, .git-diff-output { grid-column: 1; grid-row: auto; }
+  .pending-changes-layout > section { grid-template-columns: 1fr; grid-template-rows: auto auto auto; }
+  .pending-changes-layout > section > h2, .pending-changes-layout .git-pending-files, .pending-changes-layout .pending-diff { grid-column: 1; grid-row: auto; }
+}
