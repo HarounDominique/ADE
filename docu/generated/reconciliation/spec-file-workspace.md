@@ -1,4 +1,4 @@
-# Reconciliation: docu/specs/SPEC-workspace-core.md
+# Reconciliation: docu/specs/SPEC-file-workspace.md
 
 Generated from the current documentation graph.
 
@@ -12,9 +12,11 @@ Generated from the current documentation graph.
 - [ ] Review and synchronize [docu/specs/SPEC-desktop-shell.md](../../specs/SPEC-desktop-shell.md)
 - [ ] Review and synchronize [docu/specs/SPEC-v0.2.md](../../specs/SPEC-v0.2.md)
 - [ ] Review and synchronize [docu/specs/SPEC-v0.3.md](../../specs/SPEC-v0.3.md)
+- [ ] Review and synchronize [docu/specs/SPEC-workspace-core.md](../../specs/SPEC-workspace-core.md)
 - [ ] Review and synchronize [docu/spikes/001-opencode-runtime.md](../../spikes/001-opencode-runtime.md)
 - [ ] Review and synchronize [docu/spikes/002-independent-review.md](../../spikes/002-independent-review.md)
 - [ ] Review and synchronize [docu/spikes/003-desktop-framework.md](../../spikes/003-desktop-framework.md)
+- [ ] Review and synchronize [tasks/todo.md](../../../tasks/todo.md)
 
 ## Broken references
 

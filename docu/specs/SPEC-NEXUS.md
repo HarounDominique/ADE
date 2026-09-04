@@ -64,6 +64,9 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | native-skills | [SPEC-native-skills.md](SPEC-native-skills.md) | Catálogo, instalación, versionado y ejecución de skills | knowledge-docs, development-workflow, agent-providers | done | — |
 | git-collaboration | [SPEC-git-collaboration.md](SPEC-git-collaboration.md) | Git local, GitHub, branches, worktrees y PRs | workspace-core, changes-review-governance, agent-providers | done | — |
 | living-knowledge | [SPEC-living-knowledge.md](SPEC-living-knowledge.md) | Grafo de referencias, specs vivas, diagramas y reconciliación | knowledge-docs, native-skills, workspace-core | done | — |
+| file-workspace | [SPEC-file-workspace.md](SPEC-file-workspace.md) | Visor interno de ficheros, lectura segura y escape hatch externo | workspace-core, desktop-shell | planned | v0.4 implementation |
+
+`done` identifica capacidades implementadas y verificadas; `planned` identifica una spec aprobada para una iteración posterior, todavía no implementada.
 
 **Build order:** `project-task-workflow → development-workflow → agent-runtime + knowledge-docs + local-runtime → changes-review-governance → desktop-shell`.
 
@@ -81,7 +84,11 @@ La v0.3 prioriza `workspace-core`: sin contexto local navegable y terminal integ
 
 La aplicación macOS actual ofrece una shell desktop Tauri con navegación lateral única, Project Hub, Work, Knowledge, Changes y Runtime. El Explorer mantiene como hint la rama del archivo activo y puede convertirse en un árbol completo; ambos cambios tienen transición fluida. El tema claro/oscuro se alterna desde la esquina superior derecha y se conserva entre sesiones.
 
-El dock inferior expone un único transcript de terminal PTY persistente, redimensionable y confinado a la raíz del Project. El prompt mínimo, Enter, historial con `↑`/`↓` y completado de directorios para `cd` con `Tab` están implementados; las sugerencias ambiguas se recorren con `↑`/`↓` y se cierran con `Esc`. La baseline de verificación actual es 81 tests TypeScript y 13 tests Rust; el `.app` macOS se empaqueta y se ha validado con el smoke de OpenCode real.
+El dock inferior expone un único transcript de terminal PTY persistente, redimensionable y confinado a la raíz del Project. El prompt mínimo, Enter, historial con `↑`/`↓` y completado de directorios para `cd` con `Tab` están implementados; las sugerencias ambiguas se recorren con `↑`/`↓` y se cierran con `Esc`. La baseline de verificación actual es 81 tests TypeScript y 13 tests Rust; el `.app` macOS se empaqueta y se ha validado con el smoke de OpenCode real. La selección de ficheros todavía abre fuera y es el siguiente contrato pendiente de implementar en [SPEC-file-workspace](SPEC-file-workspace.md).
+
+## Next iteration
+
+La siguiente iteración abre [SPEC-file-workspace](SPEC-file-workspace.md): el fichero de texto seleccionado debe aparecer dentro de ADE en un visor de solo lectura, con lectura Tauri autorizada y apertura externa únicamente mediante una acción explícita. No se adelanta un editor completo.
 
 ## Scope boundary
 
@@ -191,6 +198,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-03 — v0.3-close — Smoke empaquetado macOS validado con sidecar incluido, OpenCode 1.18.26 real, Task en repositorio efímero, evidencia y gates rehidratados tras reinicio del sidecar, y `.app` arrancando/parando limpiamente. Suites: 76 tests TypeScript, 13 tests Rust; v0.3 cerrada.
 - 2026-09-04 — workspace-core + desktop-shell — Se sincroniza la UX del Explorer: la navegación lateral queda etiquetada y única; el árbol conserva en modo compacto la rama del archivo activo y ofrece un modo expandido que repliega la navegación para explorar el árbol completo. Se propaga a SPEC-v0.3 y al cierre de release; 78 tests TypeScript pasan.
 - 2026-09-04 — workspace-core + desktop-shell — Se documenta la baseline actual de la shell: tema claro/oscuro persistente, Explorer animado y dock PTY redimensionable con transcript único, prompt mínimo, historial y completado de rutas `cd` mediante `Tab`; 81 tests TypeScript y 13 tests Rust pasan.
+- 2026-09-04 — file-workspace — Se especifica la siguiente capacidad de v0.4: selección de fichero con visor interno de solo lectura, lectura segura bajo la raíz del Project y escape hatch externo explícito; la implementación queda planificada.
 
 ## Automatic Reconciliation Log
 
@@ -206,3 +214,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-local-runtime.md; 8 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-local-runtime.md, ../generated/qa/spec-local-runtime.md, ../generated/estimates/spec-local-runtime.md.
 <!-- reconciliation:docu/adr/0009-tauri-desktop-shell.md -->
 - 2026-09-04 — automatic-reconciliation — docu/adr/0009-tauri-desktop-shell.md; 8 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/0009-tauri-desktop-shell.md, ../generated/qa/0009-tauri-desktop-shell.md, ../generated/estimates/0009-tauri-desktop-shell.md.
+<!-- reconciliation:docu/adr/0014-internal-file-viewer.md -->
+- 2026-09-04 — automatic-reconciliation — docu/adr/0014-internal-file-viewer.md; 2 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/0014-internal-file-viewer.md, ../generated/qa/0014-internal-file-viewer.md, ../generated/estimates/0014-internal-file-viewer.md.
+<!-- reconciliation:docu/specs/SPEC-file-workspace.md -->
+- 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-file-workspace.md; 13 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-file-workspace.md, ../generated/qa/spec-file-workspace.md, ../generated/estimates/spec-file-workspace.md.

@@ -189,3 +189,12 @@
   - Acceptance: tema claro/oscuro persistente, Explorer compacto/expandido con animación fluida, dock inferior redimensionable y terminal PTY con transcript único, prompt mínimo, historial y completado de rutas `cd`.
   - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`.
   - Files: `desktop/src/`, `desktop/src-tauri/src/lib.rs`, `DESIGN.md`, `docu/specs/`.
+
+## v0.4 — Workspace interno
+
+- [ ] Task: Abrir ficheros dentro de ADE
+  - Spec: [SPEC-file-workspace.md](../docu/specs/SPEC-file-workspace.md)
+  - ADR: [0014-internal-file-viewer.md](../docu/adr/0014-internal-file-viewer.md)
+  - Acceptance: seleccionar un fichero de texto abre un visor interno de solo lectura; binarios, errores y ficheros demasiado grandes muestran estado explicativo; abrir externamente requiere una acción explícita.
+  - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`.
+  - Files: `desktop/src/`, `desktop/src-tauri/src/lib.rs`, `tests/`, `docu/specs/`.

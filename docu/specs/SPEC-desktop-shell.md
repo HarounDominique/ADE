@@ -4,7 +4,7 @@
 
 ## Objective
 
-Ofrecer una superficie desktop centrada en proyectos y Tasks, con navegación por Knowledge, Changes y Runtime, sin construir un editor completo.
+Ofrecer una superficie desktop centrada en proyectos y Tasks, con navegación por Knowledge, Changes y Runtime, incorporando un visor interno de ficheros sin construir todavía un editor completo.
 
 ## Shell contract
 
@@ -36,6 +36,12 @@ El lateral combina una navegación etiquetada para `Overview`, `Tasks`, `Project
 - **Expandido:** al pulsar el control de expansión o una carpeta de la rama compacta, oculta las opciones de navegación y convierte el árbol en la superficie principal del lateral. Los hijos se cargan perezosamente y la rama seleccionada permanece resaltada.
 
 El control de contraer restaura la navegación y reconstruye la rama compacta del archivo activo. La transición no cambia el Project ni la Task seleccionada.
+
+### Internal file viewer
+
+Seleccionar un fichero de texto en el Explorer abre su contenido dentro del workbench, en un visor de solo lectura, mostrando nombre, ruta relativa, líneas y estado de carga. El documento activo se mantiene sincronizado con la rama compacta del Explorer y no altera la Task ni el dock de terminal.
+
+El visor trata binarios, ficheros ilegibles y previews demasiado grandes con estados explicativos. `Open externally` es una acción separada y explícita; seleccionar un fichero nunca debe lanzar automáticamente una aplicación del sistema. La lectura se solicita al backend Tauri y queda sometida a la autorización de la raíz del Project. El alcance completo está en [file-workspace](SPEC-file-workspace.md).
 
 ### Terminal dock
 
@@ -87,7 +93,7 @@ npm run desktop:test
 npm run desktop:package
 ```
 
-Mientras el shell no exista, el contrato se verifica con `npm run build && npm test` y los flujos CLI descritos en las specs de runtime y governance.
+La shell actual se verifica con `npm run build`, `npm test`, `npm run desktop:test` y smoke macOS; los flujos CLI descritos en las specs de runtime y governance siguen siendo el fallback operativo.
 
 El shell visual inicial vive en `desktop/src/`. Su fixture `project-snapshot.js` define el boundary de datos y el comando Tauri `project_context` ya aporta contexto local de repositorio en modo solo lectura. La UI no accede directamente a SQLite, Git ni procesos.
 
@@ -97,19 +103,19 @@ La CLI expone el mismo contrato mediante `npm run ade -- project snapshot <proje
 
 ## Code Style
 
-La revisión se presenta de mayor a menor nivel de detalle: resumen semántico, impacto, findings, archivos, diff. El visor necesita syntax highlighting, búsqueda, navegación, diff y apertura externa. La shell incluye únicamente el completado pragmático de rutas de `cd` en la terminal; no incluye autocompletado general de comandos ni language server propio.
+La revisión se presenta de mayor a menor nivel de detalle: resumen semántico, impacto, findings, archivos, diff. El visor interno debe priorizar lectura, legibilidad y trazabilidad de ruta; syntax highlighting, búsqueda y navegación pueden incorporarse de forma incremental. La shell incluye únicamente el completado pragmático de rutas de `cd` en la terminal; no incluye edición, autocompletado general de comandos ni language server propio.
 
 ## Testing Strategy
 
 Tests de componentes para estados de Task y gates; tests de integración para crear Project, crear/reanudar Task, observar ChangeSet y revisar; test end-to-end del flujo principal con adapters fake; smoke test del shell en el sistema operativo objetivo; y test de escape hatch para IDE/terminal.
 
-La primera vertical de UI debe probar: abrir Project → crear Task → observar Implementer → consultar Review → reconciliar documentación → aprobar → preparar commit. No se exige editor, autocompletado general de comandos, language server ni colaboración realtime; el completado de rutas de `cd` forma parte del contrato de terminal.
+La primera vertical de UI debe probar: abrir Project → seleccionar fichero y leerlo dentro de ADE → crear Task → observar Implementer → consultar Review → reconciliar documentación → aprobar → preparar commit. No se exige editor, autocompletado general de comandos, language server ni colaboración realtime; el completado de rutas de `cd` forma parte del contrato de terminal.
 
 ## Boundaries
 
 - **Always:** Project Hub primero; hacer visible estado Git, Task, agentes, gates y runtime; ofrecer escape hatch a IDE/terminal.
 - **Ask first:** adoptar editor completo, soporte cloud, cuentas, sync o colaboración realtime.
-- **Never:** esconder operaciones peligrosas detrás de una acción ambigua; convertir la conversación en única representación del trabajo.
+- **Never:** abrir un fichero seleccionado automáticamente fuera de ADE; esconder operaciones peligrosas detrás de una acción ambigua; convertir la conversación en única representación del trabajo.
 
 ## Success Criteria
 
