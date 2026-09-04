@@ -78,7 +78,7 @@ No quedan preguntas que bloqueen la release 0.3. Las decisiones de producto no n
 
 Tras cerrar v0.3, la shell recibió refinamientos de interacción que forman parte del comportamiento actual de la aplicación: selector persistente claro/oscuro en la esquina superior derecha, transición fluida y respeto de `prefers-reduced-motion` al cambiar el Explorer, hover legible en ambos temas y dock de terminal inferior redimensionable.
 
-La terminal actual presenta un único transcript PTY con prompt mínimo, sin bienvenida ni eco duplicados. `Enter` ejecuta, `↑`/`↓` navegan el historial y `Tab` completa rutas de directorio en comandos `cd`; las coincidencias ambiguas se muestran como sugerencias navegables y `Esc` las oculta. Estas mejoras no reabren la release ni amplían su alcance: editor completo, language server, autocompletado general de comandos, `.dmg`, cloud y colaboración realtime siguen fuera.
+La terminal actual presenta un único transcript PTY con prompt mínimo, sin bienvenida ni eco duplicados. `Enter` ejecuta, `↑`/`↓` navegan el historial y `Tab` completa rutas de directorio en comandos `cd`; las coincidencias ambiguas se muestran como sugerencias navegables y `Esc` las oculta. El transcript interpreta ANSI para conservar el cursor, el borrado y la pantalla alternativa de TUIs interactivas como Claude. Estas mejoras no reabren la release ni amplían su alcance: editor completo, language server, autocompletado general de comandos, `.dmg`, cloud y colaboración realtime siguen fuera.
 
 ## Resolved decisions
 

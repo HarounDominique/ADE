@@ -1,4 +1,5 @@
 import { projectSnapshot } from './project-snapshot.js';
+import { TerminalEmulator } from './terminal-emulator.js';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 const panels = [...document.querySelectorAll('.view')];
@@ -10,6 +11,7 @@ const themeMeta = document.querySelector('meta[name="theme-color"]');
 let nativeInvoke;
 let terminalStarted = false;
 const terminalHistory = [];
+let terminalEmulator;
 let terminalHistoryIndex = -1;
 let terminalHistoryDraft = '';
 let terminalCompletionCwd = projectSnapshot.project.repositoryPath;
@@ -69,9 +71,22 @@ function setTerminalHeight(nextHeight, persist = true) {
 function appendTerminalTranscript(text) {
   const output = document.getElementById('terminal-output');
   if (!output) return;
-  output.textContent += text;
-  output.scrollTop = output.scrollHeight;
+  if (!terminalEmulator) {
+    output.textContent += text;
+    output.scrollTop = output.scrollHeight;
+    return;
+  }
+  terminalEmulator.write(text);
 }
+
+terminalEmulator = new TerminalEmulator({
+  onChange(text) {
+    const output = document.getElementById('terminal-output');
+    if (!output) return;
+    output.textContent = text;
+    output.scrollTop = output.scrollHeight;
+  },
+});
 
 function escapeTerminalSuggestion(value) {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');

@@ -76,6 +76,8 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.doesNotMatch(html, /ADE terminal ready/);
   assert.doesNotMatch(main, /appendTerminalCommand/);
   assert.match(main, /terminalHistory/);
+  assert.match(main, /TerminalEmulator/);
+  assert.match(main, /terminalEmulator\.write/);
   assert.match(main, /ArrowDown/);
   assert.match(main, /completeTerminalInput/);
   assert.match(main, /event\.key === 'Tab'/);

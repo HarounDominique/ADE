@@ -29,7 +29,7 @@ La selección de un fichero de texto abre por defecto un editor interno en el wo
 
 ## Testing Strategy
 
-Tests de rutas fuera del Project, symlinks que escapan, orden estable, apertura de archivos, cwd y un comando interactivo dentro del PTY. La superficie de terminal es un único transcript con prompt integrado: Enter ejecuta, `↑`/`↓` recorren el historial y `Tab` completa rutas de directorio usadas por `cd`; las coincidencias ambiguas se muestran como sugerencias navegables y `Esc` las cierra. Tests de contrato del shell para selección de archivo, rama compacta, transición a árbol completo y restauración del modo compacto. Smoke manual y empaquetado en macOS.
+Tests de rutas fuera del Project, symlinks que escapan, orden estable, apertura de archivos, cwd y un comando interactivo dentro del PTY. La superficie de terminal es un único transcript con prompt integrado: Enter ejecuta, `↑`/`↓` recorren el historial y `Tab` completa rutas de directorio usadas por `cd`; las coincidencias ambiguas se muestran como sugerencias navegables y `Esc` las cierra. El transcript interpreta las secuencias ANSI necesarias para cursor, borrado, color y pantalla alternativa, manteniendo operativas las TUIs interactivas como Claude sin mostrar bytes de control. Tests de contrato del shell para selección de archivo, rama compacta, transición a árbol completo, restauración del modo compacto y render ANSI. Smoke manual y empaquetado en macOS.
 
 ## Boundaries
 
@@ -39,7 +39,7 @@ Tests de rutas fuera del Project, symlinks que escapan, orden estable, apertura 
 
 ## Success Criteria
 
-El usuario puede seleccionar un Project, navegar su árbol de forma perezosa, seleccionar un fichero de texto y verlo dentro de ADE, y ejecutar comandos en un PTY integrado persistente con cwd correcto. La terminal no duplica bienvenida, eco ni prompt: el shell posee el transcript y muestra sólo el prompt mínimo; Enter ejecuta, `↑`/`↓` recuperan comandos previos y `Tab` completa rutas de `cd` con sugerencias cuando hay más de una coincidencia. Mientras un archivo está activo, su rama desde la raíz permanece visible en modo compacto; al expandir el Explorer se oculta la navegación secundaria y se muestra el árbol completo, y al contraerlo se recupera la rama. Ningún comando de workspace puede salir de la raíz seleccionada, ni a través de un symlink.
+El usuario puede seleccionar un Project, navegar su árbol de forma perezosa, seleccionar un fichero de texto y verlo dentro de ADE, y ejecutar comandos en un PTY integrado persistente con cwd correcto. La terminal no duplica bienvenida, eco ni prompt: el shell posee el transcript y muestra sólo el prompt mínimo; Enter ejecuta, `↑`/`↓` recuperan comandos previos, `Tab` completa rutas de `cd` con sugerencias cuando hay más de una coincidencia y una TUI ANSI conserva su layout interactivo. Mientras un archivo está activo, su rama desde la raíz permanece visible en modo compacto; al expandir el Explorer se oculta la navegación secundaria y se muestra el árbol completo, y al contraerlo se recupera la rama. Ningún comando de workspace puede salir de la raíz seleccionada, ni a través de un symlink.
 
 ## Open Questions
 

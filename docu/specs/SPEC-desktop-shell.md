@@ -45,7 +45,7 @@ El visor trata binarios, ficheros ilegibles y previews demasiado grandes con est
 
 ### Terminal dock
 
-La terminal nativa ocupa un dock inferior redimensionable: el usuario puede aumentar o reducir su altura mediante un divisor visible. Presenta una única superficie de consola familiar, compuesta por un transcript PTY desplazable y una línea de prompt integrada. El shell conserva el cwd del Project, posee el eco y el prompt mínimos y la UI no añade una bienvenida ni repite la salida del proceso.
+La terminal nativa ocupa un dock inferior redimensionable: el usuario puede aumentar o reducir su altura mediante un divisor visible. Presenta una única superficie de consola familiar, compuesta por un transcript PTY desplazable y una línea de prompt integrada. El shell conserva el cwd del Project, posee el eco y el prompt mínimos y la UI no añade una bienvenida ni repite la salida del proceso. El transcript interpreta ANSI para que el cursor, el borrado y la pantalla alternativa de una TUI como Claude se rendericen correctamente.
 
 La interacción mínima es la esperada en una terminal: `Enter` ejecuta el comando, `↑`/`↓` recorren el historial y `cd <ruta>` admite completado de directorios con `Tab`. Cuando existen varias coincidencias, el dock muestra una lista de sugerencias accesible que puede recorrerse con `↑`/`↓`; `Esc` la cierra. El completado es deliberadamente acotado a rutas de `cd`, no sustituye un shell completo ni un language server.
 

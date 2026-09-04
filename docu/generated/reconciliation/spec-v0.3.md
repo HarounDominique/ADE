@@ -198,6 +198,9 @@ classDiagram
   class ndocuadr0013workspacerootauthorizationmd {
     <<document>>
   }
+  class ndocuadr0014internalfileviewermd {
+    <<document>>
+  }
   class ndocuknowledgeREADMEmd {
     <<document>>
   }
@@ -220,6 +223,9 @@ classDiagram
     <<document>>
   }
   class ndocuspecsSPECdevelopmentworkflowmd {
+    <<document>>
+  }
+  class ndocuspecsSPECfileworkspacemd {
     <<document>>
   }
   class ndocuspecsSPECgitcollaborationmd {
@@ -262,6 +268,9 @@ classDiagram
     <<document>>
   }
   class ntasksdesktopshellplanmd {
+    <<document>>
+  }
+  class ntasksplanfileworkspacemd {
     <<document>>
   }
   class ntasksplanv02md {
@@ -368,9 +377,9 @@ classDiagram
   nagentsskillsimpeccablereferencevisualizemd --> nagentsskillsimpeccablereferencenewworkmd : references
   nREADMEmd --> ndocuspecsSPECNEXUSmd : references
   nREADMEmd --> ndocuREADMEmd : references
+  nREADMEmd --> ntaskstodomd : references
   nREADMEmd --> ndocuspecsSPECv03md : references
   nREADMEmd --> ndocureleasesv03closemd : references
-  nREADMEmd --> ntaskstodomd : references
   nREADMEmd --> ndocuspikes001opencoderuntimemd : references
   nREADMEmd --> ndocuspikes002independentreviewmd : references
   ndocuREADMEmd --> ndocuspecsSPECNEXUSmd : references
@@ -387,12 +396,16 @@ classDiagram
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECnativeskillsmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECgitcollaborationmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPEClivingknowledgemd : references
+  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : references
+  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : references
+  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdevelopmentworkflowmd : gates-and-invariants
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECv02md : references
   ndocuspecsSPECagentruntimemd --> ndocuspikes001opencoderuntimemd : smoke-test-real
   ndocuspecsSPECagentruntimemd --> ndocuspikes002independentreviewmd : implementacion
   ndocuspecsSPECagentruntimemd --> ndocuspikes002independentreviewmd : implementacion
   ndocuspecsSPECchangesreviewgovernancemd --> ndocuspecsSPECdevelopmentworkflowmd : transitions-and-triggers
+  ndocuspecsSPECdesktopshellmd --> ndocuspecsSPECfileworkspacemd : references
   ndocuspecsSPECdesktopshellmd --> ndocuspikes003desktopframeworkmd : resultado
   ndocuspecsSPECdesktopshellmd --> ndocuadr0009tauridesktopshellmd : references
   ndocuspecsSPECdesktopshellmd --> ndocuspikes004desktoptransportmd : recomendación-provisional
@@ -405,6 +418,8 @@ classDiagram
   ndocuspecsSPECv03md --> ndocuspecsSPEClivingknowledgemd : references
   ndocuspecsSPECv03md --> ndocuspecsSPECdevelopmentworkflowmd : adaptive-modes
   ndocuspecsSPECv03md --> ndocureleasesv03closemd : references
+  ndocuspecsSPECworkspacecoremd --> ndocuspecsSPECfileworkspacemd : references
+  ndocuspecsSPECworkspacecoremd --> ndocuspecsSPECfileworkspacemd : references
   ndocuspikes001opencoderuntimemd --> ndocuspecsSPECagentruntimemd : success-criteria
   ndocuspikes001opencoderuntimemd --> ndocuspecsSPECNEXUSmd : mvp-contract
   ndocuspikes002independentreviewmd --> ndocuspecsSPECchangesreviewgovernancemd : gate-contract
@@ -413,4 +428,6 @@ classDiagram
   ndocuspikes003desktopframeworkmd --> ndocuspecsSPECNEXUSmd : open-decisions
   ntaskstodomd --> ntasksprojectrepositoryplanmd : references
   ntaskstodomd --> ntasksdesktopshellplanmd : references
+  ntaskstodomd --> ndocuspecsSPECfileworkspacemd : references
+  ntaskstodomd --> ndocuadr0014internalfileviewermd : references
 ```
