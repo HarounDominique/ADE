@@ -12,6 +12,9 @@ let terminalStarted = false;
 const terminalHistory = [];
 let terminalHistoryIndex = -1;
 let terminalHistoryDraft = '';
+let terminalCompletionCwd = projectSnapshot.project.repositoryPath;
+let terminalSuggestionCandidates = [];
+let terminalSuggestionContext = null;
 let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
 let workspaceRootPath = projectSnapshot.project.repositoryPath;
@@ -65,6 +68,99 @@ function appendTerminalTranscript(text) {
   if (!output) return;
   output.textContent += text;
   output.scrollTop = output.scrollHeight;
+}
+
+function escapeTerminalSuggestion(value) {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+}
+
+function hideTerminalSuggestions() {
+  const suggestions = document.getElementById('terminal-suggestions');
+  terminalSuggestionCandidates = [];
+  terminalSuggestionContext = null;
+  if (suggestions) { suggestions.hidden = true; suggestions.innerHTML = ''; }
+}
+
+function renderTerminalSuggestions(input) {
+  const suggestions = document.getElementById('terminal-suggestions');
+  if (!suggestions || !terminalSuggestionContext || !terminalSuggestionCandidates.length) return;
+  suggestions.innerHTML = terminalSuggestionCandidates.map((candidate, index) => `<button class="terminal-suggestion${index === 0 ? ' selected' : ''}" type="button" role="option" aria-selected="${index === 0}" data-terminal-suggestion="${escapeTerminalSuggestion(candidate)}">${escapeTerminalSuggestion(candidate)}</button>`).join('');
+  suggestions.hidden = false;
+  suggestions.querySelectorAll('[data-terminal-suggestion]').forEach((button) => button.addEventListener('click', () => {
+    input.value = `${terminalSuggestionContext.before}${button.dataset.terminalSuggestion}`;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+    hideTerminalSuggestions();
+  }));
+}
+
+function updateTerminalSuggestionSelection(input, direction) {
+  if (!terminalSuggestionCandidates.length || !terminalSuggestionContext) return false;
+  const current = Number(input.dataset.terminalSuggestionIndex ?? -1);
+  const next = current === -1
+    ? (direction > 0 ? 0 : terminalSuggestionCandidates.length - 1)
+    : (current + direction + terminalSuggestionCandidates.length) % terminalSuggestionCandidates.length;
+  input.dataset.terminalSuggestionIndex = String(next);
+  input.value = `${terminalSuggestionContext.before}${terminalSuggestionCandidates[next]}`;
+  document.querySelectorAll('[data-terminal-suggestion]').forEach((button, index) => {
+    const selected = index === next;
+    button.classList.toggle('selected', selected);
+    button.setAttribute('aria-selected', String(selected));
+  });
+  input.setSelectionRange(input.value.length, input.value.length);
+  return true;
+}
+
+function terminalCompletionContext(value) {
+  const match = value.match(/^(\s*cd\s+)(.*)$/);
+  if (!match) return null;
+  const rawPath = match[2];
+  const slashIndex = rawPath.lastIndexOf('/');
+  const directoryPrefix = slashIndex >= 0 ? rawPath.slice(0, slashIndex + 1) : '';
+  const token = slashIndex >= 0 ? rawPath.slice(slashIndex + 1) : rawPath;
+  const lookupPath = resolveTerminalCompletionPath(directoryPrefix.replace(/\/$/, ''));
+  return { before: `${match[1]}${directoryPrefix}`, lookupPath, token };
+}
+
+function resolveTerminalCompletionPath(relativePath) {
+  const base = relativePath.startsWith('/') ? relativePath : `${terminalCompletionCwd}/${relativePath}`;
+  const parts = [];
+  base.split('/').forEach((part) => {
+    if (!part || part === '.') return;
+    if (part === '..') { parts.pop(); return; }
+    parts.push(part);
+  });
+  return `/${parts.join('/')}`;
+}
+
+async function completeTerminalInput(input) {
+  const context = terminalCompletionContext(input.value);
+  if (!context || !nativeInvoke) { hideTerminalSuggestions(); return; }
+  try {
+    const entries = await nativeInvoke('list_directory', { path: context.lookupPath, maxDepth: 0 });
+    const candidates = entries.filter((entry) => entry.kind === 'directory' && entry.name.toLowerCase().startsWith(context.token.toLowerCase())).map((entry) => entry.name).sort((a, b) => a.localeCompare(b));
+    if (!candidates.length) { hideTerminalSuggestions(); return; }
+    terminalSuggestionCandidates = candidates;
+    terminalSuggestionContext = context;
+    input.dataset.terminalSuggestionIndex = '-1';
+    if (candidates.length === 1) {
+      input.value = `${context.before}${candidates[0]}`;
+      input.setSelectionRange(input.value.length, input.value.length);
+      hideTerminalSuggestions();
+      return;
+    }
+    renderTerminalSuggestions(input);
+  } catch (error) {
+    hideTerminalSuggestions();
+    console.warn('Terminal completion unavailable:', error);
+  }
+}
+
+function updateTerminalCompletionCwd(command) {
+  const match = command.match(/^cd(?:\s+(.+))?$/);
+  if (!match) return;
+  const target = match[1]?.trim();
+  terminalCompletionCwd = target ? resolveTerminalCompletionPath(target) : workspaceRootPath;
 }
 
 try {
@@ -1024,6 +1120,20 @@ document.getElementById('agent-skill')?.addEventListener('change', refreshSelect
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => filterWorkspaceTree(event.target.value));
 document.getElementById('terminal-command')?.addEventListener('keydown', (event) => {
   const input = event.currentTarget;
+  if (event.key === 'Tab') {
+    event.preventDefault();
+    void completeTerminalInput(input);
+    return;
+  }
+  if (event.key === 'Escape') {
+    hideTerminalSuggestions();
+    return;
+  }
+  if (terminalSuggestionCandidates.length && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+    event.preventDefault();
+    updateTerminalSuggestionSelection(input, event.key === 'ArrowDown' ? 1 : -1);
+    return;
+  }
   if (event.key === 'ArrowUp') {
     if (!terminalHistory.length) return;
     event.preventDefault();
@@ -1037,6 +1147,10 @@ document.getElementById('terminal-command')?.addEventListener('keydown', (event)
     input.value = terminalHistoryIndex === -1 ? terminalHistoryDraft : terminalHistory[terminalHistory.length - 1 - terminalHistoryIndex];
   }
 });
+document.getElementById('terminal-command')?.addEventListener('input', (event) => {
+  event.currentTarget.dataset.terminalSuggestionIndex = '-1';
+  hideTerminalSuggestions();
+});
 document.getElementById('terminal-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const input = document.getElementById('terminal-command');
@@ -1046,6 +1160,8 @@ document.getElementById('terminal-form')?.addEventListener('submit', async (even
   try {
     if (!terminalStarted) { await nativeInvoke('terminal_start', { cwd }); terminalStarted = true; }
     terminalHistory.push(command);
+    updateTerminalCompletionCwd(command);
+    hideTerminalSuggestions();
     terminalHistoryIndex = -1;
     terminalHistoryDraft = '';
     if (input) input.value = '';
