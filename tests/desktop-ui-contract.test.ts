@@ -85,6 +85,20 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(main, /terminal_input', \{ input: `\$\{command\}\\r` \}/);
 });
 
+test("navigation sidebar supports persisted pointer and keyboard resizing", () => {
+  assert.match(html, /id="sidebar-resizer" role="separator"/);
+  assert.match(html, /aria-orientation="vertical"/);
+  assert.match(main, /ade-sidebar-width/);
+  assert.match(main, /setSidebarWidth/);
+  assert.match(main, /sidebarResizeState/);
+  assert.match(main, /sidebarResizer\.setPointerCapture/);
+  assert.match(main, /ArrowRight/);
+  assert.match(main, /sidebarWidthBounds/);
+  assert.match(styles, /\.sidebar-resizer \{ position: absolute/);
+  assert.match(styles, /grid-template-columns: var\(--sidebar-width, 246px\)/);
+  assert.match(styles, /\.terminal-dock \{ left: var\(--sidebar-width, 246px\)/);
+});
+
 test("explorer keeps the active file path as a compact branch and has a full-tree mode", () => {
   assert.match(html, /data-action="toggle-explorer"/);
   assert.match(html, /aria-label="Expand workspace tree"/);

@@ -1,5 +1,5 @@
 :root {
-  --bg: #0b0f14; --chrome: #11171f; --chrome-strong: #0e1319; --panel: #151c25; --panel-raised: #1a232e; --panel-soft: #121920;
+  --sidebar-width: 246px; --bg: #0b0f14; --chrome: #11171f; --chrome-strong: #0e1319; --panel: #151c25; --panel-raised: #1a232e; --panel-soft: #121920;
   --line: #293542; --line-strong: #3a4a5a; --text: #e5edf5; --text-soft: #b8c5d2; --muted: #8291a0; --faint: #5d6a78;
   --blue: #76aef7; --cyan: #64d2c6; --green: #70d6a0; --amber: #e4b76b; --red: #ef8b92; --purple: #b9a2ef;
   --sans: 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -13,7 +13,7 @@ button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
-.app-shell { display: grid; grid-template-columns: 52px 246px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 25px; width: 100vw; height: 100vh; min-height: 720px; background: var(--bg); }
+.app-shell { display: grid; grid-template-columns: var(--sidebar-width, 246px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 25px; width: 100vw; height: 100vh; min-height: 720px; background: var(--bg); }
 .activity-rail { z-index: 2; display: flex; grid-column: 1; grid-row: 1 / span 2; flex-direction: column; align-items: center; padding: 10px 0 9px; border-right: 1px solid var(--line); background: var(--chrome-strong); }
 .rail-brand { display: grid; place-items: center; width: 30px; height: 30px; margin: 0 0 21px; border-bottom: 2px solid var(--blue); color: var(--text); font-size: 14px; font-weight: 800; letter-spacing: .08em; }
 .rail-nav, .rail-footer { display: grid; gap: 7px; width: 100%; justify-items: center; }.rail-footer { margin-top: auto; }
@@ -21,7 +21,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .rail-button:hover, .rail-button.active { color: var(--text); background: #17212b; }.rail-button.active { border-left-color: var(--cyan); }
 .rail-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }.rail-button:not(.nav-item) { color: var(--muted); }
 
-.sidebar { display: flex; grid-column: 2; grid-row: 1; min-width: 0; flex-direction: column; padding: 15px 12px 13px; border-right: 1px solid var(--line); background: var(--chrome); }
+.sidebar { position: relative; display: flex; grid-column: 1; grid-row: 1; min-width: 0; flex-direction: column; padding: 15px 12px 13px; border-right: 1px solid var(--line); background: var(--chrome); }
+.sidebar-resizer { position: absolute; top: 0; right: -4px; bottom: 0; z-index: 6; width: 8px; cursor: col-resize; touch-action: none; }
+.sidebar-resizer::after { position: absolute; top: 50%; right: 3px; width: 2px; height: 38px; border-radius: 2px; background: var(--line-strong); content: ''; transform: translateY(-50%); }
+.sidebar-resizer:hover::after, .sidebar-resizer:focus-visible::after { background: var(--cyan); }
+.sidebar-resizer:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .brand { display: flex; align-items: center; gap: 8px; padding: 0 8px 15px; color: var(--text); font-size: 14px; font-weight: 700; letter-spacing: .07em; }
 .brand-mark { display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid #7bc9c1; border-radius: 4px; color: #081214; background: var(--cyan); font-size: 12px; font-weight: 800; }.brand-beta { margin-left: 3px; padding: 2px 5px; border: 1px solid var(--line-strong); color: var(--muted); font: 9px var(--mono); letter-spacing: .09em; }
 .workspace-picker { display: flex; align-items: center; gap: 8px; min-height: 34px; margin: 0 2px 19px; padding: 7px 9px; border: 1px solid var(--line); color: var(--text-soft); background: var(--panel-soft); font-size: 11px; }.chevron { width: 7px; height: 7px; margin-left: auto; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); transform: rotate(45deg) translateY(-2px); }
@@ -110,10 +114,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 :root[data-theme="light"] .runtime-icon { background: var(--panel); }:root[data-theme="light"] .review-panel { background: var(--panel); }
 :root[data-theme="light"] .document-viewer-panel { box-shadow: 0 12px 28px #6476891c; }
 
-@media (max-width: 1180px) { .terminal-dock { left: 264px; padding-right: 16px; padding-left: 16px; } }
+@media (max-width: 1180px) { .terminal-dock { left: var(--sidebar-width, 246px); padding-right: 16px; padding-left: 16px; } }
 
 /* The workbench has one labeled navigation surface; the Explorer stays adjacent to it. */
-.app-shell { grid-template-columns: 246px minmax(0, 1fr); }
+.app-shell { grid-template-columns: var(--sidebar-width, 246px) minmax(0, 1fr); }
 .sidebar { grid-column: 1; }
 .main-content { grid-column: 2; padding-bottom: calc(var(--terminal-height, 138px) + 20px); }
 .status-bar { padding-left: 12px; }
@@ -126,7 +130,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .sidebar-tool:hover { color: var(--text); background: #18212b; }
 .sidebar-tool svg { width: 14px; height: 14px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
 .sidebar-tool kbd { margin-left: auto; color: var(--faint); font: 9px var(--mono); }
-.terminal-dock { left: 246px; display: flex; height: var(--terminal-height, 138px); flex-direction: column; }
+.terminal-dock { left: var(--sidebar-width, 246px); display: flex; height: var(--terminal-height, 138px); flex-direction: column; }
 .terminal-resizer { position: relative; flex: 0 0 7px; margin: 0 -22px; cursor: row-resize; touch-action: none; }
 .terminal-resizer::after { position: absolute; top: 3px; left: 50%; width: 38px; height: 2px; border-radius: 2px; background: var(--line-strong); content: ''; transform: translateX(-50%); }
 .terminal-resizer:hover::after, .terminal-resizer:focus-visible::after { background: var(--cyan); }
@@ -134,8 +138,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .terminal-dock pre { min-height: 36px; max-height: calc(var(--terminal-height, 138px) - 84px); flex: 1; }
 
 @media (max-width: 1180px) {
-  .app-shell { grid-template-columns: 218px minmax(0, 1fr); }
-  .terminal-dock { left: 218px; padding-right: 16px; padding-left: 16px; }
+  .terminal-dock { left: var(--sidebar-width, 246px); padding-right: 16px; padding-left: 16px; }
   .terminal-resizer { margin-right: -16px; margin-left: -16px; }
 }
 

@@ -82,7 +82,7 @@ La v0.3 prioriza `workspace-core`: sin contexto local navegable y terminal integ
 
 ## Current implementation baseline
 
-La aplicación macOS actual ofrece una shell desktop Tauri con navegación lateral única, Project Hub, Work, Knowledge, Changes y Runtime. El Explorer mantiene como hint la rama del archivo activo y puede convertirse en un árbol completo; ambos cambios tienen transición fluida. El tema claro/oscuro se alterna desde la esquina superior derecha y se conserva entre sesiones.
+La aplicación macOS actual ofrece una shell desktop Tauri con navegación lateral única, Project Hub, Work, Knowledge, Changes y Runtime. El Explorer mantiene como hint la rama del archivo activo y puede convertirse en un árbol completo; ambos cambios tienen transición fluida. El lateral tiene un divisor vertical redimensionable por pointer o teclado y conserva su ancho por Project. El tema claro/oscuro se alterna desde la esquina superior derecha y se conserva entre sesiones.
 
 El dock inferior expone un único transcript de terminal PTY persistente, redimensionable y confinado a la raíz del Project. El prompt mínimo, Enter, historial con `↑`/`↓`, completado de directorios para `cd` con `Tab` e interpretación ANSI de cursor, borrado y pantalla alternativa están implementados; las sugerencias ambiguas se recorren con `↑`/`↓` y se cierran con `Esc`. La baseline de verificación actual es 86 tests TypeScript y 17 tests Rust; el `.app` macOS se empaqueta y el smoke de OpenCode real sigue validado históricamente. La selección de ficheros abre ahora dentro de ADE en el editor de texto definido en [SPEC-file-workspace](SPEC-file-workspace.md), con guardado y descarte acotados al Project.
 
@@ -200,6 +200,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-04 — workspace-core + desktop-shell — Se documenta la baseline actual de la shell: tema claro/oscuro persistente, Explorer animado y dock PTY redimensionable con transcript único, prompt mínimo, historial y completado de rutas `cd` mediante `Tab`; 81 tests TypeScript y 13 tests Rust pasan.
 - 2026-09-04 — file-workspace — Se especifica la siguiente capacidad de v0.4: selección de fichero con visor interno de solo lectura, lectura segura bajo la raíz del Project y escape hatch externo explícito; la implementación queda planificada.
 - 2026-09-04 — file-workspace — La selección del Explorer abre ficheros de texto en el editor interno de ADE; Tauri clasifica texto/binario/tamaño bajo la raíz autorizada y permite guardar sólo texto UTF-8 de hasta 2 MiB dentro del Project. `Save`, `Discard` y `⌘/Ctrl+S` quedan cableados; 82 tests TypeScript y 17 tests Rust pasan.
+- 2026-09-04 — desktop-shell — El lateral incorpora un divisor vertical redimensionable por pointer y teclado; el ancho queda acotado y persistido por Project, y el dock PTY se reposiciona con él. 87 tests TypeScript pasan.
 
 ## Automatic Reconciliation Log
 

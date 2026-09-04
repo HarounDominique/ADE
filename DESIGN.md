@@ -164,7 +164,7 @@ The palette is a dark graphite workspace with cool neutrals and a small set of s
 
 ## Layout
 
-The desktop shell is a two-column IDE frame: one labeled workbench navigation/sidebar and a flexible workbench. The sidebar combines familiar view labels with a persistent project explorer, avoiding duplicate navigation surfaces. A sticky top command bar anchors project context and global actions. The explorer owns a filterable, lazily expanded tree so project navigation stays available while switching views. The main work area uses a 15px panel rhythm and 1px structural gaps so adjacent panes read as one instrument rather than a grid of unrelated cards. A fixed native PTY dock remains available at the bottom, above the full-width status bar, and can be resized by drag or keyboard.
+The desktop shell is a two-column IDE frame: one labeled workbench navigation/sidebar and a flexible workbench. The sidebar combines familiar view labels with a persistent project explorer, avoiding duplicate navigation surfaces. A visible vertical grip lets the user resize the sidebar by drag or keyboard, within bounds persisted per Project. A sticky top command bar anchors project context and global actions. The explorer owns a filterable, lazily expanded tree so project navigation stays available while switching views. The main work area uses a 15px panel rhythm and 1px structural gaps so adjacent panes read as one instrument rather than a grid of unrelated cards. A fixed native PTY dock remains available at the bottom, above the full-width status bar, and can be resized by drag or keyboard.
 
 At narrower desktop widths, the workbench collapses the project context panes into one column and the metric strip and knowledge surfaces reduce to two columns. The labeled sidebar remains visible so navigation never disappears.
 
@@ -205,6 +205,7 @@ The form language is compact and restrained: mostly square corners, 2–4px radi
 
 - **Style:** A single labeled navigation controls views inside the project sidebar; the same sidebar owns the Explorer below it. Active items use a 2px cyan edge and a slightly raised surface. Utility actions expose their labels as well as their keyboard affordances.
 - **Interaction:** Hover changes surface and text contrast; focus remains visible; labels and ARIA names are always available for icon-only controls.
+- **Sizing:** The sidebar has a discoverable vertical resize grip. Pointer drag and `←`/`→` resize it; Shift changes the step, Home and End reach the bounds, and the width persists for the active Project.
 - **Theme control:** The persistent light/dark switch lives in the top-right global toolbar, beside sync and utility actions. It uses a compact circular thumb with a visible track, keeps dark as the default, and exposes the next action through its label and ARIA state.
 
 ### Explorer

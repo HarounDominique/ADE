@@ -26,9 +26,13 @@ let documentOriginalContent = '';
 let documentDirty = false;
 let explorerExpanded = false;
 const terminalResizer = document.getElementById('terminal-resizer');
+const sidebarResizer = document.getElementById('sidebar-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
+const sidebarStorageKey = `ade-sidebar-width:${activeProjectId}`;
 let terminalHeight = 138;
 let terminalResizeState = null;
+let sidebarWidth = 246;
+let sidebarResizeState = null;
 let activeServiceId = null;
 let gitWorkflow = 'pull-request';
 let selectedTaskId = null;
@@ -65,6 +69,21 @@ function setTerminalHeight(nextHeight, persist = true) {
   terminalResizer?.setAttribute('aria-valuenow', String(terminalHeight));
   if (persist) {
     try { localStorage.setItem(terminalStorageKey, String(terminalHeight)); } catch { /* Persistence is optional. */ }
+  }
+}
+
+function sidebarWidthBounds() {
+  return { min: 190, max: Math.min(460, Math.max(320, Math.round(window.innerWidth * 0.42))) };
+}
+
+function setSidebarWidth(nextWidth, persist = true) {
+  const bounds = sidebarWidthBounds();
+  sidebarWidth = Math.max(bounds.min, Math.min(bounds.max, Math.round(nextWidth)));
+  document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
+  sidebarResizer?.setAttribute('aria-valuemax', String(bounds.max));
+  sidebarResizer?.setAttribute('aria-valuenow', String(sidebarWidth));
+  if (persist) {
+    try { localStorage.setItem(sidebarStorageKey, String(sidebarWidth)); } catch { /* Persistence is optional. */ }
   }
 }
 
@@ -186,6 +205,11 @@ try {
   if (Number.isFinite(storedTerminalHeight)) terminalHeight = storedTerminalHeight;
 } catch { /* Persistence is optional. */ }
 setTerminalHeight(terminalHeight, false);
+try {
+  const storedSidebarWidth = Number(localStorage.getItem(sidebarStorageKey));
+  if (Number.isFinite(storedSidebarWidth)) sidebarWidth = storedSidebarWidth;
+} catch { /* Persistence is optional. */ }
+setSidebarWidth(sidebarWidth, false);
 
 terminalResizer?.addEventListener('pointerdown', (event) => {
   event.preventDefault();
@@ -213,6 +237,32 @@ terminalResizer?.addEventListener('keydown', (event) => {
   if (event.key === 'End') { event.preventDefault(); setTerminalHeight(window.innerHeight * 0.72); }
 });
 window.addEventListener('resize', () => setTerminalHeight(terminalHeight, false));
+sidebarResizer?.addEventListener('pointerdown', (event) => {
+  event.preventDefault();
+  sidebarResizeState = { pointerId: event.pointerId, startX: event.clientX, startWidth: sidebarWidth };
+  sidebarResizer.setPointerCapture?.(event.pointerId);
+});
+sidebarResizer?.addEventListener('pointermove', (event) => {
+  if (!sidebarResizeState || event.pointerId !== sidebarResizeState.pointerId) return;
+  setSidebarWidth(sidebarResizeState.startWidth + event.clientX - sidebarResizeState.startX, false);
+});
+const finishSidebarResize = (event) => {
+  if (!sidebarResizeState || (event?.pointerId !== undefined && event.pointerId !== sidebarResizeState.pointerId)) return;
+  setSidebarWidth(sidebarWidth);
+  sidebarResizeState = null;
+};
+sidebarResizer?.addEventListener('pointerup', finishSidebarResize);
+sidebarResizer?.addEventListener('pointercancel', finishSidebarResize);
+sidebarResizer?.addEventListener('keydown', (event) => {
+  const step = event.shiftKey ? 48 : 16;
+  if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+    event.preventDefault();
+    setSidebarWidth(sidebarWidth + (event.key === 'ArrowRight' ? step : -step));
+  }
+  if (event.key === 'Home') { event.preventDefault(); setSidebarWidth(sidebarWidthBounds().min); }
+  if (event.key === 'End') { event.preventDefault(); setSidebarWidth(sidebarWidthBounds().max); }
+});
+window.addEventListener('resize', () => setSidebarWidth(sidebarWidth, false));
 
 function renderSnapshot(snapshot) {
   const values = {
