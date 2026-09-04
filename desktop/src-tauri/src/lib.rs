@@ -1,5 +1,6 @@
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -18,7 +19,13 @@ struct TerminalProcess {
 
 #[derive(Default)]
 struct TerminalSupervisor {
-    process: Mutex<Option<TerminalProcess>>,
+    processes: Mutex<HashMap<String, TerminalProcess>>,
+}
+
+#[derive(Clone, Serialize)]
+struct TerminalOutput {
+    session_id: String,
+    data: String,
 }
 
 #[derive(Default)]
@@ -64,23 +71,29 @@ fn terminal_start(
     app: tauri::AppHandle,
     state: tauri::State<'_, TerminalSupervisor>,
     workspace: tauri::State<'_, WorkspaceRoot>,
+    session_id: String,
     cwd: String,
 ) -> Result<(), String> {
-    terminal_start_in(&app, &state, &workspace, &cwd)
+    terminal_start_in(&app, &state, &workspace, &session_id, &cwd)
 }
 
 fn terminal_start_in(
     app: &tauri::AppHandle,
     state: &TerminalSupervisor,
     workspace: &WorkspaceRoot,
+    session_id: &str,
     cwd: &str,
 ) -> Result<(), String> {
+    if session_id.trim().is_empty() {
+        return Err("Terminal session id cannot be empty".to_string());
+    }
     let cwd = workspace.resolve(cwd)?;
     if !cwd.is_dir() {
         return Err(format!("Terminal cwd does not exist: {}", cwd.display()));
     }
     let (process, mut reader) = start_terminal_pty(&cwd)?;
     let output_app = app.clone();
+    let output_session_id = session_id.to_string();
     std::thread::spawn(move || {
         let mut bytes = [0u8; 4096];
         loop {
@@ -89,16 +102,26 @@ fn terminal_start_in(
                 Ok(size) => {
                     let _ = output_app.emit(
                         "terminal:output",
-                        String::from_utf8_lossy(&bytes[..size]).into_owned(),
+                        TerminalOutput {
+                            session_id: output_session_id.clone(),
+                            data: String::from_utf8_lossy(&bytes[..size]).into_owned(),
+                        },
                     );
                 }
             }
         }
     });
-    *state
-        .process
+    let mut processes = state
+        .processes
         .lock()
-        .map_err(|_| "Terminal state is poisoned".to_string())? = Some(process);
+        .map_err(|_| "Terminal state is poisoned".to_string())?;
+    if processes.contains_key(session_id) {
+        let mut process = process;
+        let _ = process.child.kill();
+        let _ = process.child.wait();
+        return Err(format!("Terminal session already exists: {session_id}"));
+    }
+    processes.insert(session_id.to_string(), process);
     Ok(())
 }
 
@@ -140,16 +163,17 @@ fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Sen
 #[tauri::command]
 fn terminal_input(
     state: tauri::State<'_, TerminalSupervisor>,
+    session_id: String,
     input: String,
 ) -> Result<(), String> {
     use std::io::Write;
-    let mut guard = state
-        .process
+    let mut processes = state
+        .processes
         .lock()
         .map_err(|_| "Terminal state is poisoned".to_string())?;
-    let process = guard
-        .as_mut()
-        .ok_or_else(|| "Terminal is not running".to_string())?;
+    let process = processes
+        .get_mut(&session_id)
+        .ok_or_else(|| format!("Terminal session is not running: {session_id}"))?;
     process
         .writer
         .write_all(input.as_bytes())
@@ -157,13 +181,33 @@ fn terminal_input(
         .map_err(|error| format!("Unable to write terminal input: {error}"))
 }
 
-#[tauri::command]
-fn terminal_stop(state: tauri::State<'_, TerminalSupervisor>) -> Result<(), String> {
-    let mut guard = state
-        .process
+fn terminal_stop_session(state: &TerminalSupervisor, session_id: &str) -> Result<(), String> {
+    let mut processes = state
+        .processes
         .lock()
         .map_err(|_| "Terminal state is poisoned".to_string())?;
-    if let Some(mut process) = guard.take() {
+    if let Some(mut process) = processes.remove(session_id) {
+        let _ = process.child.kill();
+        let _ = process.child.wait();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn terminal_stop(
+    session_id: String,
+    state: tauri::State<'_, TerminalSupervisor>,
+) -> Result<(), String> {
+    terminal_stop_session(&state, &session_id)
+}
+
+#[tauri::command]
+fn terminal_stop_all(state: tauri::State<'_, TerminalSupervisor>) -> Result<(), String> {
+    let mut processes = state
+        .processes
+        .lock()
+        .map_err(|_| "Terminal state is poisoned".to_string())?;
+    for (_, mut process) in processes.drain() {
         let _ = process.child.kill();
         let _ = process.child.wait();
     }
@@ -709,6 +753,7 @@ pub fn run() {
             terminal_start,
             terminal_input,
             terminal_stop,
+            terminal_stop_all,
             project_id,
             open_terminal,
             open_document,

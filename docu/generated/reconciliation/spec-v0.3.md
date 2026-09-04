@@ -15,6 +15,7 @@ Generated from the current documentation graph.
 - [ ] Review and synchronize [docu/spikes/001-opencode-runtime.md](../../spikes/001-opencode-runtime.md)
 - [ ] Review and synchronize [docu/spikes/002-independent-review.md](../../spikes/002-independent-review.md)
 - [ ] Review and synchronize [docu/spikes/003-desktop-framework.md](../../spikes/003-desktop-framework.md)
+- [ ] Review and synchronize [tasks/todo.md](../../../tasks/todo.md)
 
 ## Broken references
 
@@ -199,6 +200,9 @@ classDiagram
     <<document>>
   }
   class ndocuadr0014internalfileviewermd {
+    <<document>>
+  }
+  class ndocuadr0015terminaltabsmd {
     <<document>>
   }
   class ndocuknowledgeREADMEmd {
@@ -431,6 +435,9 @@ classDiagram
   ndocuspikes003desktopframeworkmd --> ndocuspecsSPECNEXUSmd : open-decisions
   ntaskstodomd --> ntasksprojectrepositoryplanmd : references
   ntaskstodomd --> ntasksdesktopshellplanmd : references
+  ntaskstodomd --> ndocuspecsSPECworkspacecoremd : references
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
+  ntaskstodomd --> ndocuadr0015terminaltabsmd : references
   ntaskstodomd --> ndocuspecsSPECfileworkspacemd : references
   ntaskstodomd --> ndocuadr0014internalfileviewermd : references
 ```

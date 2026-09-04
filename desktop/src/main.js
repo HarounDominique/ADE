@@ -9,12 +9,9 @@ const taskForm = document.getElementById('new-task-form');
 const taskIntent = document.getElementById('task-intent');
 const themeMeta = document.querySelector('meta[name="theme-color"]');
 let nativeInvoke;
-let terminalStarted = false;
-const terminalHistory = [];
-let terminalEmulator;
-let terminalHistoryIndex = -1;
-let terminalHistoryDraft = '';
-let terminalCompletionCwd = projectSnapshot.project.repositoryPath;
+const terminalTabs = [];
+let activeTerminalId = null;
+let terminalTabSequence = 0;
 let terminalSuggestionCandidates = [];
 let terminalSuggestionContext = null;
 let selectedProvider = 'opencode';
@@ -91,25 +88,89 @@ function setSidebarWidth(nextWidth, persist = true) {
   }
 }
 
-function appendTerminalTranscript(text) {
-  const output = document.getElementById('terminal-output');
-  if (!output) return;
-  if (!terminalEmulator) {
-    output.textContent += text;
-    output.scrollTop = output.scrollHeight;
-    return;
-  }
-  terminalEmulator.write(text);
+function activeTerminal() {
+  return terminalTabs.find((tab) => tab.id === activeTerminalId) ?? terminalTabs[0] ?? null;
 }
 
-terminalEmulator = new TerminalEmulator({
-  onChange(text) {
-    const output = document.getElementById('terminal-output');
-    if (!output) return;
-    output.textContent = text;
-    output.scrollTop = output.scrollHeight;
-  },
-});
+function renderTerminalOutput() {
+  const output = document.getElementById('terminal-output');
+  const tab = activeTerminal();
+  if (!output || !tab) return;
+  output.textContent = tab.emulator.text();
+  output.scrollTop = output.scrollHeight;
+  const cwd = document.getElementById('terminal-cwd');
+  if (cwd) cwd.textContent = `${tab.label} · ${tab.completionCwd}`;
+}
+
+function appendTerminalTranscript(sessionId, text) {
+  const tab = terminalTabs.find((candidate) => candidate.id === sessionId);
+  if (!tab) return;
+  tab.emulator.write(text);
+}
+
+function renderTerminalTabs() {
+  const container = document.getElementById('terminal-tabs');
+  if (!container) return;
+  container.innerHTML = terminalTabs.map((tab) => `<div class="terminal-tab${tab.id === activeTerminalId ? ' active' : ''}" role="presentation"><button class="terminal-tab-button" type="button" role="tab" aria-selected="${tab.id === activeTerminalId}" aria-controls="terminal-output" data-terminal-tab-id="${tab.id}"><span class="terminal-tab-status${tab.started ? ' running' : ''}" aria-hidden="true"></span><span>${tab.label}</span></button><button class="terminal-tab-close" type="button" aria-label="Close ${tab.label}" title="Close ${tab.label}" data-terminal-close-id="${tab.id}">×</button></div>`).join('');
+}
+
+function syncActiveTerminalInput(focus = true) {
+  const input = document.getElementById('terminal-command');
+  const tab = activeTerminal();
+  if (!input || !tab) return;
+  input.value = tab.inputDraft;
+  input.dataset.terminalSuggestionIndex = '-1';
+  if (focus) input.focus();
+}
+
+function selectTerminalTab(sessionId, focus = true) {
+  const tab = terminalTabs.find((candidate) => candidate.id === sessionId);
+  if (!tab) return;
+  activeTerminalId = tab.id;
+  terminalSuggestionCandidates = [];
+  terminalSuggestionContext = null;
+  hideTerminalSuggestions();
+  renderTerminalTabs();
+  renderTerminalOutput();
+  syncActiveTerminalInput(focus);
+}
+
+function createTerminalTab({ focus = true } = {}) {
+  terminalTabSequence += 1;
+  const id = `terminal-${Date.now()}-${terminalTabSequence}`;
+  const tab = {
+    id,
+    label: `Terminal ${terminalTabSequence}`,
+    started: false,
+    history: [],
+    historyIndex: -1,
+    historyDraft: '',
+    inputDraft: '',
+    completionCwd: workspaceRootPath,
+    emulator: null,
+  };
+  tab.emulator = new TerminalEmulator({
+    onChange() {
+      if (activeTerminalId === tab.id) renderTerminalOutput();
+    },
+  });
+  terminalTabs.push(tab);
+  activeTerminalId = tab.id;
+  renderTerminalTabs();
+  renderTerminalOutput();
+  syncActiveTerminalInput(focus);
+  return tab;
+}
+
+function closeTerminalTab(sessionId) {
+  const index = terminalTabs.findIndex((tab) => tab.id === sessionId);
+  if (index < 0) return;
+  const [tab] = terminalTabs.splice(index, 1);
+  if (tab.started) nativeInvoke?.('terminal_stop', { sessionId: tab.id }).catch(() => {});
+  if (!terminalTabs.length) createTerminalTab({ focus: false });
+  else if (activeTerminalId === tab.id) selectTerminalTab(terminalTabs[Math.max(0, index - 1)]?.id ?? terminalTabs[0].id);
+  else { renderTerminalTabs(); renderTerminalOutput(); }
+}
 
 function escapeTerminalSuggestion(value) {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
@@ -163,8 +224,8 @@ function terminalCompletionContext(value) {
   return { before: `${match[1]}${directoryPrefix}`, lookupPath, token };
 }
 
-function resolveTerminalCompletionPath(relativePath) {
-  const base = relativePath.startsWith('/') ? relativePath : `${terminalCompletionCwd}/${relativePath}`;
+function resolveTerminalCompletionPath(relativePath, baseCwd = activeTerminal()?.completionCwd ?? workspaceRootPath) {
+  const base = relativePath.startsWith('/') ? relativePath : `${baseCwd}/${relativePath}`;
   const parts = [];
   base.split('/').forEach((part) => {
     if (!part || part === '.') return;
@@ -175,8 +236,9 @@ function resolveTerminalCompletionPath(relativePath) {
 }
 
 async function completeTerminalInput(input) {
+  const tab = activeTerminal();
   const context = terminalCompletionContext(input.value);
-  if (!context || !nativeInvoke) { hideTerminalSuggestions(); return; }
+  if (!tab || !context || !nativeInvoke) { hideTerminalSuggestions(); return; }
   try {
     const entries = await nativeInvoke('list_directory', { path: context.lookupPath, maxDepth: 0 });
     const candidates = entries.filter((entry) => entry.kind === 'directory' && entry.name.toLowerCase().startsWith(context.token.toLowerCase())).map((entry) => entry.name).sort((a, b) => a.localeCompare(b));
@@ -197,12 +259,15 @@ async function completeTerminalInput(input) {
   }
 }
 
-function updateTerminalCompletionCwd(command) {
+function updateTerminalCompletionCwd(command, tab = activeTerminal()) {
+  if (!tab) return;
   const match = command.match(/^cd(?:\s+(.+))?$/);
   if (!match) return;
   const target = match[1]?.trim();
-  terminalCompletionCwd = target ? resolveTerminalCompletionPath(target) : workspaceRootPath;
+  tab.completionCwd = target ? resolveTerminalCompletionPath(target, tab.completionCwd) : workspaceRootPath;
 }
+
+createTerminalTab({ focus: false });
 
 try {
   const storedTerminalHeight = Number(localStorage.getItem(terminalStorageKey));
@@ -911,7 +976,9 @@ async function connectSidecar(snapshot) {
   if (!invoke || !listen) return;
   nativeInvoke = invoke;
   await listen('terminal:output', (event) => {
-    appendTerminalTranscript(event.payload);
+    const payload = event.payload;
+    if (typeof payload === 'string') appendTerminalTranscript(activeTerminalId, payload);
+    else appendTerminalTranscript(payload?.session_id ?? payload?.sessionId, payload?.data ?? '');
   });
   let recoveryAttempted = false;
   const requestSnapshot = async () => {
@@ -1390,6 +1457,19 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
+document.getElementById('terminal-new-tab')?.addEventListener('click', () => {
+  createTerminalTab();
+  notify('New terminal session opened.');
+});
+document.addEventListener('click', (event) => {
+  const closeButton = event.target.closest('[data-terminal-close-id]');
+  if (closeButton) {
+    closeTerminalTab(closeButton.dataset.terminalCloseId);
+    return;
+  }
+  const tabButton = event.target.closest('[data-terminal-tab-id]');
+  if (tabButton) selectTerminalTab(tabButton.dataset.terminalTabId);
+});
 document.addEventListener('click', (event) => {
   const serviceButton = event.target.closest('[data-service-action][data-service-id]');
   if (serviceButton) {
@@ -1455,6 +1535,8 @@ document.getElementById('agent-skill')?.addEventListener('change', refreshSelect
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });
 document.getElementById('terminal-command')?.addEventListener('keydown', (event) => {
   const input = event.currentTarget;
+  const tab = activeTerminal();
+  if (!tab) return;
   if (event.key === 'Tab') {
     event.preventDefault();
     void completeTerminalInput(input);
@@ -1470,46 +1552,51 @@ document.getElementById('terminal-command')?.addEventListener('keydown', (event)
     return;
   }
   if (event.key === 'ArrowUp') {
-    if (!terminalHistory.length) return;
+    if (!tab.history.length) return;
     event.preventDefault();
-    if (terminalHistoryIndex === -1) terminalHistoryDraft = input.value;
-    terminalHistoryIndex = Math.min(terminalHistoryIndex + 1, terminalHistory.length - 1);
-    input.value = terminalHistory[terminalHistory.length - 1 - terminalHistoryIndex];
+    if (tab.historyIndex === -1) tab.historyDraft = input.value;
+    tab.historyIndex = Math.min(tab.historyIndex + 1, tab.history.length - 1);
+    input.value = tab.history[tab.history.length - 1 - tab.historyIndex];
   }
-  if (event.key === 'ArrowDown' && terminalHistoryIndex !== -1) {
+  if (event.key === 'ArrowDown' && tab.historyIndex !== -1) {
     event.preventDefault();
-    terminalHistoryIndex -= 1;
-    input.value = terminalHistoryIndex === -1 ? terminalHistoryDraft : terminalHistory[terminalHistory.length - 1 - terminalHistoryIndex];
+    tab.historyIndex -= 1;
+    input.value = tab.historyIndex === -1 ? tab.historyDraft : tab.history[tab.history.length - 1 - tab.historyIndex];
   }
 });
 document.getElementById('terminal-command')?.addEventListener('input', (event) => {
+  const tab = activeTerminal();
+  if (tab) tab.inputDraft = event.currentTarget.value;
   event.currentTarget.dataset.terminalSuggestionIndex = '-1';
   hideTerminalSuggestions();
 });
 document.getElementById('terminal-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
+  const tab = activeTerminal();
   const input = document.getElementById('terminal-command');
   const command = input?.value.trim();
   const cwd = document.getElementById('project-path')?.textContent;
-  if (!nativeInvoke || !command || !cwd) { notify('Native terminal requires the desktop runtime.'); return; }
+  if (!tab || !nativeInvoke || !command || !cwd) { notify('Native terminal requires the desktop runtime.'); return; }
   try {
-    if (!terminalStarted) { await nativeInvoke('terminal_start', { cwd }); terminalStarted = true; }
-    terminalHistory.push(command);
-    updateTerminalCompletionCwd(command);
+    if (!tab.started) { await nativeInvoke('terminal_start', { sessionId: tab.id, cwd }); tab.started = true; renderTerminalTabs(); }
+    tab.history.push(command);
+    updateTerminalCompletionCwd(command, tab);
+    renderTerminalOutput();
     hideTerminalSuggestions();
-    terminalHistoryIndex = -1;
-    terminalHistoryDraft = '';
+    tab.historyIndex = -1;
+    tab.historyDraft = '';
+    tab.inputDraft = '';
     if (input) input.value = '';
     // Shells map CR to a line feed in canonical mode; TUIs in raw mode need
     // the actual Enter key code to submit prompts and actions.
-    await nativeInvoke('terminal_input', { input: `${command}\r` });
+    await nativeInvoke('terminal_input', { sessionId: tab.id, input: `${command}\r` });
   } catch (error) {
-    appendTerminalTranscript(`\n[ADE] ${String(error)}\n`);
+    appendTerminalTranscript(tab.id, `\n[ADE] ${String(error)}\n`);
     notify('Terminal command failed.');
   }
 });
 window.addEventListener('beforeunload', () => {
-  if (terminalStarted) nativeInvoke?.('terminal_stop').catch(() => {});
+  nativeInvoke?.('terminal_stop_all').catch(() => {});
 });
 taskForm?.addEventListener('submit', async (event) => {
   event.preventDefault();

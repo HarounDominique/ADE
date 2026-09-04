@@ -84,7 +84,7 @@ La v0.3 prioriza `workspace-core`: sin contexto local navegable y terminal integ
 
 La aplicación macOS actual ofrece una shell desktop Tauri con navegación lateral única, Project Hub, Work, Knowledge, Changes y Runtime. El Explorer mantiene como hint la rama del archivo activo y puede convertirse en un árbol completo; la búsqueda muestra ficheros directamente, añade una ruta relativa legible para distinguir homónimos, mantiene el input responsivo con índice normalizado, debounce y spinner de carga, y al seleccionarlos restaura la rama breadcrumb. Ambos cambios tienen transición fluida. El lateral tiene un divisor vertical redimensionable por pointer o teclado hasta un máximo responsive de 720 px y conserva su ancho por Project. El tema claro/oscuro se alterna desde la esquina superior derecha y se conserva entre sesiones.
 
-El dock inferior expone un único transcript de terminal PTY persistente, redimensionable y confinado a la raíz del Project. El prompt mínimo, Enter, historial con `↑`/`↓`, completado de directorios para `cd` con `Tab` e interpretación ANSI de cursor, borrado y pantalla alternativa están implementados; las sugerencias ambiguas se recorren con `↑`/`↓` y se cierran con `Esc`. La baseline de verificación actual es 88 tests TypeScript y 17 tests Rust. El `.app` macOS se empaqueta y se ha arrancado manualmente; el smoke gráfico automatizado sigue pendiente. La selección de ficheros abre ahora dentro de ADE en el editor de texto definido en [SPEC-file-workspace](SPEC-file-workspace.md), con edición, guardado y descarte acotados al Project.
+El dock inferior expone tabs de terminal PTY persistentes, redimensionables y confinados a la raíz del Project. Cada tab conserva su proceso, transcript, cwd, historial y completado; cambiar de tab no mezcla salida y cerrar uno detiene sólo su sesión. El prompt mínimo, Enter, historial con `↑`/`↓`, completado de directorios para `cd` con `Tab` e interpretación ANSI de cursor, borrado y pantalla alternativa están implementados; las sugerencias ambiguas se recorren con `↑`/`↓` y se cierran con `Esc`. La baseline de verificación actual es 88 tests TypeScript y 17 tests Rust. El `.app` macOS se empaqueta y se ha arrancado manualmente; el smoke gráfico automatizado sigue pendiente. La selección de ficheros abre ahora dentro de ADE en el editor de texto definido en [SPEC-file-workspace](SPEC-file-workspace.md), con edición, guardado y descarte acotados al Project.
 
 ## Current v0.4 slice
 
@@ -206,6 +206,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-04 — desktop-shell + workspace-core — El lateral admite mayor anchura responsive y la ruta contextual de resultados se muestra adyacente, envolvente y legible para distinguir homónimos. La suite pasa con 88 tests.
 - 2026-09-04 — workspace-core — La búsqueda mantiene la escritura responsiva con debounce, cancelación lógica, índice normalizado reutilizable y spinner mientras los resultados actuales están pendientes. La suite pasa con 88 tests.
 - 2026-09-04 — documentation-alignment — Se sincroniza la documentación vigente: 88 tests TypeScript y 17 tests Rust, editor interno v0.4 implementado, bundle `.app` arrancado manualmente y smoke gráfico automatizado pendiente; se conservan sin cambios las cifras históricas de los cortes de release.
+- 2026-09-04 — terminal-tabs — El dock pasa de un transcript PTY único a tabs con sesiones independientes: el supervisor Rust enruta eventos por `sessionId` y la UI conserva proceso, transcript, cwd, historial y completado por tab. La suite TypeScript sigue en 88 tests y Rust en 17.
 
 ## Automatic Reconciliation Log
 
@@ -214,7 +215,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 <!-- reconciliation:docu/specs/SPEC-desktop-shell.md -->
 - 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-desktop-shell.md; 8 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-desktop-shell.md, ../generated/qa/spec-desktop-shell.md, ../generated/estimates/spec-desktop-shell.md.
 <!-- reconciliation:docu/specs/SPEC-v0.3.md -->
-- 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-v0.3.md; 11 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-v0.3.md, ../generated/qa/spec-v0.3.md, ../generated/estimates/spec-v0.3.md.
+- 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-v0.3.md; 12 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-v0.3.md, ../generated/qa/spec-v0.3.md, ../generated/estimates/spec-v0.3.md.
 <!-- reconciliation:docu/specs/SPEC-workspace-core.md -->
 - 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-workspace-core.md; 11 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-workspace-core.md, ../generated/qa/spec-workspace-core.md, ../generated/estimates/spec-workspace-core.md.
 <!-- reconciliation:docu/specs/SPEC-local-runtime.md -->

@@ -17,7 +17,7 @@ test("desktop shell keeps the five MVP areas and critical actions", () => {
 });
 
 test("desktop shell wires critical actions to Tauri commands", () => {
-  for (const command of ["sidecar_request", "sidecar_restart", "open_document", "open_file", "read_file", "write_file", "terminal_start", "terminal_input", "terminal_stop"]) {
+  for (const command of ["sidecar_request", "sidecar_restart", "open_document", "open_file", "read_file", "write_file", "terminal_start", "terminal_input", "terminal_stop", "terminal_stop_all"]) {
     assert.match(main, new RegExp(`['\"]${command}['\"]`));
   }
   assert.match(main, /method: 'task\.run'/);
@@ -75,14 +75,19 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(html, /placeholder="Type a command…"/);
   assert.doesNotMatch(html, /ADE terminal ready/);
   assert.doesNotMatch(main, /appendTerminalCommand/);
-  assert.match(main, /terminalHistory/);
+  assert.match(main, /terminalTabs/);
   assert.match(main, /TerminalEmulator/);
-  assert.match(main, /terminalEmulator\.write/);
+  assert.match(main, /tab\.emulator\.write/);
+  assert.match(main, /sessionId: tab\.id/);
+  assert.match(main, /payload\?\.session_id/);
+  assert.match(main, /terminal-new-tab/);
+  assert.match(main, /data-terminal-tab-id/);
+  assert.match(main, /data-terminal-close-id/);
   assert.match(main, /ArrowDown/);
   assert.match(main, /completeTerminalInput/);
   assert.match(main, /event\.key === 'Tab'/);
   assert.match(main, /data-terminal-suggestion/);
-  assert.match(main, /terminal_input', \{ input: `\$\{command\}\\r` \}/);
+  assert.match(main, /terminal_input', \{ sessionId: tab\.id, input: `\$\{command\}\\r` \}/);
 });
 
 test("navigation sidebar supports persisted pointer and keyboard resizing", () => {
