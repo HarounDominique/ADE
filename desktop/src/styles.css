@@ -356,3 +356,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .changes-workspace { display: block; }
   .pending-changes-layout .git-pending-files, .pending-changes-layout .pending-diff { margin: 12px; border: 1px solid var(--line); border-radius: 5px; }
 }
+
+/* Navigation already identifies the view; keep only compact, actionable toolbars inside it. */
+.projects-toolbar, .section-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.projects-toolbar h1, .section-toolbar h1 { margin: 0; color: var(--text); font-size: 20px; font-weight: 650; letter-spacing: -.025em; }
+.projects-toolbar .button, .section-toolbar .button { min-height: 32px; }
+.view-project.active-view > .projects-toolbar { grid-column: 1 / -1; }
