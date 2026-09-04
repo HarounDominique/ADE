@@ -75,7 +75,7 @@ function setTerminalHeight(nextHeight, persist = true) {
 }
 
 function sidebarWidthBounds() {
-  return { min: 190, max: Math.min(460, Math.max(320, Math.round(window.innerWidth * 0.42))) };
+  return { min: 190, max: Math.min(720, Math.max(420, Math.round(window.innerWidth * 0.58))) };
 }
 
 function setSidebarWidth(nextWidth, persist = true) {
@@ -713,7 +713,8 @@ function renderWorkspaceEntry(entry, childMarkup = '', { showPathHint = false } 
   const parentPath = pathSegments.slice(0, -1).join(' / ') || 'Project root';
   const pathHint = showPathHint ? `<span class="workspace-path-hint" title="${escapeHTML(relativePath)}">${escapeHTML(parentPath)}</span>` : '';
   const resultClass = showPathHint ? ' search-result' : '';
-  return `<li class="workspace-node file" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry file${selected ? ' selected' : ''}${resultClass}" type="button" data-file-path="${path}" aria-current="${selected ? 'page' : 'false'}" aria-label="Open ${name} in ${escapeHTML(parentPath)}"><span class="workspace-glyph file" aria-hidden="true"></span><span class="workspace-name">${name}</span>${pathHint}</button></li>`;
+  const fileLabel = showPathHint ? `<span class="workspace-result-copy"><span class="workspace-name">${name}</span>${pathHint}</span>` : `<span class="workspace-name">${name}</span>`;
+  return `<li class="workspace-node file" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry file${selected ? ' selected' : ''}${resultClass}" type="button" data-file-path="${path}" aria-current="${selected ? 'page' : 'false'}" aria-label="Open ${name} in ${escapeHTML(parentPath)}"><span class="workspace-glyph file" aria-hidden="true"></span>${fileLabel}</button></li>`;
 }
 
 function renderWorkspaceEntries(entries) {

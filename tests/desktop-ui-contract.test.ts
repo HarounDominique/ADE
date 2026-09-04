@@ -94,6 +94,8 @@ test("navigation sidebar supports persisted pointer and keyboard resizing", () =
   assert.match(main, /sidebarResizer\.setPointerCapture/);
   assert.match(main, /ArrowRight/);
   assert.match(main, /sidebarWidthBounds/);
+  assert.match(main, /max: Math\.min\(720/);
+  assert.match(html, /aria-valuemax="720"/);
   assert.match(styles, /\.sidebar-resizer \{ position: absolute/);
   assert.match(styles, /grid-template-columns: var\(--sidebar-width, 246px\)/);
   assert.match(styles, /\.terminal-dock \{ left: var\(--sidebar-width, 246px\)/);
@@ -117,6 +119,7 @@ test("workspace search returns files directly and restores their compact branch 
   assert.match(main, /entry\.kind === 'file'/);
   assert.match(main, /No matching files/);
   assert.match(main, /workspace-path-hint/);
+  assert.match(main, /workspace-result-copy/);
   assert.match(main, /parentPath/);
   assert.match(main, /showPathHint: true/);
   assert.match(main, /const wasSearching = Boolean\(filter\?\.value\.trim\(\)\)/);
@@ -124,6 +127,7 @@ test("workspace search returns files directly and restores their compact branch 
   assert.match(main, /void collapseExplorer\(\)/);
   assert.match(styles, /\.workspace-tree\.is-searching \.workspace-entry\.directory \{ display: none; \}/);
   assert.match(styles, /\.workspace-entry\.search-result \.workspace-path-hint/);
+  assert.match(styles, /overflow-wrap: anywhere/);
 });
 
 test("explorer mode changes preserve continuity with a reduced-motion path", () => {
