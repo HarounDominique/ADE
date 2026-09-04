@@ -4,7 +4,7 @@
 
 ## Objective
 
-Ofrecer un workspace local navegable donde el desarrollador vea el árbol de directorios, abra archivos y use una terminal nativa del sistema sin perder el Project y la Task activa.
+Ofrecer un workspace local navegable donde el desarrollador vea el árbol de directorios, abra archivos y use una terminal nativa del sistema sin perder el Project y la Task activa. El árbol debe mantener visible la ruta del archivo activo y permitir convertir el Explorer en el foco principal cuando el usuario lo necesite.
 
 ## Commands
 
@@ -23,11 +23,11 @@ Ofrecer un workspace local navegable donde el desarrollador vea el árbol de dir
 fn list_directory(workspace: State<WorkspaceRoot>, path: String) -> Result<Vec<DirectoryEntry>, String> { /* validated */ }
 ```
 
-El árbol obtiene sólo los hijos directos y expande cada directorio bajo demanda. Los symlinks se muestran como información, pero una operación que los resuelva fuera del Project se rechaza.
+El árbol obtiene sólo los hijos directos y expande cada directorio bajo demanda. En modo compacto, la UI muestra únicamente la rama de directorios que conduce al archivo activo desde la raíz del Project, como un breadcrumb visual en forma de árbol. El modo expandido oculta la navegación de vistas del lateral y permite explorar el árbol completo; al contraerlo, la navegación reaparece y se restaura la rama compacta. Los symlinks se muestran como información, pero una operación que los resuelva fuera del Project se rechaza.
 
 ## Testing Strategy
 
-Tests de rutas fuera del Project, symlinks que escapan, orden estable, apertura de archivos, cwd y un comando interactivo dentro del PTY. Smoke manual y empaquetado en macOS.
+Tests de rutas fuera del Project, symlinks que escapan, orden estable, apertura de archivos, cwd y un comando interactivo dentro del PTY. Tests de contrato del shell para selección de archivo, rama compacta, transición a árbol completo y restauración del modo compacto. Smoke manual y empaquetado en macOS.
 
 ## Boundaries
 
@@ -37,7 +37,7 @@ Tests de rutas fuera del Project, symlinks que escapan, orden estable, apertura 
 
 ## Success Criteria
 
-El usuario puede seleccionar un Project, navegar su árbol de forma perezosa, abrir un archivo interno y ejecutar comandos en un PTY integrado persistente con cwd correcto. Ningún comando de workspace puede salir de la raíz seleccionada, ni a través de un symlink.
+El usuario puede seleccionar un Project, navegar su árbol de forma perezosa, abrir un archivo interno y ejecutar comandos en un PTY integrado persistente con cwd correcto. Mientras un archivo está activo, su rama desde la raíz permanece visible en modo compacto; al expandir el Explorer se oculta la navegación secundaria y se muestra el árbol completo, y al contraerlo se recupera la rama. Ningún comando de workspace puede salir de la raíz seleccionada, ni a través de un symlink.
 
 ## Open Questions
 

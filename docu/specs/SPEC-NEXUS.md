@@ -183,8 +183,15 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-03 — v0.3-changed-doc-reconciliation — La reconciliación detecta por Git todas las specs/ADRs Markdown modificadas y las aplica secuencialmente, preservando las trazas Nexus y asociando evidencia a la Task. 76 tests TypeScript pasan.
 - 2026-09-03 — v0.2-project-services-ui — Runtime lista los servicios declarados por Project y permite start/stop individual con estado refrescado, completando la superficie operativa de `.ade/services.json`. 76 tests TypeScript pasan.
 - 2026-09-03 — v0.3-close — Smoke empaquetado macOS validado con sidecar incluido, OpenCode 1.18.26 real, Task en repositorio efímero, evidencia y gates rehidratados tras reinicio del sidecar, y `.app` arrancando/parando limpiamente. Suites: 76 tests TypeScript, 13 tests Rust; v0.3 cerrada.
+- 2026-09-04 — workspace-core + desktop-shell — Se sincroniza la UX del Explorer: la navegación lateral queda etiquetada y única; el árbol conserva en modo compacto la rama del archivo activo y ofrece un modo expandido que repliega la navegación para explorar el árbol completo. Se propaga a SPEC-v0.3 y al cierre de release; 78 tests TypeScript pasan.
 
 ## Automatic Reconciliation Log
 
 <!-- reconciliation:docu/specs/SPEC-NEXUS.md -->
 - 2026-09-03 — automatic-reconciliation — docu/specs/SPEC-NEXUS.md; 8 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/spec-nexus.md, ../generated/qa/spec-nexus.md, ../generated/estimates/spec-nexus.md.
+<!-- reconciliation:docu/specs/SPEC-desktop-shell.md -->
+- 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-desktop-shell.md; 8 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-desktop-shell.md, ../generated/qa/spec-desktop-shell.md, ../generated/estimates/spec-desktop-shell.md.
+<!-- reconciliation:docu/specs/SPEC-v0.3.md -->
+- 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-v0.3.md; 11 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-v0.3.md, ../generated/qa/spec-v0.3.md, ../generated/estimates/spec-v0.3.md.
+<!-- reconciliation:docu/specs/SPEC-workspace-core.md -->
+- 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-workspace-core.md; 11 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-workspace-core.md, ../generated/qa/spec-workspace-core.md, ../generated/estimates/spec-workspace-core.md.

@@ -18,7 +18,7 @@ El arranque debe:
 4. Observar ejecución, logs, cambios y Review.
 5. Exponer `approve` y `ship` sólo cuando las gates lo permitan.
 
-El shell debe funcionar sin cloud y conservar la capacidad de abrir el repositorio en un IDE o terminal externo.
+El shell debe funcionar sin cloud y conservar la capacidad de abrir el repositorio en un IDE o terminal externo. La navegación principal debe ser una única superficie lateral etiquetada, sin duplicar una barra de iconos con otro menú de texto.
 
 ## Information architecture
 
@@ -27,6 +27,15 @@ Las cinco áreas visibles son `PROJECT`, `WORK`, `KNOWLEDGE`, `CHANGES` y `RUNTI
 ### Project Hub
 
 Es la entrada por defecto. Presenta Project, raíz del repositorio, branch detectada, estado Git, servicios activos y Tasks recientes. Una Task muestra intención, modo, fase, última evidencia, gate bloqueante y acción siguiente.
+
+### Sidebar and Explorer
+
+El lateral combina una navegación etiquetada para `Overview`, `Tasks`, `Project context`, `Review queue` y `Local runtime` con el Explorer del Project. No se muestran simultáneamente dos menús que representen las mismas vistas. El Explorer tiene dos estados:
+
+- **Compacto:** cuando existe un archivo activo, muestra su rama de carpetas desde la raíz del Project hasta el archivo, ocultando hermanos no relevantes y manteniendo el contexto como un breadcrumb en formato árbol. Si todavía no hay archivo activo, muestra los hijos directos de la raíz.
+- **Expandido:** al pulsar el control de expansión o una carpeta de la rama compacta, oculta las opciones de navegación y convierte el árbol en la superficie principal del lateral. Los hijos se cargan perezosamente y la rama seleccionada permanece resaltada.
+
+El control de contraer restaura la navegación y reconstruye la rama compacta del archivo activo. La transición no cambia el Project ni la Task seleccionada.
 
 ### Work
 
@@ -46,7 +55,7 @@ Muestra sesiones, servicios, procesos, puertos, healthchecks, terminal, stdout/s
 
 ## Interaction states
 
-Toda vista relevante debe representar explícitamente `loading`, `ready`, `empty`, `blocked`, `failed` y `stale`. Los fallos muestran causa, evidencia y punto de reentrada recomendado. Las operaciones largas ofrecen cancelación y mantienen visible el último estado confirmado.
+Toda vista relevante debe representar explícitamente `loading`, `ready`, `empty`, `blocked`, `failed` y `stale`. El Explorer añade estados `compact` y `expanded`; el botón de expansión expone `aria-expanded` y el foco por teclado. Los fallos muestran causa, evidencia y punto de reentrada recomendado. Las operaciones largas ofrecen cancelación y mantienen visible el último estado confirmado.
 
 Las acciones peligrosas requieren confirmación contextual con comando, directorio, impacto y posibilidad de cancelación. El shell no oculta stdout/stderr ni reemplaza el diff por un resumen del agente.
 
