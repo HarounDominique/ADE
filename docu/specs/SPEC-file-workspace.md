@@ -2,7 +2,7 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Module id: file-workspace -->
 
-**Estado:** propuesta para v0.4 — no implementada todavía.
+**Estado:** implementada — slice v0.4 validada en macOS a nivel de build y tests.
 
 ## Objective
 
@@ -21,7 +21,7 @@ Permitir que seleccionar un fichero del Explorer lo abra dentro de ADE, mantenie
 
 El frontend solicita el contenido mediante un comando Tauri dedicado (`read_file` o equivalente). El backend vuelve a resolver y canonizar la ruta bajo el Project seleccionado, rechaza symlinks que escapen y devuelve un resultado estructurado con ruta relativa, tipo, tamaño, contenido o causa del rechazo. La UI no lee el filesystem directamente.
 
-La lectura debe estar limitada por tamaño y tipo para no bloquear el shell con artefactos grandes o binarios. El límite por defecto y la detección de texto se fijarán en la implementación y quedarán cubiertos por tests; no se permite degradar silenciosamente a una apertura externa.
+La lectura está limitada por tamaño y tipo para no bloquear el shell con artefactos grandes o binarios. La implementación usa un límite de preview de 2 MiB, clasifica contenido UTF-8 sin bytes nulos como texto y devuelve estados estructurados para el resto; no degrada silenciosamente a una apertura externa.
 
 ## Interaction states
 
@@ -33,12 +33,12 @@ Edición, escritura, guardado, undo/redo, dirty state, language server, colabora
 
 ## Acceptance criteria
 
-1. Seleccionar un fichero de texto del Explorer abre su contenido dentro de ADE y no ejecuta `open` del sistema.
-2. El documento activo muestra nombre, ruta relativa y contenido legible, y cambia al seleccionar otro fichero.
-3. La lectura se realiza por Tauri con la misma frontera de autorización del workspace; una ruta externa o symlink escapado falla de forma visible.
-4. Un binario, fichero ilegible o fichero demasiado grande muestra un estado explicativo y sólo se abre fuera mediante una acción explícita.
-5. Project, Task, Explorer y terminal conservan su estado al cambiar de documento.
-6. Existen tests nativos, de UI y de contrato para apertura interna, errores, límite seguro y escape hatch externo.
+1. ✅ Seleccionar un fichero de texto del Explorer abre su contenido dentro de ADE y no ejecuta `open` del sistema.
+2. ✅ El documento activo muestra nombre, ruta relativa y contenido legible, y cambia al seleccionar otro fichero.
+3. ✅ La lectura se realiza por Tauri con la misma frontera de autorización del workspace; una ruta externa o symlink escapado falla de forma visible.
+4. ✅ Un binario, fichero ilegible o fichero demasiado grande muestra un estado explicativo y sólo se abre fuera mediante una acción explícita.
+5. ✅ Project, Task, Explorer y terminal conservan su estado al cambiar de documento.
+6. ✅ Existen tests nativos, de UI y de contrato para apertura interna, errores, límite seguro y escape hatch externo.
 
 ## Verification
 

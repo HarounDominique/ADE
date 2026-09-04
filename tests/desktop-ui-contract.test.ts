@@ -17,7 +17,7 @@ test("desktop shell keeps the five MVP areas and critical actions", () => {
 });
 
 test("desktop shell wires critical actions to Tauri commands", () => {
-  for (const command of ["sidecar_request", "sidecar_restart", "open_document", "open_file", "terminal_start", "terminal_input", "terminal_stop"]) {
+  for (const command of ["sidecar_request", "sidecar_restart", "open_document", "open_file", "read_file", "terminal_start", "terminal_input", "terminal_stop"]) {
     assert.match(main, new RegExp(`['\"]${command}['\"]`));
   }
   assert.match(main, /method: 'task\.run'/);
@@ -38,6 +38,12 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /method: 'service\.list'/);
   assert.match(main, /renderServices/);
   assert.match(html, /id="runtime-service-list"/);
+  assert.match(html, /id="document-viewer"/);
+  assert.match(html, /data-action="open-file-external"/);
+  assert.match(html, /id="document-content"/);
+  assert.match(main, /nativeInvoke\('read_file'/);
+  assert.match(main, /openFileInADE/);
+  assert.match(main, /item\.dataset\.action === 'open-file-external'/);
 });
 
 test("workspace tree expands directories lazily and keeps symlinks non-actionable", () => {

@@ -229,6 +229,20 @@ struct DirectoryEntry {
     depth: usize,
 }
 
+const MAX_FILE_PREVIEW_BYTES: u64 = 2 * 1024 * 1024;
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileReadResult {
+    path: String,
+    relative_path: String,
+    name: String,
+    kind: String,
+    size: u64,
+    content: Option<String>,
+    message: Option<String>,
+}
+
 #[tauri::command]
 fn list_directory(
     workspace: tauri::State<'_, WorkspaceRoot>,
@@ -304,6 +318,86 @@ fn open_file_in(workspace: &WorkspaceRoot, path: &str) -> Result<(), String> {
         .spawn()
         .map(|_| ())
         .map_err(|error| format!("Unable to open file: {error}"))
+}
+
+#[tauri::command]
+fn read_file(
+    workspace: tauri::State<'_, WorkspaceRoot>,
+    path: String,
+) -> Result<FileReadResult, String> {
+    read_file_in(&workspace, &path)
+}
+
+fn read_file_in(workspace: &WorkspaceRoot, path: &str) -> Result<FileReadResult, String> {
+    let file = workspace.resolve(path)?;
+    if !file.is_file() {
+        return Err(format!("File does not exist: {}", file.display()));
+    }
+    let metadata =
+        std::fs::metadata(&file).map_err(|error| format!("Unable to inspect file: {error}"))?;
+    let root = workspace
+        .root
+        .lock()
+        .map_err(|_| "Workspace root state is poisoned".to_string())?
+        .clone()
+        .ok_or_else(|| "Select a Project before accessing its workspace".to_string())?;
+    let relative_path = file
+        .strip_prefix(&root)
+        .map_err(|_| "File is outside the selected Project".to_string())?
+        .to_string_lossy()
+        .into_owned();
+    let name = file
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("File")
+        .to_string();
+    let size = metadata.len();
+    if size > MAX_FILE_PREVIEW_BYTES {
+        return Ok(FileReadResult {
+            path: file.to_string_lossy().into_owned(),
+            relative_path,
+            name,
+            kind: "tooLarge".to_string(),
+            size,
+            content: None,
+            message: Some(format!(
+                "Preview is limited to {} MiB",
+                MAX_FILE_PREVIEW_BYTES / 1024 / 1024
+            )),
+        });
+    }
+    let bytes = std::fs::read(&file).map_err(|error| format!("Unable to read file: {error}"))?;
+    if bytes.contains(&0) {
+        return Ok(FileReadResult {
+            path: file.to_string_lossy().into_owned(),
+            relative_path,
+            name,
+            kind: "binary".to_string(),
+            size,
+            content: None,
+            message: Some("This file cannot be previewed as text".to_string()),
+        });
+    }
+    match String::from_utf8(bytes) {
+        Ok(content) => Ok(FileReadResult {
+            path: file.to_string_lossy().into_owned(),
+            relative_path,
+            name,
+            kind: "text".to_string(),
+            size,
+            content: Some(content),
+            message: None,
+        }),
+        Err(_) => Ok(FileReadResult {
+            path: file.to_string_lossy().into_owned(),
+            relative_path,
+            name,
+            kind: "binary".to_string(),
+            size,
+            content: None,
+            message: Some("This file cannot be decoded as UTF-8 text".to_string()),
+        }),
+    }
 }
 
 #[derive(Serialize)]
@@ -583,6 +677,7 @@ pub fn run() {
             project_context,
             list_directory,
             open_file,
+            read_file,
             terminal_exec,
             terminal_start,
             terminal_input,
@@ -604,7 +699,8 @@ pub fn run() {
 mod tests {
     use super::{
         list_directory_in, open_document_in, open_file_in, open_terminal_in, project_context_for,
-        start_terminal_pty, terminal_exec_in, SidecarSupervisor, WorkspaceRoot,
+        read_file_in, start_terminal_pty, terminal_exec_in, SidecarSupervisor, WorkspaceRoot,
+        MAX_FILE_PREVIEW_BYTES,
     };
     use std::fs;
 
@@ -775,6 +871,56 @@ mod tests {
 
         fs::remove_dir_all(root).expect("remove root fixture");
         fs::remove_dir_all(outside).expect("remove outside fixture");
+    }
+
+    #[test]
+    fn read_file_returns_text_content_with_project_relative_path() {
+        let root = fixture_root("read-file");
+        fs::write(root.join("README.md"), "# ADE\n").expect("create text file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = read_file_in(&workspace, &root.join("README.md").to_string_lossy())
+            .expect("read text file");
+        assert_eq!(result.kind, "text");
+        assert_eq!(result.relative_path, "README.md");
+        assert_eq!(result.content.as_deref(), Some("# ADE\n"));
+
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn read_file_classifies_binary_content_without_returning_bytes() {
+        let root = fixture_root("read-file-binary");
+        fs::write(root.join("image.bin"), [0, 159, 146, 150]).expect("create binary file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = read_file_in(&workspace, &root.join("image.bin").to_string_lossy())
+            .expect("classify binary file");
+        assert_eq!(result.kind, "binary");
+        assert!(result.content.is_none());
+
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn read_file_marks_previews_over_two_megabytes_as_too_large() {
+        let root = fixture_root("read-file-large");
+        fs::write(
+            root.join("large.txt"),
+            vec![b'a'; (MAX_FILE_PREVIEW_BYTES + 1) as usize],
+        )
+        .expect("create large file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = read_file_in(&workspace, &root.join("large.txt").to_string_lossy())
+            .expect("classify large file");
+        assert_eq!(result.kind, "tooLarge");
+        assert!(result.content.is_none());
+
+        fs::remove_dir_all(root).expect("remove fixture");
     }
 
     #[test]

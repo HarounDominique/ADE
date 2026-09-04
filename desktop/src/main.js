@@ -19,6 +19,7 @@ let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
 let workspaceRootPath = projectSnapshot.project.repositoryPath;
 let selectedFilePath = null;
+let activeDocument = null;
 let explorerExpanded = false;
 const terminalResizer = document.getElementById('terminal-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
@@ -312,6 +313,96 @@ function renderRuntimeEvent(taskId, event) {
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
+function documentRelativePath(filePath) {
+  return filePath.startsWith(`${workspaceRootPath}/`) ? filePath.slice(workspaceRootPath.length + 1) : filePath;
+}
+
+function updateWorkspaceFileSelection(filePath) {
+  selectedFilePath = filePath;
+  document.querySelectorAll('[data-file-path].selected').forEach((entry) => entry.classList.remove('selected'));
+  const selectedEntry = [...document.querySelectorAll('[data-file-path]')].find((entry) => entry.dataset.filePath === filePath);
+  selectedEntry?.classList.add('selected');
+  selectedEntry?.setAttribute('aria-current', 'page');
+  if (!explorerExpanded) void loadWorkspaceTree(workspaceRootPath, nativeInvoke);
+}
+
+function setDocumentHeader({ title, path, kind, externalDisabled = true }) {
+  const titleElement = document.getElementById('document-title');
+  const pathElement = document.getElementById('document-path');
+  const kindElement = document.getElementById('document-kind');
+  const externalButton = document.getElementById('open-file-external');
+  if (titleElement) titleElement.textContent = title;
+  if (pathElement) pathElement.textContent = path;
+  if (kindElement) kindElement.textContent = kind;
+  if (externalButton) externalButton.disabled = externalDisabled;
+}
+
+function renderDocumentLoading(filePath) {
+  const viewer = document.getElementById('document-viewer');
+  const status = document.getElementById('document-viewer-status');
+  const content = document.getElementById('document-content');
+  if (!viewer || !status || !content) return;
+  viewer.hidden = false;
+  setDocumentHeader({ title: filePath.split('/').at(-1) ?? 'File', path: documentRelativePath(filePath), kind: 'LOADING' });
+  status.hidden = false;
+  status.textContent = 'Reading file…';
+  content.hidden = true;
+  content.textContent = '';
+}
+
+function renderDocumentResult(result) {
+  const viewer = document.getElementById('document-viewer');
+  const status = document.getElementById('document-viewer-status');
+  const content = document.getElementById('document-content');
+  if (!viewer || !status || !content) return;
+  viewer.hidden = false;
+  activeDocument = result;
+  setDocumentHeader({ title: result.name, path: result.relativePath, kind: result.kind === 'text' ? 'TEXT' : result.kind.toUpperCase(), externalDisabled: false });
+  const isText = result.kind === 'text';
+  status.hidden = isText;
+  status.textContent = isText ? '' : (result.message ?? 'This file cannot be previewed inside ADE.');
+  content.hidden = !isText;
+  content.textContent = isText ? (result.content ?? '') : '';
+  if (isText) content.focus({ preventScroll: true });
+}
+
+function renderDocumentError(filePath, error) {
+  const viewer = document.getElementById('document-viewer');
+  const status = document.getElementById('document-viewer-status');
+  const content = document.getElementById('document-content');
+  if (!viewer || !status || !content) return;
+  viewer.hidden = false;
+  activeDocument = { path: filePath };
+  setDocumentHeader({ title: filePath.split('/').at(-1) ?? 'File', path: documentRelativePath(filePath), kind: 'FAILED', externalDisabled: false });
+  status.hidden = false;
+  status.textContent = `Unable to read file: ${String(error)}`;
+  content.hidden = true;
+  content.textContent = '';
+}
+
+async function openFileInADE(filePath) {
+  if (!nativeInvoke) {
+    notify('Opening files requires the local desktop runtime.');
+    return;
+  }
+  updateWorkspaceFileSelection(filePath);
+  renderDocumentLoading(filePath);
+  try {
+    const result = await nativeInvoke('read_file', { path: filePath });
+    renderDocumentResult(result);
+  } catch (error) {
+    renderDocumentError(filePath, error);
+    notify('Unable to read file inside ADE.');
+    console.warn('File preview unavailable:', error);
+  }
+}
+
+function closeFilePreview() {
+  const viewer = document.getElementById('document-viewer');
+  if (viewer) viewer.hidden = true;
+  activeDocument = null;
 }
 
 function providerIsAvailable(providerId) {
@@ -960,6 +1051,19 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile.changed', params: { repositoryPath, ...(taskId && taskId !== '—' ? { taskId } : {}) } }) });
     return;
   }
+  if (item.dataset.action === 'open-file-external') {
+    const filePath = activeDocument?.path ?? selectedFilePath;
+    if (!filePath || !nativeInvoke) { notify('No file is available to open externally.'); return; }
+    nativeInvoke('open_file', { path: filePath }).then(() => notify('File opened externally.')).catch((error) => {
+      notify('Unable to open file externally.');
+      console.warn('External file open unavailable:', error);
+    });
+    return;
+  }
+  if (item.dataset.action === 'close-file') {
+    closeFilePreview();
+    return;
+  }
   if (item.dataset.action === 'create-worktree') {
     if (!nativeInvoke) { notify('Git operations require the sidecar.'); return; }
     const taskSuffix = selectedTaskId ? selectedTaskId.toLowerCase().replace(/[^a-z0-9-]/g, '-') : 'ade-next';
@@ -1082,18 +1186,7 @@ document.addEventListener('click', (event) => {
   }
   const fileEntry = event.target.closest('[data-file-path].file');
   if (fileEntry) {
-    const filePath = fileEntry.dataset.filePath;
-    if (!nativeInvoke) {
-      notify('Opening files requires the local desktop runtime.');
-      return;
-    }
-    nativeInvoke('open_file', { path: filePath }).then(() => {
-      selectedFilePath = filePath;
-      fileEntry.closest('.workspace-tree')?.querySelectorAll('[data-file-path].selected').forEach((entry) => entry.classList.remove('selected'));
-      fileEntry.classList.add('selected');
-      fileEntry.setAttribute('aria-current', 'page');
-      if (!explorerExpanded) void loadWorkspaceTree(workspaceRootPath, nativeInvoke);
-    }).catch((error) => console.warn('File open unavailable:', error));
+    void openFileInADE(fileEntry.dataset.filePath);
     return;
   }
   const taskCard = event.target.closest('[data-task-select]');

@@ -192,9 +192,9 @@
 
 ## v0.4 — Workspace interno
 
-- [ ] Task: Abrir ficheros dentro de ADE
+- [x] Task: Abrir ficheros dentro de ADE
   - Spec: [SPEC-file-workspace.md](../docu/specs/SPEC-file-workspace.md)
   - ADR: [0014-internal-file-viewer.md](../docu/adr/0014-internal-file-viewer.md)
   - Acceptance: seleccionar un fichero de texto abre un visor interno de solo lectura; binarios, errores y ficheros demasiado grandes muestran estado explicativo; abrir externamente requiere una acción explícita.
-  - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`.
+  - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`; smoke gráfico pendiente por limitación del entorno (`SIGABRT` al arrancar el `.app`).
   - Files: `desktop/src/`, `desktop/src-tauri/src/lib.rs`, `tests/`, `docu/specs/`.

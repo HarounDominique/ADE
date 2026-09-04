@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for v0.4 implementation
+Accepted and implemented for v0.4
 
 ## Date
 
