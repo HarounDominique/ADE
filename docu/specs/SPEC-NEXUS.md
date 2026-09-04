@@ -215,6 +215,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-04 — terminal-interactive-input — La terminal detecta la pantalla alternativa de TUIs y reenvía al PTY la entrada de teclado que antes consumía el shell de ADE; Claude vuelve a aceptar navegación con flechas, selección con espacio/Enter, Escape, Tab y controles. La suite pasa con 99 tests TypeScript y 18 Rust.
 - 2026-09-04 — terminal-interactive-focus — La entrada interactiva también se activa al lanzar comandos conocidos como `claude` y el foco se recupera desde cualquier punto del panel, cubriendo prompts que aún no han emitido una secuencia de pantalla alternativa. La suite pasa con 100 tests TypeScript y 18 Rust.
 - 2026-09-04 — terminal-xterm-migration — Se elimina el emulador ANSI y el campo HTML heurístico: cada tab usa `xterm.js` con `@xterm/addon-fit`, reenvía `Terminal.onData` directamente a `portable-pty` y sincroniza `Terminal.onResize` mediante `terminal_resize`. La suite queda en 92 tests TypeScript y 18 Rust; ADR-0021 registra la decisión.
+- 2026-09-04 — version-control-live-pending — `Version control > Changes` actualiza silenciosamente `git.pending` mientras la vista está visible, reflejando cambios externos, del Editor y de la terminal sin Refresh manual; las respuestas de un Project anterior se descartan.
 
 ## Automatic Reconciliation Log
 

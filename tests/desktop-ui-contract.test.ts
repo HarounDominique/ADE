@@ -73,6 +73,9 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /git\.history/);
   assert.match(main, /git\.commit\.diff/);
   assert.match(main, /git\.pending/);
+  assert.match(main, /requestPendingGitChanges/);
+  assert.match(main, /activeView === 'changes'/);
+  assert.match(main, /setInterval\(\(\) =>/);
   assert.match(main, /git\.fetch\.origin/);
   assert.match(main, /git\.commit\.push/);
   assert.match(html, /data-action="open-file-external"/);

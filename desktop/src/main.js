@@ -45,6 +45,9 @@ let selectedTaskId = null;
 let selectedTaskIntent = '';
 let providerStatuses = [];
 const runtimeEvents = [];
+let activeView = 'projects';
+let pendingGitRefreshInFlight = false;
+let pendingGitRequestPath = null;
 let registeredProjects = [];
 let projectCatalogLoaded = false;
 let gitBranches = [];
@@ -642,6 +645,17 @@ function renderPendingGitChanges(result) {
   if (diff) diff.textContent = result?.diff || 'No pending textual diff.';
 }
 
+function requestPendingGitChanges(path = workspaceRootPath, { showLoading = false } = {}) {
+  if (!nativeInvoke || !path || activeVersionControl === 'none' || pendingGitRefreshInFlight) return;
+  pendingGitRefreshInFlight = true;
+  pendingGitRequestPath = path;
+  if (showLoading) document.getElementById('git-pending-status')?.replaceChildren(document.createTextNode('Loading pending changes…'));
+  void sendContextRequest('git.pending', { repositoryPath: path }, 'git-pending').catch((error) => {
+    pendingGitRefreshInFlight = false;
+    notify(error instanceof Error ? error.message : 'Unable to load pending changes.');
+  });
+}
+
 function requestVersionControlData(path = workspaceRootPath) {
   if (!nativeInvoke || !path) return;
   if (activeVersionControl === 'none') {
@@ -655,7 +669,7 @@ function requestVersionControlData(path = workspaceRootPath) {
   document.getElementById('git-history-status')?.replaceChildren(document.createTextNode('Loading history…'));
   document.getElementById('git-pending-status')?.replaceChildren(document.createTextNode('Loading pending changes…'));
   void sendContextRequest('git.history', { repositoryPath: path }, 'git-history').catch((error) => notify(error instanceof Error ? error.message : 'Unable to load commit history.'));
-  void sendContextRequest('git.pending', { repositoryPath: path }, 'git-pending').catch((error) => notify(error instanceof Error ? error.message : 'Unable to load pending changes.'));
+  requestPendingGitChanges(path, { showLoading: true });
 }
 
 function setSyncState(state, message) {
@@ -1269,6 +1283,7 @@ async function connectSidecar(snapshot) {
       const response = JSON.parse(event.payload);
       const contextPurpose = pendingContextRequests.get(String(response.id));
       if (contextPurpose) pendingContextRequests.delete(String(response.id));
+      if (contextPurpose === 'git-pending') pendingGitRefreshInFlight = false;
       const snapshotProjectId = pendingSnapshotProjects.get(String(response.id));
       if (snapshotProjectId) {
         pendingSnapshotProjects.delete(String(response.id));
@@ -1287,6 +1302,7 @@ async function connectSidecar(snapshot) {
         }
         const feedback = document.getElementById('agent-feedback');
         if (feedback) feedback.textContent = `${response.error.code}: ${response.error.message}`;
+        if (contextPurpose === 'git-pending' && pendingGitRequestPath !== workspaceRootPath) requestPendingGitChanges(workspaceRootPath, { showLoading: true });
         notify(response.error.message);
         return;
       }
@@ -1333,6 +1349,10 @@ async function connectSidecar(snapshot) {
         return;
       }
       if (contextPurpose === 'git-pending' && response.result?.files) {
+        if (pendingGitRequestPath !== workspaceRootPath) {
+          requestPendingGitChanges(workspaceRootPath, { showLoading: true });
+          return;
+        }
         renderPendingGitChanges(response.result);
         return;
       }
@@ -1601,11 +1621,13 @@ async function restartSidecarFromUI() {
 }
 
 function showView(view) {
+  activeView = view;
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
   const labels = { projects: 'Projects', editor: 'Editor', work: 'Tasks', knowledge: 'Project context', changes: 'Version control', runtime: 'Local runtime' };
   const crumb = document.getElementById('breadcrumb-current');
   if (crumb) crumb.textContent = labels[view] ?? view;
+  if (view === 'changes') requestVersionControlData(workspaceRootPath);
 }
 
 function notify(message) {
@@ -1619,6 +1641,9 @@ renderSnapshot(projectSnapshot);
 renderRuntimeStatus({ sidecar: 'STARTING', agentRuntime: 'DISCONNECTED', activeTaskId: null, lastEventAt: null, lastError: null });
 refreshProjectContext(projectSnapshot);
 connectSidecar(projectSnapshot);
+window.setInterval(() => {
+  if (activeView === 'changes' && document.visibilityState !== 'hidden') requestPendingGitChanges(workspaceRootPath);
+}, 1200);
 document.querySelectorAll('[data-view-target]').forEach((item) => item.addEventListener('click', () => showView(item.dataset.viewTarget)));
 document.querySelectorAll('[data-action]').forEach((item) => item.addEventListener('click', () => {
   if (item.dataset.action === 'toggle-theme') {
