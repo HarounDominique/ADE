@@ -26,7 +26,9 @@ let documentOriginalContent = '';
 let documentDirty = false;
 let explorerExpanded = false;
 let workspaceSearchEntries = null;
+let workspaceSearchIndex = null;
 let workspaceSearchToken = 0;
+let workspaceSearchTimer = null;
 const terminalResizer = document.getElementById('terminal-resizer');
 const sidebarResizer = document.getElementById('sidebar-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
@@ -660,7 +662,10 @@ async function refreshProjectContext(snapshot) {
   try {
     const context = await invoke('project_context', { repositoryPath: snapshot.project.repositoryPath });
     renderSnapshot({ ...snapshot, project: { ...snapshot.project, ...context } });
+    window.clearTimeout(workspaceSearchTimer);
+    workspaceSearchToken += 1;
     workspaceSearchEntries = null;
+    workspaceSearchIndex = null;
     await loadWorkspaceTree(context.repositoryPath, invoke);
     await refreshGitWorkspace(context.repositoryPath, invoke);
     notify('Project context loaded from the local repository.');
@@ -678,13 +683,14 @@ async function refreshGitWorkspace(path, invoke = nativeInvoke) {
   } catch (error) { console.warn('Git workspace unavailable:', error); }
 }
 
-async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke, { animate = false } = {}) {
+async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke, { animate = false, requestToken = null } = {}) {
   const tree = document.getElementById('workspace-tree');
   if (!tree || !invoke || !path) return;
   workspaceRootPath = path;
   if (animate) tree.classList.add('is-transitioning');
   try {
     const entries = await invoke('list_directory', { path, maxDepth: 0 });
+    if (requestToken !== null && requestToken !== workspaceSearchToken) return;
     tree.innerHTML = explorerExpanded || !selectedFilePath
       ? renderWorkspaceEntries(entries)
       : await renderCompactWorkspacePath(entries, selectedFilePath, invoke);
@@ -727,25 +733,60 @@ async function searchWorkspaceFiles(query) {
   const invoke = nativeInvoke ?? window.__TAURI__?.core?.invoke;
   const needle = query.trim().toLowerCase();
   if (!tree || !needle) {
+    setWorkspaceSearchLoading(false);
     workspaceSearchToken += 1;
     await loadWorkspaceTree(workspaceRootPath, invoke, { animate: true });
     return;
   }
-  const token = ++workspaceSearchToken;
+  const token = workspaceSearchToken;
   tree.classList.add('is-searching');
+  setWorkspaceSearchLoading(true);
   tree.innerHTML = '<li class="workspace-empty">Searching files…</li>';
   try {
-    if (!workspaceSearchEntries) workspaceSearchEntries = await invoke('list_directory', { path: workspaceRootPath, maxDepth: 99 });
+    if (!workspaceSearchIndex) {
+      workspaceSearchEntries = await invoke('list_directory', { path: workspaceRootPath, maxDepth: 99 });
+      workspaceSearchIndex = workspaceSearchEntries
+        .filter((entry) => entry.kind === 'file')
+        .map((entry) => ({ ...entry, searchText: `${entry.name} ${entry.path}`.toLowerCase() }));
+    }
     if (token !== workspaceSearchToken) return;
-    const matches = workspaceSearchEntries.filter((entry) => entry.kind === 'file' && `${entry.name} ${entry.path}`.toLowerCase().includes(needle));
+    const matches = workspaceSearchIndex.filter((entry) => entry.searchText.includes(needle));
     tree.innerHTML = matches.length ? matches.map((entry) => renderWorkspaceEntry(entry, '', { showPathHint: true })).join('') : '<li class="workspace-empty">No matching files.</li>';
     tree.classList.add('is-searching');
+    setWorkspaceSearchLoading(false);
   } catch (error) {
     if (token !== workspaceSearchToken) return;
     tree.innerHTML = '<li class="workspace-empty">File search unavailable.</li>';
+    setWorkspaceSearchLoading(false);
     notify('Workspace file search unavailable.');
     console.warn('Workspace file search unavailable:', error);
   }
+}
+
+function setWorkspaceSearchLoading(loading) {
+  const input = document.getElementById('workspace-filter');
+  const status = document.getElementById('workspace-search-status');
+  if (status) status.hidden = !loading;
+  input?.setAttribute('aria-busy', String(loading));
+}
+
+function scheduleWorkspaceFileSearch(query) {
+  window.clearTimeout(workspaceSearchTimer);
+  const token = ++workspaceSearchToken;
+  const needle = query.trim();
+  if (!needle) {
+    setWorkspaceSearchLoading(false);
+    void loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true, requestToken: token });
+    return;
+  }
+  const tree = document.getElementById('workspace-tree');
+  tree?.classList.add('is-searching');
+  if (tree) tree.innerHTML = '<li class="workspace-empty">Searching files…</li>';
+  setWorkspaceSearchLoading(true);
+  workspaceSearchTimer = window.setTimeout(() => {
+    if (token !== workspaceSearchToken) return;
+    void searchWorkspaceFiles(query);
+  }, 100);
 }
 
 async function renderCompactWorkspacePath(rootEntries, filePath, invoke) {
@@ -1203,7 +1244,11 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'refresh-tree') {
+    window.clearTimeout(workspaceSearchTimer);
+    workspaceSearchToken += 1;
+    setWorkspaceSearchLoading(false);
     workspaceSearchEntries = null;
+    workspaceSearchIndex = null;
     loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
     return;
   }
@@ -1402,7 +1447,7 @@ document.getElementById('document-content')?.addEventListener('keydown', (event)
   }
 });
 document.getElementById('agent-skill')?.addEventListener('change', refreshSelectedSkill);
-document.getElementById('workspace-filter')?.addEventListener('input', (event) => { void searchWorkspaceFiles(event.target.value); });
+document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });
 document.getElementById('terminal-command')?.addEventListener('keydown', (event) => {
   const input = event.currentTarget;
   if (event.key === 'Tab') {
