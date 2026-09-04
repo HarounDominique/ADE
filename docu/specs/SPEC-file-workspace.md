@@ -12,8 +12,9 @@ Permitir que seleccionar un fichero del Explorer lo abra dentro de ADE, mantenie
 
 - Al seleccionar un fichero de texto válido dentro de la raíz canónica, ADE lo convierte en el documento activo y muestra su contenido en el workbench.
 - El editor interno muestra nombre, ruta relativa al Project, contenido y estados de carga/error; permite editar texto, identificar cambios sin guardar, guardar con `Save` o `⌘/Ctrl+S` y descartarlos con `Discard`.
-- El editor usa CodeMirror 6 con paquetes oficiales MIT: números de línea, resaltado sintáctico, plegado, búsqueda, undo/redo, indentación, bracket matching y wrapping legible. La detección de lenguaje se realiza por extensión para JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown, Python, Rust, SQL, XML y YAML.
-- `Format` aplica Prettier, también MIT, de forma explícita para JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown y YAML. Para Python, Rust, SQL y XML se conserva resaltado e indentación de CodeMirror hasta incorporar formatters específicos con una estrategia de ejecución y licencia revisadas.
+- El editor usa CodeMirror 6 con paquetes oficiales MIT como motor principal: números de línea, resaltado sintáctico, plegado, búsqueda, undo/redo, indentación, bracket matching y wrapping legible. La detección de lenguaje se realiza por extensión para JavaScript/TypeScript, C++, Java, PHP, JSON, CSS/SCSS, HTML, Markdown, Python, Rust, SQL, XML y YAML.
+- Cuando no existe un paquete CodeMirror oficial incorporado, la misma superficie cambia automáticamente a Monaco Editor MIT y carga sus definiciones básicas para C, C#, Go, Dart, Dockerfiles, Elixir, F#, GraphQL, Kotlin, Lua, Objective-C, Perl, PowerShell, Protocol Buffers, R, Ruby, Scala, Shell y Swift. El usuario conserva los mismos controles de apertura, edición, guardado, descarte, tema y atajos; el motor es una decisión interna por extensión.
+- `Format` aplica Prettier, también MIT, de forma explícita para JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown y YAML. Para Python, Rust, SQL, XML y los lenguajes fallback se conserva resaltado e indentación del motor activo hasta incorporar formatters específicos con una estrategia de ejecución y licencia revisadas.
 - `Editor` permanece montado como superficie fija y exclusiva de código incluso sin documento activo; no muestra CTA de búsqueda ni paneles auxiliares de Git, agentes o documentación. El layout usa densidad de workbench y reserva el dock de terminal como superficie transversal.
 - El documento activo permanece sincronizado con la selección del Explorer y con la rama compacta que el Explorer muestra como hint.
 - La navegación de Project, la Task seleccionada y el dock de terminal no se pierden al abrir o cambiar de fichero.
@@ -46,7 +47,8 @@ Language server, colaboración realtime, resolución de conflictos, formatters e
 6. ✅ `write_file` sólo escribe dentro del Project seleccionado y rechaza contenido binario o superior a 2 MiB.
 7. ✅ Project, Task, Explorer y terminal conservan su estado al cambiar de documento.
 8. ✅ Existen tests nativos, de UI y de contrato para apertura interna, edición, guardado seguro, errores, límite y escape hatch externo.
-9. ✅ El Editor muestra sintaxis y estructura de código de los lenguajes soportados, permite formateado explícito donde existe formatter aprobado y mantiene edición/guardado sobre el modelo CodeMirror.
+9. ✅ El Editor muestra sintaxis y estructura de código de los lenguajes soportados, permite formateado explícito donde existe formatter aprobado y mantiene edición/guardado mediante una interfaz común, independientemente de que el motor activo sea CodeMirror o Monaco.
+10. ✅ C, C#, Go, Dart, Dockerfiles, Elixir, F#, GraphQL, Kotlin, Lua, Objective-C, Perl, PowerShell, Protocol Buffers, R, Ruby, Scala, Shell y Swift se abren con resaltado Monaco sin cambiar de vista ni perder estado dirty, guardado o descarte.
 
 ## Verification
 
@@ -60,3 +62,4 @@ cargo test --manifest-path desktop/src-tauri/Cargo.toml
 
 - ¿Qué estrategia local y trazable se adoptará para formatters de Python, Rust, SQL y XML sin convertir ADE en un IDE completo?
 - ¿Cuándo aporta suficiente valor una integración LSP, y qué permisos/runtime necesitaría por Project?
+- ¿Qué lenguajes adicionales justifican un paquete CodeMirror dedicado frente a una definición básica de Monaco, y qué umbral de tamaño debe activar carga diferida?

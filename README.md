@@ -35,7 +35,7 @@ Ver [Spike 001](docu/spikes/001-opencode-runtime.md) y [Spike 002](docu/spikes/0
 
 El flujo integrado se ejecuta con `npm run review -- /ruta/al/repositorio "Describe the task"` cuando OpenCode está sirviendo localmente.
 
-El Editor interno usa CodeMirror 6 (MIT) para resaltado sintáctico, gutter de líneas, plegado, búsqueda, indentación y edición de varios lenguajes. `Format` usa Prettier (MIT) para JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown y YAML; el alcance y el inventario de licencias están en [SPEC-file-workspace](docu/specs/SPEC-file-workspace.md) y [THIRD_PARTY_LICENSES](desktop/THIRD_PARTY_LICENSES.md).
+El Editor interno usa CodeMirror 6 (MIT) como motor principal para resaltado sintáctico, gutter de líneas, plegado, búsqueda, indentación y edición. JavaScript/TypeScript, C++, Java, PHP, Python, Rust, CSS/SCSS, HTML, JSON, Markdown, SQL, XML y YAML usan sus paquetes oficiales; Monaco Editor (MIT) se activa automáticamente como fallback para C, C#, Go, Dart, Kotlin, Ruby, Swift, Scala, Lua, Shell, PowerShell, Objective-C, F#, Elixir, Perl, R, GraphQL, Protocol Buffers y Dockerfiles. La superficie de ADE sigue siendo única aunque cambie el motor por extensión. `Format` usa Prettier (MIT) para JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown y YAML; el alcance y el inventario de licencias están en [SPEC-file-workspace](docu/specs/SPEC-file-workspace.md) y [THIRD_PARTY_LICENSES](desktop/THIRD_PARTY_LICENSES.md).
 
 La CLI permite registrar Projects y operar Tasks sin UI:
 

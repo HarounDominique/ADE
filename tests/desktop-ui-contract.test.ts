@@ -217,6 +217,14 @@ test("document editor fills its viewport and exposes save state", () => {
   assert.match(main, /function formatActiveDocument/);
   assert.match(main, /prettier\.format/);
   assert.match(main, /Mod-s/);
+  assert.match(main, /from '@codemirror\/lang-cpp'/);
+  assert.match(main, /from '@codemirror\/lang-java'/);
+  assert.match(main, /from '@codemirror\/lang-php'/);
+  assert.match(main, /monaco-editor\/esm\/vs\/editor\/editor\.api\.js/);
+  assert.match(main, /function initializeMonacoEditor/);
+  assert.match(main, /monacoLanguageDefinitions/);
+  assert.match(main, /setModelLanguage/);
+  assert.match(main, /editor-engine-hidden/);
 });
 
 test("theme switch is visible in the topbar and exposes light/dark state", () => {

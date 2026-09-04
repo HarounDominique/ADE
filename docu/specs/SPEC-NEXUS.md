@@ -92,7 +92,7 @@ La vista `Editor` es una superficie fija y exclusiva de código: no muestra los 
 
 El layout del Editor aplica una densidad específica de workbench: reduce el padding heredado de las vistas generales y calcula la altura del área de código con el espacio disponible sobre el dock de terminal, evitando márgenes muertos sin convertir el editor en una superficie ilegible.
 
-El Editor usa CodeMirror 6 con lenguajes oficiales MIT y Prettier MIT para el formateado explícito de los lenguajes compatibles. Su contrato detallado y sus límites están en [SPEC-file-workspace](SPEC-file-workspace.md#product-contract) y la decisión en [ADR-0023](../adr/0023-code-editor-and-formatting.md).
+El Editor usa una interfaz común con CodeMirror 6 como motor principal y Monaco Editor como fallback selectivo. CodeMirror cubre los lenguajes oficiales incorporados y Monaco amplía el resaltado a C, C#, Go, Dart, Dockerfiles, Elixir, F#, GraphQL, Kotlin, Lua, Objective-C, Perl, PowerShell, Protocol Buffers, R, Ruby, Scala, Shell y Swift. Ambos motores se eligen por extensión sin cambiar la superficie ni el contrato de edición. Prettier MIT mantiene el formateado explícito de los lenguajes compatibles. Su contrato detallado y sus límites están en [SPEC-file-workspace](SPEC-file-workspace.md#product-contract) y la decisión en [ADR-0023](../adr/0023-code-editor-and-formatting.md).
 
 La slice v0.4 implementa [SPEC-file-workspace](SPEC-file-workspace.md#product-contract): el fichero de texto seleccionado aparece dentro de ADE en `Editor`, con superficie completa, lectura y escritura Tauri autorizadas, estado dirty, `Save`, `Discard`, límite de 2 MiB y apertura externa únicamente mediante una acción explícita. `Projects` permite registrar carpetas Git y No Git desde el selector nativo de macOS. El cambio de Project conserva la identidad activa en toda la shell y descarta únicamente el documento seleccionado si queda fuera de la nueva raíz. No se adelanta un editor completo.
 
@@ -227,6 +227,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-05 — file-workspace + desktop-shell — `Editor` queda como superficie exclusiva de código, sin paneles auxiliares ni CTA de búsqueda duplicada; la terminal permanece transversal. Se compactan márgenes, padding y altura disponible para priorizar código visible. La baseline vigente es 92 tests TypeScript y 18 Rust.
 - 2026-09-05 — git-collaboration — Se formaliza en ADR-0022 la separación entre `Commit` local y `Push origin`, con diálogo modal y diff como superficie principal; ADR-0020 queda supersedida.
 - 2026-09-05 — file-workspace — El `textarea` se sustituye por CodeMirror 6 con resaltado y navegación de código para 11 familias de lenguaje; Prettier añade `Format` explícito para los parsers compatibles. ADR-0023 fija la selección MIT y los límites de los formatters.
+- 2026-09-05 — file-workspace — CodeMirror incorpora paquetes oficiales MIT para C++, Java y PHP y Monaco Editor MIT pasa a ser fallback selectivo para 19 familias adicionales; la interfaz común conserva edición, guardado, descarte, temas y atajos. ADR-0023 queda ampliada y el inventario directo de licencias se sincroniza.
 
 ## Automatic Reconciliation Log
 

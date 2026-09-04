@@ -380,3 +380,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .document-content .cm-activeLineGutter { color: var(--text-soft); background: color-mix(in srgb, var(--cyan) 10%, var(--panel)); }
 .document-content .cm-activeLine { background: color-mix(in srgb, var(--cyan) 5%, transparent); }
 .document-content .cm-selectionBackground, .document-content .cm-content ::selection { background: color-mix(in srgb, var(--blue) 32%, transparent); }
+.document-content .editor-engine-hidden { display: none; }
+.document-content .monaco-editor { width: 100%; height: 100%; color: var(--text-soft); background: var(--panel-soft); }
+.document-content .monaco-editor .margin { background: var(--panel); }

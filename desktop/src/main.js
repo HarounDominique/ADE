@@ -5,6 +5,9 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { basicSetup } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
+import { cpp } from '@codemirror/lang-cpp';
+import { java } from '@codemirror/lang-java';
+import { php } from '@codemirror/lang-php';
 import { python } from '@codemirror/lang-python';
 import { rust } from '@codemirror/lang-rust';
 import { css } from '@codemirror/lang-css';
@@ -17,7 +20,31 @@ import { yaml } from '@codemirror/lang-yaml';
 import { defaultHighlightStyle, bracketMatching, indentOnInput, syntaxHighlighting } from '@codemirror/language';
 import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
-import { defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { indentWithTab } from '@codemirror/commands';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
+import 'monaco-editor/esm/vs/basic-languages/cpp/cpp.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/csharp/csharp.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/dart/dart.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/dockerfile/dockerfile.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/elixir/elixir.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/fsharp/fsharp.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/go/go.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/graphql/graphql.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/java/java.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/kotlin/kotlin.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/lua/lua.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/objective-c/objective-c.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/perl/perl.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/php/php.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/powershell/powershell.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/protobuf/protobuf.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/python/python.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/r/r.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/scala/scala.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/shell/shell.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/swift/swift.contribution.js';
 import * as prettier from 'prettier/standalone';
 import * as prettierBabel from 'prettier/plugins/babel';
 import * as prettierEstree from 'prettier/plugins/estree';
@@ -79,16 +106,54 @@ let selectedGitCommit = null;
 let selectedPendingGitFile = null;
 let gitCommitNeedsPush = false;
 let codeEditorView = null;
+let monacoEditor = null;
+let activeEditorEngine = 'codemirror';
 const codeEditorLanguage = new Compartment();
 const pendingContextRequests = new Map();
 const pendingSnapshotProjects = new Map();
 const pendingProjectRemovals = new Map();
+
+monaco.editor.defineTheme('ade-dark', {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [],
+  colors: {
+    'editor.background': '#121920',
+    'editor.foreground': '#dbe6ef',
+    'editorLineNumber.foreground': '#5d6a78',
+    'editorLineNumber.activeForeground': '#b8c5d2',
+    'editor.lineHighlightBackground': '#1a232e',
+    'editor.selectionBackground': '#28547a',
+    'editorCursor.foreground': '#64d2c6',
+    'editorIndentGuide.background': '#293542',
+  },
+});
+monaco.editor.defineTheme('ade-light', {
+  base: 'vs',
+  inherit: true,
+  rules: [],
+  colors: {
+    'editor.background': '#edf3f8',
+    'editor.foreground': '#152231',
+    'editorLineNumber.foreground': '#8393a3',
+    'editorLineNumber.activeForeground': '#2865b1',
+    'editor.lineHighlightBackground': '#e3edf5',
+    'editor.selectionBackground': '#b9d5ee',
+    'editorCursor.foreground': '#0e827b',
+    'editorIndentGuide.background': '#c6d2de',
+  },
+});
+
+function applyMonacoTheme(theme) {
+  monaco.editor.setTheme(theme === 'light' ? 'ade-light' : 'ade-dark');
+}
 
 function applyTheme(theme) {
   const nextTheme = theme === 'light' ? 'light' : 'dark';
   document.documentElement.dataset.theme = nextTheme;
   try { localStorage.setItem('ade-theme', nextTheme); } catch { /* Tauri privacy settings may disable storage. */ }
   if (themeMeta) themeMeta.content = nextTheme === 'light' ? '#f5f7fa' : '#0b0f14';
+  applyMonacoTheme(nextTheme);
   document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
     button.setAttribute('aria-checked', String(nextTheme === 'light'));
     const nextLabel = nextTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
@@ -810,6 +875,9 @@ function setDocumentHeader({ title, path, kind, externalDisabled = true }) {
 const codeLanguageDefinitions = [
   { label: 'JavaScript', extensions: ['js', 'mjs', 'cjs', 'jsx'], language: () => javascript({ jsx: true }) },
   { label: 'TypeScript', extensions: ['ts', 'mts', 'cts', 'tsx'], language: () => javascript({ jsx: true, typescript: true }) },
+  { label: 'C++', extensions: ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx'], language: () => cpp() },
+  { label: 'Java', extensions: ['java'], language: () => java() },
+  { label: 'PHP', extensions: ['php'], language: () => php() },
   { label: 'Python', extensions: ['py', 'pyw'], language: () => python() },
   { label: 'Rust', extensions: ['rs'], language: () => rust() },
   { label: 'CSS', extensions: ['css', 'scss'], language: () => css() },
@@ -819,6 +887,28 @@ const codeLanguageDefinitions = [
   { label: 'SQL', extensions: ['sql'], language: () => sql() },
   { label: 'XML', extensions: ['xml', 'svg', 'xsl', 'xsd'], language: () => xml() },
   { label: 'YAML', extensions: ['yml', 'yaml'], language: () => yaml() },
+];
+
+const monacoLanguageDefinitions = [
+  { label: 'C', extensions: ['c', 'h'], monacoLanguage: 'c' },
+  { label: 'C#', extensions: ['cs', 'csx', 'cake'], monacoLanguage: 'csharp' },
+  { label: 'Dart', extensions: ['dart'], monacoLanguage: 'dart' },
+  { label: 'Dockerfile', fileNames: ['dockerfile', 'containerfile'], monacoLanguage: 'dockerfile' },
+  { label: 'Elixir', extensions: ['ex', 'exs'], monacoLanguage: 'elixir' },
+  { label: 'F#', extensions: ['fs', 'fsi', 'fsx', 'fsscript'], monacoLanguage: 'fsharp' },
+  { label: 'Go', extensions: ['go'], monacoLanguage: 'go' },
+  { label: 'GraphQL', extensions: ['graphql', 'gql'], monacoLanguage: 'graphql' },
+  { label: 'Kotlin', extensions: ['kt', 'kts'], monacoLanguage: 'kotlin' },
+  { label: 'Lua', extensions: ['lua'], monacoLanguage: 'lua' },
+  { label: 'Objective-C', extensions: ['m', 'mm'], monacoLanguage: 'objective-c' },
+  { label: 'Perl', extensions: ['pl', 'pm', 'pod'], monacoLanguage: 'perl' },
+  { label: 'PowerShell', extensions: ['ps1', 'psm1', 'psd1'], monacoLanguage: 'powershell' },
+  { label: 'Protocol Buffers', extensions: ['proto'], monacoLanguage: 'proto' },
+  { label: 'R', extensions: ['r', 'R'], monacoLanguage: 'r' },
+  { label: 'Ruby', extensions: ['rb', 'rake', 'gemspec'], monacoLanguage: 'ruby' },
+  { label: 'Scala', extensions: ['scala', 'sc'], monacoLanguage: 'scala' },
+  { label: 'Shell', extensions: ['sh', 'bash', 'zsh', 'fish'], monacoLanguage: 'shell' },
+  { label: 'Swift', extensions: ['swift'], monacoLanguage: 'swift' },
 ];
 
 const formatterParsers = {
@@ -833,13 +923,19 @@ function fileExtension(filePath = '') {
   return String(filePath).split('/').at(-1)?.toLowerCase().split('.').at(-1) ?? '';
 }
 
-function languageDefinitionForPath(filePath) {
+function definitionMatchesPath(definition, filePath) {
   const extension = fileExtension(filePath);
-  return codeLanguageDefinitions.find((definition) => definition.extensions.includes(extension));
+  const fileName = String(filePath).split('/').at(-1)?.toLowerCase() ?? '';
+  return definition.extensions?.includes(extension) || definition.fileNames?.some((name) => name.toLowerCase() === fileName);
+}
+
+function editorDefinitionForPath(filePath) {
+  return codeLanguageDefinitions.find((definition) => definitionMatchesPath(definition, filePath))
+    ?? monacoLanguageDefinitions.find((definition) => definitionMatchesPath(definition, filePath));
 }
 
 function languageLabelForPath(filePath) {
-  return languageDefinitionForPath(filePath)?.label ?? 'Plain text';
+  return editorDefinitionForPath(filePath)?.label ?? 'Plain text';
 }
 
 function formatterParserForPath(filePath) {
@@ -872,20 +968,68 @@ function initializeCodeEditor() {
   });
 }
 
+function initializeMonacoEditor() {
+  const parent = document.getElementById('document-content');
+  if (!parent || monacoEditor) return;
+  monacoEditor = monaco.editor.create(parent, {
+    value: '',
+    language: 'plaintext',
+    theme: document.documentElement.dataset.theme === 'light' ? 'ade-light' : 'ade-dark',
+    automaticLayout: true,
+    minimap: { enabled: false },
+    lineNumbers: 'on',
+    scrollBeyondLastLine: false,
+    wordWrap: 'off',
+    renderWhitespace: 'selection',
+    tabSize: 2,
+    insertSpaces: true,
+    fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    fontSize: 12,
+    lineHeight: 19,
+    padding: { top: 14, bottom: 24 },
+    scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
+  });
+  monacoEditor.onDidChangeModelContent(() => updateDocumentEditState());
+  monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { void saveActiveDocument(); });
+}
+
+function showEditorEngine(engine) {
+  const parent = document.getElementById('document-content');
+  if (!parent) return;
+  parent.querySelector('.cm-editor')?.classList.toggle('editor-engine-hidden', engine !== 'codemirror');
+  parent.querySelector('.monaco-editor')?.classList.toggle('editor-engine-hidden', engine !== 'monaco');
+}
+
 function setCodeEditorContent(content = '', filePath = '', focus = false) {
+  const definition = editorDefinitionForPath(filePath);
+  if (definition?.monacoLanguage) {
+    initializeMonacoEditor();
+    if (!monacoEditor) return;
+    monacoEditor.setValue(content);
+    const model = monacoEditor.getModel();
+    if (model) monaco.editor.setModelLanguage(model, definition.monacoLanguage);
+    activeEditorEngine = 'monaco';
+    showEditorEngine(activeEditorEngine);
+    if (focus) monacoEditor.focus();
+    return;
+  }
   initializeCodeEditor();
   if (!codeEditorView) return;
   const current = codeEditorView.state.doc.toString();
-  const language = languageDefinitionForPath(filePath);
+  const language = definition?.language;
   codeEditorView.dispatch({
     changes: { from: 0, to: current.length, insert: content },
-    effects: codeEditorLanguage.reconfigure(language ? language.language() : []),
+    effects: codeEditorLanguage.reconfigure(language ? language() : []),
   });
+  activeEditorEngine = 'codemirror';
+  showEditorEngine(activeEditorEngine);
   if (focus) codeEditorView.focus();
 }
 
 function codeEditorValue() {
-  return codeEditorView?.state.doc.toString() ?? '';
+  return activeEditorEngine === 'monaco'
+    ? monacoEditor?.getValue() ?? ''
+    : codeEditorView?.state.doc.toString() ?? '';
 }
 
 function updateDocumentEditState() {
@@ -940,7 +1084,7 @@ function renderDocumentResult(result) {
   documentOriginalContent = isText ? (result.content ?? '') : '';
   documentDirty = false;
   updateDocumentEditState();
-  if (isText) codeEditorView?.focus();
+  if (isText) (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
 }
 
 function renderDocumentError(filePath, error) {

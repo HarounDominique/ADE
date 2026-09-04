@@ -213,6 +213,13 @@
   - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`; bundle `.app` generado y arrancado manualmente en macOS; smoke gráfico automatizado pendiente.
   - Files: `desktop/src/`, `desktop/src-tauri/src/lib.rs`, `tests/`, `docu/specs/`.
 
+- [x] Task: Ampliar el Editor con motores de lenguaje permisivos
+  - Spec: [SPEC-file-workspace.md](../docu/specs/SPEC-file-workspace.md) · [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md)
+  - ADR: [0023-code-editor-and-formatting.md](../docu/adr/0023-code-editor-and-formatting.md)
+  - Acceptance: CodeMirror cubre los lenguajes oficiales incorporados y Monaco se activa automáticamente como fallback para C, C#, Go, Dart, Dockerfiles, Elixir, F#, GraphQL, Kotlin, Lua, Objective-C, Perl, PowerShell, Protocol Buffers, R, Ruby, Scala, Shell y Swift; edición, guardado, descarte, temas y atajos permanecen comunes.
+  - Verify: `npm test`, `npm run build`, `npm --prefix desktop run build`, `npm run desktop:package:app` y arranque manual del `.app` en macOS.
+  - Files: `desktop/src/main.js`, `desktop/src/styles.css`, `desktop/build.mjs`, `desktop/package.json`, `desktop/package-lock.json`, `tests/desktop-ui-contract.test.ts`, `docu/`, `desktop/THIRD_PARTY_LICENSES.md`.
+
 - [x] Task: Convertir Overview en Projects y admitir carpetas No Git
   - Spec: [SPEC-project-task-workflow.md](../docu/specs/SPEC-project-task-workflow.md) · [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md)
   - ADR: [0017-projects-and-editor-navigation.md](../docu/adr/0017-projects-and-editor-navigation.md)

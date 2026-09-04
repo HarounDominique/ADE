@@ -10,5 +10,6 @@ await build({
   format: 'esm',
   outfile: 'dist/main.js',
   sourcemap: false,
-  loader: { '.css': 'css' },
+  assetNames: 'assets/[name]-[hash]',
+  loader: { '.css': 'css', '.ttf': 'file' },
 });
