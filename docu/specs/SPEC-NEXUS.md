@@ -46,24 +46,24 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 - Implementer y Reviewer son roles separados; el reviewer recibe contexto fresco y evidencia.
 - Las gates son declarativas y bloquean transiciones cuando una condición requerida falla.
 - El workflow de desarrollo es adaptativo: las fases orientan, los gates protegen y los bucles permiten volver al punto que necesita nueva información.
-- Tauri 2 es el framework adoptado para el shell desktop; siguen abiertos esquema definitivo, retrieval semántico y formato final de `.ade/`.
+- Tauri 2 es el framework adoptado para el shell desktop; el esquema operativo actual de `.ade/` usa JSON versionable y retrieval semántico sigue diferido.
 
 ## Modules
 
 | Module id | Spec file | Responsibility | Depends on | Status | Blocked by |
 |---|---|---|---|---|---|
-| project-task-workflow | [SPEC-project-task-workflow.md](SPEC-project-task-workflow.md) | Projects, Tasks, conversaciones y estados | — | ready | — |
-| development-workflow | [SPEC-development-workflow.md](SPEC-development-workflow.md) | Transiciones adaptativas, skills de workflow y modos de ejecución | project-task-workflow | ready | — |
-| agent-runtime | [SPEC-agent-runtime.md](SPEC-agent-runtime.md) | Sesiones, implementer, reviewer y adapter | project-task-workflow | ready | — |
-| knowledge-docs | [SPEC-knowledge-docs.md](SPEC-knowledge-docs.md) | Documentación, skills, contexto y drift | project-task-workflow | ready | — |
-| changes-review-governance | [SPEC-changes-review-governance.md](SPEC-changes-review-governance.md) | ChangeSets, Git, gates, findings y aprobación | agent-runtime, knowledge-docs | ready | — |
-| local-runtime | [SPEC-local-runtime.md](SPEC-local-runtime.md) | Servicios, procesos, terminal, logs y tests | project-task-workflow | ready | — |
-| desktop-shell | [SPEC-desktop-shell.md](SPEC-desktop-shell.md) | Project Hub, navegación, visor y escape hatch | project-task-workflow, changes-review-governance, local-runtime | ready | — |
-| workspace-core | [SPEC-workspace-core.md](SPEC-workspace-core.md) | Terminal nativa, árbol local, archivos y contexto de workspace | desktop-shell, project-task-workflow | ready | — |
-| agent-providers | [SPEC-agent-providers.md](SPEC-agent-providers.md) | Proveedores agénticos, licencias, sesiones y permisos | agent-runtime, workspace-core | ready | — |
-| native-skills | [SPEC-native-skills.md](SPEC-native-skills.md) | Catálogo, instalación, versionado y ejecución de skills | knowledge-docs, development-workflow, agent-providers | ready | — |
-| git-collaboration | [SPEC-git-collaboration.md](SPEC-git-collaboration.md) | Git local, GitHub, branches, worktrees y PRs | workspace-core, changes-review-governance, agent-providers | ready | — |
-| living-knowledge | [SPEC-living-knowledge.md](SPEC-living-knowledge.md) | Grafo de referencias, specs vivas, diagramas y reconciliación | knowledge-docs, native-skills, workspace-core | ready | — |
+| project-task-workflow | [SPEC-project-task-workflow.md](SPEC-project-task-workflow.md) | Projects, Tasks, conversaciones y estados | — | done | — |
+| development-workflow | [SPEC-development-workflow.md](SPEC-development-workflow.md) | Transiciones adaptativas, skills de workflow y modos de ejecución | project-task-workflow | done | — |
+| agent-runtime | [SPEC-agent-runtime.md](SPEC-agent-runtime.md) | Sesiones, implementer, reviewer y adapter | project-task-workflow | done | — |
+| knowledge-docs | [SPEC-knowledge-docs.md](SPEC-knowledge-docs.md) | Documentación, skills, contexto y drift | project-task-workflow | done | — |
+| changes-review-governance | [SPEC-changes-review-governance.md](SPEC-changes-review-governance.md) | ChangeSets, Git, gates, findings y aprobación | agent-runtime, knowledge-docs | done | — |
+| local-runtime | [SPEC-local-runtime.md](SPEC-local-runtime.md) | Servicios, procesos, terminal, logs y tests | project-task-workflow | done | — |
+| desktop-shell | [SPEC-desktop-shell.md](SPEC-desktop-shell.md) | Project Hub, navegación, visor y escape hatch | project-task-workflow, changes-review-governance, local-runtime | done | — |
+| workspace-core | [SPEC-workspace-core.md](SPEC-workspace-core.md) | Terminal nativa, árbol local, archivos y contexto de workspace | desktop-shell, project-task-workflow | done | — |
+| agent-providers | [SPEC-agent-providers.md](SPEC-agent-providers.md) | Proveedores agénticos, licencias, sesiones y permisos | agent-runtime, workspace-core | done | — |
+| native-skills | [SPEC-native-skills.md](SPEC-native-skills.md) | Catálogo, instalación, versionado y ejecución de skills | knowledge-docs, development-workflow, agent-providers | done | — |
+| git-collaboration | [SPEC-git-collaboration.md](SPEC-git-collaboration.md) | Git local, GitHub, branches, worktrees y PRs | workspace-core, changes-review-governance, agent-providers | done | — |
+| living-knowledge | [SPEC-living-knowledge.md](SPEC-living-knowledge.md) | Grafo de referencias, specs vivas, diagramas y reconciliación | knowledge-docs, native-skills, workspace-core | done | — |
 
 **Build order:** `project-task-workflow → development-workflow → agent-runtime + knowledge-docs + local-runtime → changes-review-governance → desktop-shell`.
 
@@ -76,6 +76,12 @@ Las ramas paralelas sólo pueden comenzar cuando `project-task-workflow` haya de
 ADE evoluciona de shell desktop operativa a workspace agéntico local-first. El usuario debe poder abrir un repositorio, navegar su máquina, usar una terminal nativa, seleccionar un proveedor con licencia, ejecutar skills y mantener código y documentación viva dentro del mismo contexto.
 
 La v0.3 prioriza `workspace-core`: sin contexto local navegable y terminal integrada, los demás módulos obligan al usuario a volver a cambiar de aplicación.
+
+## Current implementation baseline
+
+La aplicación macOS actual ofrece una shell desktop Tauri con navegación lateral única, Project Hub, Work, Knowledge, Changes y Runtime. El Explorer mantiene como hint la rama del archivo activo y puede convertirse en un árbol completo; ambos cambios tienen transición fluida. El tema claro/oscuro se alterna desde la esquina superior derecha y se conserva entre sesiones.
+
+El dock inferior expone un único transcript de terminal PTY persistente, redimensionable y confinado a la raíz del Project. El prompt mínimo, Enter, historial con `↑`/`↓` y completado de directorios para `cd` con `Tab` están implementados; las sugerencias ambiguas se recorren con `↑`/`↓` y se cierran con `Esc`. La baseline de verificación actual es 81 tests TypeScript y 13 tests Rust; el `.app` macOS se empaqueta y se ha validado con el smoke de OpenCode real.
 
 ## Scope boundary
 
@@ -184,6 +190,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-03 — v0.2-project-services-ui — Runtime lista los servicios declarados por Project y permite start/stop individual con estado refrescado, completando la superficie operativa de `.ade/services.json`. 76 tests TypeScript pasan.
 - 2026-09-03 — v0.3-close — Smoke empaquetado macOS validado con sidecar incluido, OpenCode 1.18.26 real, Task en repositorio efímero, evidencia y gates rehidratados tras reinicio del sidecar, y `.app` arrancando/parando limpiamente. Suites: 76 tests TypeScript, 13 tests Rust; v0.3 cerrada.
 - 2026-09-04 — workspace-core + desktop-shell — Se sincroniza la UX del Explorer: la navegación lateral queda etiquetada y única; el árbol conserva en modo compacto la rama del archivo activo y ofrece un modo expandido que repliega la navegación para explorar el árbol completo. Se propaga a SPEC-v0.3 y al cierre de release; 78 tests TypeScript pasan.
+- 2026-09-04 — workspace-core + desktop-shell — Se documenta la baseline actual de la shell: tema claro/oscuro persistente, Explorer animado y dock PTY redimensionable con transcript único, prompt mínimo, historial y completado de rutas `cd` mediante `Tab`; 81 tests TypeScript y 13 tests Rust pasan.
 
 ## Automatic Reconciliation Log
 
@@ -195,3 +202,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-v0.3.md; 11 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-v0.3.md, ../generated/qa/spec-v0.3.md, ../generated/estimates/spec-v0.3.md.
 <!-- reconciliation:docu/specs/SPEC-workspace-core.md -->
 - 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-workspace-core.md; 11 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-workspace-core.md, ../generated/qa/spec-workspace-core.md, ../generated/estimates/spec-workspace-core.md.
+<!-- reconciliation:docu/specs/SPEC-local-runtime.md -->
+- 2026-09-04 — automatic-reconciliation — docu/specs/SPEC-local-runtime.md; 8 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/spec-local-runtime.md, ../generated/qa/spec-local-runtime.md, ../generated/estimates/spec-local-runtime.md.
+<!-- reconciliation:docu/adr/0009-tauri-desktop-shell.md -->
+- 2026-09-04 — automatic-reconciliation — docu/adr/0009-tauri-desktop-shell.md; 8 dependent document(s), 1 broken reference(s). Artifacts: ../generated/reconciliation/0009-tauri-desktop-shell.md, ../generated/qa/0009-tauri-desktop-shell.md, ../generated/estimates/0009-tauri-desktop-shell.md.

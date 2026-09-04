@@ -411,7 +411,6 @@ classDiagram
   ndocuspikes002independentreviewmd --> ndocuspecsSPECNEXUSmd : mvp-contract
   ndocuspikes003desktopframeworkmd --> ndocuspecsSPECdesktopshellmd : shell-contract
   ndocuspikes003desktopframeworkmd --> ndocuspecsSPECNEXUSmd : open-decisions
-  ntasksdesktopshellplanmd --> ndocuspikes004desktoptransportmd : references
   ntaskstodomd --> ntasksprojectrepositoryplanmd : references
   ntaskstodomd --> ntasksdesktopshellplanmd : references
 ```

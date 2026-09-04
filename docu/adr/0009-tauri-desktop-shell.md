@@ -16,6 +16,8 @@ El spike 003 comparó Tauri y Electron para una workstation local-first. ADE nec
 
 Adoptar Tauri 2 para el shell desktop del MVP, con macOS como primera plataforma. El prototipo generado en `desktop/` compila en release, produce `.app`/`.dmg` y arranca en modo desarrollo. Las capacidades nativas se expondrán de forma mínima y explícita; la UI invocará casos de uso de ADE y no accederá directamente a SQLite o Git.
 
+El estado de release vigente se valida con el `.app` macOS. La generación del `.dmg` queda diferida porque el script de bundle del entorno no es estable y no forma parte del cierre v0.3.
+
 Electron queda como fallback si un spike de integración real demuestra que Rust/WebView o el modelo de permisos bloquea la vertical. No se construirá un editor completo ni se habilitará contenido remoto con privilegios.
 
 ## Alternatives considered

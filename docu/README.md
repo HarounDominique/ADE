@@ -2,6 +2,8 @@
 
 Esta es la única jerarquía normativa de documentación del proyecto.
 
+La release v0.3 está cerrada y validada en macOS. La aplicación actual combina Project/Task, Explorer local, terminal PTY, proveedores agénticos, skills, Git/GitHub y documentación viva; los refinamientos de shell posteriores al cierre están descritos en las specs y en el cierre de release.
+
 ## Organización
 
 - `specs/`: nexus y specs funcionales/técnicas. El nexus es el índice único y contiene el brief de producto, fundamentos, contratos, decisiones diferidas y change log.

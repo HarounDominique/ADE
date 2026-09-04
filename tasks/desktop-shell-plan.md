@@ -3,6 +3,8 @@
 <!-- Spec: docu/specs/SPEC-desktop-shell.md#shell-contract -->
 <!-- ADR: docu/adr/0008-thin-desktop-shell.md -->
 
+**Estado:** completado y validado en macOS. Este plan conserva el orden histórico de implementación de la vertical desktop.
+
 ## Objective
 
 Construir la primera experiencia visible de ADE alrededor de un Project y una Task, mostrando estado, ejecución, evidencia y gates sin convertirse en un editor.
@@ -27,12 +29,11 @@ La primera entrega debe poder ejecutarse con adapters fake y sustituirlos por lo
 ## Implementation order
 
 1. Shell estático con navegación y estados `loading/ready/empty/blocked/failed/stale`. ✅
-2. Project Hub conectado a consultas de Project y Task. En curso: el store ofrece consultas de colección, `src/application/project-snapshot.ts` compone el read model y la CLI lo expone; falta transportarlo al proceso Tauri.
-   - Spike de transporte: [004-desktop-transport.md](../docu/spikes/004-desktop-transport.md); gate 1 superado, gates Tauri pendientes.
-3. Work conectado a creación/reanudación y eventos de runtime.
-4. Changes conectado a ChangeSet/Review y gates.
-5. Knowledge y Runtime con datos reales de sus puertos.
-6. Aprobación humana y preparación de `ship` con guardas visibles.
+2. Project Hub conectado a consultas de Project y Task. ✅
+3. Work conectado a creación/reanudación y eventos de runtime. ✅
+4. Changes conectado a ChangeSet/Review y gates. ✅
+5. Knowledge y Runtime con datos reales de sus puertos. ✅
+6. Aprobación humana y preparación de `ship` con guardas visibles. ✅
 
 ## Acceptance criteria
 
@@ -55,4 +56,4 @@ El test end-to-end de la vertical usa adapters fake y cubre el recorrido complet
 
 ## Out of scope
 
-Editor completo, autocompletado, colaboración realtime, cloud y worktrees paralelos.
+Editor completo, language server, autocompletado general de comandos, colaboración realtime, cloud y worktrees paralelos.

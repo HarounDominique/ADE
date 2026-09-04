@@ -182,3 +182,10 @@
 - [x] Task: Integrar Workspace v0.3 y validar release
   - Acceptance: el smoke empaquetado valida app, sidecar, OpenCode real, Task real, persistencia de evidencia/gates tras reinicio del sidecar y arranque/parada limpia; el recorrido visual de Git/documentación queda cubierto por la shell y sus contract tests.
   - Verify: smoke gráfico macOS, OpenCode real, rehidratación y suites completas.
+
+## Post-v0.3 — Refinamiento de shell (2026-09-04)
+
+- [x] Task: Sincronizar la interacción de Explorer y terminal con la shell actual
+  - Acceptance: tema claro/oscuro persistente, Explorer compacto/expandido con animación fluida, dock inferior redimensionable y terminal PTY con transcript único, prompt mínimo, historial y completado de rutas `cd`.
+  - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`.
+  - Files: `desktop/src/`, `desktop/src-tauri/src/lib.rs`, `DESIGN.md`, `docu/specs/`.

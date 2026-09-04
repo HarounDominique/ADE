@@ -48,7 +48,7 @@ tests/                          → Tests con procesos y fixtures controlados
 
 ## Commands
 
-Cada Project podrá declarar comandos configurables para arrancar/parar servicios, tests y build. La forma portable (`.ade/services.yaml`) es provisional. La primera validación del repositorio sigue siendo:
+Cada Project declara comandos configurables para arrancar/parar servicios, tests y build en `.ade/services.json`. La primera validación del repositorio sigue siendo:
 
 ```bash
 npm run build
@@ -84,11 +84,11 @@ ADE puede arrancar un backend y frontend declarados, mostrar estado y logs, ejec
 ## v0.1 decisions
 
 - El supervisor será una abstracción propia sobre procesos del sistema; no se adopta un daemon externo antes de validar el lifecycle.
-- Los secretos se resuelven desde el entorno del proceso y se redactan en logs/evidencias; `.ade/services.yaml` no contiene valores secretos.
+- Los secretos se resuelven desde el entorno del proceso y se redactan en logs/evidencias; `.ade/services.json` no contiene valores secretos.
 - Los comandos se ejecutan sin shell por defecto (`command` + `args`); el uso de shell específico es una capacidad explícita y condicionada por policy.
 
 ## Open Questions
 
 - ¿Qué implementación multiplataforma de señales y grupos de procesos requiere Tauri/Electron?
-- ¿Qué formato final tendrá `.ade/services.yaml` y cómo se versionará por Project?
+- ¿Cómo evolucionará y se versionará por Project el esquema JSON de `.ade/services.json`?
 - ¿Qué healthchecks son suficientemente portables para servicios no HTTP?

@@ -74,7 +74,15 @@ No quedan preguntas que bloqueen la release 0.3. Las decisiones de producto no n
 - Living documentation now reconciles all changed specs and ADRs reported by Git in one sequential run, generating their reports and recording bounded Task evidence. The workbench action targets the changed-document set rather than a hardcoded Nexus file.
 - Runtime reads the Project-local service manifest and renders every declared service with command, cwd, healthcheck, status and individual start/stop actions instead of controlling an implicit first service.
 
-- ¿Qué proveedores se incluyen de forma nativa en el primer paquete?
-- ¿La terminal usa PTY propio o una librería Tauri estable?
-- ¿GitHub se integra mediante CLI local, API oficial o ambos?
-- ¿Mermaid es suficiente para UML inicial?
+## Post-release maintenance
+
+Tras cerrar v0.3, la shell recibió refinamientos de interacción que forman parte del comportamiento actual de la aplicación: selector persistente claro/oscuro en la esquina superior derecha, transición fluida y respeto de `prefers-reduced-motion` al cambiar el Explorer, hover legible en ambos temas y dock de terminal inferior redimensionable.
+
+La terminal actual presenta un único transcript PTY con prompt mínimo, sin bienvenida ni eco duplicados. `Enter` ejecuta, `↑`/`↓` navegan el historial y `Tab` completa rutas de directorio en comandos `cd`; las coincidencias ambiguas se muestran como sugerencias navegables y `Esc` las oculta. Estas mejoras no reabren la release ni amplían su alcance: editor completo, language server, autocompletado general de comandos, `.dmg`, cloud y colaboración realtime siguen fuera.
+
+## Resolved decisions
+
+- Los proveedores nativos iniciales son Codex CLI y OpenCode HTTP, con sesiones persistentes por Task y sin copiar credenciales a ADE.
+- La terminal usa un PTY persistente basado en `portable-pty`, confinado a la raíz canónica del Project.
+- GitHub se integra mediante la CLI local `gh`, manteniendo las credenciales fuera de la metadata de ADE.
+- Mermaid es suficiente para el UML inicial y sus artefactos quedan bajo `docu/generated/` junto con QA y estimaciones.

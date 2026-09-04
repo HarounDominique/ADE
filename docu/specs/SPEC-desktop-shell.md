@@ -37,6 +37,12 @@ El lateral combina una navegación etiquetada para `Overview`, `Tasks`, `Project
 
 El control de contraer restaura la navegación y reconstruye la rama compacta del archivo activo. La transición no cambia el Project ni la Task seleccionada.
 
+### Terminal dock
+
+La terminal nativa ocupa un dock inferior redimensionable: el usuario puede aumentar o reducir su altura mediante un divisor visible. Presenta una única superficie de consola familiar, compuesta por un transcript PTY desplazable y una línea de prompt integrada. El shell conserva el cwd del Project, posee el eco y el prompt mínimos y la UI no añade una bienvenida ni repite la salida del proceso.
+
+La interacción mínima es la esperada en una terminal: `Enter` ejecuta el comando, `↑`/`↓` recorren el historial y `cd <ruta>` admite completado de directorios con `Tab`. Cuando existen varias coincidencias, el dock muestra una lista de sugerencias accesible que puede recorrerse con `↑`/`↓`; `Esc` la cierra. El completado es deliberadamente acotado a rutas de `cd`, no sustituye un shell completo ni un language server.
+
 ### Work
 
 Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y las transiciones seguras atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor, y refrescan el Project Hub. Una Task en `READY`, `CHANGES_REQUESTED` o `BLOCKED` puede iniciar `task.run`; la shell recibe aceptación inmediata y eventos de Implementer, mientras el sidecar persiste la transición, diff y ChangeSet. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados.
@@ -91,13 +97,13 @@ La CLI expone el mismo contrato mediante `npm run ade -- project snapshot <proje
 
 ## Code Style
 
-La revisión se presenta de mayor a menor nivel de detalle: resumen semántico, impacto, findings, archivos, diff. El visor necesita syntax highlighting, búsqueda, navegación, diff y apertura externa; no completado ni language server propio.
+La revisión se presenta de mayor a menor nivel de detalle: resumen semántico, impacto, findings, archivos, diff. El visor necesita syntax highlighting, búsqueda, navegación, diff y apertura externa. La shell incluye únicamente el completado pragmático de rutas de `cd` en la terminal; no incluye autocompletado general de comandos ni language server propio.
 
 ## Testing Strategy
 
 Tests de componentes para estados de Task y gates; tests de integración para crear Project, crear/reanudar Task, observar ChangeSet y revisar; test end-to-end del flujo principal con adapters fake; smoke test del shell en el sistema operativo objetivo; y test de escape hatch para IDE/terminal.
 
-La primera vertical de UI debe probar: abrir Project → crear Task → observar Implementer → consultar Review → reconciliar documentación → aprobar → preparar commit. No se exige editor, autocompletado ni colaboración realtime.
+La primera vertical de UI debe probar: abrir Project → crear Task → observar Implementer → consultar Review → reconciliar documentación → aprobar → preparar commit. No se exige editor, autocompletado general de comandos, language server ni colaboración realtime; el completado de rutas de `cd` forma parte del contrato de terminal.
 
 ## Boundaries
 
