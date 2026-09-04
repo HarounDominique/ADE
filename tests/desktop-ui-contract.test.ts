@@ -116,6 +116,7 @@ test("explorer keeps the active file path as a compact branch and has a full-tre
 test("workspace search returns files directly and restores their compact branch on selection", () => {
   assert.match(html, /id="workspace-search-status"[^>]*role="status"/);
   assert.match(html, /class="search-spinner"/);
+  assert.match(styles, /\.explorer-search-status\[hidden\] \{ display: none; \}/);
   assert.match(main, /searchWorkspaceFiles/);
   assert.match(main, /scheduleWorkspaceFileSearch/);
   assert.match(main, /workspaceSearchIndex/);
