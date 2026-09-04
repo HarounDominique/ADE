@@ -95,6 +95,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 :root[data-theme="light"] .sidebar-tool:hover { background: #d3e0ed; }
 :root[data-theme="light"] .nav-item.active { background: #dbe8f3; }:root[data-theme="light"] .command-button { background: var(--panel); }
 :root[data-theme="light"] .command-button, :root[data-theme="light"] .workspace-picker, :root[data-theme="light"] .explorer-filter { background: var(--panel); }
+:root[data-theme="light"] .workspace-entry.directory:hover, :root[data-theme="light"] .workspace-entry.file:hover { color: var(--text); background: #d3e0ed; }
 :root[data-theme="light"] .task-status.review, :root[data-theme="light"] .gate.pending, :root[data-theme="light"] .nav-count.warning { background: #f7ebcf; }:root[data-theme="light"] .task-status.building { background: #dceafa; }
 :root[data-theme="light"] .ide-steps li.current { background: #e1edf8; }:root[data-theme="light"] .ide-files li, :root[data-theme="light"] .ide-verification dl div { border-color: #d8e1ea; }
 :root[data-theme="light"] .ide-terminal, :root[data-theme="light"] .terminal-dock pre { background: #e8f2ef; color: #195c4c; }:root[data-theme="light"] .ide-terminal pre { color: #195c4c; }:root[data-theme="light"] .workspace-terminal-panel pre { background: #e8f2ef; color: #195c4c; }

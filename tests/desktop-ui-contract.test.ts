@@ -87,3 +87,9 @@ test("theme switch is visible in the topbar and exposes light/dark state", () =>
   assert.match(main, /setAttribute\('aria-checked', String\(nextTheme === 'light'\)\)/);
   assert.match(main, /localStorage\.setItem\('ade-theme'/);
 });
+
+test("light theme keeps Explorer hover surfaces light", () => {
+  assert.match(styles, /:root\[data-theme="light"\] \.workspace-entry\.directory:hover/);
+  assert.match(styles, /:root\[data-theme="light"\] \.workspace-entry\.file:hover/);
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\][^\n]*workspace-entry[^\n]*background: #1b2935/);
+});
