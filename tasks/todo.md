@@ -190,6 +190,15 @@
   - Verify: `npm run build`, `npm test` y `cargo test --manifest-path desktop/src-tauri/Cargo.toml`.
   - Files: `desktop/src/`, `desktop/src-tauri/src/lib.rs`, `DESIGN.md`, `docu/specs/`.
 
+## Terminal tabs
+
+- [ ] Task: Añadir tabs de terminal PTY independientes
+  - Spec: [SPEC-workspace-core.md](../docu/specs/SPEC-workspace-core.md) · [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md)
+  - ADR: [0015-terminal-tabs.md](../docu/adr/0015-terminal-tabs.md)
+  - Acceptance: el dock crea, selecciona y cierra tabs; cada tab mantiene un PTY, transcript, cwd, historial y autocompletado independientes; cambiar de tab no reinicia sesiones ni mezcla salida; cerrar un tab libera sólo su proceso y mantiene un tab activo mientras haya sesiones.
+  - Verify: `npm run build`, `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y smoke manual macOS.
+  - Files: `desktop/src/index.html`, `desktop/src/main.js`, `desktop/src/styles.css`, `desktop/src-tauri/src/lib.rs`, `tests/`, `docu/specs/`.
+
 ## v0.4 — Workspace interno
 
 - [x] Task: Abrir ficheros dentro de ADE
