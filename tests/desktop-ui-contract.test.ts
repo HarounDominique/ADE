@@ -17,7 +17,7 @@ test("desktop shell keeps the five MVP areas and critical actions", () => {
 });
 
 test("desktop shell wires critical actions to Tauri commands", () => {
-  for (const command of ["sidecar_request", "sidecar_restart", "open_document", "open_file", "read_file", "terminal_start", "terminal_input", "terminal_stop"]) {
+  for (const command of ["sidecar_request", "sidecar_restart", "open_document", "open_file", "read_file", "write_file", "terminal_start", "terminal_input", "terminal_stop"]) {
     assert.match(main, new RegExp(`['\"]${command}['\"]`));
   }
   assert.match(main, /method: 'task\.run'/);
@@ -40,9 +40,15 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(html, /id="runtime-service-list"/);
   assert.match(html, /id="document-viewer"/);
   assert.match(html, /data-action="open-file-external"/);
+  assert.match(html, /data-action="save-file"/);
+  assert.match(html, /data-action="discard-file"/);
   assert.match(html, /id="document-content"/);
   assert.match(main, /nativeInvoke\('read_file'/);
+  assert.match(main, /nativeInvoke\('write_file'/);
   assert.match(main, /openFileInADE/);
+  assert.match(main, /saveActiveDocument/);
+  assert.match(main, /discardDocumentChanges/);
+  assert.match(main, /documentDirty/);
   assert.match(main, /item\.dataset\.action === 'open-file-external'/);
 });
 
@@ -94,6 +100,15 @@ test("explorer mode changes preserve continuity with a reduced-motion path", () 
   assert.match(main, /loadWorkspaceTree\([^\n]+\{ animate: true \}/);
   assert.match(main, /requestAnimationFrame\(\(\) => tree\.classList\.remove\('is-transitioning'\)\)/);
   assert.match(main, /primaryNav\?\.setAttribute\('aria-hidden', String\(expanded\)\)/);
+});
+
+test("document editor fills its viewport and exposes save state", () => {
+  assert.match(html, /<textarea[^>]+id="document-content"/);
+  assert.match(html, /id="save-file"/);
+  assert.match(html, /id="discard-file"/);
+  assert.match(styles, /\.document-viewer-body \{ display: flex; height: min\(52vh, 520px\)/);
+  assert.match(styles, /\.document-content \{ display: block; width: 100%;/);
+  assert.match(main, /event\.key\.toLowerCase\(\) === 's'/);
 });
 
 test("theme switch is visible in the topbar and exposes light/dark state", () => {

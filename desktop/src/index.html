@@ -39,9 +39,9 @@
         <section class="document-viewer-panel" id="document-viewer" aria-label="Active file" hidden>
           <header class="document-viewer-header">
             <div class="document-viewer-heading"><p class="eyebrow">OPEN FILE</p><h1 id="document-title">No file selected</h1><p class="document-viewer-path" id="document-path">Select a file from Explorer to preview it in ADE.</p></div>
-            <div class="document-viewer-actions"><span class="document-kind" id="document-kind">—</span><button class="button secondary" type="button" data-action="open-file-external" id="open-file-external" disabled>Open externally</button><button class="icon-button" type="button" data-action="close-file" aria-label="Close file preview" title="Close file preview">×</button></div>
+            <div class="document-viewer-actions"><span class="document-kind" id="document-kind">—</span><button class="button secondary" type="button" data-action="save-file" id="save-file" disabled>Save</button><button class="button secondary" type="button" data-action="discard-file" id="discard-file" disabled>Discard</button><button class="button secondary" type="button" data-action="open-file-external" id="open-file-external" disabled>Open externally</button><button class="icon-button" type="button" data-action="close-file" aria-label="Close file editor" title="Close file editor">×</button></div>
           </header>
-          <div class="document-viewer-body" id="document-viewer-body"><div class="document-viewer-status" id="document-viewer-status" role="status">Loading file…</div><pre class="document-content" id="document-content" tabindex="0" aria-label="File contents" hidden></pre></div>
+          <div class="document-viewer-body" id="document-viewer-body"><div class="document-viewer-status" id="document-viewer-status" role="status">Loading file…</div><textarea class="document-content" id="document-content" aria-label="File contents" spellcheck="false" autocomplete="off" autocapitalize="off" hidden></textarea></div>
         </section>
 
         <section class="view view-project active-view" data-panel="project">

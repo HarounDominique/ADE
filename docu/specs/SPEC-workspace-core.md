@@ -25,7 +25,7 @@ fn list_directory(workspace: State<WorkspaceRoot>, path: String) -> Result<Vec<D
 
 El árbol obtiene sólo los hijos directos y expande cada directorio bajo demanda. En modo compacto, la UI muestra únicamente la rama de directorios que conduce al archivo activo desde la raíz del Project, como un breadcrumb visual en forma de árbol. El modo expandido oculta la navegación de vistas del lateral y permite explorar el árbol completo; al contraerlo, la navegación reaparece y se restaura la rama compacta. Los symlinks se muestran como información, pero una operación que los resuelva fuera del Project se rechaza.
 
-La selección de un fichero de texto abre por defecto un visor interno de solo lectura en el workbench mediante una lectura Tauri autorizada. El visor conserva Project, Task, Explorer y terminal, y expone nombre, ruta relativa, contenido y estados de carga/error. Binarios, ficheros ilegibles o demasiado grandes no se abren fuera automáticamente: muestran un estado explicativo y ofrecen una acción externa explícita. La especificación detallada vive en [file-workspace](SPEC-file-workspace.md).
+La selección de un fichero de texto abre por defecto un editor interno en el workbench mediante lectura y escritura Tauri autorizadas. El editor conserva Project, Task, Explorer y terminal, expone nombre, ruta relativa, contenido y estados de carga/error, y permite editar, guardar o descartar cambios. Binarios, ficheros ilegibles o demasiado grandes no se abren fuera automáticamente: muestran un estado explicativo y ofrecen una acción externa explícita. La especificación detallada vive en [file-workspace](SPEC-file-workspace.md).
 
 ## Testing Strategy
 
@@ -43,4 +43,4 @@ El usuario puede seleccionar un Project, navegar su árbol de forma perezosa, se
 
 ## Open Questions
 
-- ¿Qué límite de tamaño y detección de encoding usará el visor interno? La decisión se concreta en [SPEC-file-workspace](SPEC-file-workspace.md).
+- ¿Qué componente de resaltado de sintaxis aporta valor sin convertir ADE en un editor completo? El límite de 2 MiB y la clasificación UTF-8 ya están fijados en [SPEC-file-workspace](SPEC-file-workspace.md).

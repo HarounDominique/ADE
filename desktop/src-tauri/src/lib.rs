@@ -400,6 +400,32 @@ fn read_file_in(workspace: &WorkspaceRoot, path: &str) -> Result<FileReadResult,
     }
 }
 
+#[tauri::command]
+fn write_file(
+    workspace: tauri::State<'_, WorkspaceRoot>,
+    path: String,
+    content: String,
+) -> Result<(), String> {
+    write_file_in(&workspace, &path, &content)
+}
+
+fn write_file_in(workspace: &WorkspaceRoot, path: &str, content: &str) -> Result<(), String> {
+    let file = workspace.resolve(path)?;
+    if !file.is_file() {
+        return Err(format!("File does not exist: {}", file.display()));
+    }
+    if content.len() as u64 > MAX_FILE_PREVIEW_BYTES {
+        return Err(format!(
+            "Editor is limited to {} MiB",
+            MAX_FILE_PREVIEW_BYTES / 1024 / 1024
+        ));
+    }
+    if content.as_bytes().contains(&0) {
+        return Err("Binary content cannot be saved from the editor".to_string());
+    }
+    std::fs::write(&file, content).map_err(|error| format!("Unable to save file: {error}"))
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct TerminalResult {
@@ -678,6 +704,7 @@ pub fn run() {
             list_directory,
             open_file,
             read_file,
+            write_file,
             terminal_exec,
             terminal_start,
             terminal_input,
@@ -699,8 +726,8 @@ pub fn run() {
 mod tests {
     use super::{
         list_directory_in, open_document_in, open_file_in, open_terminal_in, project_context_for,
-        read_file_in, start_terminal_pty, terminal_exec_in, SidecarSupervisor, WorkspaceRoot,
-        MAX_FILE_PREVIEW_BYTES,
+        read_file_in, start_terminal_pty, terminal_exec_in, write_file_in, SidecarSupervisor,
+        WorkspaceRoot, MAX_FILE_PREVIEW_BYTES,
     };
     use std::fs;
 
@@ -850,6 +877,12 @@ mod tests {
             terminal_exec_in(&workspace, &outside.to_string_lossy(), "pwd".to_string()).is_err()
         );
         assert!(open_file_in(&workspace, &outside.join("outside.txt").to_string_lossy()).is_err());
+        assert!(write_file_in(
+            &workspace,
+            &outside.join("outside.txt").to_string_lossy(),
+            "nope"
+        )
+        .is_err());
 
         fs::remove_dir_all(root).expect("remove root fixture");
         fs::remove_dir_all(outside).expect("remove outside fixture");
@@ -919,6 +952,23 @@ mod tests {
             .expect("classify large file");
         assert_eq!(result.kind, "tooLarge");
         assert!(result.content.is_none());
+
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn write_file_updates_text_file_inside_selected_project() {
+        let root = fixture_root("write-file");
+        let file = root.join("notes.md");
+        fs::write(&file, "before\n").expect("create text file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        write_file_in(&workspace, &file.to_string_lossy(), "after\n").expect("save text file");
+        assert_eq!(
+            fs::read_to_string(&file).expect("read saved file"),
+            "after\n"
+        );
 
         fs::remove_dir_all(root).expect("remove fixture");
     }

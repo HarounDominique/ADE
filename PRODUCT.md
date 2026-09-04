@@ -37,13 +37,13 @@ La unidad principal no es un archivo ni una conversación aislada, sino una `Tas
 - Workspace local con raíz canónica, árbol perezoso, apertura segura de archivos y terminal PTY persistente.
 - Shell desktop con navegación lateral única, Explorer compacto/expandido animado y tema claro/oscuro persistente.
 - Dock de terminal inferior redimensionable con transcript único, prompt mínimo, historial `↑`/`↓` y completado de rutas `cd` mediante `Tab`.
-- Visor interno de ficheros de texto en modo lectura, con lectura segura, estados de preview y apertura externa explícita.
+- Editor interno acotado para ficheros de texto, con lectura/escritura segura, estado dirty, guardado, descarte, estados de preview y apertura externa explícita.
 - Proveedores OpenCode y Codex, con sesiones reanudables por Task y sin copiar credenciales a ADE.
 - Skills nativas y skills de Project instalables/actualizables con permisos explícitos por ejecución.
 - Git/GitHub con status, branches, worktrees, commits, push y PRs atribuidos a Tasks.
 - Documentación viva con grafo de referencias, Mermaid y reconciliación de specs/ADRs.
 - Evidencia, gates, reviews y servicios locales persistidos por Project/Task.
-- v0.3 se valida en macOS; cloud, colaboración realtime, editor completo, `.dmg`, retrieval semántico, checkpoints automáticos y commits autónomos están fuera de alcance.
+- v0.3 se valida en macOS; cloud, colaboración realtime, editor completo, `.dmg`, retrieval semántico, checkpoints automáticos y commits autónomos están fuera de alcance. La shell sí incluye un editor de texto interno acotado, con guardado y descarte bajo la raíz del Project.
 
 ## Brand Commitments
 

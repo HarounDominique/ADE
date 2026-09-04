@@ -20,6 +20,8 @@ let activeProjectId = projectSnapshot.project.id;
 let workspaceRootPath = projectSnapshot.project.repositoryPath;
 let selectedFilePath = null;
 let activeDocument = null;
+let documentOriginalContent = '';
+let documentDirty = false;
 let explorerExpanded = false;
 const terminalResizer = document.getElementById('terminal-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
@@ -339,6 +341,18 @@ function setDocumentHeader({ title, path, kind, externalDisabled = true }) {
   if (externalButton) externalButton.disabled = externalDisabled;
 }
 
+function updateDocumentEditState() {
+  const editor = document.getElementById('document-content');
+  const saveButton = document.getElementById('save-file');
+  const discardButton = document.getElementById('discard-file');
+  const kindElement = document.getElementById('document-kind');
+  const editable = Boolean(activeDocument?.kind === 'text' && editor && !editor.hidden);
+  documentDirty = editable && editor.value !== documentOriginalContent;
+  if (saveButton) saveButton.disabled = !documentDirty;
+  if (discardButton) discardButton.disabled = !documentDirty;
+  if (kindElement && activeDocument?.kind === 'text') kindElement.textContent = documentDirty ? 'TEXT · UNSAVED' : 'TEXT';
+}
+
 function renderDocumentLoading(filePath) {
   const viewer = document.getElementById('document-viewer');
   const status = document.getElementById('document-viewer-status');
@@ -349,7 +363,10 @@ function renderDocumentLoading(filePath) {
   status.hidden = false;
   status.textContent = 'Reading file…';
   content.hidden = true;
-  content.textContent = '';
+  content.value = '';
+  documentOriginalContent = '';
+  documentDirty = false;
+  updateDocumentEditState();
 }
 
 function renderDocumentResult(result) {
@@ -364,7 +381,10 @@ function renderDocumentResult(result) {
   status.hidden = isText;
   status.textContent = isText ? '' : (result.message ?? 'This file cannot be previewed inside ADE.');
   content.hidden = !isText;
-  content.textContent = isText ? (result.content ?? '') : '';
+  content.value = isText ? (result.content ?? '') : '';
+  documentOriginalContent = isText ? (result.content ?? '') : '';
+  documentDirty = false;
+  updateDocumentEditState();
   if (isText) content.focus({ preventScroll: true });
 }
 
@@ -379,7 +399,10 @@ function renderDocumentError(filePath, error) {
   status.hidden = false;
   status.textContent = `Unable to read file: ${String(error)}`;
   content.hidden = true;
-  content.textContent = '';
+  content.value = '';
+  documentOriginalContent = '';
+  documentDirty = false;
+  updateDocumentEditState();
 }
 
 async function openFileInADE(filePath) {
@@ -400,9 +423,36 @@ async function openFileInADE(filePath) {
 }
 
 function closeFilePreview() {
+  if (documentDirty && !window.confirm('Discard unsaved changes to this file?')) return;
   const viewer = document.getElementById('document-viewer');
   if (viewer) viewer.hidden = true;
   activeDocument = null;
+  documentOriginalContent = '';
+  documentDirty = false;
+  updateDocumentEditState();
+}
+
+async function saveActiveDocument() {
+  const editor = document.getElementById('document-content');
+  if (!nativeInvoke || !editor || activeDocument?.kind !== 'text' || !activeDocument.path) return;
+  try {
+    await nativeInvoke('write_file', { path: activeDocument.path, content: editor.value });
+    documentOriginalContent = editor.value;
+    activeDocument = { ...activeDocument, content: editor.value, size: new TextEncoder().encode(editor.value).length };
+    updateDocumentEditState();
+    notify('File saved in ADE.');
+  } catch (error) {
+    notify('Unable to save file.');
+    console.warn('File save unavailable:', error);
+  }
+}
+
+function discardDocumentChanges() {
+  const editor = document.getElementById('document-content');
+  if (!editor || !documentDirty) return;
+  editor.value = documentOriginalContent;
+  updateDocumentEditState();
+  notify('Unsaved changes discarded.');
 }
 
 function providerIsAvailable(providerId) {
@@ -1060,6 +1110,14 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     });
     return;
   }
+  if (item.dataset.action === 'save-file') {
+    void saveActiveDocument();
+    return;
+  }
+  if (item.dataset.action === 'discard-file') {
+    discardDocumentChanges();
+    return;
+  }
   if (item.dataset.action === 'close-file') {
     closeFilePreview();
     return;
@@ -1208,6 +1266,13 @@ document.addEventListener('click', (event) => {
 document.getElementById('agent-provider')?.addEventListener('change', (event) => {
   selectedProvider = event.target.value;
   renderProviderSelection();
+});
+document.getElementById('document-content')?.addEventListener('input', updateDocumentEditState);
+document.getElementById('document-content')?.addEventListener('keydown', (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+    event.preventDefault();
+    void saveActiveDocument();
+  }
 });
 document.getElementById('agent-skill')?.addEventListener('change', refreshSelectedSkill);
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => filterWorkspaceTree(event.target.value));

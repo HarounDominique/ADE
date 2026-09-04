@@ -374,9 +374,9 @@ classDiagram
   nagentsskillsimpeccablereferencevisualizemd --> nagentsskillsimpeccablereferencenewworkmd : references
   nREADMEmd --> ndocuspecsSPECNEXUSmd : references
   nREADMEmd --> ndocuREADMEmd : references
+  nREADMEmd --> ntaskstodomd : references
   nREADMEmd --> ndocuspecsSPECv03md : references
   nREADMEmd --> ndocureleasesv03closemd : references
-  nREADMEmd --> ntaskstodomd : references
   nREADMEmd --> ndocuspikes001opencoderuntimemd : references
   nREADMEmd --> ndocuspikes002independentreviewmd : references
   ndocuREADMEmd --> ndocuspecsSPECNEXUSmd : references

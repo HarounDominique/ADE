@@ -4,7 +4,7 @@
 
 ## Objective
 
-Ofrecer una superficie desktop centrada en proyectos y Tasks, con navegación por Knowledge, Changes y Runtime, incorporando un visor interno de ficheros sin construir todavía un editor completo.
+Ofrecer una superficie desktop centrada en proyectos y Tasks, con navegación por Knowledge, Changes y Runtime, incorporando un editor interno de texto acotado sin construir todavía un editor completo.
 
 ## Shell contract
 
@@ -39,7 +39,7 @@ El control de contraer restaura la navegación y reconstruye la rama compacta de
 
 ### Internal file viewer
 
-Seleccionar un fichero de texto en el Explorer abre su contenido dentro del workbench, en un visor de solo lectura, mostrando nombre, ruta relativa, líneas y estado de carga. El documento activo se mantiene sincronizado con la rama compacta del Explorer y no altera la Task ni el dock de terminal.
+Seleccionar un fichero de texto en el Explorer abre su contenido dentro del workbench, en un editor acotado, mostrando nombre, ruta relativa y estado de carga. El documento activo se mantiene sincronizado con la rama compacta del Explorer, permite `Save`, `Discard` y `⌘/Ctrl+S`, y no altera la Task ni el dock de terminal.
 
 El visor trata binarios, ficheros ilegibles y previews demasiado grandes con estados explicativos. `Open externally` es una acción separada y explícita; seleccionar un fichero nunca debe lanzar automáticamente una aplicación del sistema. La lectura se solicita al backend Tauri y queda sometida a la autorización de la raíz del Project. El alcance completo está en [file-workspace](SPEC-file-workspace.md).
 
@@ -103,13 +103,13 @@ La CLI expone el mismo contrato mediante `npm run ade -- project snapshot <proje
 
 ## Code Style
 
-La revisión se presenta de mayor a menor nivel de detalle: resumen semántico, impacto, findings, archivos, diff. El visor interno debe priorizar lectura, legibilidad y trazabilidad de ruta; syntax highlighting, búsqueda y navegación pueden incorporarse de forma incremental. La shell incluye únicamente el completado pragmático de rutas de `cd` en la terminal; no incluye edición, autocompletado general de comandos ni language server propio.
+La revisión se presenta de mayor a menor nivel de detalle: resumen semántico, impacto, findings, archivos, diff. El editor interno debe priorizar edición pragmática, legibilidad y trazabilidad de ruta; syntax highlighting, búsqueda y navegación pueden incorporarse de forma incremental. La shell incluye únicamente el completado pragmático de rutas de `cd` en la terminal; no incluye autocompletado general de comandos ni language server propio.
 
 ## Testing Strategy
 
 Tests de componentes para estados de Task y gates; tests de integración para crear Project, crear/reanudar Task, observar ChangeSet y revisar; test end-to-end del flujo principal con adapters fake; smoke test del shell en el sistema operativo objetivo; y test de escape hatch para IDE/terminal.
 
-La primera vertical de UI debe probar: abrir Project → seleccionar fichero y leerlo dentro de ADE → crear Task → observar Implementer → consultar Review → reconciliar documentación → aprobar → preparar commit. No se exige editor, autocompletado general de comandos, language server ni colaboración realtime; el completado de rutas de `cd` forma parte del contrato de terminal.
+La primera vertical de UI debe probar: abrir Project → seleccionar fichero, editarlo y guardarlo dentro de ADE → crear Task → observar Implementer → consultar Review → reconciliar documentación → aprobar → preparar commit. No se exige editor completo, autocompletado general de comandos, language server ni colaboración realtime; el completado de rutas de `cd` forma parte del contrato de terminal.
 
 ## Boundaries
 
