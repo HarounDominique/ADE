@@ -53,6 +53,7 @@ let projectCatalogLoaded = false;
 let gitBranches = [];
 let gitHistoryCommits = [];
 let selectedGitCommit = null;
+let gitCommitNeedsPush = false;
 const pendingContextRequests = new Map();
 const pendingSnapshotProjects = new Map();
 const pendingProjectRemovals = new Map();
@@ -452,6 +453,8 @@ async function switchProjectFromContext(project) {
     workspaceRootPath = context.repositoryPath;
     activeGitBranch = context.branch;
     gitBranches = [];
+    gitCommitNeedsPush = false;
+    renderCommitControls();
     if (selectedFilePath && !selectedFilePath.startsWith(`${workspaceRootPath}/`)) {
       selectedFilePath = null;
       activeDocument = null;
@@ -577,6 +580,14 @@ function renderVersionControlTabs(activeTab) {
   });
 }
 
+function renderCommitControls() {
+  const branch = document.getElementById('current-branch-name')?.textContent?.trim() || 'current branch';
+  const branchLabel = document.getElementById('commit-branch-name');
+  const pushButton = document.getElementById('git-push-origin');
+  if (branchLabel) branchLabel.textContent = branch;
+  if (pushButton) pushButton.disabled = !gitCommitNeedsPush || activeVersionControl === 'none';
+}
+
 function renderGitHistory(commits) {
   const list = document.getElementById('git-commit-list');
   const status = document.getElementById('git-history-status');
@@ -643,6 +654,7 @@ function renderPendingGitChanges(result) {
     ? pendingFiles.map((file) => `<div class="git-pending-file"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></div>`).join('')
     : '<div class="git-empty-state">No changes pending.</div>';
   if (diff) diff.textContent = result?.diff || 'No pending textual diff.';
+  renderCommitControls();
 }
 
 function requestPendingGitChanges(path = workspaceRootPath, { showLoading = false } = {}) {
@@ -1366,9 +1378,11 @@ async function connectSidecar(snapshot) {
         requestVersionControlData(workspaceRootPath);
         return;
       }
-      if (contextPurpose === 'git-commit-push') {
-        setSyncState('ready', 'Synced just now');
-        notify('Commit created and pushed.');
+      if (contextPurpose === 'git-commit-local' && response.result?.operation === 'commit.create') {
+        gitCommitNeedsPush = true;
+        renderCommitControls();
+        setSyncState('stale', 'Local commit ready to push');
+        notify(`Commit ${response.result.commit?.slice(0, 7) ?? ''} created locally.`.trim());
         const title = document.getElementById('commit-title');
         const body = document.getElementById('commit-body');
         if (title) title.value = '';
@@ -1376,11 +1390,21 @@ async function connectSidecar(snapshot) {
         requestVersionControlData(workspaceRootPath);
         return;
       }
+      if (contextPurpose === 'git-push-origin' && response.result?.operation === 'push') {
+        gitCommitNeedsPush = false;
+        renderCommitControls();
+        setSyncState('ready', 'Pushed just now');
+        notify(`Pushed ${response.result.branch ?? 'current branch'} to origin.`);
+        requestVersionControlData(workspaceRootPath);
+        return;
+      }
       if (contextPurpose === 'switch-branch' && response.result?.operation === 'branch.switch') {
         const path = document.getElementById('project-path')?.textContent;
         if (path) await refreshGitWorkspace(path, nativeInvoke);
+        gitCommitNeedsPush = false;
         setSyncState('ready', 'Synced just now');
         notify(`Branch switched to ${response.result.branch}.`);
+        renderCommitControls();
         return;
       }
       if (response.type?.startsWith('runtime.') && response.status) {
@@ -1425,6 +1449,7 @@ async function connectSidecar(snapshot) {
         const statusBranch = document.getElementById('status-branch-name');
         if (statusBranch) statusBranch.textContent = branchName;
         renderBranchMenu();
+        renderCommitControls();
         const output = document.getElementById('git-workspace-output');
         if (output) output.textContent = `Current branch\n${response.result.currentBranch}\n\nChanged files\n${response.result.changedFiles.join('\n') || 'clean'}\n\nBranches\n${response.result.branches.join('\n') || '—'}\n\nWorktrees\n${response.result.worktrees.join('\n') || '—'}\n\nRemotes\n${response.result.remotes.join('\n') || '—'}`;
         return;
@@ -1734,7 +1759,15 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     void sendContextRequest('git.fetch.origin', { repositoryPath: workspaceRootPath, actor: 'human', reason: 'Fetch requested from Version control', confirmed: true }, 'git-fetch').catch((error) => notify(error instanceof Error ? error.message : 'Fetch failed.'));
     return;
   }
-  if (item.dataset.action === 'commit-push') return;
+  if (item.dataset.action === 'commit-local') return;
+  if (item.dataset.action === 'push-origin') {
+    if (!nativeInvoke || activeVersionControl === 'none') { notify('Push requires a Git Project.'); return; }
+    if (!gitCommitNeedsPush) { notify('Create a local commit before pushing.'); return; }
+    if (!window.confirm('Push the local commit to origin?')) return;
+    setSyncState('stale', 'Pushing to origin…');
+    void sendContextRequest('git.push', { repositoryPath: workspaceRootPath, reason: 'Push requested from Version control', actor: 'human', confirmed: true }, 'git-push-origin').catch((error) => notify(error instanceof Error ? error.message : 'Push failed.'));
+    return;
+  }
   if (item.dataset.action === 'refresh-knowledge') {
     const repositoryPath = document.getElementById('project-path')?.textContent;
     const taskId = selectedTaskId;
@@ -1874,9 +1907,9 @@ document.getElementById('git-commit-form')?.addEventListener('submit', (event) =
   const pendingStatus = document.getElementById('git-pending-status')?.textContent ?? '';
   if (!title) { notify('Enter a commit title.'); return; }
   if (pendingStatus === 'Working tree clean' || pendingStatus.startsWith('This Project')) { notify('There are no pending changes to commit.'); return; }
-  if (!window.confirm(`Commit and push “${title}”?`)) return;
-  setSyncState('stale', 'Committing and pushing…');
-  void sendContextRequest('git.commit.push', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), reason: 'Commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-push').catch((error) => notify(error instanceof Error ? error.message : 'Commit and push failed.'));
+  if (!window.confirm(`Create local commit “${title}”?`)) return;
+  setSyncState('stale', 'Creating local commit…');
+  void sendContextRequest('git.commit.create', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), reason: 'Local commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-local').catch((error) => notify(error instanceof Error ? error.message : 'Commit failed.'));
 });
 document.addEventListener('click', (event) => {
   const versionControlTab = event.target.closest('[data-version-control-tab]');
