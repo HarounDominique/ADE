@@ -57,6 +57,12 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(main, /ade-terminal-height/);
   assert.match(main, /ArrowUp/);
   assert.match(main, /setPointerCapture/);
+  assert.match(html, /class="terminal-surface"/);
+  assert.match(html, /class="terminal-input-line"/);
+  assert.match(html, /placeholder="Type a command…"/);
+  assert.match(main, /appendTerminalCommand/);
+  assert.match(main, /terminalHistory/);
+  assert.match(main, /ArrowDown/);
 });
 
 test("explorer keeps the active file path as a compact branch and has a full-tree mode", () => {

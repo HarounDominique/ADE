@@ -9,6 +9,9 @@ const taskIntent = document.getElementById('task-intent');
 const themeMeta = document.querySelector('meta[name="theme-color"]');
 let nativeInvoke;
 let terminalStarted = false;
+const terminalHistory = [];
+let terminalHistoryIndex = -1;
+let terminalHistoryDraft = '';
 let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
 let workspaceRootPath = projectSnapshot.project.repositoryPath;
@@ -55,6 +58,21 @@ function setTerminalHeight(nextHeight, persist = true) {
   if (persist) {
     try { localStorage.setItem(terminalStorageKey, String(terminalHeight)); } catch { /* Persistence is optional. */ }
   }
+}
+
+function appendTerminalTranscript(text) {
+  const output = document.getElementById('terminal-output');
+  if (!output) return;
+  output.textContent += text;
+  output.scrollTop = output.scrollHeight;
+}
+
+function appendTerminalCommand(command) {
+  const output = document.getElementById('terminal-output');
+  if (!output) return;
+  const separator = output.textContent && !output.textContent.endsWith('\n') ? '\n' : '';
+  output.textContent += `${separator}$ ${command}\n`;
+  output.scrollTop = output.scrollHeight;
 }
 
 try {
@@ -496,8 +514,7 @@ async function connectSidecar(snapshot) {
   if (!invoke || !listen) return;
   nativeInvoke = invoke;
   await listen('terminal:output', (event) => {
-    const output = document.getElementById('terminal-output');
-    if (output) output.textContent += event.payload;
+    appendTerminalTranscript(event.payload);
   });
   let recoveryAttempted = false;
   const requestSnapshot = async () => {
@@ -1013,18 +1030,37 @@ document.getElementById('agent-provider')?.addEventListener('change', (event) =>
 });
 document.getElementById('agent-skill')?.addEventListener('change', refreshSelectedSkill);
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => filterWorkspaceTree(event.target.value));
+document.getElementById('terminal-command')?.addEventListener('keydown', (event) => {
+  const input = event.currentTarget;
+  if (event.key === 'ArrowUp') {
+    if (!terminalHistory.length) return;
+    event.preventDefault();
+    if (terminalHistoryIndex === -1) terminalHistoryDraft = input.value;
+    terminalHistoryIndex = Math.min(terminalHistoryIndex + 1, terminalHistory.length - 1);
+    input.value = terminalHistory[terminalHistory.length - 1 - terminalHistoryIndex];
+  }
+  if (event.key === 'ArrowDown' && terminalHistoryIndex !== -1) {
+    event.preventDefault();
+    terminalHistoryIndex -= 1;
+    input.value = terminalHistoryIndex === -1 ? terminalHistoryDraft : terminalHistory[terminalHistory.length - 1 - terminalHistoryIndex];
+  }
+});
 document.getElementById('terminal-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
-  const output = document.getElementById('terminal-output');
-  const command = document.getElementById('terminal-command')?.value.trim();
+  const input = document.getElementById('terminal-command');
+  const command = input?.value.trim();
   const cwd = document.getElementById('project-path')?.textContent;
   if (!nativeInvoke || !command || !cwd) { notify('Native terminal requires the desktop runtime.'); return; }
   try {
     if (!terminalStarted) { await nativeInvoke('terminal_start', { cwd }); terminalStarted = true; }
+    appendTerminalCommand(command);
+    terminalHistory.push(command);
+    terminalHistoryIndex = -1;
+    terminalHistoryDraft = '';
+    if (input) input.value = '';
     await nativeInvoke('terminal_input', { input: `${command}\n` });
-    if (output) output.textContent += `\n$ ${command}\n`;
   } catch (error) {
-    if (output) output.textContent = String(error);
+    appendTerminalTranscript(`\n[ADE] ${String(error)}\n`);
     notify('Terminal command failed.');
   }
 });
