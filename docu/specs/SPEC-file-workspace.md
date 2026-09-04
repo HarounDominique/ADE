@@ -2,7 +2,7 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Module id: file-workspace -->
 
-**Estado:** implementada — slice v0.4 validada a nivel de build y tests; bundle `.app` generado y arrancado manualmente en macOS; smoke gráfico automatizado pendiente.
+**Estado:** implementada — slice v0.4 multimotor validada a nivel de build y tests; bundle `.app` generado y arrancado manualmente en macOS; smoke gráfico automatizado pendiente.
 
 ## Objective
 

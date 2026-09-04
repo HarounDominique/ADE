@@ -1,7 +1,7 @@
 # Plan: Internal File Workspace v0.4
 
 <!-- Spec: docu/specs/SPEC-file-workspace.md -->
-<!-- ADR: docu/adr/0014-internal-file-viewer.md -->
+<!-- ADR: docu/adr/0014-internal-file-viewer.md · docu/adr/0023-code-editor-and-formatting.md -->
 
 **Estado:** completado y validado a nivel de build/tests; bundle `.app` generado y arrancado manualmente en macOS; baseline actual de 92 tests TypeScript y 18 Rust; smoke gráfico automatizado pendiente.
 
@@ -10,8 +10,9 @@
 1. Backend Tauri: lectura estructurada y segura bajo la raíz canónica, con clasificación de texto/binario/tamaño. ✅
 2. Read model de documento activo: ruta relativa, contenido, estado y continuidad con Project/Task. ✅
 3. Editor interno: panel con superficie completa, carga, errores, edición, estado dirty, guardado, descarte y acción externa explícita. ✅
-4. Integración Explorer: seleccionar abre dentro de ADE; la rama compacta y el foco se mantienen. ✅
-5. Tests nativos, UI y de contrato; actualización de Nexus/reconciliación. ✅
+4. Cobertura de lenguajes: CodeMirror oficial para el motor principal y Monaco MIT como fallback selectivo, con la misma interfaz de edición. ✅
+5. Integración Explorer: seleccionar abre dentro de ADE; la rama compacta y el foco se mantienen. ✅
+6. Tests nativos, UI y de contrato; actualización de Nexus/reconciliación. ✅
 
 ## Acceptance gate
 

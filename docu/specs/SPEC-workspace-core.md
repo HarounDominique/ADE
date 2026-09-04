@@ -43,4 +43,4 @@ El usuario puede seleccionar un Project, navegar su árbol de forma perezosa, se
 
 ## Open Questions
 
-- ¿Qué componente de resaltado de sintaxis aporta valor sin convertir ADE en un editor completo? El límite de 2 MiB y la clasificación UTF-8 ya están fijados en [SPEC-file-workspace](SPEC-file-workspace.md).
+- La decisión vigente de resaltado y edición multimotor está fijada en [SPEC-file-workspace](SPEC-file-workspace.md#product-contract) y [ADR-0023](../adr/0023-code-editor-and-formatting.md). El límite de 2 MiB y la clasificación UTF-8 siguen perteneciendo al contrato de `file-workspace`.
