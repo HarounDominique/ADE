@@ -664,6 +664,7 @@ async function refreshProjectContext(snapshot) {
     renderSnapshot({ ...snapshot, project: { ...snapshot.project, ...context } });
     window.clearTimeout(workspaceSearchTimer);
     workspaceSearchToken += 1;
+    setWorkspaceSearchLoading(false);
     workspaceSearchEntries = null;
     workspaceSearchIndex = null;
     await loadWorkspaceTree(context.repositoryPath, invoke);
@@ -897,6 +898,9 @@ async function expandExplorer() {
 }
 
 async function collapseExplorer() {
+  window.clearTimeout(workspaceSearchTimer);
+  workspaceSearchToken += 1;
+  setWorkspaceSearchLoading(false);
   updateExplorerMode(false);
   await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
 }
@@ -1415,6 +1419,7 @@ document.addEventListener('click', (event) => {
     void openFileInADE(fileEntry.dataset.filePath).finally(() => {
       if (!wasSearching) return;
       if (filter) filter.value = '';
+      setWorkspaceSearchLoading(false);
       void collapseExplorer();
     });
     return;

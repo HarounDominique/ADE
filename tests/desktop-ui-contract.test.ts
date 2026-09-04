@@ -121,6 +121,7 @@ test("workspace search returns files directly and restores their compact branch 
   assert.match(main, /workspaceSearchIndex/);
   assert.match(main, /workspaceSearchTimer/);
   assert.match(main, /setWorkspaceSearchLoading/);
+  assert.match(main, /setWorkspaceSearchLoading\(false\);[\s\S]*void collapseExplorer\(\)/);
   assert.match(main, /aria-busy/);
   assert.match(main, /window\.setTimeout/);
   assert.match(main, /maxDepth: 99/);
