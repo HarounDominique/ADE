@@ -1,4 +1,4 @@
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -14,6 +14,7 @@ struct SidecarSupervisor {
 
 struct TerminalProcess {
     child: Box<dyn portable_pty::Child + Send + Sync>,
+    master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
 }
 
@@ -142,6 +143,8 @@ fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Sen
         command.arg("-i");
         command.env("PS1", "$ ");
         command.env("PS2", "> ");
+        command.env("TERM", "xterm-256color");
+        command.env("COLORTERM", "truecolor");
         command
     };
     shell.cwd(&cwd);
@@ -157,7 +160,7 @@ fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Sen
         .master
         .take_writer()
         .map_err(|error| format!("Terminal PTY writer unavailable: {error}"))?;
-    Ok((TerminalProcess { child, writer }, reader))
+    Ok((TerminalProcess { child, master: pair.master, writer }, reader))
 }
 
 #[tauri::command]
@@ -179,6 +182,29 @@ fn terminal_input(
         .write_all(input.as_bytes())
         .and_then(|_| process.writer.flush())
         .map_err(|error| format!("Unable to write terminal input: {error}"))
+}
+
+#[tauri::command]
+fn terminal_resize(
+    state: tauri::State<'_, TerminalSupervisor>,
+    session_id: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    if cols == 0 || rows == 0 {
+        return Err("Terminal dimensions must be positive".to_string());
+    }
+    let processes = state
+        .processes
+        .lock()
+        .map_err(|_| "Terminal state is poisoned".to_string())?;
+    let process = processes
+        .get(&session_id)
+        .ok_or_else(|| format!("Terminal session is not running: {session_id}"))?;
+    process
+        .master
+        .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+        .map_err(|error| format!("Unable to resize terminal: {error}"))
 }
 
 fn terminal_stop_session(state: &TerminalSupervisor, session_id: &str) -> Result<(), String> {
@@ -774,6 +800,7 @@ pub fn run() {
             terminal_exec,
             terminal_start,
             terminal_input,
+            terminal_resize,
             terminal_stop,
             terminal_stop_all,
             project_id,

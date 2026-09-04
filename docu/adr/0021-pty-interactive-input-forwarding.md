@@ -1,4 +1,4 @@
-# ADR-0021: Reenvío de teclado para TUIs interactivas en el PTY
+# ADR-0021: Terminal interactiva basada en xterm.js y portable-pty
 
 ## Status
 
@@ -10,29 +10,39 @@ Accepted
 
 ## Context
 
-La terminal de ADE usa un campo HTML para introducir comandos y un emulador ANSI para representar la salida del PTY. Ese campo tenía sentido en modo shell, pero seguía consumiendo `↑`, `↓`, `Space`, `Enter` y `Esc` cuando Claude Code activaba su pantalla alternativa. Como resultado, los prompts interactivos de confianza y selección no recibían la entrada del usuario.
+La terminal de ADE ya disponía de un PTY real con `portable-pty`, pero la UI interponía un campo HTML para escribir comandos y un emulador ANSI propio para pintar la salida. Esa combinación obligaba a detectar casos especiales —pantalla alternativa, comandos como `claude` y teclas concretas— y podía consumir `↑`, `↓`, `Space`, `Enter` o `Esc` antes de que llegaran a una TUI. El síntoma era que Claude Code mostraba sus opciones, pero el usuario no podía mover la selección.
 
 ## Decision
 
-Cuando el emulador detecta que el tab PTY está en pantalla alternativa, o se lanza un comando interactivo conocido como `claude`, ADE entra en modo interactivo. El foco se puede recuperar pulsando cualquier zona no accionable del panel. El campo se vuelve de sólo lectura para impedir que el navegador capture texto, y cada tecla soportada se codifica como entrada de terminal y se envía mediante `terminal_input` al mismo `sessionId`. Se cubren caracteres imprimibles, flechas, navegación, espacio, Enter, Escape, Tab/Shift+Tab, borrado y controles `Ctrl`. Al volver a la pantalla principal o reaparecer el prompt del shell se restaura el modo shell, incluido historial y completado de rutas `cd`.
+Mantener `portable-pty` en Rust y sustituir la capa de presentación e interacción por `xterm.js` con `@xterm/addon-fit`.
+
+- Cada tab crea una instancia `Terminal` y un host DOM propio.
+- `Terminal.onData` reenvía cada secuencia de teclado sin transformación a `terminal_input` con el `sessionId` del tab.
+- `Terminal.onResize` envía filas y columnas a `terminal_resize`, que ajusta el mismo PTY mediante `MasterPty::resize`.
+- El shell real conserva eco, prompt, historial, completado, pantalla alternativa y demás semántica de terminal.
+- ADE no detecta comandos interactivos, no mantiene un modo especial para Claude y no vuelve a interpretar teclas mediante heurísticas.
+
+La entrada se entrega al proceso exactamente como la produce una terminal: las flechas, espacio, Enter, Escape, Tab, borrado, caracteres imprimibles y controles `Ctrl` llegan al PTY sin que la shell desktop los capture.
 
 ## Alternatives considered
 
-### Mantener el campo como editor de comandos
+### Mantener el campo HTML y ampliar las heurísticas
 
-Rechazado: las teclas de una TUI seguirían siendo interpretadas por ADE y no llegarían al proceso interactivo.
+Rechazado: cada TUI puede usar secuencias, modos y combinaciones distintas; añadir excepciones mantiene la causa del bug y multiplica los casos frágiles.
 
-### Sustituir el emulador por una dependencia de terminal completa
+### Implementar otro emulador ANSI propio
 
-Diferido: resolvería más casos, pero ampliaría el alcance y el coste del shell. El PTY existente ya soporta la entrada necesaria y el bug está en la frontera de eventos.
+Rechazado: el renderizado de cursor, borrado, colores, pantalla alternativa y resize ya es un problema resuelto por una librería especializada; duplicarlo aumenta el mantenimiento sin aportar valor al usuario.
 
-### Enviar siempre todas las teclas al PTY
+### Cambiar también el backend a otro runtime de terminal
 
-Rechazado: rompería el historial, el completado de `cd` y la ergonomía del modo shell.
+Rechazado para esta iteración: `portable-pty` ya proporciona una PTY nativa válida y el fallo estaba en la frontera UI–PTY. Se conserva el backend y se reduce el cambio al renderer, el forwarding y el resize.
 
 ## Consequences
 
-- Claude Code y otras TUIs que usen pantalla alternativa pueden recibir navegación y selección normales.
-- La separación entre modo shell y modo interactivo es observable y testeable sin acoplar el dominio a la UI.
-- La superficie sigue siendo un emulador acotado; TUIs que requieran capacidades ANSI no implementadas pueden necesitar una evolución futura.
-- El backend no necesita cambios de protocolo: `terminal_input` ya acepta bytes de entrada arbitrarios.
+- Claude Code y otras TUIs reciben la entrada interactiva estándar, incluidos los prompts iniciales de confianza.
+- La UI deja de duplicar prompt, eco, historial y completado; el comportamiento lo determina la shell real.
+- El tamaño visual del terminal se sincroniza con el tamaño del PTY.
+- Se añaden `@xterm/xterm`, `@xterm/addon-fit` y el bundle frontend con esbuild.
+- La persistencia de procesos y el aislamiento por tab siguen siendo responsabilidad del supervisor Rust.
+- La futura ampliación de capacidades de terminal debe evaluarse contra xterm.js y `portable-pty`, no mediante parsers o modos especiales en ADE.

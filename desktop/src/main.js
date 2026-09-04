@@ -1,7 +1,8 @@
 import { projectSnapshot } from './project-snapshot.js';
 import { mergeActiveProject } from './project-context.js';
-import { TerminalEmulator } from './terminal-emulator.js';
-import { commandMayOpenInteractiveTerminal, encodeTerminalKey, isInteractiveTerminal } from './terminal-input.js';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import '@xterm/xterm/css/xterm.css';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 const panels = [...document.querySelectorAll('.view')];
@@ -14,8 +15,6 @@ let nativeInvoke;
 const terminalTabs = [];
 let activeTerminalId = null;
 let terminalTabSequence = 0;
-let terminalSuggestionCandidates = [];
-let terminalSuggestionContext = null;
 let selectedProvider = 'opencode';
 let activeProjectId = projectSnapshot.project.id;
 let activeProject = mergeActiveProject({}, projectSnapshot.project);
@@ -67,6 +66,12 @@ function applyTheme(theme) {
     const label = button.querySelector('.theme-switch-label');
     if (label) label.textContent = nextTheme === 'light' ? 'Dark' : 'Light';
   });
+  const terminalTheme = nextTheme === 'light'
+    ? { background: '#e8f2ef', foreground: '#195c4c', cursor: '#0e827b', selectionBackground: '#b9ddd2' }
+    : { background: '#0d1416', foreground: '#b7e9d0', cursor: '#1aa889', selectionBackground: '#24574a' };
+  terminalTabs?.forEach((tab) => {
+    if (tab.terminal) tab.terminal.options.theme = terminalTheme;
+  });
 }
 
 let initialTheme = 'dark';
@@ -106,77 +111,39 @@ function activeTerminal() {
 }
 
 function renderTerminalOutput() {
-  const output = document.getElementById('terminal-output');
   const tab = activeTerminal();
-  if (!output || !tab) return;
-  output.textContent = tab.emulator.text();
-  output.scrollTop = output.scrollHeight;
+  const hosts = document.getElementById('terminal-hosts');
+  if (!hosts || !tab) return;
+  hosts.querySelectorAll('[data-terminal-host]').forEach((host) => {
+    host.hidden = host.dataset.terminalHost !== tab.id;
+  });
   const cwd = document.getElementById('terminal-cwd');
   if (cwd) cwd.textContent = `${tab.label} · ${tab.completionCwd}`;
-  syncTerminalInputMode(tab);
-}
-
-function syncTerminalInputMode(tab = activeTerminal()) {
-  const input = document.getElementById('terminal-command');
-  if (!input || !tab) return;
-  const interactive = isInteractiveTerminal(tab);
-  input.readOnly = interactive;
-  input.value = interactive ? '' : tab.inputDraft;
-  input.placeholder = interactive ? 'Interactive process…' : 'Type a command…';
-  input.setAttribute('aria-label', interactive ? 'Interactive terminal input' : 'Terminal command');
-  input.classList.toggle('interactive', interactive);
-  if (interactive && document.activeElement !== input) input.focus();
-}
-
-function forwardInteractiveTerminalKey(event, tab) {
-  if (!isInteractiveTerminal(tab)) return false;
-  const encoded = encodeTerminalKey(event);
-  if (encoded === null || !nativeInvoke) return true;
-  event.preventDefault();
-  event.stopPropagation();
-  void nativeInvoke('terminal_input', { sessionId: tab.id, input: encoded }).catch((error) => {
-    notify('Interactive terminal input failed.');
-    console.warn('Interactive terminal input unavailable:', error);
-  });
-  return true;
-}
-
-function shellPromptVisible(tab) {
-  return /(?:^|\n)[^\n]*[>$#]\s*$/.test(tab.emulator.text());
+  tab.fitAddon?.fit();
+  tab.terminal?.focus();
 }
 
 function appendTerminalTranscript(sessionId, text) {
   const tab = terminalTabs.find((candidate) => candidate.id === sessionId);
   if (!tab) return;
-  tab.emulator.write(text);
-  if (tab.interactive && !tab.emulator.alternate && shellPromptVisible(tab)) {
-    tab.interactive = false;
-    if (activeTerminalId === tab.id) renderTerminalOutput();
-  }
+  tab.terminal?.write(text);
 }
 
 function renderTerminalTabs() {
   const container = document.getElementById('terminal-tabs');
   if (!container) return;
-  container.innerHTML = terminalTabs.map((tab) => `<div class="terminal-tab${tab.id === activeTerminalId ? ' active' : ''}" role="presentation"><button class="terminal-tab-button" type="button" role="tab" aria-selected="${tab.id === activeTerminalId}" aria-controls="terminal-output" data-terminal-tab-id="${tab.id}"><span class="terminal-tab-status${tab.started ? ' running' : ''}" aria-hidden="true"></span><span>${tab.label}</span></button><button class="terminal-tab-close" type="button" aria-label="Close ${tab.label}" title="Close ${tab.label}" data-terminal-close-id="${tab.id}">×</button></div>`).join('');
+  container.innerHTML = terminalTabs.map((tab) => `<div class="terminal-tab${tab.id === activeTerminalId ? ' active' : ''}" role="presentation"><button class="terminal-tab-button" type="button" role="tab" aria-selected="${tab.id === activeTerminalId}" aria-controls="terminal-hosts" data-terminal-tab-id="${tab.id}"><span class="terminal-tab-status${tab.started ? ' running' : ''}" aria-hidden="true"></span><span>${tab.label}</span></button><button class="terminal-tab-close" type="button" aria-label="Close ${tab.label}" title="Close ${tab.label}" data-terminal-close-id="${tab.id}">×</button></div>`).join('');
 }
 
 function syncActiveTerminalInput(focus = true) {
-  const input = document.getElementById('terminal-command');
   const tab = activeTerminal();
-  if (!input || !tab) return;
-  syncTerminalInputMode(tab);
-  input.dataset.terminalSuggestionIndex = '-1';
-  if (focus) input.focus();
+  if (focus) tab?.terminal?.focus();
 }
 
 function selectTerminalTab(sessionId, focus = true) {
   const tab = terminalTabs.find((candidate) => candidate.id === sessionId);
   if (!tab) return;
   activeTerminalId = tab.id;
-  terminalSuggestionCandidates = [];
-  terminalSuggestionContext = null;
-  hideTerminalSuggestions();
   renderTerminalTabs();
   renderTerminalOutput();
   syncActiveTerminalInput(focus);
@@ -189,18 +156,35 @@ function createTerminalTab({ focus = true } = {}) {
     id,
     label: `Terminal ${terminalTabSequence}`,
     started: false,
-    history: [],
-    historyIndex: -1,
-    historyDraft: '',
-    inputDraft: '',
     completionCwd: workspaceRootPath,
-    emulator: null,
+    terminal: null,
+    fitAddon: null,
+    startPromise: null,
+    inputQueue: Promise.resolve(),
   };
-  tab.emulator = new TerminalEmulator({
-    onChange() {
-      if (activeTerminalId === tab.id) renderTerminalOutput();
-    },
+  tab.terminal = new Terminal({
+    cursorBlink: true,
+    convertEol: false,
+    scrollback: 5000,
+    fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    fontSize: 12,
+    theme: { background: '#0d1416', foreground: '#b7e9d0', cursor: '#1aa889' },
   });
+  tab.fitAddon = new FitAddon();
+  tab.terminal.loadAddon(tab.fitAddon);
+  tab.terminal.onData((data) => {
+    void sendTerminalInput(tab, data);
+  });
+  tab.terminal.onResize(({ cols, rows }) => {
+    if (tab.started && nativeInvoke) void nativeInvoke('terminal_resize', { sessionId: tab.id, cols, rows }).catch(() => {});
+  });
+  const hosts = document.getElementById('terminal-hosts');
+  const host = document.createElement('div');
+  host.className = 'terminal-host';
+  host.dataset.terminalHost = tab.id;
+  host.hidden = true;
+  hosts?.appendChild(host);
+  tab.terminal.open(host);
   terminalTabs.push(tab);
   activeTerminalId = tab.id;
   renderTerminalTabs();
@@ -214,104 +198,39 @@ function closeTerminalTab(sessionId) {
   if (index < 0) return;
   const [tab] = terminalTabs.splice(index, 1);
   if (tab.started) nativeInvoke?.('terminal_stop', { sessionId: tab.id }).catch(() => {});
+  tab.terminal?.dispose();
+  document.querySelector(`[data-terminal-host="${CSS.escape(tab.id)}"]`)?.remove();
   if (!terminalTabs.length) createTerminalTab({ focus: false });
   else if (activeTerminalId === tab.id) selectTerminalTab(terminalTabs[Math.max(0, index - 1)]?.id ?? terminalTabs[0].id);
   else { renderTerminalTabs(); renderTerminalOutput(); }
 }
 
-function escapeTerminalSuggestion(value) {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+async function startTerminal(tab) {
+  if (tab.started) return;
+  if (tab.startPromise) return tab.startPromise;
+  tab.startPromise = (async () => {
+    if (!nativeInvoke) throw new Error('Native terminal requires the desktop runtime.');
+    await nativeInvoke('terminal_start', { sessionId: tab.id, cwd: workspaceRootPath });
+    tab.started = true;
+    renderTerminalTabs();
+    tab.fitAddon?.fit();
+  })().finally(() => { tab.startPromise = null; });
+  return tab.startPromise;
 }
 
-function hideTerminalSuggestions() {
-  const suggestions = document.getElementById('terminal-suggestions');
-  terminalSuggestionCandidates = [];
-  terminalSuggestionContext = null;
-  if (suggestions) { suggestions.hidden = true; suggestions.innerHTML = ''; }
-}
-
-function renderTerminalSuggestions(input) {
-  const suggestions = document.getElementById('terminal-suggestions');
-  if (!suggestions || !terminalSuggestionContext || !terminalSuggestionCandidates.length) return;
-  suggestions.innerHTML = terminalSuggestionCandidates.map((candidate, index) => `<button class="terminal-suggestion${index === 0 ? ' selected' : ''}" type="button" role="option" aria-selected="${index === 0}" data-terminal-suggestion="${escapeTerminalSuggestion(candidate)}">${escapeTerminalSuggestion(candidate)}</button>`).join('');
-  suggestions.hidden = false;
-  suggestions.querySelectorAll('[data-terminal-suggestion]').forEach((button) => button.addEventListener('click', () => {
-    input.value = `${terminalSuggestionContext.before}${button.dataset.terminalSuggestion}`;
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
-    hideTerminalSuggestions();
-  }));
-}
-
-function updateTerminalSuggestionSelection(input, direction) {
-  if (!terminalSuggestionCandidates.length || !terminalSuggestionContext) return false;
-  const current = Number(input.dataset.terminalSuggestionIndex ?? -1);
-  const next = current === -1
-    ? (direction > 0 ? 0 : terminalSuggestionCandidates.length - 1)
-    : (current + direction + terminalSuggestionCandidates.length) % terminalSuggestionCandidates.length;
-  input.dataset.terminalSuggestionIndex = String(next);
-  input.value = `${terminalSuggestionContext.before}${terminalSuggestionCandidates[next]}`;
-  document.querySelectorAll('[data-terminal-suggestion]').forEach((button, index) => {
-    const selected = index === next;
-    button.classList.toggle('selected', selected);
-    button.setAttribute('aria-selected', String(selected));
-  });
-  input.setSelectionRange(input.value.length, input.value.length);
-  return true;
-}
-
-function terminalCompletionContext(value) {
-  const match = value.match(/^(\s*cd\s+)(.*)$/);
-  if (!match) return null;
-  const rawPath = match[2];
-  const slashIndex = rawPath.lastIndexOf('/');
-  const directoryPrefix = slashIndex >= 0 ? rawPath.slice(0, slashIndex + 1) : '';
-  const token = slashIndex >= 0 ? rawPath.slice(slashIndex + 1) : rawPath;
-  const lookupPath = resolveTerminalCompletionPath(directoryPrefix.replace(/\/$/, ''));
-  return { before: `${match[1]}${directoryPrefix}`, lookupPath, token };
-}
-
-function resolveTerminalCompletionPath(relativePath, baseCwd = activeTerminal()?.completionCwd ?? workspaceRootPath) {
-  const base = relativePath.startsWith('/') ? relativePath : `${baseCwd}/${relativePath}`;
-  const parts = [];
-  base.split('/').forEach((part) => {
-    if (!part || part === '.') return;
-    if (part === '..') { parts.pop(); return; }
-    parts.push(part);
-  });
-  return `/${parts.join('/')}`;
-}
-
-async function completeTerminalInput(input) {
-  const tab = activeTerminal();
-  const context = terminalCompletionContext(input.value);
-  if (!tab || !context || !nativeInvoke) { hideTerminalSuggestions(); return; }
-  try {
-    const entries = await nativeInvoke('list_directory', { path: context.lookupPath, maxDepth: 0 });
-    const candidates = entries.filter((entry) => entry.kind === 'directory' && entry.name.toLowerCase().startsWith(context.token.toLowerCase())).map((entry) => entry.name).sort((a, b) => a.localeCompare(b));
-    if (!candidates.length) { hideTerminalSuggestions(); return; }
-    terminalSuggestionCandidates = candidates;
-    terminalSuggestionContext = context;
-    input.dataset.terminalSuggestionIndex = '-1';
-    if (candidates.length === 1) {
-      input.value = `${context.before}${candidates[0]}`;
-      input.setSelectionRange(input.value.length, input.value.length);
-      hideTerminalSuggestions();
-      return;
-    }
-    renderTerminalSuggestions(input);
-  } catch (error) {
-    hideTerminalSuggestions();
-    console.warn('Terminal completion unavailable:', error);
-  }
-}
-
-function updateTerminalCompletionCwd(command, tab = activeTerminal()) {
-  if (!tab) return;
-  const match = command.match(/^cd(?:\s+(.+))?$/);
-  if (!match) return;
-  const target = match[1]?.trim();
-  tab.completionCwd = target ? resolveTerminalCompletionPath(target, tab.completionCwd) : workspaceRootPath;
+async function sendTerminalInput(tab, data) {
+  if (!data || !nativeInvoke) return;
+  tab.inputQueue = tab.inputQueue
+    .catch(() => {})
+    .then(async () => {
+      await startTerminal(tab);
+      await nativeInvoke('terminal_input', { sessionId: tab.id, input: data });
+    })
+    .catch((error) => {
+      notify('Terminal input failed.');
+      console.warn('Terminal input unavailable:', error);
+    });
+  return tab.inputQueue;
 }
 
 createTerminalTab({ focus: false });
@@ -1741,7 +1660,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   if (item.dataset.action === 'open-terminal') {
     showView('projects');
     document.querySelector('.terminal-dock')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    document.getElementById('terminal-command')?.focus();
+    activeTerminal()?.terminal?.focus();
     notify('Integrated terminal focused at the project root.');
     return;
   }
@@ -2029,78 +1948,6 @@ document.getElementById('document-content')?.addEventListener('keydown', (event)
 });
 document.getElementById('agent-skill')?.addEventListener('change', refreshSelectedSkill);
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });
-document.getElementById('terminal-command')?.addEventListener('keydown', (event) => {
-  const input = event.currentTarget;
-  const tab = activeTerminal();
-  if (!tab) return;
-  if (forwardInteractiveTerminalKey(event, tab)) return;
-  if (event.key === 'Tab') {
-    event.preventDefault();
-    void completeTerminalInput(input);
-    return;
-  }
-  if (event.key === 'Escape') {
-    hideTerminalSuggestions();
-    return;
-  }
-  if (terminalSuggestionCandidates.length && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-    event.preventDefault();
-    updateTerminalSuggestionSelection(input, event.key === 'ArrowDown' ? 1 : -1);
-    return;
-  }
-  if (event.key === 'ArrowUp') {
-    if (!tab.history.length) return;
-    event.preventDefault();
-    if (tab.historyIndex === -1) tab.historyDraft = input.value;
-    tab.historyIndex = Math.min(tab.historyIndex + 1, tab.history.length - 1);
-    input.value = tab.history[tab.history.length - 1 - tab.historyIndex];
-  }
-  if (event.key === 'ArrowDown' && tab.historyIndex !== -1) {
-    event.preventDefault();
-    tab.historyIndex -= 1;
-    input.value = tab.historyIndex === -1 ? tab.historyDraft : tab.history[tab.history.length - 1 - tab.historyIndex];
-  }
-});
-document.getElementById('terminal-command')?.addEventListener('input', (event) => {
-  const tab = activeTerminal();
-  if (tab) tab.inputDraft = event.currentTarget.value;
-  event.currentTarget.dataset.terminalSuggestionIndex = '-1';
-  hideTerminalSuggestions();
-});
-document.querySelector('.terminal-surface')?.addEventListener('click', (event) => {
-  if (event.target.closest('button, input, textarea, a')) return;
-  document.getElementById('terminal-command')?.focus();
-});
-document.querySelector('.terminal-surface')?.addEventListener('keydown', (event) => {
-  const tab = activeTerminal();
-  if (tab) forwardInteractiveTerminalKey(event, tab);
-});
-document.getElementById('terminal-form')?.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const tab = activeTerminal();
-  const input = document.getElementById('terminal-command');
-  const command = input?.value.trim();
-  const cwd = document.getElementById('project-path')?.textContent;
-  if (!tab || !nativeInvoke || !command || !cwd) { notify('Native terminal requires the desktop runtime.'); return; }
-  try {
-    if (!tab.started) { await nativeInvoke('terminal_start', { sessionId: tab.id, cwd }); tab.started = true; renderTerminalTabs(); }
-    tab.history.push(command);
-    tab.interactive = commandMayOpenInteractiveTerminal(command);
-    updateTerminalCompletionCwd(command, tab);
-    renderTerminalOutput();
-    hideTerminalSuggestions();
-    tab.historyIndex = -1;
-    tab.historyDraft = '';
-    tab.inputDraft = '';
-    if (input) input.value = '';
-    // Shells map CR to a line feed in canonical mode; TUIs in raw mode need
-    // the actual Enter key code to submit prompts and actions.
-    await nativeInvoke('terminal_input', { sessionId: tab.id, input: `${command}\r` });
-  } catch (error) {
-    appendTerminalTranscript(tab.id, `\n[ADE] ${String(error)}\n`);
-    notify('Terminal command failed.');
-  }
-});
 window.addEventListener('beforeunload', () => {
   nativeInvoke?.('terminal_stop_all').catch(() => {});
 });

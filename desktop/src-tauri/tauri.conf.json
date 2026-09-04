@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.ade.desktop",
   "build": {
-    "frontendDist": "../src"
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run build",
+    "frontendDist": "../dist"
   },
   "app": {
     "withGlobalTauri": true,
