@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-03T00:00:00.000Z",
+  "generatedAt": "2026-09-04T09:20:00.000Z",
   "title": "Design System: ADE",
   "extensions": {
     "colorMeta": {
@@ -9,7 +9,19 @@
       "primary-blue": { "role": "primary", "displayName": "Command Blue", "canonical": "#76aef7", "tonalRamp": ["#12243e", "#1e3a63", "#2e5790", "#4a7fc2", "#76aef7", "#9bc5fa", "#c1dcfd", "#eaf3ff"] },
       "success-green": { "role": "tertiary", "displayName": "Success Green", "canonical": "#70d6a0", "tonalRamp": ["#102c20", "#17472f", "#236741", "#3b9862", "#70d6a0", "#99e4bb", "#c0f0d3", "#eafbf1"] },
       "warning-amber": { "role": "tertiary", "displayName": "Warning Amber", "canonical": "#e4b76b", "tonalRamp": ["#302719", "#503e22", "#74572e", "#a77d3d", "#e4b76b", "#edcc96", "#f5dfbd", "#fdf6e9"] },
-      "error-red": { "role": "tertiary", "displayName": "Error Red", "canonical": "#ef8b92", "tonalRamp": ["#351a1f", "#59252c", "#82343e", "#b95661", "#ef8b92", "#f5afb3", "#f9cfd1", "#fff0f1"] }
+      "error-red": { "role": "tertiary", "displayName": "Error Red", "canonical": "#ef8b92", "tonalRamp": ["#351a1f", "#59252c", "#82343e", "#b95661", "#ef8b92", "#f5afb3", "#f9cfd1", "#fff0f1"] },
+      "light-workspace-bg": { "role": "neutral", "displayName": "Light Workspace", "canonical": "#f3f6fa" },
+      "light-chrome": { "role": "neutral", "displayName": "Light Chrome", "canonical": "#e8eef5" },
+      "light-panel": { "role": "neutral", "displayName": "Light Panel", "canonical": "#ffffff" },
+      "light-panel-soft": { "role": "neutral", "displayName": "Light Soft Panel", "canonical": "#edf3f8" },
+      "light-line": { "role": "neutral", "displayName": "Light Structural Line", "canonical": "#c6d2de" },
+      "light-text": { "role": "neutral", "displayName": "Light Text", "canonical": "#152231" },
+      "light-muted": { "role": "neutral", "displayName": "Light Muted Text", "canonical": "#647689" },
+      "light-blue": { "role": "primary", "displayName": "Light Command Blue", "canonical": "#2865b1" },
+      "light-cyan": { "role": "primary", "displayName": "Light Workbench Cyan", "canonical": "#0e827b" },
+      "light-green": { "role": "tertiary", "displayName": "Light Success Green", "canonical": "#167646" },
+      "light-amber": { "role": "tertiary", "displayName": "Light Warning Amber", "canonical": "#8a5d11" },
+      "light-red": { "role": "tertiary", "displayName": "Light Error Red", "canonical": "#ab3d47" }
     },
     "typographyMeta": {
       "display": { "displayName": "Workbench Display", "purpose": "View and project titles only." },

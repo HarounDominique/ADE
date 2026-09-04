@@ -6,6 +6,7 @@ const toast = document.querySelector('.toast');
 const taskDialog = document.getElementById('new-task-dialog');
 const taskForm = document.getElementById('new-task-form');
 const taskIntent = document.getElementById('task-intent');
+const themeMeta = document.querySelector('meta[name="theme-color"]');
 let nativeInvoke;
 let terminalStarted = false;
 let selectedProvider = 'opencode';
@@ -16,6 +17,22 @@ let selectedTaskId = null;
 let selectedTaskIntent = '';
 let providerStatuses = [];
 const runtimeEvents = [];
+
+function applyTheme(theme) {
+  const nextTheme = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = nextTheme;
+  try { localStorage.setItem('ade-theme', nextTheme); } catch { /* Tauri privacy settings may disable storage. */ }
+  if (themeMeta) themeMeta.content = nextTheme === 'light' ? '#f5f7fa' : '#0b0f14';
+  document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
+    button.setAttribute('aria-pressed', String(nextTheme === 'light'));
+    button.title = nextTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+  });
+}
+
+let initialTheme = 'dark';
+const requestedTheme = new URLSearchParams(window.location.search).get('theme');
+try { initialTheme = requestedTheme ?? localStorage.getItem('ade-theme') ?? 'dark'; } catch { initialTheme = requestedTheme ?? 'dark'; }
+applyTheme(initialTheme);
 
 function renderSnapshot(snapshot) {
   const values = {
@@ -36,6 +53,8 @@ function renderSnapshot(snapshot) {
   });
   const statusBranch = document.getElementById('status-branch-name');
   if (statusBranch) statusBranch.textContent = snapshot.project.branch;
+  const terminalCwd = document.getElementById('terminal-cwd');
+  if (terminalCwd) terminalCwd.textContent = snapshot.project.repositoryPath;
   renderChanges(snapshot.tasks ?? []);
   renderProjectTasks(snapshot.tasks ?? []);
   if (snapshot.sync) setSyncState(snapshot.sync.state, snapshot.sync.label);
@@ -294,6 +313,7 @@ async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke) 
   try {
     const entries = await invoke('list_directory', { path, maxDepth: 0 });
     tree.innerHTML = renderWorkspaceEntries(entries);
+    filterWorkspaceTree(document.getElementById('workspace-filter')?.value ?? '');
   } catch (error) {
     tree.innerHTML = '<li>Workspace directory unavailable.</li>';
     console.warn('Workspace tree unavailable:', error);
@@ -306,13 +326,22 @@ function renderWorkspaceEntries(entries) {
     const name = escapeHTML(entry.name);
     const path = escapeHTML(entry.path);
     if (entry.kind === 'directory') {
-      return `<li class="workspace-node directory"><button class="workspace-entry directory" type="button" data-directory-path="${path}" aria-expanded="false"><span class="workspace-arrow" aria-hidden="true">▸</span><span>${name}</span></button><ul class="workspace-children" data-directory-children hidden></ul></li>`;
+      return `<li class="workspace-node directory" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry directory" type="button" data-directory-path="${path}" aria-expanded="false" aria-label="Expand ${name}"><span class="workspace-arrow" aria-hidden="true"></span><span class="workspace-glyph directory" aria-hidden="true"></span><span class="workspace-name">${name}</span></button><ul class="workspace-children" data-directory-children hidden></ul></li>`;
     }
     if (entry.kind === 'symlink') {
-      return `<li class="workspace-entry symlink" title="Symlinks are not opened outside the selected Project"><span aria-hidden="true">↗</span><span>${name}</span></li>`;
+      return `<li class="workspace-entry symlink" data-entry-name="${name.toLowerCase()}" title="Symlinks are not opened outside the selected Project"><span class="workspace-glyph symlink" aria-hidden="true"></span><span class="workspace-name">${name}</span></li>`;
     }
-    return `<li class="workspace-node file"><button class="workspace-entry file" type="button" data-file-path="${path}"><span aria-hidden="true">·</span><span>${name}</span></button></li>`;
+    return `<li class="workspace-node file" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry file" type="button" data-file-path="${path}" aria-label="Open ${name}"><span class="workspace-glyph file" aria-hidden="true"></span><span class="workspace-name">${name}</span></button></li>`;
   }).join('');
+}
+
+function filterWorkspaceTree(query) {
+  const needle = query.trim().toLowerCase();
+  document.querySelectorAll('#workspace-tree > .workspace-node').forEach((node) => {
+    const name = node.dataset.entryName ?? '';
+    const matches = !needle || name.includes(needle) || node.textContent.toLowerCase().includes(needle);
+    node.hidden = !matches;
+  });
 }
 
 async function toggleWorkspaceDirectory(button) {
@@ -612,8 +641,9 @@ async function restartSidecarFromUI() {
 function showView(view) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
-  const crumb = document.querySelector('.breadcrumb strong');
-  if (crumb) crumb.textContent = view === 'project' ? 'ADE' : view[0].toUpperCase() + view.slice(1);
+  const labels = { project: 'Overview', work: 'Tasks', knowledge: 'Project context', changes: 'Review queue', runtime: 'Local runtime' };
+  const crumb = document.getElementById('breadcrumb-current');
+  if (crumb) crumb.textContent = labels[view] ?? view;
 }
 
 function notify(message) {
@@ -629,6 +659,25 @@ refreshProjectContext(projectSnapshot);
 connectSidecar(projectSnapshot);
 document.querySelectorAll('[data-view-target]').forEach((item) => item.addEventListener('click', () => showView(item.dataset.viewTarget)));
 document.querySelectorAll('[data-action]').forEach((item) => item.addEventListener('click', () => {
+  if (item.dataset.action === 'toggle-theme') {
+    const nextTheme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    applyTheme(nextTheme);
+    notify(`${nextTheme === 'light' ? 'Light' : 'Dark'} theme enabled.`);
+    return;
+  }
+  if (item.dataset.action === 'focus-search' || item.dataset.action === 'quick-open') {
+    document.getElementById('workspace-filter')?.focus();
+    notify('Workspace search focused.');
+    return;
+  }
+  if (item.dataset.action === 'show-notifications') {
+    notify('No new notifications.');
+    return;
+  }
+  if (item.dataset.action === 'show-help') {
+    notify('Use the activity bar, ⌘K search and the terminal dock to navigate ADE.');
+    return;
+  }
   if (item.dataset.action === 'new-task') {
     taskDialog?.showModal();
     taskIntent?.focus();
@@ -660,6 +709,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'open-terminal') {
     showView('project');
+    document.querySelector('.terminal-dock')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     document.getElementById('terminal-command')?.focus();
     notify('Integrated terminal focused at the project root.');
     return;
@@ -823,6 +873,7 @@ document.getElementById('agent-provider')?.addEventListener('change', (event) =>
   renderProviderSelection();
 });
 document.getElementById('agent-skill')?.addEventListener('change', refreshSelectedSkill);
+document.getElementById('workspace-filter')?.addEventListener('input', (event) => filterWorkspaceTree(event.target.value));
 document.getElementById('terminal-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const output = document.getElementById('terminal-output');

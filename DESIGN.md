@@ -20,6 +20,18 @@ colors:
   warning-amber: "#e4b76b"
   error-red: "#ef8b92"
   agent-purple: "#b9a2ef"
+  light-workspace-bg: "#f3f6fa"
+  light-chrome: "#e8eef5"
+  light-panel: "#ffffff"
+  light-panel-soft: "#edf3f8"
+  light-line: "#c6d2de"
+  light-text: "#152231"
+  light-muted: "#647689"
+  light-blue: "#2865b1"
+  light-cyan: "#0e827b"
+  light-green: "#167646"
+  light-amber: "#8a5d11"
+  light-red: "#ab3d47"
 typography:
   display:
     fontFamily: "Avenir Next, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
@@ -82,7 +94,7 @@ components:
 
 ADE is a focused desktop workbench for software development. Its visual language is deliberately inspired by leading IDEs: the interface is organized around persistent context, dense but readable tools, keyboard-oriented controls and clear state transitions. The work surface should feel operational and calm, with every panel earning its space through a concrete development task.
 
-The system uses dark graphite and navy chrome, cool text, thin structural rules and a restrained cyan accent. It is technical without becoming sterile: success, warning, error and agent states have distinct colors, while depth comes from tonal layering instead of decorative effects.
+The system uses dark graphite and navy chrome by default, with a deliberate light workspace theme for bright environments. Both themes keep cool text, thin structural rules and a restrained cyan accent. It is technical without becoming sterile: success, warning, error and agent states have distinct colors, while depth comes from tonal layering instead of decorative effects.
 
 **Key Characteristics:**
 
@@ -90,10 +102,11 @@ The system uses dark graphite and navy chrome, cool text, thin structural rules 
 - Dense information architecture with short labels and monospace operational metadata.
 - Flat-by-default surfaces with thin borders and state-driven accents.
 - No gradients, glassmorphism, marketing hero panels or ornamental imagery.
+- Theme switching is explicit, persisted per user and never changes the information architecture.
 
 ## Colors
 
-The palette is a dark graphite workspace with cool neutrals and a small set of semantic status colors. Cyan is the primary interaction accent and should remain scarce enough to communicate focus.
+The palette is a dark graphite workspace with cool neutrals and a small set of semantic status colors, mirrored by a high-contrast light workspace. Cyan is the primary interaction accent and should remain scarce enough to communicate focus.
 
 ### Primary
 
@@ -119,6 +132,15 @@ The palette is a dark graphite workspace with cool neutrals and a small set of s
 - **Muted Text** (#8291a0): Supporting copy.
 - **Structural Line** (#293542): Panel boundaries and separators.
 
+### Light Theme
+
+- **Light Workspace** (#f3f6fa): Alternate application canvas.
+- **Light Chrome** (#e8eef5): Sidebar, activity rail and toolbar surfaces.
+- **Light Panel** (#ffffff): Workbench panes and content surfaces.
+- **Light Soft Surface** (#edf3f8): Inputs, code surfaces and raised controls.
+- **Light Text** (#152231): Primary headings and decisions.
+- **Light Muted** (#647689): Supporting copy.
+
 **The Signal Scarcity Rule.** Use cyan, green, amber and red only when they communicate interaction or state; never use them as decoration.
 
 ## Typography
@@ -142,7 +164,7 @@ The palette is a dark graphite workspace with cool neutrals and a small set of s
 
 ## Layout
 
-The desktop shell is a three-column IDE frame: a narrow activity rail, a project explorer/sidebar and a flexible workbench. A sticky top command bar anchors project context and global actions. The main work area uses a 15px panel rhythm and 1px structural gaps so adjacent panes read as one instrument rather than a grid of unrelated cards. The bottom status bar remains visible across the full shell.
+The desktop shell is a three-column IDE frame: a single activity rail, a persistent project explorer/sidebar and a flexible workbench. A sticky top command bar anchors project context and global actions. The explorer owns a filterable, lazily expanded tree so project navigation stays available while switching views. The main work area uses a 15px panel rhythm and 1px structural gaps so adjacent panes read as one instrument rather than a grid of unrelated cards. A fixed native PTY dock remains available at the bottom, above the full-width status bar.
 
 At narrower desktop widths, the workbench collapses the project context panes into one column and the metric strip and knowledge surfaces reduce to two columns. The activity rail remains visible so navigation never disappears.
 
@@ -181,8 +203,16 @@ The form language is compact and restrained: mostly square corners, 2–4px radi
 
 ### Navigation
 
-- **Style:** Activity rail icons plus a labeled explorer navigation. Active items use a 2px cyan edge and a slightly raised graphite surface.
+- **Style:** A single icon-only activity rail controls views; the adjacent sidebar is exclusively the labeled project explorer. Active items use a 2px cyan edge and a slightly raised surface.
 - **Interaction:** Hover changes surface and text contrast; focus remains visible; labels and ARIA names are always available for icon-only controls.
+
+### Explorer
+
+The explorer is persistent, filterable and lazily expanded. Directory rows have a clear disclosure affordance, file rows open through the native shell, and symlinks are visibly non-actionable when they leave the selected project root.
+
+### Terminal Dock
+
+The native terminal is a fixed bottom dock with one real command field, an explicit Run action, live output and the current Project path. It is present across views and can be focused from the breadcrumb-area command actions.
 
 ### Workbench Pane
 
