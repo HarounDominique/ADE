@@ -216,7 +216,7 @@
 - [x] Task: Convertir Overview en Projects y admitir carpetas No Git
   - Spec: [SPEC-project-task-workflow.md](../docu/specs/SPEC-project-task-workflow.md) · [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md)
   - ADR: [0017-projects-and-editor-navigation.md](../docu/adr/0017-projects-and-editor-navigation.md)
-  - Acceptance: Projects lista Projects persistidos, permite añadir una carpeta local desde el selector macOS y distingue Git/No Git; el selector superior usa el mismo catálogo.
+  - Acceptance: Projects lista Projects persistidos, permite añadir una carpeta local desde el selector macOS, distingue Git/No Git, permite retirar un Project del seguimiento sin tocar sus ficheros y muestra sólo el título activo y las métricas compactas; el selector superior usa el mismo catálogo.
   - Verify: `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml`, build desktop y alta manual de una carpeta con y sin Git.
 
 - [x] Task: Convertir el visor en Editor navegable

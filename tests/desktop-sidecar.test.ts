@@ -36,6 +36,18 @@ test("desktop sidecar lists registered projects for the Git context selector", (
   store.close();
 });
 
+test("desktop sidecar removes a project from ADE without touching its files", () => {
+  const store = new AdeStore();
+  const project = Project.create({ id: "project-remove", name: "Remove me", repositoryPath: "/tmp/remove-me" });
+  store.saveProject(project, { path: "/tmp/remove-me", gitRoot: "/tmp/remove-me", branch: "main" });
+
+  const response = handleDesktopRequest(store, { id: "remove-1", method: "project.remove", params: { projectId: project.id } });
+
+  assert.deepEqual(response, { id: "remove-1", result: { id: project.id, removed: true } });
+  assert.equal(store.getProject(project.id), undefined);
+  store.close();
+});
+
 test("desktop sidecar returns actionable protocol errors", () => {
   const store = new AdeStore();
 

@@ -51,6 +51,8 @@ Invariantes del contrato:
 
 La creación de Project falla de forma explícita si la ruta no existe o ya está registrada. Una carpeta sin Git se acepta y se marca `versionControl: "none"`; un repositorio Git devuelve además su raíz canónica para evitar duplicados por rutas relativas o subdirectorios.
 
+La retirada desde `Projects` es una operación de seguimiento: elimina el registro del Project de la base ADE, conserva intacta la carpeta local y permite volver a registrarla más adelante. La shell no permite retirar el único Project activo porque necesita una raíz de workspace válida para continuar operando; primero debe registrarse otro Project.
+
 ### Acceptance criteria
 
 - Un repositorio local puede registrarse como `Project`.

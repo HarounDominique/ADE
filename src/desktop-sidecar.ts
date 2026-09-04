@@ -72,11 +72,18 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.list', 'project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'service.status', 'skills.list'].includes(request.method)) {
+    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'service.status', 'skills.list'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.list") {
       return { id: request.id, result: store.listProjects() };
+    }
+    if (request.method === "project.remove") {
+      const projectId = request.params?.projectId;
+      if (!projectId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "projectId is required" } };
+      if (!store.getProject(projectId)) return { id: request.id, error: { code: "PROJECT_NOT_FOUND", message: `Project not found: ${projectId}` } };
+      store.removeProject(projectId);
+      return { id: request.id, result: { id: projectId, removed: true } };
     }
     if (request.method === "project.snapshot") {
       const projectId = request.params?.projectId;
@@ -171,6 +178,8 @@ export async function runDesktopSidecar(): Promise<void> {
         else void registerProject(store, new LocalGitRepository(), { id: params.projectId, name: params.name, repositoryPath: params.repositoryPath })
           .then((project) => process.stdout.write(`${JSON.stringify({ id: request.id, result: store.getProject(project.id) ?? project })}\n`))
           .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "PROJECT_REGISTER_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "project.remove") {
+        process.stdout.write(`${JSON.stringify(handleDesktopRequest(store, request))}\n`);
       } else if (request.method === "task.run") {
         startTaskRun(store, request);
       } else if (request.method === "task.rereview") {

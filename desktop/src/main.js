@@ -49,6 +49,7 @@ let projectCatalogLoaded = false;
 let gitBranches = [];
 const pendingContextRequests = new Map();
 const pendingSnapshotProjects = new Map();
+const pendingProjectRemovals = new Map();
 
 function applyTheme(theme) {
   const nextTheme = theme === 'light' ? 'light' : 'dark';
@@ -403,7 +404,8 @@ function renderProjectsList() {
   list.innerHTML = registeredProjects.map((project) => {
     const isActive = project.id === activeProjectId;
     const versionControl = project.versionControl === 'none' ? 'No Git' : 'Git';
-    return `<button class="project-list-item${isActive ? ' active' : ''}" type="button" data-project-id="${escapeHTML(project.id)}"><span class="project-list-icon" aria-hidden="true">${isActive ? '●' : '○'}</span><span class="project-list-copy"><strong>${escapeHTML(project.name)}</strong><small>${escapeHTML(project.repositoryPath)}</small></span><span class="project-list-vcs">${versionControl}</span><span class="project-list-arrow" aria-hidden="true">→</span></button>`;
+    const canRemove = !isActive || registeredProjects.length > 1;
+    return `<div class="project-list-item${isActive ? ' active' : ''}"><button class="project-list-select" type="button" data-project-id="${escapeHTML(project.id)}"><span class="project-list-icon" aria-hidden="true">${isActive ? '●' : '○'}</span><span class="project-list-copy"><strong>${escapeHTML(project.name)}</strong><small>${escapeHTML(project.repositoryPath)}</small></span><span class="project-list-vcs">${versionControl}</span><span class="project-list-arrow" aria-hidden="true">→</span></button><button class="project-list-remove" type="button" data-remove-project-id="${escapeHTML(project.id)}" aria-label="Remove ${escapeHTML(project.name)} from ADE" title="Remove from ADE"${canRemove ? '' : ' disabled'}>×</button></div>`;
   }).join('');
   if (status) status.textContent = `${registeredProjects.length} project${registeredProjects.length === 1 ? '' : 's'}`;
 }
@@ -412,6 +414,7 @@ function sendContextRequest(method, params = {}, purpose = method) {
   if (!nativeInvoke) return Promise.reject(new Error('Local sidecar unavailable'));
   const id = `context-${purpose}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   pendingContextRequests.set(String(id), purpose);
+  if (method === 'project.remove' && params.projectId) pendingProjectRemovals.set(String(id), params.projectId);
   return nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method, params }) });
 }
 
@@ -529,6 +532,19 @@ async function addProjectFromUI() {
   } catch (error) {
     notify(error instanceof Error ? error.message : 'Unable to add project.');
   }
+}
+
+function removeProjectFromUI(project) {
+  if (!nativeInvoke || !project) return;
+  if (project.id === activeProjectId && registeredProjects.length === 1) {
+    notify('Add another project before removing the active one.');
+    return;
+  }
+  if (!window.confirm(`Remove “${project.name}” from ADE? Its files will stay on disk.`)) return;
+  setSyncState('stale', `Removing ${project.name}…`);
+  void sendContextRequest('project.remove', { projectId: project.id }, 'remove-project').catch((error) => {
+    notify(error instanceof Error ? error.message : 'Unable to remove project.');
+  });
 }
 
 function renderChanges(tasks) {
@@ -1187,6 +1203,7 @@ async function connectSidecar(snapshot) {
         if (snapshotProjectId !== activeProjectId) return;
       }
       if (response.error) {
+        if (contextPurpose === 'remove-project') pendingProjectRemovals.delete(String(response.id));
         if (contextPurpose === 'projects') {
           projectCatalogLoaded = false;
           const menu = document.getElementById('repository-context-menu');
@@ -1214,6 +1231,22 @@ async function connectSidecar(snapshot) {
         renderRepositoryMenu();
         renderProjectsList();
         await switchProjectFromContext(response.result);
+        return;
+      }
+      if (contextPurpose === 'remove-project' && response.result?.removed) {
+        const removedProjectId = pendingProjectRemovals.get(String(response.id));
+        pendingProjectRemovals.delete(String(response.id));
+        registeredProjects = registeredProjects.filter((project) => project.id !== removedProjectId);
+        projectCatalogLoaded = true;
+        renderRepositoryMenu();
+        renderProjectsList();
+        if (removedProjectId === activeProjectId) {
+          const nextProject = registeredProjects[0];
+          if (nextProject) await switchProjectFromContext(nextProject);
+        } else {
+          setSyncState('ready', 'Synced just now');
+          notify('Project removed from ADE. Files were kept on disk.');
+        }
         return;
       }
       if (contextPurpose === 'branches' && response.result?.branches) {
@@ -1695,6 +1728,12 @@ document.getElementById('terminal-new-tab')?.addEventListener('click', () => {
 document.getElementById('repository-context-button')?.addEventListener('click', () => toggleGitContextMenu('repository'));
 document.getElementById('branch-context-button')?.addEventListener('click', () => toggleGitContextMenu('branch'));
 document.addEventListener('click', (event) => {
+  const removeProjectButton = event.target.closest('[data-remove-project-id]');
+  if (removeProjectButton) {
+    const project = registeredProjects.find((candidate) => candidate.id === removeProjectButton.dataset.removeProjectId);
+    if (project) removeProjectFromUI(project);
+    return;
+  }
   const projectOption = event.target.closest('[data-project-id]');
   if (projectOption) {
     const project = registeredProjects.find((candidate) => candidate.id === projectOption.dataset.projectId);

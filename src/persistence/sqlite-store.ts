@@ -195,6 +195,11 @@ export class AdeStore {
     `).run(project.id, project.name, project.repositoryPath, repository.gitRoot ?? project.repositoryPath, repository.branch ?? null, project.createdAt, repository.versionControl ?? "git");
   }
 
+  removeProject(id: string): boolean {
+    const result = this.db.prepare("DELETE FROM projects WHERE id = ?").run(id);
+    return result.changes > 0;
+  }
+
   saveChangeSet(changeSet: ChangeSet): void {
     this.db.prepare(`
       INSERT INTO change_sets (

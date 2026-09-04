@@ -11,7 +11,7 @@ test("desktop shell keeps the project workbench areas and critical actions", () 
     assert.match(html, new RegExp(`data-view=\"${view}\"`));
     assert.match(html, new RegExp(`data-panel=\"${view}\"`));
   }
-  for (const action of ["new-task", "open-terminal", "open-document", "check-runtime", "restart-sidecar", "refresh-tree", "run-skill", "install-skill", "github-status", "create-worktree", "push-branch", "refresh-knowledge"]) {
+  for (const action of ["new-task", "open-document", "check-runtime", "restart-sidecar", "refresh-tree", "run-skill", "install-skill", "github-status", "create-worktree", "push-branch", "refresh-knowledge"]) {
     assert.match(html, new RegExp(`data-action=\"${action}\"`));
   }
 });
@@ -36,6 +36,11 @@ test("desktop shell exposes the Git context bar and Explorer search affordance",
   assert.match(main, /showView\('editor'\)/);
   assert.match(html, /data-action="add-project"/);
   assert.match(html, /id="projects-list"/);
+  assert.match(html, /id="selected-project-title"/);
+  assert.match(main, /data-remove-project-id/);
+  assert.doesNotMatch(html, /PROJECT HUB/);
+  assert.doesNotMatch(html, /Task workbench/);
+  assert.match(main, /project\.remove/);
   assert.match(html, /data-panel="editor"/);
   assert.match(html, /id="editor-empty-state"/);
   assert.match(styles, /\.git-context-bar/);

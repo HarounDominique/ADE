@@ -26,7 +26,7 @@ Las áreas visibles son `PROJECTS`, `EDITOR`, `WORK`, `KNOWLEDGE`, `CHANGES` y `
 
 ### Projects
 
-La entrada `Projects` lista los Projects registrados y ofrece `Add project`, que abre el selector nativo de carpetas. Cada fila muestra nombre, ruta y `Git`/`No Git`, permite activar el Project y refleja estados de carga, vacío, error y cambio. La pantalla y el selector `Current project` de la topbar consumen el mismo catálogo persistido.
+La entrada `Projects` es una pantalla de gestión deliberadamente mínima. Muestra únicamente el catálogo de Projects registrados, `Add project` (selector nativo de carpetas), el título del Project seleccionado y un resumen de cuatro métricas: `Active tasks`, `In review`, `Services` y `Last ship`. Cada fila muestra nombre, ruta y `Git`/`No Git`, permite activar el Project y ofrece `Remove from ADE`; la retirada elimina sólo el registro de seguimiento de la base local, nunca la carpeta ni sus ficheros. El Project activo no puede retirarse si es el único registrado; si existen otros, la retirada selecciona automáticamente el siguiente. La pantalla y el selector `Current project` de la topbar consumen el mismo catálogo persistido.
 
 ### Editor
 
@@ -43,9 +43,9 @@ Seleccionar un Project cambia el contexto canónico de Tauri, refresca snapshot,
 
 El Explorer mantiene el buscador como única búsqueda de ficheros. Una lupa accionable junto al título `Explorer` enfoca el filtro sin crear una segunda búsqueda.
 
-### Project detail
+### Project summary
 
-Es el resumen operativo dentro de `Projects`, no una entrada separada de navegación. Presenta el Project activo, su raíz local, branch o ausencia de Git, servicios activos y Tasks recientes. Una Task muestra intención, modo, fase, última evidencia, gate bloqueante y acción siguiente.
+El resumen operativo dentro de `Projects` no es una entrada separada ni un segundo workbench. Bajo el título del Project activo presenta sólo las cuatro métricas compactas del contrato: Tasks activas, Tasks en revisión, servicios activos/declarados y último envío. El detalle de Tasks, actividad, Git, agentes, servicios y evidencia vive en `Work`, `Changes` y `Runtime`.
 
 ### Sidebar and Explorer
 
@@ -116,7 +116,7 @@ npm run desktop:test
 npm run desktop:package:app
 ```
 
-La shell actual se verifica con `npm run build`, `npm test` (93 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
+La shell actual se verifica con `npm run build`, `npm test` (94 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
 
 El shell visual vive en `desktop/src/`. `project-snapshot.js` define el boundary de arranque y `project-context.js` conserva la fusión del Project activo. El comando Tauri `project_context` aporta contexto local y selecciona la raíz canónica. La UI no accede directamente a SQLite, Git ni procesos: Projects y ramas se obtienen mediante el sidecar y el cambio de raíz pasa por Tauri.
 
