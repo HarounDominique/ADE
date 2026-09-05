@@ -126,7 +126,7 @@ El shell visual vive en `desktop/src/`. `project-snapshot.js` define el boundary
 
 El read model de aplicación `ProjectSnapshot` compone el Project seleccionado, sus Tasks, el último evento de cada Task y las métricas `activeTasks`/`inReview`. La shell debe consumir este modelo y no consultar tablas de SQLite directamente.
 
-La CLI expone el mismo contrato mediante `npm run ade -- project snapshot <project-id>`, usando `ADE_DB_PATH` para localizar la metadata. El sidecar también exige `ADE_DB_PATH`; la shell no debe depender del `cwd` para decidir dónde persistir. Esta salida es el seam de verificación; el transporte Tauri debe reutilizar el caso de uso, no parsear la salida humana de otros comandos.
+La CLI expone el mismo contrato mediante `npm run ade -- project snapshot <project-id>`, usando `ADE_DB_PATH` para localizar la metadata. En la shell Tauri, `ADE_DB_PATH` es un override opcional: si falta, el supervisor reutiliza una `.ade/ade.db` encontrada junto al bundle de desarrollo y, en una instalación independiente, usa el directorio de datos de la aplicación. Así el lanzamiento desde Finder no pierde el catálogo ni depende del `cwd`. Esta salida es el seam de verificación; el transporte Tauri debe reutilizar el caso de uso, no parsear la salida humana de otros comandos.
 
 ## Code Style
 

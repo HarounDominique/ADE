@@ -160,7 +160,14 @@ fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Sen
         .master
         .take_writer()
         .map_err(|error| format!("Terminal PTY writer unavailable: {error}"))?;
-    Ok((TerminalProcess { child, master: pair.master, writer }, reader))
+    Ok((
+        TerminalProcess {
+            child,
+            master: pair.master,
+            writer,
+        },
+        reader,
+    ))
 }
 
 #[tauri::command]
@@ -203,7 +210,12 @@ fn terminal_resize(
         .ok_or_else(|| format!("Terminal session is not running: {session_id}"))?;
     process
         .master
-        .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+        .resize(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
         .map_err(|error| format!("Unable to resize terminal: {error}"))
 }
 
@@ -686,23 +698,38 @@ fn sidecar_start(
     if state.reap_finished()? {
         return Ok(());
     }
-    let database_path = std::env::var("ADE_DB_PATH")
-        .map_err(|_| "ADE_DB_PATH must point to the ADE metadata database".to_string())?;
+    let database_path = resolve_sidecar_database_path(&app)?;
     let mut command = if let Ok(script) = std::env::var("ADE_SIDECAR_SCRIPT") {
         let node = std::env::var("ADE_SIDECAR_NODE").unwrap_or_else(|_| "node".to_string());
         let mut command = Command::new(node);
         command.arg(script);
         command
     } else {
-        let binary = std::env::var("ADE_SIDECAR_BIN")
-            .map(std::path::PathBuf::from)
-            .or_else(|_| {
-                app.path()
-                    .resource_dir()
-                    .map(|directory| directory.join("sidecar-dist/ade-sidecar"))
-                    .map_err(|error| error.to_string())
-            })?;
-        Command::new(binary)
+        let resource_dir = app
+            .path()
+            .resource_dir()
+            .map_err(|error| error.to_string())?;
+        let script = resource_dir.join("sidecar-dist/desktop-sidecar.cjs");
+        if let Ok(binary) = std::env::var("ADE_SIDECAR_BIN") {
+            Command::new(binary)
+        } else if script.is_file() {
+            let node = std::env::var("ADE_SIDECAR_NODE")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+                .or_else(|| {
+                    ["/opt/homebrew/opt/node@24/bin/node", "/usr/local/bin/node"]
+                        .iter()
+                        .find(|candidate| Path::new(candidate).is_file())
+                        .map(|candidate| (*candidate).to_string())
+                })
+                .unwrap_or_else(|| "node".to_string());
+            let mut command = Command::new(node);
+            command.arg(script);
+            command
+        } else {
+            let binary = resource_dir.join("sidecar-dist/ade-sidecar");
+            Command::new(binary)
+        }
     };
     let mut child = command
         .env("ADE_DB_PATH", database_path)
@@ -735,6 +762,33 @@ fn sidecar_start(
         .map_err(|_| "Sidecar state is poisoned".to_string())?;
     *current = Some(child);
     Ok(())
+}
+
+fn resolve_sidecar_database_path(app: &tauri::AppHandle) -> Result<String, String> {
+    if let Ok(path) = std::env::var("ADE_DB_PATH") {
+        if !path.trim().is_empty() {
+            return Ok(path);
+        }
+    }
+
+    // Development bundles live inside the repository. Reuse its metadata when
+    // present so launching the .app from Finder keeps the registered Projects.
+    if let Ok(executable) = std::env::current_exe() {
+        for ancestor in executable.ancestors() {
+            let candidate = ancestor.join(".ade/ade.db");
+            if candidate.is_file() {
+                return Ok(candidate.to_string_lossy().into_owned());
+            }
+        }
+    }
+
+    let directory = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Unable to resolve ADE application data directory: {error}"))?;
+    std::fs::create_dir_all(&directory)
+        .map_err(|error| format!("Unable to create ADE application data directory: {error}"))?;
+    Ok(directory.join("ade.db").to_string_lossy().into_owned())
 }
 
 #[tauri::command]
@@ -867,7 +921,8 @@ mod tests {
         let root = fixture_root("project-context-no-git");
         let workspace = WorkspaceRoot::default();
 
-        let context = project_context_for(&workspace, &root.to_string_lossy()).expect("read context");
+        let context =
+            project_context_for(&workspace, &root.to_string_lossy()).expect("read context");
 
         assert_eq!(context.version_control, "none");
         assert_eq!(context.branch, "detached");

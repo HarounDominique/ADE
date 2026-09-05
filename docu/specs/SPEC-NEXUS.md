@@ -157,6 +157,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-03 — desktop-transport-failure-tests — Se automatizaron procesos sidecar reales para respuesta por stdio y fallo sin `ADE_DB_PATH`; queda validar recuperación dentro de Tauri y empaquetado.
 - 2026-09-03 — desktop-sidecar-resource — El bundle Tauri incluye `sidecar-dist` y Rust resuelve el recurso empaquetado; el packaging autónomo queda pendiente porque aún requiere Node instalado.
 - 2026-09-03 — desktop-sidecar-standalone — Node SEA + `postject` generan un sidecar Mach-O arm64 autocontenido; el bundle `.app` lo incluye y el smoke JSON-RPC no requiere Node externo.
+- 2026-09-05 — desktop-sidecar-launch-recovery — El supervisor Tauri localiza automáticamente la metadata cuando no existe `ADE_DB_PATH` y ejecuta directamente el script CJS empaquetado cuando el runtime SEA no está disponible; el catálogo de Projects vuelve a cargar al abrir el `.app` desde Finder.
 - 2026-09-03 — desktop-work-create — Work permite introducir una intención y crear una Task persistida mediante el sidecar; el Project Hub se refresca con el resultado real.
 - 2026-09-03 — desktop-work-advance — El sidecar expone `task.advance` con validación de transición, razón y actor; la UI aún debe ofrecer controles visuales de reanudación.
 - 2026-09-03 — desktop-work-controls — Work muestra controles para transiciones permitidas y refresca el Project Hub tras avanzar una Task; queda conectar ejecución y eventos de runtime.
