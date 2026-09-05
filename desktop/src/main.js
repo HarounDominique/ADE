@@ -116,6 +116,8 @@ let monacoEditor = null;
 let activeEditorEngine = 'codemirror';
 const codeEditorLanguage = new Compartment();
 const pendingContextRequests = new Map();
+const pendingAgentSessionPaths = new Map();
+const pendingAgentMessageSessions = new Map();
 const pendingSnapshotProjects = new Map();
 const pendingProjectRemovals = new Map();
 
@@ -552,6 +554,7 @@ async function switchProjectFromContext(project) {
     gitBranches = [];
     selectedPendingGitFile = null;
     gitCommitNeedsPush = false;
+    resetAgentWorkspaceForProject();
     renderCommitControls();
     if (selectedFilePath && !selectedFilePath.startsWith(`${workspaceRootPath}/`)) {
       selectedFilePath = null;
@@ -566,6 +569,7 @@ async function switchProjectFromContext(project) {
     workspaceSearchIndex = null;
     await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
     await refreshGitWorkspace(workspaceRootPath, nativeInvoke);
+    requestAgentSessions(workspaceRootPath);
     await sendContextRequest('project.snapshot', { projectId: activeProjectId }, 'snapshot');
     await sendContextRequest('skills.list', { repositoryPath: workspaceRootPath }, 'skills');
     await sendContextRequest('service.list', { repositoryPath: workspaceRootPath }, 'services');
@@ -1254,6 +1258,9 @@ function requestAgentSessions(path = workspaceRootPath) {
   if (!nativeInvoke || !path) return;
   const id = `agent-sessions-${Date.now()}`;
   pendingContextRequests.set(id, 'agent-sessions');
+  pendingAgentSessionPaths.set(id, path);
+  const list = document.getElementById('agent-session-list');
+  if (list) list.innerHTML = '<p class="agent-empty-state">Loading sessions…</p>';
   nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.sessions', params: { repositoryPath: path } }) });
 }
 
@@ -1261,6 +1268,7 @@ function requestAgentMessages(sessionId) {
   if (!nativeInvoke || !sessionId) return;
   const id = `agent-messages-${Date.now()}`;
   pendingContextRequests.set(id, 'agent-messages');
+  pendingAgentMessageSessions.set(id, sessionId);
   nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.messages', params: { sessionId } }) });
 }
 
@@ -1282,6 +1290,27 @@ function renderAgentSessions(sessions) {
       ? sessions.map((session) => `<button class="agent-session-item${session.id === activeAgentSessionId ? ' active' : ''}" type="button" role="option" aria-selected="${session.id === activeAgentSessionId}" data-agent-session-id="${escapeHTML(session.id)}"><span class="agent-session-item-top"><strong>${escapeHTML(session.provider)}</strong><span>${escapeHTML(session.status.toLowerCase())}</span></span><small>${escapeHTML(session.id.slice(0, 22))}</small></button>`).join('')
       : '<p class="agent-empty-state">No saved sessions yet.</p>';
   }
+}
+
+function resetAgentWorkspaceForProject() {
+  activeAgentSessionId = null;
+  agentSessions = [];
+  agentActivity = [];
+  agentFiles = [];
+  agentSkillsUsed = [];
+  renderAgentSessions([]);
+  renderAgentMessages([]);
+  renderAgentActivity();
+  renderAgentFiles();
+  renderAgentSkills();
+  const providerLabel = document.getElementById('agent-session-provider');
+  const title = document.getElementById('agent-session-title');
+  const location = document.getElementById('agent-session-location');
+  const context = document.getElementById('agent-session-context');
+  if (providerLabel) providerLabel.textContent = `${selectedProvider} · new session`;
+  if (title) title.textContent = 'Start an agent session';
+  if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
+  if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
 }
 
 function renderAgentActivity() {
@@ -1771,6 +1800,10 @@ async function connectSidecar(snapshot) {
       const response = JSON.parse(event.payload);
       const contextPurpose = pendingContextRequests.get(String(response.id));
       if (contextPurpose) pendingContextRequests.delete(String(response.id));
+      const agentSessionRequestPath = pendingAgentSessionPaths.get(String(response.id));
+      if (agentSessionRequestPath) pendingAgentSessionPaths.delete(String(response.id));
+      const agentMessageRequestSession = pendingAgentMessageSessions.get(String(response.id));
+      if (agentMessageRequestSession) pendingAgentMessageSessions.delete(String(response.id));
       if (contextPurpose === 'git-pending') pendingGitRefreshInFlight = false;
       const snapshotProjectId = pendingSnapshotProjects.get(String(response.id));
       if (snapshotProjectId) {
@@ -1857,10 +1890,12 @@ async function connectSidecar(snapshot) {
         return;
       }
       if (contextPurpose === 'agent-sessions' && Array.isArray(response.result)) {
+        if (agentSessionRequestPath !== workspaceRootPath) return;
         renderAgentSessions(response.result);
         return;
       }
       if (contextPurpose === 'agent-messages' && Array.isArray(response.result)) {
+        if (agentMessageRequestSession !== activeAgentSessionId) return;
         renderAgentMessages(response.result);
         return;
       }

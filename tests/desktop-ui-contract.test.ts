@@ -37,6 +37,16 @@ test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(styles, /grid-template-columns: 188px minmax\(0, 1fr\);/);
 });
 
+test("switching Project refreshes and isolates the Agent session history", () => {
+  const switcher = main.slice(main.indexOf("async function switchProjectFromContext"), main.indexOf("async function switchBranchFromContext"));
+  assert.match(switcher, /resetAgentWorkspaceForProject\(\)/);
+  assert.match(switcher, /requestAgentSessions\(workspaceRootPath\)/);
+  assert.match(main, /pendingAgentSessionPaths\.set\(id, path\)/);
+  assert.match(main, /if \(agentSessionRequestPath !== workspaceRootPath\) return;/);
+  assert.match(main, /pendingAgentMessageSessions\.set\(id, sessionId\)/);
+  assert.match(main, /if \(agentMessageRequestSession !== activeAgentSessionId\) return;/);
+});
+
 test("Agent permissions are explicit checkboxes without a blocking second prompt", () => {
   const handler = main.slice(main.indexOf("function sendAgentPrompt"), main.indexOf("function renderProjectTasks"));
   assert.match(handler, /input\[type="checkbox"\]:checked/);
