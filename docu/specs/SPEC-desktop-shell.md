@@ -4,7 +4,7 @@
 
 ## Objective
 
-Ofrecer una superficie desktop centrada en proyectos, Tasks y agentes, con navegación por Knowledge, Version control y Runtime, incorporando un editor interno de texto acotado sin construir todavía un editor completo.
+Ofrecer una superficie desktop centrada en proyectos, Tasks y agentes, con navegación por Knowledge y Version control, incorporando un editor interno de texto acotado sin construir todavía un editor completo. El runtime y los servicios son infraestructura transversal del shell, no una vista de navegación independiente.
 
 ## Shell contract
 
@@ -22,7 +22,7 @@ El shell debe funcionar sin cloud y conservar la capacidad de abrir el repositor
 
 ## Information architecture
 
-Las áreas visibles son `PROJECTS`, `EDITOR`, `AGENTS`, `WORK`, `KNOWLEDGE`, `VERSION CONTROL` y `RUNTIME`. `Projects` administra el catálogo local y el Project activo; `Editor` es la superficie de ficheros; `Agents` es la superficie conversacional para runtimes locales. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y runtime vive en sus áreas respectivas.
+Las áreas visibles son `PROJECTS`, `EDITOR`, `AGENTS`, `WORK`, `KNOWLEDGE` y `VERSION CONTROL`. `Projects` administra el catálogo local y el Project activo; `Editor` es la superficie de ficheros; `Agents` es la superficie conversacional para runtimes locales. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y evidencia de runtime se consume desde sus superficies respectivas sin exponer un menú Runtime independiente.
 
 ### Projects
 
@@ -45,11 +45,11 @@ El Explorer mantiene el buscador como única búsqueda de ficheros. Una lupa acc
 
 ### Project summary
 
-El resumen operativo dentro de `Projects` no es una entrada separada ni un segundo workbench. Bajo el título del Project activo presenta sólo las cuatro métricas compactas del contrato: Tasks activas, Tasks en revisión, servicios activos/declarados y último envío. El detalle de Tasks, actividad, Git, agentes, servicios y evidencia vive en `Work`, `Changes` y `Runtime`.
+El resumen operativo dentro de `Projects` no es una entrada separada ni un segundo workbench. Bajo el título del Project activo presenta sólo las cuatro métricas compactas del contrato: Tasks activas, Tasks en revisión, servicios activos/declarados y último envío. El detalle de Tasks, actividad, Git, agentes, servicios y evidencia vive en `Work`, `Changes` y en las superficies que consumen el runtime.
 
 ### Sidebar and Explorer
 
-El lateral combina una navegación etiquetada para `Projects`, `Editor`, `Work`, `Knowledge`, `Changes` y `Runtime` con el Explorer del Project. No se muestran simultáneamente dos menús que representen las mismas vistas. Un divisor vertical visible permite redimensionar el lateral por pointer o teclado, con límites de 190–720 px (acotados responsivamente al ancho de ventana) y ancho persistido por Project. El Explorer tiene dos estados:
+El lateral combina una navegación etiquetada para `Projects`, `Editor`, `Work`, `Knowledge` y `Changes` con el Explorer del Project. No se muestran simultáneamente dos menús que representen las mismas vistas. Un divisor vertical visible permite redimensionar el lateral por pointer o teclado, con límites de 190–720 px (acotados responsivamente al ancho de ventana) y ancho persistido por Project. El Explorer tiene dos estados:
 
 - **Compacto:** cuando existe un archivo activo, muestra su rama de carpetas desde la raíz del Project hasta el archivo, ocultando hermanos no relevantes y manteniendo el contexto como un breadcrumb en formato árbol. Si todavía no hay archivo activo, muestra los hijos directos de la raíz.
 - **Expandido:** al pulsar el control de expansión o una carpeta de la rama compacta, oculta las opciones de navegación y convierte el árbol en la superficie principal del lateral. Los hijos se cargan perezosamente y la rama seleccionada permanece resaltada.
@@ -95,9 +95,9 @@ Muestra documentos seleccionados, motivo de inclusión, clase (`canonical`, `ope
 
 Conserva el icono de control de versiones y sustituye la antigua cola de revisión. La pestaña `History` lista los commits recientes del Project activo; al seleccionar uno muestra autor, fecha, ficheros modificados y el diff del commit, con selección opcional de un fichero para aislar su diff. La pestaña `Changes` sigue el patrón de GitHub Desktop: muestra el working tree como lista de ficheros seleccionables y el diff legible del fichero activo, con líneas de contexto, añadidas, eliminadas y hunks resaltadas. El botón `Commit` se sitúa junto a las tabs y abre un diálogo modal para el título y cuerpo opcional; sólo crea el commit local. Al completarse habilita `Push origin`, que publica la rama actual bajo confirmación explícita. Mientras `Version control` está visible, `git.pending` se consulta periódicamente con actualización silenciosa para reflejar cambios hechos desde ADE, desde la terminal o desde otra aplicación, sin obligar a cambiar de vista ni pulsar Refresh; las respuestas de un Project anterior se descartan. `Fetch origin` actualiza las referencias remotas bajo confirmación explícita. Los estados `No Git`, `loading`, `empty`, `failed`, `fetching`, `committing` y `local commit ready to push` deben ser visibles; un fallo de push no oculta el commit si ya llegó a crearse.
 
-### Runtime
+### Runtime infrastructure
 
-Muestra sesiones, servicios, procesos, puertos, healthchecks, terminal, stdout/stderr y tests. Expone `runtime.status` y `runtime.health` por el sidecar; Runtime puede comprobar OpenCode y presenta versión o `RUNTIME_UNAVAILABLE` como evidencia. También muestra por separado `sidecar: READY`, `agentRuntime`, Task activa, último evento y último error. `task.run` sólo acepta `READY`, `CHANGES_REQUESTED` o `BLOCKED`, emite `runtime.event`, `runtime.completed` o `runtime.failed`; si falla durante la ejecución, la Task queda en `BLOCKED`. La UI conserva hasta 12 eventos recientes con hora, tipo y Task, y refresca el resumen de `Projects` al finalizar. Un estado `RUNNING` debe provenir de evidencia de runtime, no de una inferencia visual; `DISCONNECTED` no implica fallo del proyecto ni ejecución cancelada.
+El runtime y los servicios son infraestructura transversal: sus sesiones, procesos, puertos, healthchecks, stdout/stderr y tests alimentan `Agents`, `Work`, la terminal y los estados del shell, pero no se exponen como una vista independiente del menú lateral. El sidecar conserva `runtime.status` y `runtime.health`; las operaciones de recuperación y servicios declarados siguen disponibles mediante los casos de uso correspondientes. `task.run` sólo acepta `READY`, `CHANGES_REQUESTED` o `BLOCKED`, emite `runtime.event`, `runtime.completed` o `runtime.failed`; si falla durante la ejecución, la Task queda en `BLOCKED`. La UI conserva hasta 12 eventos recientes con hora, tipo y Task y refresca el resumen de `Projects` al finalizar. Un estado `RUNNING` debe provenir de evidencia de runtime, no de una inferencia visual; `DISCONNECTED` no implica fallo del proyecto ni ejecución cancelada.
 
 ## Interaction states
 

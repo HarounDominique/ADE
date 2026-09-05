@@ -2274,7 +2274,7 @@ function showView(view) {
   const mainContent = document.querySelector('.main-content');
   mainContent?.classList.toggle('agent-focus', view === 'agents');
   if (mainContent) mainContent.scrollTop = 0;
-  const labels = { projects: 'Projects', editor: 'Editor', agents: 'Agents', work: 'Tasks', knowledge: 'Project context', changes: 'Version control', runtime: 'Local runtime' };
+  const labels = { projects: 'Projects', editor: 'Editor', agents: 'Agents', work: 'Tasks', knowledge: 'Project context', changes: 'Version control' };
   const crumb = document.getElementById('breadcrumb-current');
   if (crumb) crumb.textContent = labels[view] ?? view;
   if (view === 'changes') requestVersionControlData(workspaceRootPath);

@@ -7,13 +7,21 @@ const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "u
 const styles = readFileSync(new URL("../desktop/src/styles.css", import.meta.url), "utf8");
 
 test("desktop shell keeps the project workbench areas and critical actions", () => {
-  for (const view of ["projects", "editor", "agents", "work", "knowledge", "changes", "runtime"]) {
+  for (const view of ["projects", "editor", "agents", "work", "knowledge", "changes"]) {
     assert.match(html, new RegExp(`data-view=\"${view}\"`));
     assert.match(html, new RegExp(`data-panel=\"${view}\"`));
   }
-  for (const action of ["new-task", "open-document", "check-runtime", "restart-sidecar", "refresh-tree", "new-agent-session", "github-status", "create-worktree", "push-branch", "refresh-knowledge"]) {
+  for (const action of ["new-task", "open-document", "refresh-tree", "new-agent-session", "github-status", "create-worktree", "push-branch", "refresh-knowledge"]) {
     assert.match(html, new RegExp(`data-action=\"${action}\"`));
   }
+});
+
+test("runtime infrastructure stays cross-cutting instead of becoming a visible menu", () => {
+  assert.doesNotMatch(html, /data-view="runtime"/);
+  assert.doesNotMatch(html, /data-panel="runtime"/);
+  assert.doesNotMatch(html, />Local runtime</);
+  assert.match(main, /renderRuntimeStatus/);
+  assert.match(main, /sidecar_request/);
 });
 
 test("Agents keeps sessions and conversation as the primary surface", () => {
@@ -125,7 +133,6 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /refreshSelectedSkill/);
   assert.match(main, /method: 'service\.list'/);
   assert.match(main, /renderServices/);
-  assert.match(html, /id="runtime-service-list"/);
   assert.match(html, /id="document-viewer"/);
   assert.match(main, /git\.history/);
   assert.match(main, /git\.commit\.diff/);

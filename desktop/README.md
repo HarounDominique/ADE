@@ -1,6 +1,6 @@
 # ADE Desktop Shell
 
-Shell desktop de ADE para macOS, construida con Tauri 2, HTML/CSS/JavaScript y un sidecar TypeScript/Node. La aplicación ofrece Projects, Editor, Work, Knowledge, Version control, Runtime, Explorer local y terminal PTY nativa.
+Shell desktop de ADE para macOS, construida con Tauri 2, HTML/CSS/JavaScript y un sidecar TypeScript/Node. La aplicación ofrece Projects, Editor, Agents, Work, Knowledge, Version control, Explorer local y terminal PTY nativa; el runtime y los servicios son infraestructura transversal, no una vista independiente.
 
 ## Desarrollo
 
