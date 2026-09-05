@@ -39,6 +39,13 @@ test("Agents exposes provider selection, resumable sessions and a permission-awa
   assert.match(styles, /\.main-content\.agent-focus > \.git-panel/);
 });
 
+test("Agent permissions are explicit checkboxes without a blocking second prompt", () => {
+  const handler = main.slice(main.indexOf("function sendAgentPrompt"), main.indexOf("function renderProjectTasks"));
+  assert.match(handler, /input\[type="checkbox"\]:checked/);
+  assert.match(handler, /grantedPermissions: permissions/);
+  assert.doesNotMatch(handler, /window\.confirm/);
+});
+
 test("desktop shell exposes the Git context bar and Explorer search affordance", () => {
   assert.match(html, /id="repository-context-button"/);
   assert.match(html, /id="branch-context-button"/);

@@ -1383,7 +1383,6 @@ function sendAgentPrompt(event) {
   if (!prompt) return;
   if (!providerIsAvailable(provider)) { notify('Selected agent provider is unavailable.'); return; }
   const permissions = [...document.querySelectorAll('#agent-prompt-form input[type="checkbox"]:checked')].map((item) => item.value);
-  if (permissions.length && !window.confirm(`Allow this agent to: ${permissions.join(', ')}?`)) return;
   selectedProvider = provider;
   agentPromptRunning = true;
   const button = document.getElementById('agent-send-button');
