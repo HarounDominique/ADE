@@ -50,6 +50,8 @@ El envío es explícito: el usuario escribe el prompt, elige permisos adicionale
 
 El workbench no incrusta la conversación que el usuario pueda tener abierta en ChatGPT/Codex Desktop: invoca el runtime local disponible y conserva el proveedor detrás del adapter. En macOS, Codex se detecta mediante el binario incluido en ChatGPT o `ADE_CODEX_COMMAND`. Por ello la sesión persistente depende de que el proveedor emita un identificador real; una sesión Codex sólo queda reanudable tras capturar `thread_id`. El layout está preparado para añadir proveedores futuros sin cambiar el contrato de conversación, actividad, ficheros ni skills.
 
+Las ejecuciones Codex del sidecar son estrictamente no interactivas: ADE cierra el stdin del proceso después de entregar el prompt para que `codex exec --json` complete su respuesta JSONL y no quede esperando una segunda entrada. La terminal PTY mantiene el comportamiento contrario y conserva stdin abierto para TUIs interactivas.
+
 ## Availability and selection
 
 Al iniciar el shell, ADE inspecciona el endpoint local de OpenCode y el mismo comando que usa el runner de Codex (por defecto, el binario incluido en ChatGPT para macOS o `ADE_CODEX_COMMAND`). El selector visual muestra todos los proveedores, deshabilita los que no están disponibles y deja visible su transporte, auth externa/local y capacidades. Una ejecución no se inicia contra un proveedor declarado no disponible.

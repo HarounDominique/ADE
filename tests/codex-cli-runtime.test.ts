@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CodexCliRuntime, extractCodexSessionId } from "../src/adapters/codex-cli-runtime.js";
+import { CodexCliRuntime, executeCodexCommand, extractCodexSessionId } from "../src/adapters/codex-cli-runtime.js";
 
 test("Codex CLI captures its emitted session id and resumes it", async () => {
   const calls: string[][] = [];
@@ -22,4 +22,9 @@ test("Codex CLI accepts common structured session event shapes", () => {
   assert.equal(extractCodexSessionId('{"thread":{"id":"thread-session"}}'), "thread-session");
   assert.equal(extractCodexSessionId('{"session_id":"session-id"}'), "session-id");
   assert.equal(extractCodexSessionId('{"type":"turn.completed"}'), undefined);
+});
+
+test("Codex command closes stdin for non-interactive execution", async () => {
+  const result = await executeCodexCommand(process.execPath, ["-e", "process.stdin.resume(); process.stdin.on('end', () => process.stdout.write('STDIN_CLOSED'))"], { cwd: process.cwd(), maxBuffer: 1024 });
+  assert.equal(result.stdout, "STDIN_CLOSED");
 });

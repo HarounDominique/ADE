@@ -1396,7 +1396,9 @@ function sendAgentPrompt(event) {
   nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `agent-prompt-${Date.now()}`, method: 'agent.prompt', params: { provider, repositoryPath: workspaceRootPath, prompt, ...(activeAgentSessionId ? { sessionId: activeAgentSessionId } : {}), ...(selectedTaskId && selectedTaskId !== '—' ? { taskId: selectedTaskId } : {}), grantedPermissions: permissions } }) }).catch((error) => {
     agentPromptRunning = false;
     if (button) button.disabled = false;
+    if (turnState) { turnState.textContent = 'ERROR'; turnState.dataset.state = 'error'; }
     if (feedback) feedback.textContent = `Agent failed: ${error}`;
+    addAgentActivity('Agent failed', String(error), 'error');
   });
   if (input) input.value = '';
 }

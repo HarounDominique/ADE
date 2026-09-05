@@ -8,10 +8,17 @@ export const defaultCodexCommand = process.env.ADE_CODEX_COMMAND ?? "/Applicatio
 
 type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number }) => Promise<{ stdout: string }>;
 
-const execute: CommandRunner = async (command, args, options) => {
-  const result = await execFile(command, args, options);
-  return { stdout: result.stdout };
-};
+const execute: CommandRunner = (command, args, options) => new Promise((resolve, reject) => {
+  const child = execFileCallback(command, args, options, (error, stdout) => {
+    if (error) reject(error);
+    else resolve({ stdout: stdout.toString() });
+  });
+  // `codex exec` is non-interactive. An open stdin makes it wait for an
+  // additional prompt instead of completing the JSONL response.
+  child.stdin?.end();
+});
+
+export const executeCodexCommand = execute;
 
 export class CodexCliRuntime implements AgentRuntimePort {
   constructor(private readonly command = defaultCodexCommand, private readonly runner: CommandRunner = execute) {}

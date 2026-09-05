@@ -233,6 +233,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-05 — agent-surface — Se añade `Agents` a la shell: sesiones Codex/OpenCode persistidas por Project, transcript de mensajes, prompts libres asociados opcionalmente a Task y permisos sensibles explícitos por ejecución. ADR-0024 fija que ADE invoca runtimes locales y no incrusta el chat remoto; `npm run build` y 93 tests TypeScript pasan.
 - 2026-09-05 — agent-surface-ux — Se simplifica `Agents` a un flujo primario `Provider → Session → prompt → Send prompt`; permisos y skills pasan a disclosures plegables. Se conserva la función existente y se reduce la carga visual del menú.
 - 2026-09-05 — agent-workbench — `Agents` pasa de un formulario aislado a un workbench inline tipo IDE: rail de sesiones/provider, conversación central e inspector de actividad observable, ficheros modificados y skills/tools. Se elimina la ambigüedad del popup y se mantiene el contrato provider-neutral para futuros adapters; no se expone razonamiento privado. `npm run build` y `npm test` quedan verdes.
+- 2026-09-05 — codex-sidecar-stdin — Se corrige el bloqueo de `Agents` con Codex: el adapter cierra stdin en `codex exec --json`, evitando que el proceso espere una segunda entrada y deje el botón en `WORKING`. Los fallos de transporte también devuelven el workbench a `ERROR`; se añade regresión de cierre de stdin.
 
 ## Automatic Reconciliation Log
 

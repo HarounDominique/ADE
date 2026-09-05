@@ -21,6 +21,7 @@ El contrato sigue siendo provider-neutral: la UI sólo consume `AgentRuntimePort
 - Codex local queda disponible desde ADE con salida y reanudación, siempre que el binario y la licencia local estén disponibles.
 - OpenCode puede mostrar eventos de salida; un provider que no emita texto legible conserva estado/error sin texto inventado.
 - La UI puede rehidratar conversaciones del Project tras reiniciar.
+- Codex se ejecuta en modo no interactivo con stdin cerrado tras enviar el prompt; la terminal PTY continúa siendo el canal de entrada para TUIs interactivas.
 - El menú no es todavía un puente directo al hilo remoto de este chat ni un gestor universal de permisos del proveedor; ambas capacidades quedan explícitamente fuera de esta iteración.
 
 ## Verification
