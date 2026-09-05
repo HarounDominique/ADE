@@ -24,7 +24,7 @@ export async function buildKnowledgeGraph(root: string): Promise<KnowledgeGraph>
 
 async function markdownFiles(root: string): Promise<string[]> {
   const result: string[] = [];
-  const ignored = new Set([".git", ".ade", "node_modules", "target", "dist", "sidecar-dist"]);
+  const ignored = new Set([".git", ".ade", ".agents", ".codex", ".impeccable", "node_modules", "target", "dist", "sidecar-dist"]);
   async function visit(directory: string): Promise<void> {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);

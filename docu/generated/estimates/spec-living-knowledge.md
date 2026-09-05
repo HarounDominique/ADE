@@ -1,8 +1,8 @@
-# Estimate: docu/specs/SPEC-workspace-core.md
+# Estimate: docu/specs/SPEC-living-knowledge.md
 
 ## Inputs
 
-- Changed spec: docu/specs/SPEC-workspace-core.md
+- Changed spec: docu/specs/SPEC-living-knowledge.md
 - Direct and transitive dependents: 12
 - Broken references: 0
 
@@ -16,4 +16,4 @@
 
 ## Traceability
 
-See [reconciliation report](../reconciliation/spec-workspace-core.md) and [QA impact](../qa/spec-workspace-core.md).
+See [reconciliation report](../reconciliation/spec-living-knowledge.md) and [QA impact](../qa/spec-living-knowledge.md).

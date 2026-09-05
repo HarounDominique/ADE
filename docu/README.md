@@ -28,4 +28,4 @@ ADE DB          → metadata operativa futura
 
 Para empezar, consultar [SPEC-NEXUS.md](specs/SPEC-NEXUS.md).
 
-La baseline técnica vigente es `npm test` con 96 tests TypeScript y `cargo test --manifest-path desktop/src-tauri/Cargo.toml` con 18 tests Rust. La compilación estática usa `npm run build`; el bundle se verifica con `npm run desktop:package:app`. El smoke gráfico automatizado sigue pendiente. Las cifras de cortes anteriores se conservan únicamente como evidencia histórica en sus respectivos documentos de release.
+La baseline técnica vigente es `npm test` con 104 tests TypeScript y `cargo test --manifest-path desktop/src-tauri/Cargo.toml` con 18 tests Rust. La compilación estática usa `npm run build`; el bundle se verifica con `npm run desktop:package:app`. El smoke gráfico automatizado sigue pendiente. El panel operativo `Git workspace` solo aparece dentro de `Version control`; el runtime y los servicios son infraestructura transversal y no una vista independiente. Las cifras de cortes anteriores se conservan únicamente como evidencia histórica en sus respectivos documentos de release.

@@ -4,7 +4,7 @@
 
 - Changed spec: docu/specs/SPEC-file-workspace.md
 - Direct and transitive dependents: 13
-- Broken references: 1
+- Broken references: 0
 
 ## Estimate
 

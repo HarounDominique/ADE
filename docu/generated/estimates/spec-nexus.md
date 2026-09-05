@@ -3,7 +3,7 @@
 ## Inputs
 
 - Changed spec: docu/specs/SPEC-NEXUS.md
-- Direct and transitive dependents: 8
+- Direct and transitive dependents: 9
 - Broken references: 0
 
 ## Estimate

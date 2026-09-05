@@ -109,7 +109,7 @@
   - Files: `tests/desktop-ui-contract.test.ts`
 
 - [x] Task: Integrar lifecycle del sidecar con Tauri
-  - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor, conexión de streams, render del snapshot, estados `ready/failed`, parada segura incluso tras salida inesperada, un único reintento automático y recuperación manual desde Runtime implementados; smoke de desarrollo y bundle con `ADE_DB_PATH` y `ADE_PROJECT_ID` explícitos superados.
+  - Acceptance: Tauri arranca, supervisa y termina el sidecar sin procesos huérfanos; un error produce estado recuperable en la shell. Supervisor, conexión de streams, render del snapshot, estados `ready/failed`, parada segura incluso tras salida inesperada y un único reintento automático implementados; la recuperación no requiere una vista Runtime independiente. Smoke de desarrollo y bundle con `ADE_DB_PATH` y `ADE_PROJECT_ID` explícitos superados.
   - Verify: `npm run desktop:smoke` en macOS con permisos de ejecución de app.
   - Files: `desktop/src-tauri/`, `docu/spikes/004-desktop-transport.md`
 
@@ -120,7 +120,7 @@
 
 - [x] Task: Implementar vertical desktop mínima
   - Plan: [desktop-shell-plan.md](desktop-shell-plan.md)
-  - Acceptance: Project Hub, Work, Changes, Knowledge y Runtime permiten recorrer una Task con estados, gates y escape hatch visibles; el contrato de UI y el arranque/parada del bundle están cubiertos.
+  - Acceptance: Project Hub, Work, Changes y Knowledge permiten recorrer una Task con estados, gates y escape hatch visibles; runtime y servicios se consumen como infraestructura transversal, y el contrato de UI y el arranque/parada del bundle están cubiertos.
   - Verify: `npm run desktop:test`, `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y `npm run desktop:smoke`.
   - Files: `src/ui/`, `tests/ui/`
 
@@ -252,3 +252,9 @@
   - Acceptance: Agents conserva sesiones y conversación como superficie primaria, elimina el inspector lateral de actividad/ficheros/skills y mantiene la evidencia en los registros operativos; README, diseño, specs, ADR y Nexus describen el mismo contrato.
   - Verify: `npm run build`, `npm test`, `git diff --check` y revisión de referencias.
   - Files: `desktop/src/`, `README.md`, `PRODUCT.md`, `DESIGN.md`, `docu/`, `tasks/`.
+
+- [x] Task: Reservar Git workspace a Version control
+  - Spec: [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md) · [SPEC-git-collaboration.md](../docu/specs/SPEC-git-collaboration.md)
+  - Acceptance: el panel operativo `Git workspace` sólo aparece en `Version control`; Projects, Editor, Agents, Work y Project context no duplican su estado ni sus acciones Git, mientras la topbar conserva el contexto global de Project y branch.
+  - Verify: `npm test`, `npm run build`, `git diff --check` y comprobación manual del `.app` en macOS.
+  - Files: `desktop/src/main.js`, `desktop/src/styles.css`, `tests/desktop-ui-contract.test.ts`, `docu/`.

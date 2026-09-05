@@ -20,132 +20,12 @@ Generated from the current documentation graph.
 
 ## Broken references
 
-- .agents/skills/impeccable/reference/document.md → .agents/skills/impeccable/reference/https:/raw.githubusercontent.com/google-labs-code/design.md/main/docs/spec.md
+- None.
 
 ## Mermaid UML
 
 ```mermaid
 classDiagram
-  class nagentsskillsimpeccableSKILLmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceadaptmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceadaptnativemd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceandroidmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceanimatemd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceauditmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceauditnativemd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceboldermd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceclarifymd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencecolorizemd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencecraftfloormd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencecraftmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencecritiquemd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencedegradedassetproducermd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencedegradeddocumentermd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencedegradedfinishreviewermd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencedegradedmanualeditappliermd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencedelightmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencedistillmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencedoctormd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencedocumentmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceextractmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencehardenmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencehooksmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceinitmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceiosmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencelayoutmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencelivesetupmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencelivemd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencenewworkmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceonboardmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceoperatemd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceoptimizemd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceoverdrivemd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencepolishmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencequietermd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceroutingmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferenceshapemd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencetypesetmd {
-    <<document>>
-  }
-  class nagentsskillsimpeccablereferencevisualizemd {
-    <<document>>
-  }
   class nDESIGNmd {
     <<document>>
   }
@@ -156,6 +36,9 @@ classDiagram
     <<document>>
   }
   class ndesktopREADMEmd {
+    <<document>>
+  }
+  class ndesktopTHIRDPARTYLICENSESmd {
     <<document>>
   }
   class ndocuREADMEmd {
@@ -213,6 +96,27 @@ classDiagram
     <<document>>
   }
   class ndocuadr0018activeprojectcontextstatemd {
+    <<document>>
+  }
+  class ndocuadr0019projectsminimalmanagementmd {
+    <<document>>
+  }
+  class ndocuadr0020versioncontrolsurfacemd {
+    <<document>>
+  }
+  class ndocuadr0021ptyinteractiveinputforwardingmd {
+    <<document>>
+  }
+  class ndocuadr0022versioncontrolcommitflowmd {
+    <<document>>
+  }
+  class ndocuadr0023codeeditorandformattingmd {
+    <<document>>
+  }
+  class ndocuadr0024agentsurfacemd {
+    <<document>>
+  }
+  class ndocuadr0025crosscuttingruntimeandgitworkspacemd {
     <<document>>
   }
   class ndocuknowledgeREADMEmd {
@@ -284,6 +188,9 @@ classDiagram
   class ntasksdesktopshellplanmd {
     <<document>>
   }
+  class ntasksplanagentsurfacemd {
+    <<document>>
+  }
   class ntasksplanfileworkspacemd {
     <<document>>
   }
@@ -302,102 +209,21 @@ classDiagram
   class ntaskstodomd {
     <<document>>
   }
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencenewworkmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencecraftfloormd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencenewworkmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceoperatemd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencecraftmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceshapemd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceinitmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencedocumentmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceextractmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencecritiquemd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceauditmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceauditnativemd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencepolishmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceboldermd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencequietermd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencedistillmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencehardenmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceonboardmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceanimatemd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencecolorizemd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencetypesetmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencelayoutmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencedelightmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceoverdrivemd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceclarifymd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceadaptmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceadaptnativemd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceoptimizemd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencelivemd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferenceroutingmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencehooksmd : references
-  nagentsskillsimpeccableSKILLmd --> nagentsskillsimpeccablereferencedoctormd : references
-  nagentsskillsimpeccablereferenceadaptmd --> nagentsskillsimpeccablereferenceadaptnativemd : references
-  nagentsskillsimpeccablereferenceadaptnativemd --> nagentsskillsimpeccablereferenceiosmd : references
-  nagentsskillsimpeccablereferenceadaptnativemd --> nagentsskillsimpeccablereferenceandroidmd : references
-  nagentsskillsimpeccablereferenceanimatemd --> nagentsskillsimpeccablereferenceiosmd : references
-  nagentsskillsimpeccablereferenceanimatemd --> nagentsskillsimpeccablereferenceandroidmd : references
-  nagentsskillsimpeccablereferenceauditmd --> nagentsskillsimpeccablereferenceauditnativemd : references
-  nagentsskillsimpeccablereferenceauditnativemd --> nagentsskillsimpeccablereferenceiosmd : references
-  nagentsskillsimpeccablereferenceauditnativemd --> nagentsskillsimpeccablereferenceandroidmd : references
-  nagentsskillsimpeccablereferenceauditnativemd --> nagentsskillsimpeccablereferenceauditmd : references
-  nagentsskillsimpeccablereferencecolorizemd --> nagentsskillsimpeccablereferencenewworkmd : references
-  nagentsskillsimpeccablereferencecolorizemd --> nagentsskillsimpeccablereferencelivemd : references
-  nagentsskillsimpeccablereferencecraftmd --> nagentsskillsimpeccablereferenceinitmd : references
-  nagentsskillsimpeccablereferencecraftmd --> nagentsskillsimpeccablereferencenewworkmd : references
-  nagentsskillsimpeccablereferencedelightmd --> nagentsskillsimpeccablereferenceanimatemd : references
-  nagentsskillsimpeccablereferencedoctormd --> nagentsskillsimpeccablereferenceiosmd : references
-  nagentsskillsimpeccablereferencedoctormd --> nagentsskillsimpeccablereferenceandroidmd : references
-  nagentsskillsimpeccablereferencedocumentmd --> nagentsskillsimpeccablereferenceinitmd : references
-  nagentsskillsimpeccablereferencedocumentmd --> nagentsskillsimpeccablereferencenewworkmd : references
-  nagentsskillsimpeccablereferencehooksmd --> nagentsskillsimpeccablereferencecraftfloormd : references
-  nagentsskillsimpeccablereferenceinitmd --> nagentsskillsimpeccablereferencenewworkmd : references
-  nagentsskillsimpeccablereferenceinitmd --> nagentsskillsimpeccablereferencedocumentmd : references
-  nagentsskillsimpeccablereferenceinitmd --> nagentsskillsimpeccablereferenceiosmd : references
-  nagentsskillsimpeccablereferenceinitmd --> nagentsskillsimpeccablereferenceandroidmd : references
-  nagentsskillsimpeccablereferenceinitmd --> nagentsskillsimpeccablereferencelivemd : references
-  nagentsskillsimpeccablereferencelayoutmd --> nagentsskillsimpeccablereferenceiosmd : references
-  nagentsskillsimpeccablereferencelayoutmd --> nagentsskillsimpeccablereferenceandroidmd : references
-  nagentsskillsimpeccablereferencelayoutmd --> nagentsskillsimpeccablereferencenewworkmd : references
-  nagentsskillsimpeccablereferencelayoutmd --> nagentsskillsimpeccablereferencelivemd : references
-  nagentsskillsimpeccablereferencelivesetupmd --> nagentsskillsimpeccablereferencelivemd : references
-  nagentsskillsimpeccablereferencelivemd --> nagentsskillsimpeccablereferencelivesetupmd : references
-  nagentsskillsimpeccablereferencelivemd --> nagentsskillsimpeccablereferencecraftfloormd : references
-  nagentsskillsimpeccablereferencelivemd --> nagentsskillsimpeccablereferencecraftfloormd : references
-  nagentsskillsimpeccablereferencelivemd --> nagentsskillsimpeccablereferencelivesetupmd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferenceinitmd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferencevisualizemd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferencevisualizemd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferencevisualizemd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferencevisualizemd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferenceshapemd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferencevisualizemd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferenceiosmd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferenceandroidmd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferencedegradedfinishreviewermd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferencedegradedfinishreviewermd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferencevisualizemd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferencedocumentmd : references
-  nagentsskillsimpeccablereferencenewworkmd --> nagentsskillsimpeccablereferencedegradeddocumentermd : references
-  nagentsskillsimpeccablereferenceoperatemd --> nagentsskillsimpeccablereferencecraftfloormd : references
-  nagentsskillsimpeccablereferenceshapemd --> nagentsskillsimpeccablereferencenewworkmd : references
-  nagentsskillsimpeccablereferencetypesetmd --> nagentsskillsimpeccablereferenceiosmd : references
-  nagentsskillsimpeccablereferencetypesetmd --> nagentsskillsimpeccablereferenceandroidmd : references
-  nagentsskillsimpeccablereferencetypesetmd --> nagentsskillsimpeccablereferencenewworkmd : references
-  nagentsskillsimpeccablereferencetypesetmd --> nagentsskillsimpeccablereferencelivemd : references
-  nagentsskillsimpeccablereferencevisualizemd --> nagentsskillsimpeccablereferencenewworkmd : references
-  nagentsskillsimpeccablereferencevisualizemd --> nagentsskillsimpeccablereferencenewworkmd : references
   nREADMEmd --> ndocuspecsSPECNEXUSmd : references
   nREADMEmd --> ndocuREADMEmd : references
   nREADMEmd --> ntaskstodomd : references
   nREADMEmd --> ndocuspecsSPECv03md : references
   nREADMEmd --> ndocuspecsSPECfileworkspacemd : references
+  nREADMEmd --> ndocuspecsSPECagentprovidersmd : references
   nREADMEmd --> ndocureleasesv03closemd : references
   nREADMEmd --> ndocuspikes001opencoderuntimemd : references
   nREADMEmd --> ndocuspikes002independentreviewmd : references
+  nREADMEmd --> ndocuspecsSPECfileworkspacemd : references
+  nREADMEmd --> ndesktopTHIRDPARTYLICENSESmd : references
+  ndesktopREADMEmd --> ndesktopTHIRDPARTYLICENSESmd : references
   ndocuREADMEmd --> ndocuspecsSPECNEXUSmd : references
+  ndocuadr0022versioncontrolcommitflowmd --> ndocuadr0020versioncontrolsurfacemd : references
+  ndocuadr0023codeeditorandformattingmd --> ndesktopTHIRDPARTYLICENSESmd : references
   ndocureleasesv03closemd --> ndocuspecsSPECv03md : references
   ndocureleasesv03closemd --> ndocuspecsSPECfileworkspacemd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECprojecttaskworkflowmd : references
@@ -415,17 +241,19 @@ classDiagram
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : product-contract
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : product-contract
+  ndocuspecsSPECNEXUSmd --> ndocuadr0023codeeditorandformattingmd : references
+  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : product-contract
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdevelopmentworkflowmd : gates-and-invariants
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECv02md : references
   ndocuspecsSPECagentruntimemd --> ndocuspikes001opencoderuntimemd : smoke-test-real
-  ndocuspecsSPECagentruntimemd --> ndocuspikes002independentreviewmd : implementacion
-  ndocuspecsSPECagentruntimemd --> ndocuspikes002independentreviewmd : implementacion
+  ndocuspecsSPECagentruntimemd --> ndocuspikes002independentreviewmd : flujo-validado
+  ndocuspecsSPECagentruntimemd --> ndocuspikes002independentreviewmd : flujo-validado
   ndocuspecsSPECchangesreviewgovernancemd --> ndocuspecsSPECdevelopmentworkflowmd : transitions-and-triggers
   ndocuspecsSPECdesktopshellmd --> ndocuspecsSPECfileworkspacemd : product-contract
   ndocuspecsSPECdesktopshellmd --> ndocuspikes003desktopframeworkmd : resultado
   ndocuspecsSPECdesktopshellmd --> ndocuadr0009tauridesktopshellmd : references
   ndocuspecsSPECdesktopshellmd --> ndocuspikes004desktoptransportmd : recomendación-provisional
-  ndocuspecsSPEClivingknowledgemd --> ndocuspecsSPECagentprovidersmd : provider-contract
+  ndocuspecsSPEClivingknowledgemd --> ndocuspecsSPECagentprovidersmd : agents-surface
   ndocuspecsSPECv02md --> ndocuspecsSPECv03md : references
   ndocuspecsSPECv03md --> ndocuspecsSPECworkspacecoremd : references
   ndocuspecsSPECv03md --> ndocuspecsSPECagentprovidersmd : references
@@ -436,13 +264,14 @@ classDiagram
   ndocuspecsSPECv03md --> ndocureleasesv03closemd : references
   ndocuspecsSPECv03md --> ndocuspecsSPECfileworkspacemd : references
   ndocuspecsSPECworkspacecoremd --> ndocuspecsSPECfileworkspacemd : references
-  ndocuspecsSPECworkspacecoremd --> ndocuspecsSPECfileworkspacemd : references
+  ndocuspecsSPECworkspacecoremd --> ndocuspecsSPECfileworkspacemd : product-contract
+  ndocuspecsSPECworkspacecoremd --> ndocuadr0023codeeditorandformattingmd : references
   ndocuspikes001opencoderuntimemd --> ndocuspecsSPECagentruntimemd : success-criteria
   ndocuspikes001opencoderuntimemd --> ndocuspecsSPECNEXUSmd : mvp-contract
   ndocuspikes002independentreviewmd --> ndocuspecsSPECchangesreviewgovernancemd : gate-contract
   ndocuspikes002independentreviewmd --> ndocuspecsSPECNEXUSmd : mvp-contract
   ndocuspikes003desktopframeworkmd --> ndocuspecsSPECdesktopshellmd : shell-contract
-  ndocuspikes003desktopframeworkmd --> ndocuspecsSPECNEXUSmd : open-decisions
+  ndocuspikes003desktopframeworkmd --> ndocuspecsSPECNEXUSmd : deferred-decisions
   ntaskstodomd --> ntasksprojectrepositoryplanmd : references
   ntaskstodomd --> ntasksdesktopshellplanmd : references
   ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
@@ -453,10 +282,18 @@ classDiagram
   ntaskstodomd --> ndocuadr0015terminaltabsmd : references
   ntaskstodomd --> ndocuspecsSPECfileworkspacemd : references
   ntaskstodomd --> ndocuadr0014internalfileviewermd : references
+  ntaskstodomd --> ndocuspecsSPECfileworkspacemd : references
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
+  ntaskstodomd --> ndocuadr0023codeeditorandformattingmd : references
   ntaskstodomd --> ndocuspecsSPECprojecttaskworkflowmd : references
   ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
   ntaskstodomd --> ndocuadr0017projectsandeditornavigationmd : references
   ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
   ntaskstodomd --> ndocuspecsSPECgitcollaborationmd : references
   ntaskstodomd --> ndocuadr0016gitcontextswitchermd : references
+  ntaskstodomd --> ndocuspecsSPECagentprovidersmd : references
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
+  ntaskstodomd --> ndocuadr0024agentsurfacemd : references
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
+  ntaskstodomd --> ndocuspecsSPECgitcollaborationmd : references
 ```

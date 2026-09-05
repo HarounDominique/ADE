@@ -4,7 +4,7 @@
 
 - Changed spec: docu/adr/0014-internal-file-viewer.md
 - Direct and transitive dependents: 2
-- Broken references: 1
+- Broken references: 0
 
 ## Estimate
 

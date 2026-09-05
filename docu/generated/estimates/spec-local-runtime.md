@@ -3,8 +3,8 @@
 ## Inputs
 
 - Changed spec: docu/specs/SPEC-local-runtime.md
-- Direct and transitive dependents: 8
-- Broken references: 1
+- Direct and transitive dependents: 9
+- Broken references: 0
 
 ## Estimate
 

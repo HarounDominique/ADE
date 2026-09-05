@@ -1,21 +1,10 @@
-# Reconciliation: docu/specs/SPEC-v0.3.md
+# Reconciliation: docu/adr/0025-cross-cutting-runtime-and-git-workspace.md
 
 Generated from the current documentation graph.
 
 ## Affected documents
 
-- [ ] Review and synchronize [README.md](../../../README.md)
-- [ ] Review and synchronize [docu/README.md](../../README.md)
-- [ ] Review and synchronize [docu/releases/v0.3-close.md](../../releases/v0.3-close.md)
-- [ ] Review and synchronize [docu/specs/SPEC-NEXUS.md](../../specs/SPEC-NEXUS.md)
-- [ ] Review and synchronize [docu/specs/SPEC-agent-runtime.md](../../specs/SPEC-agent-runtime.md)
-- [ ] Review and synchronize [docu/specs/SPEC-desktop-shell.md](../../specs/SPEC-desktop-shell.md)
-- [ ] Review and synchronize [docu/specs/SPEC-v0.2.md](../../specs/SPEC-v0.2.md)
-- [ ] Review and synchronize [docu/specs/SPEC-v0.3.md](../../specs/SPEC-v0.3.md)
-- [ ] Review and synchronize [docu/spikes/001-opencode-runtime.md](../../spikes/001-opencode-runtime.md)
-- [ ] Review and synchronize [docu/spikes/002-independent-review.md](../../spikes/002-independent-review.md)
-- [ ] Review and synchronize [docu/spikes/003-desktop-framework.md](../../spikes/003-desktop-framework.md)
-- [ ] Review and synchronize [tasks/todo.md](../../../tasks/todo.md)
+- No dependent specifications detected.
 
 ## Broken references
 

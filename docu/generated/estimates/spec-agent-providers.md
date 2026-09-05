@@ -3,8 +3,8 @@
 ## Inputs
 
 - Changed spec: docu/specs/SPEC-agent-providers.md
-- Direct and transitive dependents: 12
-- Broken references: 1
+- Direct and transitive dependents: 13
+- Broken references: 0
 
 ## Estimate
 

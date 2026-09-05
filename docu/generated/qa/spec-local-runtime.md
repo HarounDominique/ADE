@@ -14,6 +14,7 @@ Validate the behavior and acceptance criteria changed by docu/specs/SPEC-local-r
 - docu/spikes/001-opencode-runtime.md
 - docu/spikes/002-independent-review.md
 - docu/spikes/003-desktop-framework.md
+- tasks/todo.md
 
 ## Verification checklist
 

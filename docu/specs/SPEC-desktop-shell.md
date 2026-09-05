@@ -127,7 +127,7 @@ npm run desktop:test
 npm run desktop:package:app
 ```
 
-La shell actual se verifica con `npm run build`, `npm test` (96 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
+La shell actual se verifica con `npm run build`, `npm test` (104 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
 
 El shell visual vive en `desktop/src/`. `project-snapshot.js` define el boundary de arranque y `project-context.js` conserva la fusión del Project activo. El comando Tauri `project_context` aporta contexto local y selecciona la raíz canónica. La UI no accede directamente a SQLite, Git ni procesos: Projects y ramas se obtienen mediante el sidecar y el cambio de raíz pasa por Tauri.
 
@@ -147,7 +147,7 @@ La primera vertical de UI debe probar: abrir `Projects` → seleccionar fichero 
 
 ## Boundaries
 
-- **Always:** `Projects` primero; mantener visible el Project activo, estado Git/No Git, Task, agentes, gates y runtime; ofrecer escape hatch a IDE/terminal.
+- **Always:** `Projects` primero; mantener visible el Project activo, estado Git/No Git, Task y agentes; hacer accesibles gates y evidencia de runtime desde sus superficies consumidoras; ofrecer escape hatch a IDE/terminal.
 - **Ask first:** adoptar editor completo, soporte cloud, cuentas, sync o colaboración realtime.
 - **Never:** abrir un fichero seleccionado automáticamente fuera de ADE; esconder operaciones peligrosas detrás de una acción ambigua; convertir la conversación en única representación del trabajo; duplicar el buscador del Explorer o forzar un cambio de branch que pueda descartar cambios locales.
 

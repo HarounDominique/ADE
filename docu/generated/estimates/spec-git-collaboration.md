@@ -4,7 +4,7 @@
 
 - Changed spec: docu/specs/SPEC-git-collaboration.md
 - Direct and transitive dependents: 12
-- Broken references: 1
+- Broken references: 0
 
 ## Estimate
 

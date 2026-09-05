@@ -200,6 +200,8 @@ The desktop shell is a two-column evidence workspace: one labeled navigation/sid
 
 At narrower desktop widths, the workbench collapses the project context panes into one column and the metric strip and knowledge surfaces reduce to two columns. The labeled sidebar remains visible so navigation never disappears.
 
+The operational `Git workspace` panel belongs exclusively to `Version control`; Projects, Editor, Agents, Work and Project context do not repeat Git status or actions. The top bar retains only the global Project and branch selectors.
+
 ## Elevation & Depth
 
 ADE is flat-by-default. Depth is conveyed by tonal steps between the canvas, chrome, panel and raised-panel colors, plus thin borders. Shadows are reserved for transient surfaces such as the task dialog and toast; the persistent workspace should not look like a stack of floating cards.

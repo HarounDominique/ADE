@@ -24,7 +24,7 @@ La primera entrega debe poder ejecutarse con adapters fake y sustituirlos por lo
 2. **Work:** crear/reanudar Task, intención, modo, fase y actividad de la sesión.
 3. **Changes:** ChangeSet, diff, Review, findings y acciones con razón.
 4. **Knowledge:** documentos seleccionados, motivo de inclusión e impacto pendiente.
-5. **Runtime:** procesos, health, logs, tests y cancelación.
+5. **Runtime infrastructure:** procesos, health, logs, tests y cancelación consumidos de forma transversal, sin una vista independiente.
 
 ## Implementation order
 
@@ -32,7 +32,7 @@ La primera entrega debe poder ejecutarse con adapters fake y sustituirlos por lo
 2. Project Hub conectado a consultas de Project y Task. ✅
 3. Work conectado a creación/reanudación y eventos de runtime. ✅
 4. Changes conectado a ChangeSet/Review y gates. ✅
-5. Knowledge y Runtime con datos reales de sus puertos. ✅
+5. Knowledge y runtime infrastructure con datos reales de sus puertos. ✅
 6. Aprobación humana y preparación de `ship` con guardas visibles. ✅
 
 ## Acceptance criteria

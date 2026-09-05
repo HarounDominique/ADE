@@ -1,8 +1,8 @@
-# QA impact: docu/specs/SPEC-agent-providers.md
+# QA impact: docu/specs/SPEC-living-knowledge.md
 
 ## Functional scope
 
-Validate the behavior and acceptance criteria changed by docu/specs/SPEC-agent-providers.md.
+Validate the behavior and acceptance criteria changed by docu/specs/SPEC-living-knowledge.md.
 
 ## Affected specifications
 
@@ -12,7 +12,6 @@ Validate the behavior and acceptance criteria changed by docu/specs/SPEC-agent-p
 - docu/specs/SPEC-NEXUS.md
 - docu/specs/SPEC-agent-runtime.md
 - docu/specs/SPEC-desktop-shell.md
-- docu/specs/SPEC-living-knowledge.md
 - docu/specs/SPEC-v0.2.md
 - docu/specs/SPEC-v0.3.md
 - docu/spikes/001-opencode-runtime.md

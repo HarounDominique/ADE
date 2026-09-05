@@ -4,7 +4,7 @@
 
 - Changed spec: docu/specs/SPEC-project-task-workflow.md
 - Direct and transitive dependents: 9
-- Broken references: 1
+- Broken references: 0
 
 ## Estimate
 

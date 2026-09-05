@@ -12,7 +12,7 @@ Mantener código, specs, nexus, ADRs, diagramas, tareas y documentación funcion
 
 ## Project Structure
 
-`docu/specs/` y `docu/adr/` son conocimiento normativo versionado; `docu/generated/` contiene reconciliación, QA, estimaciones y Mermaid derivados; `src/application/knowledge/` calcula impacto; `skills/` aporta Spector, UML, QA docs y reconciliación.
+`docu/specs/` y `docu/adr/` son conocimiento normativo versionado; `docu/generated/` contiene reconciliación, QA, estimaciones y Mermaid derivados; `src/application/knowledge/` calcula impacto; las skills aportan Spector, UML, QA docs y reconciliación. El grafo excluye documentación instalada de herramientas (`.agents/`, `.codex/`, `.impeccable/`), además de dependencias, artefactos generados y metadatos locales, para no tratar enlaces externos de esas herramientas como referencias del proyecto.
 
 ## Code Style
 

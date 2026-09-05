@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-La pantalla `Projects` mezclaba tres responsabilidades: elegir el workspace, resumirlo y mostrar un workbench estático de Tasks y actividad. Esa densidad duplicaba información que ya pertenece a `Work`, `Changes` y `Runtime`, y dificultaba entender qué podía hacer el usuario en esta vista.
+La pantalla `Projects` mezclaba tres responsabilidades: elegir el workspace, resumirlo y mostrar un workbench estático de Tasks y actividad. Esa densidad duplicaba información que ya pertenece a `Work`, `Changes` y a la infraestructura de runtime, y dificultaba entender qué podía hacer el usuario en esta vista.
 
 También faltaba una operación explícita para dejar de seguir un Project desde ADE. Esa operación debe distinguirse de borrar una carpeta local: retirar el seguimiento no debe poner en riesgo el código del usuario.
 
@@ -30,7 +30,7 @@ También faltaba una operación explícita para dejar de seguir un Project desde
 
 ### Mantener el workbench dentro de Projects
 
-Rechazado: duplica Work, Changes y Runtime y convierte la pantalla de selección en un dashboard no accionable.
+Rechazado: duplica Work, Changes y la infraestructura de runtime y convierte la pantalla de selección en un dashboard no accionable.
 
 ### Borrar también metadata y ficheros del Project
 

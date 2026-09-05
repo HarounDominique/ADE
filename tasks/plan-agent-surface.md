@@ -17,4 +17,4 @@ Implemented on 2026-09-05.
 
 ## Verification
 
-`npm run build` and `npm test` pass (96 TypeScript tests). Manual `.app` smoke with a real Codex turn remains a release-level check because availability depends on the local ChatGPT installation and license.
+`npm run build` and `npm test` pass (104 TypeScript tests). Manual `.app` smoke with a real Codex turn remains a release-level check because availability depends on the local ChatGPT installation and license.

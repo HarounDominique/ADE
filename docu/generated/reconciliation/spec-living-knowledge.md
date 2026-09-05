@@ -1,4 +1,4 @@
-# Reconciliation: docu/specs/SPEC-v0.3.md
+# Reconciliation: docu/specs/SPEC-living-knowledge.md
 
 Generated from the current documentation graph.
 

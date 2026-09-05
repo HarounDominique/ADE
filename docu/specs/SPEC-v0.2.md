@@ -33,7 +33,7 @@ Un Project puede declarar servicios locales con comando, directorio, puertos, he
 
 ### Task navigation and context
 
-Work debe permitir seleccionar una Task, ver su historial y saltar a Runtime, Changes y Knowledge conservando el contexto. El resumen operativo dentro de `Projects` debe mostrar la Task activa y la última evidencia confirmada.
+Work debe permitir seleccionar una Task, ver su historial y acceder a Changes y Knowledge conservando el contexto; la evidencia de runtime se consulta desde Work y los consumidores operativos, sin una vista Runtime independiente. El resumen operativo dentro de `Projects` debe mostrar la Task activa y la última evidencia confirmada.
 
 ## Out of scope
 
@@ -62,7 +62,7 @@ Cloud, cuentas, sync, colaboración realtime, worktrees paralelos, multiagente c
 1. Una Task puede ejecutarse, cerrarse y reabrirse conservando eventos y contexto.
 2. Changes muestra evidencia real, gates y findings de la Task seleccionada.
 3. Una gate requerida bloquea aprobación/commit hasta que exista evidencia válida o waiver conforme a policy, y la aprobación/re-review se ejecutan mediante casos de uso auditables.
-4. Un servicio local declarado puede iniciarse, comprobarse y detenerse desde Runtime.
+4. Un servicio local declarado puede iniciarse, comprobarse y detenerse mediante el contrato de runtime y sus superficies operativas, sin exigir un menú Runtime independiente.
 5. ✅ El smoke empaquetado y el test de rehidratación sobreviven al reinicio de la app sin perder el historial operativo.
 
 ## Delivery order
@@ -75,7 +75,7 @@ Cada corte debe actualizar las specs dependientes y el nexus antes de implementa
 
 Las decisiones de esta versión son deliberadamente conservadoras y están cerradas. Los límites que se ampliaron posteriormente viven en [SPEC-v0.3](SPEC-v0.3.md):
 
-- La lectura visible de Runtime queda limitada a 100 evidencias por Task y 12 eventos en la shell; v0.3 añade límites configurables de evidencia por Project.
+- La evidencia visible en las superficies consumidoras queda limitada a 100 evidencias por Task y 12 eventos en la shell; v0.3 añade límites configurables de evidencia por Project.
 - v0.2 usa gates declarativas; v0.3 añade la policy configurable por Project.
-- El `ServiceManager` y sus pruebas existen; la declaración persistida se carga desde una policy local equivalente (`.ade/services.json` por defecto, configurable mediante `ADE_SERVICES_PATH`). Runtime lista los servicios del Project, su comando/cwd/healthcheck y permite start/stop individual; la validación de release sigue siendo macOS-local.
+- El `ServiceManager` y sus pruebas existen; la declaración persistida se carga desde una policy local equivalente (`.ade/services.json` por defecto, configurable mediante `ADE_SERVICES_PATH`). El runtime conserva el contrato para listar servicios del Project, su comando/cwd/healthcheck y sus operaciones start/stop; la shell no expone una vista Runtime independiente y la validación de release sigue siendo macOS-local.
 - Tras reinicio, la evidencia mínima para reanudar es Task + historial + ChangeSet + Review + runtime evidence + gates persistidos. El contrato de rehidratación está cubierto con store reiniciado; el smoke macOS empaquetado validó sidecar, Task real, OpenCode 1.18.26 y arranque/parada limpia de `.app`.
