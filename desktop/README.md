@@ -17,7 +17,7 @@ La shell mantiene una única navegación lateral etiquetada, redimensionable ent
 
 El Editor usa CodeMirror 6 para los lenguajes con paquetes oficiales y cambia automáticamente a Monaco Editor para los lenguajes cubiertos por sus definiciones básicas cuando CodeMirror no tiene un paquete oficial en ADE. La superficie de edición, guardado, descarte y atajos es común a ambos motores; el cambio es transparente y sólo afecta al resaltado/servicios propios del editor. El botón `Format` aplica Prettier a los lenguajes compatibles y permanece deshabilitado cuando el fichero no tiene formatter aprobado; las dependencias directas y sus licencias están inventariadas en [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
-La validación vigente pasa `npm run build`, `npm test` (92 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust) y la generación del bundle `.app`. El arranque manual del bundle se ha ejecutado en macOS; el smoke gráfico automatizado queda pendiente.
+La validación vigente pasa `npm run build`, `npm test` (94 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust) y la generación del bundle `.app`. El arranque manual del bundle se ha ejecutado en macOS; el smoke gráfico automatizado queda pendiente.
 
 ## Entorno recomendado
 
