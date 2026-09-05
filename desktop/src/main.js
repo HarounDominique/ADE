@@ -128,14 +128,14 @@ monaco.editor.defineTheme('ade-dark', {
   inherit: true,
   rules: [],
   colors: {
-    'editor.background': '#121920',
-    'editor.foreground': '#dbe6ef',
-    'editorLineNumber.foreground': '#5d6a78',
-    'editorLineNumber.activeForeground': '#b8c5d2',
-    'editor.lineHighlightBackground': '#1a232e',
-    'editor.selectionBackground': '#28547a',
-    'editorCursor.foreground': '#64d2c6',
-    'editorIndentGuide.background': '#293542',
+    'editor.background': '#142333',
+    'editor.foreground': '#edf4f7',
+    'editorLineNumber.foreground': '#64798d',
+    'editorLineNumber.activeForeground': '#c4d2dc',
+    'editor.lineHighlightBackground': '#203348',
+    'editor.selectionBackground': '#315a82',
+    'editorCursor.foreground': '#69d5c8',
+    'editorIndentGuide.background': '#2f4357',
   },
 });
 monaco.editor.defineTheme('ade-light', {
@@ -162,7 +162,7 @@ function applyTheme(theme) {
   const nextTheme = theme === 'light' ? 'light' : 'dark';
   document.documentElement.dataset.theme = nextTheme;
   try { localStorage.setItem('ade-theme', nextTheme); } catch { /* Tauri privacy settings may disable storage. */ }
-  if (themeMeta) themeMeta.content = nextTheme === 'light' ? '#f5f7fa' : '#0b0f14';
+  if (themeMeta) themeMeta.content = nextTheme === 'light' ? '#f5f7fa' : '#0f1724';
   applyMonacoTheme(nextTheme);
   document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
     button.setAttribute('aria-checked', String(nextTheme === 'light'));
@@ -174,7 +174,7 @@ function applyTheme(theme) {
   });
   const terminalTheme = nextTheme === 'light'
     ? { background: '#e8f2ef', foreground: '#195c4c', cursor: '#0e827b', selectionBackground: '#b9ddd2' }
-    : { background: '#0d1416', foreground: '#b7e9d0', cursor: '#1aa889', selectionBackground: '#24574a' };
+    : { background: '#142333', foreground: '#d7eee9', cursor: '#69d5c8', selectionBackground: '#315a54' };
   terminalTabs?.forEach((tab) => {
     if (tab.terminal) tab.terminal.options.theme = terminalTheme;
   });

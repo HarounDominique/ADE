@@ -20,6 +20,24 @@ colors:
   warning-amber: "#a46f12"
   error-red: "#c24d59"
   agent-purple: "#7656d6"
+  dark-workspace-bg: "#0f1724"
+  dark-chrome: "#162335"
+  dark-chrome-strong: "#101b2a"
+  dark-panel: "#1a2a3b"
+  dark-panel-raised: "#203348"
+  dark-panel-soft: "#142333"
+  dark-line: "#2f4357"
+  dark-line-strong: "#486175"
+  dark-text: "#edf4f7"
+  dark-text-soft: "#c4d2dc"
+  dark-muted: "#90a3b5"
+  dark-faint: "#64798d"
+  dark-blue: "#7fb0ff"
+  dark-cyan: "#69d5c8"
+  dark-green: "#7cd9a5"
+  dark-amber: "#f0c477"
+  dark-red: "#f3939b"
+  dark-purple: "#c3a7ff"
   light-workspace-bg: "#f3f6fa"
   light-chrome: "#e8eef5"
   light-panel: "#ffffff"
@@ -106,7 +124,7 @@ The system uses a warm light workspace by default and a distinct night-shift dar
 
 ## Colors
 
-The palette is a warm, light-first workspace with graphite ink, cool neutrals and a small set of semantic status colors. The dark theme is a distinct night-shift translation rather than a mechanical inversion. Cobalt blue is the primary interaction accent and remains scarce enough to communicate focus.
+The palette is a warm, light-first workspace with graphite ink, cool neutrals and a small set of semantic status colors. The dark theme is a distinct night-shift translation rather than a mechanical inversion: deep ink-blue canvas, slate-blue surfaces and cool ivory text make long technical reading comfortable while teal and orchid retain ADE's identity. Cobalt blue is the primary interaction accent and remains scarce enough to communicate focus.
 
 ### Primary
 
@@ -140,6 +158,20 @@ The palette is a warm, light-first workspace with graphite ink, cool neutrals an
 - **Light Soft Surface** (#f0f2f5): Inputs, code surfaces and raised controls.
 - **Light Text** (#1f2630): Primary headings and decisions.
 - **Light Muted** (#778393): Supporting copy.
+
+### Dark Theme
+
+- **Night Evidence** (#0f1724): Deep blue-black application canvas for sustained work.
+- **Ink Chrome** (#162335): Sidebar, toolbar and persistent shell surfaces.
+- **Slate Panel** (#1a2a3b): Workbench panes and conversation surfaces.
+- **Raised Slate** (#203348): Focused controls and elevated interactive surfaces.
+- **Soft Night Surface** (#142333): Inputs, editor and terminal surfaces.
+- **Cool Ivory Text** (#edf4f7): Primary reading text with comfortable contrast.
+- **Slate Secondary Text** (#c4d2dc): Conversation and supporting content.
+- **Teal Signal** (#69d5c8): Active navigation, focus and running states.
+- **Orchid Agent** (#c3a7ff): Provider and agent-specific metadata.
+
+Dark mode is intentionally familiar to developers — a dark editor, terminal and pane grammar — but uses blue-green depth and restrained semantic accents instead of a generic near-black palette. The dark theme owns its surface hierarchy, selection, terminal background, Monaco editor and browser `color-scheme` independently from light mode.
 
 **The Signal Scarcity Rule.** Use cyan, green, amber and red only when they communicate interaction or state; never use them as decoration.
 

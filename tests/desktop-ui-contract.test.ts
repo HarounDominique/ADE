@@ -286,6 +286,15 @@ test("theme switch is visible in the topbar and exposes light/dark state", () =>
   assert.match(main, /localStorage\.setItem\('ade-theme'/);
 });
 
+test("dark theme keeps a dedicated night-evidence palette", () => {
+  const darkTheme = styles.slice(styles.indexOf(':root[data-theme="dark"]'), styles.indexOf('html, body', styles.indexOf(':root[data-theme="dark"]')));
+  assert.match(darkTheme, /--bg: #0f1724/);
+  assert.match(darkTheme, /--panel: #1a2a3b/);
+  assert.match(darkTheme, /--cyan: #69d5c8/);
+  assert.match(main, /editor\.background': '#142333'/);
+  assert.match(main, /background: '#142333', foreground: '#d7eee9'/);
+});
+
 test("Agent messages distinguish the user turn and align it to the right", () => {
   assert.match(main, /agent-message-\$\{escapeHTML\(message\.role\)\}/);
   assert.match(styles, /\.agent-message-user \{[^}]*align-self: flex-end/);
