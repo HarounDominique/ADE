@@ -45,6 +45,12 @@ test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(styles, /grid-template-columns: 188px minmax\(0, 1fr\);/);
 });
 
+test("Git workspace is visible only inside Version control", () => {
+  assert.match(main, /classList\.toggle\('version-control-focus', view === 'changes'\)/);
+  assert.match(styles, /\.git-panel \{ display: none; /);
+  assert.match(styles, /\.main-content\.version-control-focus > \.git-panel \{ display: block; \}/);
+});
+
 test("Agents exposes an accessible delete action for saved conversations", () => {
   assert.match(html, /id="agent-delete-dialog"/);
   assert.match(html, /data-action="confirm-delete-agent-session"/);

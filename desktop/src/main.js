@@ -2273,6 +2273,7 @@ function showView(view) {
   document.querySelector('.main-content')?.classList.toggle('editor-focus', view === 'editor');
   const mainContent = document.querySelector('.main-content');
   mainContent?.classList.toggle('agent-focus', view === 'agents');
+  mainContent?.classList.toggle('version-control-focus', view === 'changes');
   if (mainContent) mainContent.scrollTop = 0;
   const labels = { projects: 'Projects', editor: 'Editor', agents: 'Agents', work: 'Tasks', knowledge: 'Project context', changes: 'Version control' };
   const crumb = document.getElementById('breadcrumb-current');

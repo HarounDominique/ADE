@@ -384,6 +384,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .pending-changes-layout .git-pending-files, .pending-changes-layout .pending-diff { margin: 12px; border: 1px solid var(--line); border-radius: 5px; }
 }
 
+/* Git workspace is a Version control concern; keep it out of every other view. */
+.git-panel { display: none; }
+.main-content.version-control-focus > .git-panel { display: block; }
+
 /* Agents is a dedicated conversation workbench; shared project panels stay out of its surface. */
 .main-content.agent-focus { overflow: hidden; }
 .main-content.agent-focus > .git-panel,
