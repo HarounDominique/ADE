@@ -17,8 +17,13 @@ test("desktop shell keeps the project workbench areas and critical actions", () 
 });
 
 test("Agents exposes provider selection, resumable sessions and a permission-aware prompt", () => {
+  assert.match(html, /class="agents-workbench"/);
+  assert.match(html, /id="agent-session-list"/);
   assert.match(html, /id="agent-session-selector"/);
   assert.match(html, /id="agent-message-list"/);
+  assert.match(html, /id="agent-activity-list"/);
+  assert.match(html, /id="agent-files-list"/);
+  assert.match(html, /id="agent-skills-list"/);
   assert.match(html, /id="agent-prompt-form"/);
   assert.match(html, /id="agent-prompt-input"/);
   assert.match(html, /value="write_code"/);
@@ -28,6 +33,10 @@ test("Agents exposes provider selection, resumable sessions and a permission-awa
   assert.match(main, /method: 'agent\.prompt'/);
   assert.match(main, /selectAgentSession/);
   assert.match(main, /sendAgentPrompt/);
+  assert.match(main, /requestAgentFiles/);
+  assert.match(main, /renderAgentActivity/);
+  assert.match(main, /classList\.toggle\('agent-focus', view === 'agents'\)/);
+  assert.match(styles, /\.main-content\.agent-focus > \.git-panel/);
 });
 
 test("desktop shell exposes the Git context bar and Explorer search affordance", () => {

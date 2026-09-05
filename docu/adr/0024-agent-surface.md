@@ -10,7 +10,9 @@ ADE ya detectaba OpenCode y Codex y podía ejecutar skills nativas, pero no ofre
 
 ## Decision
 
-Añadir `Agents` como área principal del shell. La pantalla contiene catálogo de sesiones por Project, selección de provider, transcript, composer de prompts, vínculo opcional con Task y permisos sensibles concedidos por ejecución. Las sesiones y mensajes se persisten en SQLite (`agent_sessions` y `agent_messages`). Codex usa `codex exec --json` y `codex exec resume`; OpenCode usa su adapter HTTP y stream de eventos.
+Añadir `Agents` como workbench inline del shell, sin popup ni overlay. La pantalla contiene un rail de sesiones por Project, selección de provider, un hilo conversacional central, composer de prompts, vínculo opcional con Task y un inspector de actividad, ficheros modificados y skills/tools. Las sesiones y mensajes se persisten en SQLite (`agent_sessions` y `agent_messages`). Codex usa `codex exec --json` y `codex exec resume`; OpenCode usa su adapter HTTP y stream de eventos.
+
+La actividad visible se limita a evidencia emitida por el runtime: estado de ejecución, eventos de herramientas, skills ejecutadas y cambios observables en Git. ADE no muestra razonamiento privado del modelo. La UI mantiene el contrato provider-neutral para que futuros adapters —por ejemplo Claude— puedan reutilizar el mismo flujo.
 
 El contrato sigue siendo provider-neutral: la UI sólo consume `AgentRuntimePort` y el sidecar. ADE no almacena credenciales ni tokens, y no presenta una sesión como reanudable hasta que el adapter devuelve un identificador real.
 

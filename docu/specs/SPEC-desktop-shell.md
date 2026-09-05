@@ -78,7 +78,13 @@ Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y la
 
 ### Agents
 
-`Agents` presenta una conversación central con un flujo primario único: seleccionar `Provider` y `Session`, escribir un prompt y pulsar `Send prompt`. Las sesiones persistidas se eligen desde un selector compacto y `New session` limpia el contexto sin borrar historial. Disponibilidad, autenticación, contexto de Project/Task y feedback quedan visibles cerca de la conversación; permisos sensibles y skills se mantienen plegados bajo `Permissions for this turn` y `Skills and tools`. Las respuestas se almacenan como mensajes de sesión en el SQLite local para que el menú pueda reconstruirse tras reiniciar ADE. La superficie no afirma integrar el chat remoto de ChatGPT: usa los adapters locales detectados por ADE y muestra el fallo del provider cuando no está disponible.
+`Agents` es una vista inline tipo workbench, no un popup ni un diálogo superpuesto sobre el resto del shell. Su estructura fija se inspira en las superficies de agentes de IDEs actuales y separa claramente conversación, sesiones y evidencia:
+
+- el rail izquierdo lista sesiones del Project activo, permite crear una nueva y seleccionar el provider disponible;
+- el centro contiene la conversación, el estado de la sesión, el contexto Project/Task, el composer multilinea y `Send prompt`;
+- el inspector derecho muestra `Activity`, `Files changed` y `Skills & tools`, con estados vacíos explícitos y actividad limitada a eventos observables del runtime.
+
+Las sesiones persistidas se pueden reanudar sin borrar historial. `Permissions for this turn` y la gestión detallada de skills permanecen plegables dentro de la superficie para mantener el prompt como acción primaria. Las respuestas se almacenan como mensajes de sesión en SQLite local para que el workbench pueda reconstruirse tras reiniciar ADE. La superficie no afirma integrar el chat remoto de ChatGPT: usa los adapters locales detectados por ADE y muestra el fallo del provider cuando no está disponible. La arquitectura visual y el contrato de datos son provider-neutral para permitir Claude u otros runtimes en futuras iteraciones, sin acoplar la UI a GPT.
 
 ### Knowledge
 

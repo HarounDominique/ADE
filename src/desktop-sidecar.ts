@@ -456,8 +456,9 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     }
     process.stdout.write(`${JSON.stringify({ type: "agent.started", id: request.id, sessionId: session.id, provider, taskId: params.taskId ?? null })}\n`);
     const eventTexts: string[] = [];
+    const activity: Array<{ label: string; detail?: string; kind: "status" | "tool" }> = [];
     const eventPromise = provider === "opencode"
-      ? collectAgentEvents(runtime, eventTexts)
+      ? collectAgentEvents(runtime, eventTexts, activity)
       : Promise.resolve();
     const rawOutput = await runtime.prompt(session, { text: params.prompt! });
     await eventPromise;
@@ -466,24 +467,43 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     store.saveAgentMessage({ id: `agent-${request.id}-user`, sessionId: session.id, role: "user", content: params.prompt!, createdAt });
     const output = provider === "codex" ? extractCodexText(rawOutput) : eventTexts.join("\n\n").trim();
     if (output) store.saveAgentMessage({ id: `agent-${request.id}-assistant`, sessionId: session.id, role: "assistant", content: output, createdAt: new Date().toISOString() });
-    process.stdout.write(`${JSON.stringify({ id: request.id, result: { sessionId: session.id, provider, status: "COMPLETED", output } })}\n`);
+    let files: readonly import("./ports/agent-runtime.js").FileDiff[] = [];
+    try { files = await runtime.diff(session); } catch { /* A provider may not expose a diff for this turn. */ }
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: { sessionId: session.id, provider, status: "COMPLETED", output, activity, files } })}\n`);
   })().catch((error: unknown) => {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "AGENT_PROMPT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
   });
 }
 
-async function collectAgentEvents(runtime: import("./ports/agent-runtime.js").AgentRuntimePort, texts: string[]): Promise<void> {
+async function collectAgentEvents(
+  runtime: import("./ports/agent-runtime.js").AgentRuntimePort,
+  texts: string[],
+  activity: Array<{ label: string; detail?: string; kind: "status" | "tool" }>,
+): Promise<void> {
   const controller = new AbortController();
   const collect = (async () => {
     for await (const event of runtime.events(controller.signal)) {
       const text = extractAgentEventText(event.payload);
       if (text && !texts.includes(text)) texts.push(text);
+      const item = summarizeAgentActivity(event);
+      if (item && !activity.some((candidate) => candidate.label === item.label && candidate.detail === item.detail)) activity.push(item);
       const payload = event.payload as { type?: string };
       if (payload.type === "session.idle") break;
     }
   })();
   await Promise.race([collect, new Promise<void>((resolve) => setTimeout(resolve, 45_000))]);
   controller.abort();
+}
+
+function summarizeAgentActivity(event: import("./ports/agent-runtime.js").RuntimeEvent): { label: string; detail?: string; kind: "status" | "tool" } | undefined {
+  const payload = event.payload as Record<string, unknown> | undefined;
+  const type = typeof payload?.type === "string" ? payload.type : event.type;
+  if (!type) return undefined;
+  const properties = payload?.properties as Record<string, unknown> | undefined;
+  const detailValue = [payload?.tool, payload?.name, payload?.path, payload?.file, properties?.tool, properties?.name, properties?.path, properties?.file, properties?.command]
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+  const label = type.replaceAll(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return { label, ...(detailValue ? { detail: detailValue } : {}), kind: /tool|file|command|patch|edit/i.test(type) ? "tool" : "status" };
 }
 
 function extractAgentEventText(value: unknown): string | undefined {

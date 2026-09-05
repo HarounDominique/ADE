@@ -97,6 +97,9 @@ let providerStatuses = [];
 let agentSessions = [];
 let activeAgentSessionId = null;
 let agentPromptRunning = false;
+let agentActivity = [];
+let agentFiles = [];
+let agentSkillsUsed = [];
 const runtimeEvents = [];
 let activeView = 'projects';
 let pendingGitRefreshInFlight = false;
@@ -1261,11 +1264,61 @@ function requestAgentMessages(sessionId) {
   nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.messages', params: { sessionId } }) });
 }
 
+function requestAgentFiles() {
+  if (!nativeInvoke || !workspaceRootPath) return;
+  const id = `agent-files-${Date.now()}`;
+  pendingContextRequests.set(id, 'agent-files');
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'git.pending', params: { repositoryPath: workspaceRootPath } }) });
+}
+
 function renderAgentSessions(sessions) {
   agentSessions = sessions;
   const selector = document.getElementById('agent-session-selector');
   if (!selector) return;
   selector.innerHTML = `<option value="">New session</option>${sessions.map((session) => `<option value="${escapeHTML(session.id)}"${session.id === activeAgentSessionId ? ' selected' : ''}>${escapeHTML(session.provider)} · ${escapeHTML(session.id.slice(0, 18))} · ${escapeHTML(session.status.toLowerCase())}</option>`).join('')}`;
+  const list = document.getElementById('agent-session-list');
+  if (list) {
+    list.innerHTML = sessions.length
+      ? sessions.map((session) => `<button class="agent-session-item${session.id === activeAgentSessionId ? ' active' : ''}" type="button" role="option" aria-selected="${session.id === activeAgentSessionId}" data-agent-session-id="${escapeHTML(session.id)}"><span class="agent-session-item-top"><strong>${escapeHTML(session.provider)}</strong><span>${escapeHTML(session.status.toLowerCase())}</span></span><small>${escapeHTML(session.id.slice(0, 22))}</small></button>`).join('')
+      : '<p class="agent-empty-state">No saved sessions yet.</p>';
+  }
+}
+
+function renderAgentActivity() {
+  const list = document.getElementById('agent-activity-list');
+  const count = document.getElementById('agent-activity-state');
+  if (count) count.textContent = agentPromptRunning ? 'Running' : agentActivity.length ? `${agentActivity.length} events` : 'Idle';
+  if (!list) return;
+  list.innerHTML = agentActivity.length
+    ? agentActivity.slice(-12).map((item) => `<li class="agent-activity-item agent-activity-${escapeHTML(item.kind ?? 'status')}"><span class="agent-activity-marker" aria-hidden="true"></span><div><strong>${escapeHTML(item.label)}</strong>${item.detail ? `<small>${escapeHTML(item.detail)}</small>` : ''}</div></li>`).join('')
+    : '<li class="agent-inspector-empty">Activity appears here while the agent works.</li>';
+  list.scrollTop = list.scrollHeight;
+}
+
+function renderAgentFiles(files = agentFiles) {
+  agentFiles = Array.isArray(files) ? files : [];
+  const list = document.getElementById('agent-files-list');
+  const count = document.getElementById('agent-files-count');
+  if (count) count.textContent = String(agentFiles.length);
+  if (!list) return;
+  list.innerHTML = agentFiles.length
+    ? agentFiles.map((file) => `<li class="agent-file-item"><code>${escapeHTML(file.path ?? file.file ?? 'Changed file')}</code><span>${file.additions ?? 0}<i>+</i> ${file.deletions ?? 0}<em>−</em></span></li>`).join('')
+    : '<li class="agent-inspector-empty">No changes detected.</li>';
+}
+
+function renderAgentSkills() {
+  const list = document.getElementById('agent-skills-list');
+  const count = document.getElementById('agent-skills-count');
+  if (count) count.textContent = String(agentSkillsUsed.length);
+  if (!list) return;
+  list.innerHTML = agentSkillsUsed.length
+    ? agentSkillsUsed.map((skill) => `<li class="agent-skill-item"><strong>${escapeHTML(skill.label)}</strong><small>${escapeHTML(skill.detail ?? 'Used in this turn')}</small></li>`).join('')
+    : '<li class="agent-inspector-empty">No skills used this turn.</li>';
+}
+
+function addAgentActivity(label, detail = '', kind = 'status') {
+  agentActivity = [...agentActivity, { label, ...(detail ? { detail } : {}), kind }].slice(-20);
+  renderAgentActivity();
 }
 
 function renderAgentMessages(messages) {
@@ -1288,9 +1341,11 @@ function selectAgentSession(sessionId) {
   if (provider) provider.value = selectedProvider;
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
+  const location = document.getElementById('agent-session-location');
   const context = document.getElementById('agent-session-context');
   if (providerLabel) providerLabel.textContent = `${session.provider} · ${session.status.toLowerCase()}`;
   if (title) title.textContent = `Session ${session.id.slice(0, 18)}`;
+  if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
   if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
   renderAgentSessions(agentSessions);
   requestAgentMessages(session.id);
@@ -1303,10 +1358,19 @@ function startNewAgentSession() {
   renderAgentMessages([]);
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
+  const location = document.getElementById('agent-session-location');
   const context = document.getElementById('agent-session-context');
   if (providerLabel) providerLabel.textContent = `${selectedProvider} · new session`;
   if (title) title.textContent = 'Start an agent session';
+  if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
   if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
+  agentActivity = [];
+  agentFiles = [];
+  agentSkillsUsed = [];
+  renderAgentActivity();
+  renderAgentFiles();
+  renderAgentSkills();
+  renderAgentSessions(agentSessions);
   document.getElementById('agent-prompt-input')?.focus();
 }
 
@@ -1325,7 +1389,10 @@ function sendAgentPrompt(event) {
   const button = document.getElementById('agent-send-button');
   const feedback = document.getElementById('agent-feedback');
   if (button) button.disabled = true;
+  const turnState = document.getElementById('agent-turn-state');
+  if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
   if (feedback) feedback.textContent = `Sending prompt to ${provider}…`;
+  addAgentActivity('Prompt sent', `${provider} · ${activeProject.name}`, 'prompt');
   nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `agent-prompt-${Date.now()}`, method: 'agent.prompt', params: { provider, repositoryPath: workspaceRootPath, prompt, ...(activeAgentSessionId ? { sessionId: activeAgentSessionId } : {}), ...(selectedTaskId && selectedTaskId !== '—' ? { taskId: selectedTaskId } : {}), grantedPermissions: permissions } }) }).catch((error) => {
     agentPromptRunning = false;
     if (button) button.disabled = false;
@@ -1392,6 +1459,11 @@ function runSkillFromUI(sessionId) {
   }
   const taskId = selectedTaskId;
   if (feedback) feedback.textContent = `${sessionId ? 'Resuming' : 'Starting'} ${skillId} with ${selectedProvider}…`;
+  if (!agentSkillsUsed.some((skill) => skill.id === skillId)) {
+    agentSkillsUsed = [...agentSkillsUsed, { id: skillId, label: skillId, detail: `${selectedProvider} · running in this Project` }];
+    renderAgentSkills();
+  }
+  addAgentActivity(skillId, `${selectedProvider} · skill execution started`, 'skill');
   nativeInvoke('sidecar_request', {
     request: JSON.stringify({
       id: `skill-run-${Date.now()}`,
@@ -1709,6 +1781,9 @@ async function connectSidecar(snapshot) {
           agentPromptRunning = false;
           const sendButton = document.getElementById('agent-send-button');
           if (sendButton) sendButton.disabled = false;
+          const turnState = document.getElementById('agent-turn-state');
+          if (turnState) { turnState.textContent = 'ERROR'; turnState.dataset.state = 'error'; }
+          addAgentActivity('Agent failed', response.error.message, 'error');
         }
         if (contextPurpose === 'remove-project') pendingProjectRemovals.delete(String(response.id));
         if (contextPurpose === 'projects') {
@@ -1788,6 +1863,10 @@ async function connectSidecar(snapshot) {
         renderAgentMessages(response.result);
         return;
       }
+      if (contextPurpose === 'agent-files' && response.result?.files) {
+        renderAgentFiles(response.result.files);
+        return;
+      }
       if (contextPurpose === 'git-diff' && response.result?.commit && selectedGitCommit?.hash === response.result.commit) {
         renderGitCommitDetail(selectedGitCommit, response.result.diff);
         return;
@@ -1842,6 +1921,11 @@ async function connectSidecar(snapshot) {
         const feedback = document.getElementById('agent-feedback');
         const payload = response.event?.payload;
         if (feedback) feedback.textContent = `${response.skillId}: ${payload?.type ?? response.event?.type ?? 'event'}`;
+        if (!agentSkillsUsed.some((skill) => skill.id === response.skillId)) {
+          agentSkillsUsed = [...agentSkillsUsed, { id: response.skillId, label: response.skillId, detail: 'Running in this Project' }];
+          renderAgentSkills();
+        }
+        addAgentActivity(response.skillId, payload?.type ?? response.event?.type ?? 'skill event', 'skill');
         renderRuntimeEvent(selectedTaskId ?? 'skill', response.event);
         return;
       }
@@ -1849,10 +1933,15 @@ async function connectSidecar(snapshot) {
         activeAgentSessionId = response.sessionId;
         const providerLabel = document.getElementById('agent-session-provider');
         const title = document.getElementById('agent-session-title');
+        const location = document.getElementById('agent-session-location');
         const context = document.getElementById('agent-session-context');
         if (providerLabel) providerLabel.textContent = `${response.provider} · running`;
         if (title) title.textContent = `Session ${response.sessionId.slice(0, 18)}`;
+        if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
         if (context) context.textContent = `${activeProject.name} · ${response.taskId ?? 'no Task selected'}`;
+        const turnState = document.getElementById('agent-turn-state');
+        if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
+        addAgentActivity('Session active', `${response.provider} is working in ${activeProject.name}`, 'status');
         return;
       }
       if (response.result?.sessionId && response.result?.provider && response.result?.status === 'COMPLETED') {
@@ -1862,6 +1951,14 @@ async function connectSidecar(snapshot) {
         const feedback = document.getElementById('agent-feedback');
         if (button) button.disabled = false;
         if (feedback) feedback.textContent = `${response.result.provider} completed this turn.`;
+        const turnState = document.getElementById('agent-turn-state');
+        if (turnState) { turnState.textContent = 'READY'; turnState.dataset.state = 'ready'; }
+        addAgentActivity('Response ready', `${response.result.provider} completed the turn`, 'complete');
+        if (Array.isArray(response.result.activity)) {
+          response.result.activity.forEach((item) => addAgentActivity(item.label ?? item.type ?? 'Provider event', item.detail ?? '', item.kind ?? 'tool'));
+        }
+        if (Array.isArray(response.result.files)) renderAgentFiles(response.result.files);
+        else requestAgentFiles();
         requestAgentSessions(workspaceRootPath);
         requestAgentMessages(activeAgentSessionId);
         return;
@@ -2092,6 +2189,9 @@ function showView(view) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
   panels.forEach((panel) => panel.classList.toggle('active-view', panel.dataset.panel === view));
   document.querySelector('.main-content')?.classList.toggle('editor-focus', view === 'editor');
+  const mainContent = document.querySelector('.main-content');
+  mainContent?.classList.toggle('agent-focus', view === 'agents');
+  if (mainContent) mainContent.scrollTop = 0;
   const labels = { projects: 'Projects', editor: 'Editor', agents: 'Agents', work: 'Tasks', knowledge: 'Project context', changes: 'Version control', runtime: 'Local runtime' };
   const crumb = document.getElementById('breadcrumb-current');
   if (crumb) crumb.textContent = labels[view] ?? view;
