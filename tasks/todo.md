@@ -244,7 +244,7 @@
 - [x] Task: Exponer Agents como superficie conversacional
   - Spec: [SPEC-agent-providers.md](../docu/specs/SPEC-agent-providers.md) · [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md)
   - ADR: [0024-agent-surface.md](../docu/adr/0024-agent-surface.md)
-  - Acceptance: ADE muestra `Agents` con selección Codex/Claude Code/OpenCode, sesiones nuevas o reanudables, transcript persistido, prompt asociado al Project/Task y permisos sensibles concedidos por ejecución.
+  - Acceptance: ADE muestra `Agents` con selección Codex/Claude Code/OpenCode, sesiones nuevas o reanudables, transcript persistido, prompt asociado al Project/Task, selector de modelo dependiente del provider y permisos sensibles concedidos por ejecución. El modelo seleccionado se transmite al runtime y el catálogo se refresca al cambiar de conversación.
   - Verify: `npm run build` y `npm test`.
   - Files: `src/desktop-sidecar.ts`, `src/persistence/sqlite-store.ts`, `src/ports/agent-runtime.ts`, `desktop/src/`, `tests/`.
 

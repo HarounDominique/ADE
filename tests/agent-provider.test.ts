@@ -7,4 +7,5 @@ test("provider registry reports unavailable providers without credentials", asyn
   assert.deepEqual(providers.map((provider) => provider.id), ["opencode", "codex", "claude"]);
   assert.equal(providers.every((provider) => !provider.available), true);
   assert.match(providers[0]?.detail ?? "", /unreachable/);
+  assert.deepEqual(providers.find((provider) => provider.id === "claude")?.models.map((model) => model.id), ["", "opus", "sonnet", "haiku"]);
 });

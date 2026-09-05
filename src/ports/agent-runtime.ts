@@ -13,6 +13,7 @@ export type AgentPermission = "read_project" | "write_code" | "write_docs" | "ru
 export type AgentPromptInput = {
   text: string;
   agent?: string;
+  model?: string;
   grantedPermissions?: readonly AgentPermission[];
 };
 
@@ -26,6 +27,7 @@ export type FileDiff = {
 export type StructuredPrompt = {
   text: string;
   agent?: string;
+  model?: string;
   format: {
     type: "json_schema";
     schema: Record<string, unknown>;

@@ -66,6 +66,8 @@ const terminalTabs = [];
 let activeTerminalId = null;
 let terminalTabSequence = 0;
 let selectedProvider = 'opencode';
+let selectedAgentModel = '';
+const agentSessionModels = new Map();
 let activeProjectId = projectSnapshot.project.id;
 let activeProject = mergeActiveProject({}, projectSnapshot.project);
 let workspaceRootPath = projectSnapshot.project.repositoryPath;
@@ -1204,6 +1206,16 @@ function providerIsAvailable(providerId) {
   return !provider || provider.available;
 }
 
+function renderModelSelection(modelId = selectedAgentModel) {
+  const select = document.getElementById('agent-model');
+  if (!select) return;
+  const provider = providerStatuses.find((item) => item.id === selectedProvider);
+  const models = provider?.models?.length ? provider.models : [{ id: '', label: 'Provider default' }];
+  selectedAgentModel = models.some((model) => model.id === modelId) ? modelId : '';
+  select.innerHTML = models.map((model) => `<option value="${escapeHTML(model.id)}"${model.id === selectedAgentModel ? ' selected' : ''}>${escapeHTML(model.label)}</option>`).join('');
+  select.disabled = !providerIsAvailable(selectedProvider);
+}
+
 function renderProviderSelection() {
   const detail = document.getElementById('agent-provider-status');
   if (!detail) return;
@@ -1229,6 +1241,7 @@ function renderProviders(providers) {
   const knowledgeDetail = document.getElementById('provider-detail');
   if (knowledgeDetail) knowledgeDetail.textContent = providers.map((provider) => `${provider.label}: ${provider.detail}`).join(' · ');
   renderProviderSelection();
+  renderModelSelection();
 }
 
 function refreshSelectedSkill() {
@@ -1296,15 +1309,18 @@ function renderAgentSessions(sessions) {
 
 function resetAgentWorkspaceForProject() {
   activeAgentSessionId = null;
+  agentSessionModels.clear();
   agentSessions = [];
   agentActivity = [];
   agentFiles = [];
   agentSkillsUsed = [];
+  selectedAgentModel = '';
   renderAgentSessions([]);
   renderAgentMessages([]);
   renderAgentActivity();
   renderAgentFiles();
   renderAgentSkills();
+  renderModelSelection();
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
   const location = document.getElementById('agent-session-location');
@@ -1368,8 +1384,10 @@ function selectAgentSession(sessionId) {
   if (!session) return;
   activeAgentSessionId = session.id;
   selectedProvider = session.provider;
+  selectedAgentModel = agentSessionModels.get(session.id) ?? '';
   const provider = document.getElementById('agent-provider');
   if (provider) provider.value = selectedProvider;
+  renderModelSelection(selectedAgentModel);
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
   const location = document.getElementById('agent-session-location');
@@ -1419,6 +1437,7 @@ function confirmDeleteAgentSession() {
 
 function startNewAgentSession() {
   activeAgentSessionId = null;
+  selectedAgentModel = '';
   const selector = document.getElementById('agent-session-selector');
   if (selector) selector.value = '';
   renderAgentMessages([]);
@@ -1436,6 +1455,7 @@ function startNewAgentSession() {
   renderAgentActivity();
   renderAgentFiles();
   renderAgentSkills();
+  renderModelSelection();
   renderAgentSessions(agentSessions);
   document.getElementById('agent-prompt-input')?.focus();
 }
@@ -1446,10 +1466,13 @@ function sendAgentPrompt(event) {
   const input = document.getElementById('agent-prompt-input');
   const prompt = input?.value.trim();
   const provider = document.getElementById('agent-provider')?.value ?? selectedProvider;
+  const model = document.getElementById('agent-model')?.value ?? '';
   if (!prompt) return;
   if (!providerIsAvailable(provider)) { notify('Selected agent provider is unavailable.'); return; }
   const permissions = [...document.querySelectorAll('#agent-prompt-form input[type="checkbox"]:checked')].map((item) => item.value);
   selectedProvider = provider;
+  selectedAgentModel = model;
+  if (activeAgentSessionId) agentSessionModels.set(activeAgentSessionId, model);
   agentPromptRunning = true;
   const button = document.getElementById('agent-send-button');
   const feedback = document.getElementById('agent-feedback');
@@ -1458,7 +1481,7 @@ function sendAgentPrompt(event) {
   if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
   if (feedback) feedback.textContent = `Sending prompt to ${provider}…`;
   addAgentActivity('Prompt sent', `${provider} · ${activeProject.name}`, 'prompt');
-  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `agent-prompt-${Date.now()}`, method: 'agent.prompt', params: { provider, repositoryPath: workspaceRootPath, prompt, ...(activeAgentSessionId ? { sessionId: activeAgentSessionId } : {}), ...(selectedTaskId && selectedTaskId !== '—' ? { taskId: selectedTaskId } : {}), grantedPermissions: permissions } }) }).catch((error) => {
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `agent-prompt-${Date.now()}`, method: 'agent.prompt', params: { provider, repositoryPath: workspaceRootPath, prompt, ...(model ? { model } : {}), ...(activeAgentSessionId ? { sessionId: activeAgentSessionId } : {}), ...(selectedTaskId && selectedTaskId !== '—' ? { taskId: selectedTaskId } : {}), grantedPermissions: permissions } }) }).catch((error) => {
     agentPromptRunning = false;
     if (button) button.disabled = false;
     if (turnState) { turnState.textContent = 'ERROR'; turnState.dataset.state = 'error'; }
@@ -1511,6 +1534,7 @@ function runSkillFromUI(sessionId) {
   const skillId = select?.value;
   const providerSelect = document.getElementById('agent-provider');
   selectedProvider = providerSelect?.value ?? 'opencode';
+  const model = document.getElementById('agent-model')?.value ?? '';
   const feedback = document.getElementById('agent-feedback');
   if (!skillId) { notify('No native skill selected.'); return; }
   if (!providerIsAvailable(selectedProvider)) {
@@ -1541,6 +1565,7 @@ function runSkillFromUI(sessionId) {
         intent: selectedTaskIntent || document.getElementById('task-intent')?.value || 'Inspect the active Project and propose the next useful action.',
         repositoryPath: document.getElementById('project-path')?.textContent,
         grantedPermissions: explicit,
+        ...(model ? { model } : {}),
         ...(sessionId ? { sessionId } : {}),
         ...(taskId && taskId !== '—' ? { taskId } : {}),
       },
@@ -2028,6 +2053,7 @@ async function connectSidecar(snapshot) {
       }
       if (response.result?.sessionId && response.result?.provider && response.result?.status === 'COMPLETED') {
         activeAgentSessionId = response.result.sessionId;
+        agentSessionModels.set(activeAgentSessionId, selectedAgentModel);
         agentPromptRunning = false;
         const button = document.getElementById('agent-send-button');
         const feedback = document.getElementById('agent-feedback');
@@ -2683,12 +2709,19 @@ document.addEventListener('click', (event) => {
 });
 document.getElementById('agent-provider')?.addEventListener('change', (event) => {
   selectedProvider = event.target.value;
+  selectedAgentModel = '';
+  if (activeAgentSessionId && agentSessions.some((session) => session.id === activeAgentSessionId && session.provider !== selectedProvider)) startNewAgentSession();
   renderProviderSelection();
+  renderModelSelection();
 });
 document.getElementById('agent-delete-dialog')?.addEventListener('cancel', () => {
   pendingAgentSessionDeletion = null;
 });
 document.getElementById('agent-prompt-form')?.addEventListener('submit', sendAgentPrompt);
+document.getElementById('agent-model')?.addEventListener('change', (event) => {
+  selectedAgentModel = event.target.value;
+  if (activeAgentSessionId) agentSessionModels.set(activeAgentSessionId, selectedAgentModel);
+});
 document.querySelector('[data-action="new-agent-session"]')?.addEventListener('click', startNewAgentSession);
 document.getElementById('agent-session-selector')?.addEventListener('change', (event) => {
   const sessionId = event.target.value;

@@ -136,6 +136,9 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /providerIsAvailable/);
   assert.match(html, /id="agent-provider-status"/);
   assert.match(html, /Claude Code/);
+  assert.match(html, /id="agent-model"/);
+  assert.match(main, /renderModelSelection/);
+  assert.match(main, /model \? \{ model \}/);
   assert.match(main, /method: 'skills\.update'/);
   assert.match(main, /refreshSelectedSkill/);
   assert.match(main, /method: 'service\.list'/);

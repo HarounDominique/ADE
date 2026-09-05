@@ -33,6 +33,17 @@ test("Codex CLI maps write and network permissions to supported execution flags"
   ]);
 });
 
+test("Codex CLI forwards a selected model to the execution", async () => {
+  const calls: string[][] = [];
+  const runtime = new CodexCliRuntime("codex", async (_command, args) => {
+    calls.push(args);
+    return { stdout: '{"type":"thread.started","thread_id":"model-session"}\n' };
+  });
+  const session = await runtime.createSession({ directory: "/tmp/project" });
+  await runtime.prompt(session, { text: "Use the selected model", model: "gpt-5.4" });
+  assert.deepEqual(calls[0], ["--model", "gpt-5.4", "exec", "--sandbox", "read-only", "--cd", "/tmp/project", "--json", "Use the selected model"]);
+});
+
 test("Codex CLI accepts common structured session event shapes", () => {
   assert.equal(extractCodexSessionId('{"thread":{"id":"thread-session"}}'), "thread-session");
   assert.equal(extractCodexSessionId('{"session_id":"session-id"}'), "session-id");

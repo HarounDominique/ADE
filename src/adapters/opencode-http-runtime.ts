@@ -39,7 +39,7 @@ export class OpenCodeHttpRuntime implements AgentRuntimePort {
     return { id: session.id, directory: input.directory };
   }
 
-  async prompt(session: SessionHandle, input: { text: string; agent?: string }): Promise<unknown> {
+  async prompt(session: SessionHandle, input: { text: string; agent?: string; model?: string }): Promise<unknown> {
     const response = await this.request(`/session/${encodeURIComponent(session.id)}/prompt_async`, {
       method: "POST",
       headers: {
@@ -49,6 +49,7 @@ export class OpenCodeHttpRuntime implements AgentRuntimePort {
       body: JSON.stringify({
         parts: [{ type: "text", text: input.text }],
         ...(input.agent ? { agent: input.agent } : {}),
+        ...(input.model ? { model: input.model } : {}),
       }),
     });
     if (response.status !== 204) {
@@ -68,6 +69,7 @@ export class OpenCodeHttpRuntime implements AgentRuntimePort {
         parts: [{ type: "text", text: input.text }],
         format: input.format,
         ...(input.agent ? { agent: input.agent } : {}),
+        ...(input.model ? { model: input.model } : {}),
       }),
     });
     return response.json();

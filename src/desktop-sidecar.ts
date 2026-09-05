@@ -38,7 +38,7 @@ import { LocalGitRepository } from "./adapters/local-git-repository.js";
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; sessionId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
 };
 
 export type DesktopResponse = {
@@ -234,6 +234,7 @@ export async function runDesktopSidecar(): Promise<void> {
             directory: params.repositoryPath,
             intent: params.intent,
             ...(params.sessionId ? { sessionId: params.sessionId } : {}),
+            ...(typeof params.model === "string" && params.model ? { model: params.model } : {}),
             grantedPermissions: params.grantedPermissions ?? [],
             onSession: (session) => {
               sessionId = session.id;
@@ -467,7 +468,7 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     const eventPromise = provider === "opencode"
       ? collectAgentEvents(runtime, eventTexts, activity)
       : Promise.resolve();
-    const rawOutput = await runtime.prompt(session, { text: params.prompt!, grantedPermissions: params.grantedPermissions ?? [] });
+    const rawOutput = await runtime.prompt(session, { text: params.prompt!, ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), grantedPermissions: params.grantedPermissions ?? [] });
     await eventPromise;
     if (isPendingCli && session.id.startsWith(`${provider}-pending-`)) throw new Error(`${provider} completed without reporting a resumable session id`);
     store.saveAgentSession({ id: session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider, directory: params.repositoryPath!, status: "COMPLETED", createdAt });

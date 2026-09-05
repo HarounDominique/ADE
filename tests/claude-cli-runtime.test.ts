@@ -12,10 +12,10 @@ test("Claude Code CLI creates a resumable session and maps permissions", async (
   const firstSessionId = session.id.replace(/^claude-pending-/, "");
   await runtime.prompt(session, { text: "Read the project" });
   assert.equal(session.id, "claude-session");
-  await runtime.prompt(session, { text: "Update the project", grantedPermissions: ["write_code", "run_commands", "network"] });
+  await runtime.prompt(session, { text: "Update the project", model: "sonnet", grantedPermissions: ["write_code", "run_commands", "network"] });
   assert.deepEqual(calls, [
     ["--print", "--output-format", "json", "--permission-mode", "plan", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep", "--session-id", firstSessionId, "Read the project"],
-    ["--print", "--output-format", "json", "--permission-mode", "acceptEdits", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep,Edit,Write,Bash,WebFetch,WebSearch", "--resume", "claude-session", "Update the project"],
+    ["--print", "--output-format", "json", "--permission-mode", "acceptEdits", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep,Edit,Write,Bash,WebFetch,WebSearch", "--model", "sonnet", "--resume", "claude-session", "Update the project"],
   ]);
 });
 

@@ -32,12 +32,12 @@ export class CodexCliRuntime implements AgentRuntimePort {
     return { id: `codex-pending-${randomUUID()}`, directory: input.directory };
   }
 
-  async prompt(session: SessionHandle, input: { text: string; grantedPermissions?: readonly AgentPermission[] }): Promise<unknown> {
-    return this.executePrompt(session, input.text, input.grantedPermissions);
+  async prompt(session: SessionHandle, input: { text: string; model?: string; grantedPermissions?: readonly AgentPermission[] }): Promise<unknown> {
+    return this.executePrompt(session, input.text, input.grantedPermissions, input.model);
   }
 
   async promptAndWait(session: SessionHandle, input: StructuredPrompt): Promise<unknown> {
-    const stdout = await this.executePrompt(session, input.text);
+    const stdout = await this.executePrompt(session, input.text, [], input.model);
     return { output: stdout.trim(), provider: "codex" };
   }
 
@@ -48,11 +48,12 @@ export class CodexCliRuntime implements AgentRuntimePort {
   }
   async abort(): Promise<void> { /* one-shot CLI processes finish or fail atomically */ }
 
-  private async executePrompt(session: SessionHandle, text: string, grantedPermissions: readonly AgentPermission[] = []): Promise<string> {
+  private async executePrompt(session: SessionHandle, text: string, grantedPermissions: readonly AgentPermission[] = [], model?: string): Promise<string> {
     const isNew = session.id.startsWith("codex-pending-");
     const sandbox = grantedPermissions.some((permission) => ["write_code", "write_docs"].includes(permission)) ? "workspace-write" : "read-only";
     const args = [
       ...(grantedPermissions.includes("network") ? ["--search"] : []),
+      ...(model ? ["--model", model] : []),
       "exec",
       "--sandbox",
       sandbox,

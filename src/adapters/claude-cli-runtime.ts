@@ -34,12 +34,12 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
     return { id: `claude-pending-${randomUUID()}`, directory: input.directory };
   }
 
-  async prompt(session: SessionHandle, input: { text: string; grantedPermissions?: readonly AgentPermission[] }): Promise<unknown> {
-    return this.executePrompt(session, input.text, input.grantedPermissions);
+  async prompt(session: SessionHandle, input: { text: string; model?: string; grantedPermissions?: readonly AgentPermission[] }): Promise<unknown> {
+    return this.executePrompt(session, input.text, input.grantedPermissions, input.model);
   }
 
   async promptAndWait(session: SessionHandle, input: StructuredPrompt): Promise<unknown> {
-    const stdout = await this.executePrompt(session, input.text, [], JSON.stringify(input.format.schema));
+    const stdout = await this.executePrompt(session, input.text, [], input.model, JSON.stringify(input.format.schema));
     return { output: extractClaudeText(stdout), provider: "claude" };
   }
 
@@ -59,6 +59,7 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
     session: SessionHandle,
     text: string,
     grantedPermissions: readonly AgentPermission[] = [],
+    model?: string,
     schema?: string,
   ): Promise<string> {
     const isNew = session.id.startsWith("claude-pending-");
@@ -74,6 +75,7 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
       "--permission-mode", writable ? "acceptEdits" : "plan",
       "--permission-prompts", "none",
       "--allowed-tools", allowedTools.join(","),
+      ...(model ? ["--model", model] : []),
       ...(schema ? ["--json-schema", schema] : []),
       ...(isNew ? ["--session-id", sessionId] : ["--resume", session.id]),
       text,

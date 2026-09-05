@@ -681,3 +681,13 @@ body { color: var(--text); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+.agent-prompt-options { display: flex; min-width: 0; align-items: flex-end; gap: 14px; }
+.agent-model-choice { display: grid; min-width: 148px; gap: 4px; color: var(--muted); font: 9px var(--mono); text-transform: uppercase; }
+.agent-model-choice select { min-height: 29px; padding: 5px 8px; border: 1px solid var(--line-strong); border-radius: 2px; color: var(--text-soft); background: var(--panel); font: 10px var(--mono); }
+.agent-model-choice select:focus { border-color: var(--blue); outline: 2px solid color-mix(in srgb, var(--blue) 28%, transparent); outline-offset: 1px; }
+.agent-model-choice select:disabled { cursor: not-allowed; opacity: .6; }
+@media (max-width: 760px) {
+  .agent-prompt-options { align-items: stretch; flex-direction: column; gap: 8px; }
+  .agent-model-choice { min-width: 0; }
+}

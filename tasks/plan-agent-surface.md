@@ -13,6 +13,7 @@ Implemented on 2026-09-05.
 - Add sidecar reads for sessions/messages and an asynchronous generic prompt operation.
 - Reuse Codex CLI, Claude Code CLI and OpenCode HTTP adapters without storing credentials.
 - Show provider selection, transcript, Task context and per-run sensitive permission grants.
+- Show a provider-scoped model selector beside the per-run permissions and reset it when the user changes provider or saved conversation.
 - Keep the primary surface focused: the Sessions rail and conversation thread occupy the workbench; Activity, Files changed and Skills & tools are not rendered in a permanent inspector.
 
 ## Verification

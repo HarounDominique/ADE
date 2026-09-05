@@ -38,8 +38,8 @@ Con Claude Code instalado, el smoke local del adapter puede comprobarse sin abri
 
 - `health`: comprueba disponibilidad sin iniciar una Task.
 - `createSession`: crea una sesión aislada por `directory` y devuelve un handle estable.
-- `prompt`: envía trabajo asíncrono al Implementer.
-- `promptAndWait`: envía una petición que debe devolver una respuesta estructurada según un JSON Schema; se usa para el Reviewer.
+- `prompt`: envía trabajo asíncrono al Implementer, incluyendo opcionalmente el `model` elegido por el usuario.
+- `promptAndWait`: envía una petición que debe devolver una respuesta estructurada según un JSON Schema y puede fijar `model`; se usa para el Reviewer.
 - `events`: expone eventos SSE hasta cierre, cancelación o `session.idle` consumido por la aplicación.
 - `diff`: obtiene el cambio que el runtime atribuye a la sesión.
 - `abort`: solicita cancelación explícita de la sesión.
