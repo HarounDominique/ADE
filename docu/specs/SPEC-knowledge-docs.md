@@ -10,7 +10,7 @@ Convertir documentación, skills e instrucciones en contexto seleccionable y gob
 
 La documentación se organiza en tres clases: `canonical` (visión, arquitectura, dominio, seguridad y ADRs), `operational` (roadmap, estado, problemas y deuda) y `agent` (convenciones, testing, mapa e instrucciones). La recuperación combina intención, rutas afectadas, módulos, referencias explícitas, metadata e historial; embeddings son una evolución, no un requisito de v0.1.
 
-Una modificación puede producir impacto `required`, `recommended` o `none`. ADE detecta drift potencial y presenta evidencia y opciones; no modifica documentación canónica silenciosamente.
+Una modificación puede producir impacto `required`, `recommended` o `none`. ADE detecta drift potencial y presenta evidencia y opciones; la aplicación sólo aplica una reconciliación cuando se invoca explícitamente `knowledge.reconcile.apply` o `knowledge.reconcile.changed`, dejando la traza en el Nexus.
 
 ## Document contract
 
@@ -51,7 +51,7 @@ Taxonomía: `canonical`, `operational` y `agent`. El código, docs y skills perm
 
 ## Commands
 
-Mientras no exista el resolver ejecutable, las comprobaciones documentales reproducibles son:
+Las comprobaciones documentales reproducibles son:
 
 ```bash
 rg --files docu/specs docu/adr docu/knowledge
@@ -60,7 +60,7 @@ git diff --check
 npm run build && npm test
 ```
 
-La futura CLI `npm run docs:check` debe agrupar validación de metadata, headings, enlaces y drift sin modificar documentos.
+El resolver actual vive en `src/application/knowledge/` y se expone desde el sidecar mediante `knowledge.graph`, `knowledge.impact`, `knowledge.reconcile`, `knowledge.reconcile.apply` y `knowledge.reconcile.changed`; todavía no existe una CLI `docs:check`.
 
 ## Code Style
 

@@ -4,7 +4,7 @@
 
 ## Objective
 
-Ofrecer una superficie desktop centrada en proyectos y Tasks, con navegación por Knowledge, Version control y Runtime, incorporando un editor interno de texto acotado sin construir todavía un editor completo.
+Ofrecer una superficie desktop centrada en proyectos, Tasks y agentes, con navegación por Knowledge, Version control y Runtime, incorporando un editor interno de texto acotado sin construir todavía un editor completo.
 
 ## Shell contract
 
@@ -78,7 +78,7 @@ Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y la
 
 ### Agents
 
-`Agents` es una vista inline tipo workbench, no un popup ni un diálogo superpuesto sobre el resto del shell. Su estructura fija se inspira en las superficies de agentes de IDEs actuales y separa claramente conversación, sesiones y evidencia:
+`Agents` es una vista inline tipo workbench, no un popup ni un diálogo superpuesto sobre el resto del shell. Su estructura fija se inspira en las superficies de agentes de IDEs actuales y separa claramente sesiones y conversación, conservando la evidencia fuera de la vista primaria:
 
 - el rail izquierdo lista sesiones del Project activo, permite crear una nueva y seleccionar el provider disponible;
 - el centro contiene la conversación, el estado de la sesión, el contexto Project/Task, el composer multilinea, los permisos del turno y `Send prompt`.

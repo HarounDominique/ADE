@@ -171,7 +171,7 @@
   - Acceptance: Codex/OpenCode se detectan, seleccionan y diagnostican sin persistir credenciales. OpenCode HTTP y Codex CLI están conectados al runner; las sesiones se persisten por Task y las skills retransmiten eventos hasta `session.idle`. Codex captura y retoma el `thread_id` real; la actividad de skills queda como evidencia persistida por sesión. La conversación completa del proveedor queda fuera de alcance.
   - Verify: contract tests con fakes y smoke de health.
 - [x] Task: Distribuir catálogo nativo de skills
-  - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad. Catálogo, carga/ejecución de skills de proyecto, instalación local/Git y runners OpenCode/Codex están implementados; ADE bloquea `write_code`, `run_commands` y `network` sin concesión por ejecución. La instalación es accionable desde el workbench y una fuente de red se rechaza con `SKILL_INSTALL_CONFIRMATION_REQUIRED` sin confirmación.
+  - Acceptance: skills de prompt, review, Spector, workflow, UML, QA, estimación y Git declaran manifest, permisos, versión y trazabilidad. Catálogo, carga/ejecución de skills de proyecto, instalación local/Git y runners OpenCode/Codex están implementados; ADE bloquea `write_code`, `run_commands` y `network` sin concesión por ejecución. Las operaciones del sidecar exponen catálogo, instalación, actualización y ejecución; la vista primaria Agents no incorpora gestión de skills. Una fuente de red se rechaza con `SKILL_INSTALL_CONFIRMATION_REQUIRED` sin confirmación.
   - Verify: validación de manifests, instalación local y ejecución de una skill fixture.
 - [x] Task: Integrar Git y GitHub con Tasks
   - Acceptance: branch, diff, worktree, commit y PR muestran actor, razón, ChangeSet y gates; operaciones peligrosas piden confirmación. `gitWorkflow` admite `pull-request` o `direct` (commit+push), Task→operación se persiste y la UI muestra el resultado de PR. Las operaciones se atribuyen a la Task seleccionada, `commit.create` devuelve su SHA, `push` resuelve la rama actual y `github.status` es accionable; Changes presenta ChangeSet, gates y findings, y Git mantiene su traza separada.
@@ -247,3 +247,8 @@
   - Acceptance: ADE muestra `Agents` con selección Codex/OpenCode, sesiones nuevas o reanudables, transcript persistido, prompt asociado al Project/Task y permisos sensibles concedidos por ejecución.
   - Verify: `npm run build` y `npm test`.
   - Files: `src/desktop-sidecar.ts`, `src/persistence/sqlite-store.ts`, `src/ports/agent-runtime.ts`, `desktop/src/`, `tests/`.
+
+- [x] Task: Priorizar conversación en Agents y alinear documentación
+  - Acceptance: Agents conserva sesiones y conversación como superficie primaria, elimina el inspector lateral de actividad/ficheros/skills y mantiene la evidencia en los registros operativos; README, diseño, specs, ADR y Nexus describen el mismo contrato.
+  - Verify: `npm run build`, `npm test`, `git diff --check` y revisión de referencias.
+  - Files: `desktop/src/`, `README.md`, `PRODUCT.md`, `DESIGN.md`, `docu/`, `tasks/`.

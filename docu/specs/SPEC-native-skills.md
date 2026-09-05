@@ -12,11 +12,11 @@ Prompt engineering, PR review, Spector/spec-driven development, workflow adaptat
 
 ## Commands
 
-`npm run build`; `npm test`; `npm run ade -- skill list`; `npm run desktop:dev`.
+`npm run build`; `npm test`; `npm run desktop:dev`. El catálogo y la ejecución se consultan mediante las operaciones `skills.list`, `skills.run`, `skills.install` y `skills.update` del sidecar; la CLI `npm run ade` no expone todavía un subcomando de skills.
 
 ## Project Structure
 
-`.ade/skills/` contiene skills del Project; el paquete nativo vive en `skills/`; el registro vive en `src/application/skills/`; la UI en `desktop/src/`.
+`.ade/skills/` contiene skills del Project; el paquete nativo vive en `skills/`; el registro y runners viven en `src/application/skills/`; el sidecar expone el contrato a la shell. La vista primaria `Agents` no incluye gestión de skills para preservar el espacio de conversación; las skills siguen disponibles para Tasks y operaciones del sidecar.
 
 ## Code Style
 
@@ -32,7 +32,7 @@ Prompt engineering, PR review, Spector/spec-driven development, workflow adaptat
 
 Los manifests se instalan desde un `.json` local o un repositorio Git (URL o `owner/repository`) mediante `skills.install`; ADE escribe `.ade/skills/<id>.json`, conserva el origen, la fecha y `installedFrom`. Una fuente de red se identifica antes de clonar y exige `confirmed`: sin consentimiento explícito el sidecar responde `SKILL_INSTALL_CONFIRMATION_REQUIRED` y no ejecuta ninguna operación de red.
 
-`skills.update` vuelve a obtener una skill de Project desde `installedFrom` y rechaza un manifest con otro `id`. Si ese origen es remoto, exige el mismo consentimiento explícito antes de clonar; una skill antigua sin origen queda ejecutable, pero informa que no puede actualizarse automáticamente. El workbench muestra si la skill es nativa o de Project, su origen y habilita Update sólo cuando es trazable.
+`skills.update` vuelve a obtener una skill de Project desde `installedFrom` y rechaza un manifest con otro `id`. Si ese origen es remoto, exige el mismo consentimiento explícito antes de clonar; una skill antigua sin origen queda ejecutable, pero informa que no puede actualizarse automáticamente. El catálogo/sidecar distingue skills nativas y de Project, conserva su origen y sólo permite actualizar cuando la procedencia es trazable.
 
 ## Testing Strategy
 

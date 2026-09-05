@@ -3,7 +3,7 @@
 **Estado:** Tauri validado en macOS, listo para shell ADE
 **Fecha:** 2026-09-02  
 **Spec:** [SPEC-desktop-shell.md](../specs/SPEC-desktop-shell.md#shell-contract)  
-**Nexus:** [SPEC-NEXUS.md](../specs/SPEC-NEXUS.md#open-decisions)
+**Nexus:** [SPEC-NEXUS.md](../specs/SPEC-NEXUS.md#deferred-decisions)
 
 ## Objetivo
 

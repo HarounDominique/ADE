@@ -4,7 +4,7 @@
 
 ## Platform
 
-web
+desktop (macOS)
 
 ADE se distribuye en esta iteración como shell desktop Tauri para macOS; la interfaz de trabajo es HTML/CSS y debe conservar affordances propias de una herramienta desktop.
 
@@ -39,6 +39,7 @@ La unidad principal no es un archivo ni una conversación aislada, sino una `Tas
 - Dock de terminal inferior redimensionable con transcript único, prompt mínimo, historial `↑`/`↓` y completado de rutas `cd` mediante `Tab`.
 - Editor interno acotado para ficheros de texto, con lectura/escritura segura, estado dirty, guardado, descarte, estados de preview y apertura externa explícita. CodeMirror 6 cubre los lenguajes oficiales incorporados y Monaco Editor aporta un fallback MIT para lenguajes adicionales, sin cambiar la superficie común.
 - Proveedores OpenCode y Codex, con sesiones reanudables por Task y sin copiar credenciales a ADE.
+- `Agents` como workbench inline: rail de sesiones/provider y conversación central; el inspector lateral de actividad, ficheros y skills no forma parte de la vista primaria.
 - Skills nativas y skills de Project instalables/actualizables con permisos explícitos por ejecución.
 - Git/GitHub con status, branches, worktrees, commits, push y PRs atribuidos a Tasks.
 - Documentación viva con grafo de referencias, Mermaid y reconciliación de specs/ADRs.

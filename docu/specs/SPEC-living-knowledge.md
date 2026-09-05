@@ -8,18 +8,18 @@ Mantener código, specs, nexus, ADRs, diagramas, tareas y documentación funcion
 
 ## Commands
 
-`npm run build`; `npm test`; `npm run ade -- docs impact <path>`; `npm run desktop:dev`.
+`npm run build`; `npm test`; `npm run desktop:dev`. El análisis y la reconciliación se exponen mediante las operaciones de sidecar `knowledge.graph`, `knowledge.impact`, `knowledge.reconcile`, `knowledge.reconcile.apply` y `knowledge.reconcile.changed`; `npm run ade` no tiene todavía un subcomando `docs`.
 
 ## Project Structure
 
-`docu/specs/`, `docu/adr/` y `docu/diagrams/` son conocimiento versionado; `src/application/knowledge/` calcula impacto; `skills/` aporta Spector, UML, QA docs y reconciliación.
+`docu/specs/` y `docu/adr/` son conocimiento normativo versionado; `docu/generated/` contiene reconciliación, QA, estimaciones y Mermaid derivados; `src/application/knowledge/` calcula impacto; `skills/` aporta Spector, UML, QA docs y reconciliación.
 
 ## Code Style
 
 Las referencias usan módulo y heading estable:
 
 ```md
-[SPEC-agent-providers.md#provider-contract](SPEC-agent-providers.md#provider-contract)
+[SPEC-agent-providers.md#agents-surface](SPEC-agent-providers.md#agents-surface)
 ```
 
 ## Testing Strategy

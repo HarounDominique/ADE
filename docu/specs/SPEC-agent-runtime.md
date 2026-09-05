@@ -4,7 +4,7 @@
 
 ## Objective
 
-Ejecutar implementaciones y revisiones mediante runtimes intercambiables, empezando por OpenCode, sin acoplar el dominio a sus internals.
+Ejecutar implementaciones y revisiones mediante runtimes intercambiables, empezando por OpenCode y Codex, sin acoplar el dominio a sus internals.
 
 ## Responsibilities
 
@@ -16,7 +16,7 @@ Una conversación puede continuar, renombrarse, resumirse, bifurcarse, archivars
 
 ## Tech Stack
 
-`OpenCodeHttpRuntime` es la implementación inicial de `AgentRuntimePort`, mediante HTTP local y streaming SSE. El dominio y la aplicación no importan tipos de OpenCode. La versión validada en el spike es OpenCode `1.18.26`; la URL se configura con `OPENCODE_URL` y por defecto es `http://127.0.0.1:4096`.
+`OpenCodeHttpRuntime` y el adapter local de Codex son las implementaciones iniciales de `AgentRuntimePort`, mediante HTTP/SSE y CLI JSONL respectivamente. El dominio y la aplicación no importan tipos de proveedor. La versión validada en el spike es OpenCode `1.18.26`; la URL se configura con `OPENCODE_URL` y por defecto es `http://127.0.0.1:4096`. Codex usa el comando detectado por el entorno o `ADE_CODEX_COMMAND`.
 
 ## Commands
 
@@ -28,7 +28,7 @@ npm run dev -- /ruta/al/repositorio "Inspect the repository and report its curre
 npm run review -- /ruta/al/repositorio "Describe the task"
 ```
 
-Con OpenCode sirviendo localmente: `opencode serve --hostname 127.0.0.1 --port 4096`. El adapter expone una API reproducible para health, crear sesión, enviar una Task, solicitar salida JSON estructurada, recibir streaming SSE, cancelar y obtener diff. El smoke test real está documentado en [Spike 001](../spikes/001-opencode-runtime.md#smoke-test-real) y la revisión independiente en [Spike 002](../spikes/002-independent-review.md#implementacion).
+Con OpenCode sirviendo localmente: `opencode serve --hostname 127.0.0.1 --port 4096`. El adapter expone una API reproducible para health, crear sesión, enviar una Task, solicitar salida JSON estructurada, recibir streaming SSE, cancelar y obtener diff. El smoke test real está documentado en [Spike 001](../spikes/001-opencode-runtime.md#smoke-test-real) y la revisión independiente en [Spike 002](../spikes/002-independent-review.md#flujo-validado).
 
 ## Runtime contract
 
@@ -85,7 +85,7 @@ Tests de contrato contra un fake runtime; tests unitarios del parser SSE y error
 
 ## Success Criteria
 
-Una sesión real puede ejecutar una Task sobre un repositorio local, emitir eventos, modificar archivos y ser cancelada; el smoke test real validó health, sesión, prompt, streaming SSE, `session.idle` y aislamiento en un repositorio efímero. Una segunda sesión puede recibir diff, intención y evidencia, y devolver findings estructurados sin heredar la conversación del Implementer. El flujo persistido completo está validado en [Spike 002](../spikes/002-independent-review.md#implementacion).
+Una sesión real puede ejecutar una Task sobre un repositorio local, emitir eventos, modificar archivos y ser cancelada; el smoke test real validó health, sesión, prompt, streaming SSE, `session.idle` y aislamiento en un repositorio efímero. Una segunda sesión puede recibir diff, intención y evidencia, y devolver findings estructurados sin heredar la conversación del Implementer. El flujo persistido completo está validado en [Spike 002](../spikes/002-independent-review.md#flujo-validado).
 
 ## v0.1 decisions
 
