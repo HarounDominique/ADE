@@ -37,6 +37,14 @@ test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(styles, /grid-template-columns: 188px minmax\(0, 1fr\);/);
 });
 
+test("Agents exposes an accessible delete action for saved conversations", () => {
+  assert.match(main, /data-delete-agent-session-id/);
+  assert.match(main, /Delete saved conversation/);
+  assert.match(main, /agent\.session\.delete/);
+  assert.match(main, /window\.confirm/);
+  assert.match(styles, /\.agent-session-delete:focus-visible/);
+});
+
 test("switching Project refreshes and isolates the Agent session history", () => {
   const switcher = main.slice(main.indexOf("async function switchProjectFromContext"), main.indexOf("async function switchBranchFromContext"));
   assert.match(switcher, /resetAgentWorkspaceForProject\(\)/);

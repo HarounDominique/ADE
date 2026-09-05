@@ -48,6 +48,17 @@ test("desktop sidecar removes a project from ADE without touching its files", ()
   store.close();
 });
 
+test("desktop sidecar deletes a saved agent conversation", () => {
+  const store = new AdeStore();
+  store.saveAgentSession({ id: "session-sidecar-delete", provider: "codex", directory: "/tmp/project", status: "COMPLETED", createdAt: "2026-09-03T00:00:00.000Z" });
+
+  const response = handleDesktopRequest(store, { id: "delete-session-1", method: "agent.session.delete", params: { sessionId: "session-sidecar-delete" } });
+
+  assert.deepEqual(response, { id: "delete-session-1", result: { id: "session-sidecar-delete", removed: true } });
+  assert.deepEqual(store.listAgentSessions(), []);
+  store.close();
+});
+
 test("desktop sidecar returns actionable protocol errors", () => {
   const store = new AdeStore();
 

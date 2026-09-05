@@ -89,3 +89,15 @@ test("SQLite persists resumable agent sessions per Task", () => {
   assert.deepEqual(store.listAgentMessages("session-1").map((message) => message.content), ["Inspect this project", "I found the project root."]);
   store.close();
 });
+
+test("SQLite deletes an agent session and cascades its messages", () => {
+  const store = new AdeStore();
+  store.saveAgentSession({ id: "session-delete", provider: "codex", directory: "/tmp/project", status: "COMPLETED", createdAt: "2026-09-03T00:00:00.000Z" });
+  store.saveAgentMessage({ id: "message-delete", sessionId: "session-delete", role: "user", content: "Remove me", createdAt: "2026-09-03T00:01:00.000Z" });
+
+  store.deleteAgentSession("session-delete");
+
+  assert.deepEqual(store.listAgentSessions().map((session) => session.id), []);
+  assert.deepEqual(store.listAgentMessages("session-delete"), []);
+  store.close();
+});

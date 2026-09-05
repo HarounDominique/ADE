@@ -118,6 +118,7 @@ const codeEditorLanguage = new Compartment();
 const pendingContextRequests = new Map();
 const pendingAgentSessionPaths = new Map();
 const pendingAgentMessageSessions = new Map();
+const pendingAgentSessionDeletes = new Map();
 const pendingSnapshotProjects = new Map();
 const pendingProjectRemovals = new Map();
 
@@ -1287,7 +1288,7 @@ function renderAgentSessions(sessions) {
   const list = document.getElementById('agent-session-list');
   if (list) {
     list.innerHTML = sessions.length
-      ? sessions.map((session) => `<button class="agent-session-item${session.id === activeAgentSessionId ? ' active' : ''}" type="button" role="option" aria-selected="${session.id === activeAgentSessionId}" data-agent-session-id="${escapeHTML(session.id)}"><span class="agent-session-item-top"><strong>${escapeHTML(session.provider)}</strong><span>${escapeHTML(session.status.toLowerCase())}</span></span><small>${escapeHTML(session.id.slice(0, 22))}</small></button>`).join('')
+      ? sessions.map((session) => `<div class="agent-session-item${session.id === activeAgentSessionId ? ' active' : ''}" role="option" aria-selected="${session.id === activeAgentSessionId}"><button class="agent-session-select" type="button" data-agent-session-id="${escapeHTML(session.id)}"><span class="agent-session-item-top"><strong>${escapeHTML(session.provider)}</strong><span>${escapeHTML(session.status.toLowerCase())}</span></span><small>${escapeHTML(session.id.slice(0, 22))}</small></button><button class="agent-session-delete icon-button" type="button" data-delete-agent-session-id="${escapeHTML(session.id)}" aria-label="Delete saved conversation ${escapeHTML(session.id.slice(0, 12))}" title="Delete saved conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M8 7l1-2h6l1 2m-9 0 1 13h6l1-13"/></svg></button></div>`).join('')
       : '<p class="agent-empty-state">No saved sessions yet.</p>';
   }
 }
@@ -1378,6 +1379,26 @@ function selectAgentSession(sessionId) {
   if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
   renderAgentSessions(agentSessions);
   requestAgentMessages(session.id);
+}
+
+function deleteAgentSession(sessionId) {
+  const session = agentSessions.find((candidate) => candidate.id === sessionId);
+  if (!session || !nativeInvoke) return;
+  if (sessionId === activeAgentSessionId && agentPromptRunning) {
+    notify('Stop the active turn before deleting this conversation.');
+    return;
+  }
+  const confirmed = window.confirm(`Delete this saved ${session.provider} conversation? Its messages will be permanently removed.`);
+  if (!confirmed) return;
+  const id = `agent-session-delete-${Date.now()}`;
+  pendingContextRequests.set(id, 'agent-session-delete');
+  pendingAgentSessionDeletes.set(id, sessionId);
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.session.delete', params: { sessionId } }) }).catch((error) => {
+    pendingContextRequests.delete(id);
+    pendingAgentSessionDeletes.delete(id);
+    notify('Conversation could not be deleted.');
+    console.warn(error);
+  });
 }
 
 function startNewAgentSession() {
@@ -1804,6 +1825,8 @@ async function connectSidecar(snapshot) {
       if (agentSessionRequestPath) pendingAgentSessionPaths.delete(String(response.id));
       const agentMessageRequestSession = pendingAgentMessageSessions.get(String(response.id));
       if (agentMessageRequestSession) pendingAgentMessageSessions.delete(String(response.id));
+      const deletedAgentSessionId = pendingAgentSessionDeletes.get(String(response.id));
+      if (deletedAgentSessionId) pendingAgentSessionDeletes.delete(String(response.id));
       if (contextPurpose === 'git-pending') pendingGitRefreshInFlight = false;
       const snapshotProjectId = pendingSnapshotProjects.get(String(response.id));
       if (snapshotProjectId) {
@@ -1864,6 +1887,13 @@ async function connectSidecar(snapshot) {
           setSyncState('ready', 'Synced just now');
           notify('Project removed from ADE. Files were kept on disk.');
         }
+        return;
+      }
+      if (contextPurpose === 'agent-session-delete' && response.result?.removed) {
+        agentSessions = agentSessions.filter((session) => session.id !== deletedAgentSessionId);
+        if (deletedAgentSessionId === activeAgentSessionId) startNewAgentSession();
+        else renderAgentSessions(agentSessions);
+        notify('Saved conversation deleted.');
         return;
       }
       if (contextPurpose === 'branches' && response.result?.branches) {
@@ -2585,6 +2615,11 @@ document.addEventListener('click', (event) => {
   const agentSession = event.target.closest('[data-agent-session-id]');
   if (agentSession) {
     selectAgentSession(agentSession.dataset.agentSessionId);
+    return;
+  }
+  const deleteAgentSessionButton = event.target.closest('[data-delete-agent-session-id]');
+  if (deleteAgentSessionButton) {
+    deleteAgentSession(deleteAgentSessionButton.dataset.deleteAgentSessionId);
     return;
   }
   const directoryEntry = event.target.closest('[data-directory-path].directory');

@@ -375,6 +375,10 @@ export class AdeStore {
     return (taskId ? this.db.prepare(query).all(taskId) : this.db.prepare(query).all()) as AgentSession[];
   }
 
+  deleteAgentSession(sessionId: string): void {
+    this.db.prepare("DELETE FROM agent_sessions WHERE id = ?").run(sessionId);
+  }
+
   saveAgentMessage(input: Omit<AgentMessage, "createdAt"> & { createdAt?: string }): void {
     this.db.prepare(`INSERT INTO agent_messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content = excluded.content`).run(input.id, input.sessionId, input.role, input.content, input.createdAt ?? new Date().toISOString());
   }

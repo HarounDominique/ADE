@@ -73,7 +73,7 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'service.status', 'skills.list'].includes(request.method)) {
+    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'service.status', 'skills.list'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.list") {
@@ -103,6 +103,12 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       return { id: request.id, result: store.listGitOperations(taskId) };
     }
     if (request.method === "runtime.sessions") return { id: request.id, result: store.listAgentSessions(request.params?.taskId) };
+    if (request.method === "agent.session.delete") {
+      const sessionId = request.params?.sessionId;
+      if (!sessionId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "sessionId is required" } };
+      store.deleteAgentSession(sessionId);
+      return { id: request.id, result: { id: sessionId, removed: true } };
+    }
     if (request.method === "skills.list") return { id: request.id, result: listNativeSkills() };
     if (request.method === "service.status") {
       const serviceId = request.params?.serviceId;
