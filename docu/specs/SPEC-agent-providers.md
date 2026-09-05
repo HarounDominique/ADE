@@ -52,6 +52,8 @@ El workbench no incrusta la conversación que el usuario pueda tener abierta en 
 
 Las ejecuciones Codex del sidecar son estrictamente no interactivas: ADE cierra el stdin del proceso después de entregar el prompt para que `codex exec --json` complete su respuesta JSONL y no quede esperando una segunda entrada. La terminal PTY mantiene el comportamiento contrario y conserva stdin abierto para TUIs interactivas.
 
+Los permisos del composer se traducen al CLI de Codex: sin `write_code` ni `write_docs` se usa `--sandbox read-only`; cualquiera de esos permisos habilita `--sandbox workspace-write`; `network` añade `--search`; `run_commands` no eleva por sí solo la escritura. La distinción entre editar código y documentación se conserva como permiso de ADE y contexto del prompt, aunque el sandbox de Codex sólo ofrece la granularidad de escritura del workspace.
+
 ## Availability and selection
 
 Al iniciar el shell, ADE inspecciona el endpoint local de OpenCode y el mismo comando que usa el runner de Codex (por defecto, el binario incluido en ChatGPT para macOS o `ADE_CODEX_COMMAND`). El selector visual muestra todos los proveedores, deshabilita los que no están disponibles y deja visible su transporte, auth externa/local y capacidades. Una ejecución no se inicia contra un proveedor declarado no disponible.

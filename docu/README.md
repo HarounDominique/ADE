@@ -28,4 +28,4 @@ ADE DB          → metadata operativa futura
 
 Para empezar, consultar [SPEC-NEXUS.md](specs/SPEC-NEXUS.md).
 
-La baseline técnica vigente es `npm test` con 95 tests TypeScript y `cargo test --manifest-path desktop/src-tauri/Cargo.toml` con 18 tests Rust. Las cifras de cortes anteriores se conservan únicamente como evidencia histórica en sus respectivos documentos de release.
+La baseline técnica vigente es `npm test` con 96 tests TypeScript y `cargo test --manifest-path desktop/src-tauri/Cargo.toml` con 18 tests Rust. Las cifras de cortes anteriores se conservan únicamente como evidencia histórica en sus respectivos documentos de release.

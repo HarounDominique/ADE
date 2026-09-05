@@ -16,7 +16,7 @@ export async function runNativeSkill(runtime: AgentRuntimePort, input: { skillId
     `Declared permissions: ${skill.permissions.join(", ")}.`,
     `Return outputs: ${skill.outputs.join(", ")}.`,
     `Task intent: ${input.intent}`,
-  ].join("\n") });
+  ].join("\n"), grantedPermissions: input.grantedPermissions ?? [] });
   const events = completion ? await completion : [];
   return { skill, session, events };
 }

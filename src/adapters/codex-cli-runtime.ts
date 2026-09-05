@@ -1,7 +1,7 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
-import type { AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt } from "../ports/agent-runtime.js";
+import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt } from "../ports/agent-runtime.js";
 
 const execFile = promisify(execFileCallback);
 export const defaultCodexCommand = process.env.ADE_CODEX_COMMAND ?? "/Applications/ChatGPT.app/Contents/Resources/codex";
@@ -32,8 +32,8 @@ export class CodexCliRuntime implements AgentRuntimePort {
     return { id: `codex-pending-${randomUUID()}`, directory: input.directory };
   }
 
-  async prompt(session: SessionHandle, input: { text: string }): Promise<unknown> {
-    return this.executePrompt(session, input.text);
+  async prompt(session: SessionHandle, input: { text: string; grantedPermissions?: readonly AgentPermission[] }): Promise<unknown> {
+    return this.executePrompt(session, input.text, input.grantedPermissions);
   }
 
   async promptAndWait(session: SessionHandle, input: StructuredPrompt): Promise<unknown> {
@@ -48,11 +48,16 @@ export class CodexCliRuntime implements AgentRuntimePort {
   }
   async abort(): Promise<void> { /* one-shot CLI processes finish or fail atomically */ }
 
-  private async executePrompt(session: SessionHandle, text: string): Promise<string> {
+  private async executePrompt(session: SessionHandle, text: string, grantedPermissions: readonly AgentPermission[] = []): Promise<string> {
     const isNew = session.id.startsWith("codex-pending-");
-    const args = isNew
-      ? ["exec", "--cd", session.directory, "--json", text]
-      : ["exec", "resume", session.id, text];
+    const sandbox = grantedPermissions.some((permission) => ["write_code", "write_docs"].includes(permission)) ? "workspace-write" : "read-only";
+    const args = [
+      ...(grantedPermissions.includes("network") ? ["--search"] : []),
+      "exec",
+      "--sandbox",
+      sandbox,
+      ...(isNew ? ["--cd", session.directory, "--json", text] : ["resume", session.id, text]),
+    ];
     const { stdout } = await this.runner(this.command, args, { cwd: session.directory, maxBuffer: 4 * 1024 * 1024 });
     if (isNew) {
       const realSessionId = extractCodexSessionId(stdout);

@@ -460,7 +460,7 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     const eventPromise = provider === "opencode"
       ? collectAgentEvents(runtime, eventTexts, activity)
       : Promise.resolve();
-    const rawOutput = await runtime.prompt(session, { text: params.prompt! });
+    const rawOutput = await runtime.prompt(session, { text: params.prompt!, grantedPermissions: params.grantedPermissions ?? [] });
     await eventPromise;
     if (isNewCodexSession && session.id.startsWith("codex-pending-")) throw new Error("Codex completed without reporting a resumable session id");
     store.saveAgentSession({ id: session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider, directory: params.repositoryPath!, status: "COMPLETED", createdAt });

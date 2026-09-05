@@ -86,6 +86,8 @@ Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y la
 
 Las sesiones persistidas se pueden reanudar sin borrar historial. `Permissions for this turn` y la gestión detallada de skills permanecen plegables dentro de la superficie para mantener el prompt como acción primaria. Las respuestas se almacenan como mensajes de sesión en SQLite local para que el workbench pueda reconstruirse tras reiniciar ADE. La superficie no afirma integrar el chat remoto de ChatGPT: usa los adapters locales detectados por ADE y muestra el fallo del provider cuando no está disponible. La arquitectura visual y el contrato de datos son provider-neutral para permitir Claude u otros runtimes en futuras iteraciones, sin acoplar la UI a GPT.
 
+En Codex, los permisos seleccionados se traducen a `read-only` o `workspace-write`, y `network` activa la búsqueda web soportada por el CLI. `run_commands` no concede escritura por sí solo; la granularidad `write_code`/`write_docs` se conserva en el contrato de ADE aunque Codex sólo ofrezca el sandbox de workspace.
+
 ### Knowledge
 
 Muestra documentos seleccionados, motivo de inclusión, clase (`canonical`, `operational`, `agent`) e impacto pendiente. Los documentos canónicos se abren para consulta mediante Tauri, limitado a `docu/specs`, y sus cambios pasan por la gate documental.
@@ -126,7 +128,7 @@ npm run desktop:test
 npm run desktop:package:app
 ```
 
-La shell actual se verifica con `npm run build`, `npm test` (95 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
+La shell actual se verifica con `npm run build`, `npm test` (96 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
 
 El shell visual vive en `desktop/src/`. `project-snapshot.js` define el boundary de arranque y `project-context.js` conserva la fusión del Project activo. El comando Tauri `project_context` aporta contexto local y selecciona la raíz canónica. La UI no accede directamente a SQLite, Git ni procesos: Projects y ramas se obtienen mediante el sidecar y el cambio de raíz pasa por Tauri.
 

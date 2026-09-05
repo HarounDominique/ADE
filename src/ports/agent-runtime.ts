@@ -8,6 +8,14 @@ export type SessionHandle = {
   directory: string;
 };
 
+export type AgentPermission = "read_project" | "write_code" | "write_docs" | "run_commands" | "network";
+
+export type AgentPromptInput = {
+  text: string;
+  agent?: string;
+  grantedPermissions?: readonly AgentPermission[];
+};
+
 export type FileDiff = {
   path?: string;
   additions?: number;
@@ -28,7 +36,7 @@ export type StructuredPrompt = {
 export interface AgentRuntimePort {
   health(): Promise<{ healthy: boolean; version?: string }>;
   createSession(input: { directory: string; title?: string }): Promise<SessionHandle>;
-  prompt(session: SessionHandle, input: { text: string; agent?: string }): Promise<unknown>;
+  prompt(session: SessionHandle, input: AgentPromptInput): Promise<unknown>;
   promptAndWait(session: SessionHandle, input: StructuredPrompt): Promise<unknown>;
   events(signal?: AbortSignal): AsyncIterable<RuntimeEvent>;
   diff(session: SessionHandle): Promise<readonly FileDiff[]>;

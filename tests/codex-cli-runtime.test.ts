@@ -13,8 +13,23 @@ test("Codex CLI captures its emitted session id and resumes it", async () => {
   assert.equal(session.id, "real-codex-session");
   await runtime.prompt(session, { text: "Second turn" });
   assert.deepEqual(calls, [
-    ["exec", "--cd", "/tmp/project", "--json", "First turn"],
-    ["exec", "resume", "real-codex-session", "Second turn"],
+    ["exec", "--sandbox", "read-only", "--cd", "/tmp/project", "--json", "First turn"],
+    ["exec", "--sandbox", "read-only", "resume", "real-codex-session", "Second turn"],
+  ]);
+});
+
+test("Codex CLI maps write and network permissions to supported execution flags", async () => {
+  const calls: string[][] = [];
+  const runtime = new CodexCliRuntime("codex", async (_command, args) => {
+    calls.push(args);
+    return { stdout: '{"type":"thread.started","thread_id":"permission-session"}\n{"type":"turn.completed"}\n' };
+  });
+  const session = await runtime.createSession({ directory: "/tmp/project" });
+  await runtime.prompt(session, { text: "Write a file", grantedPermissions: ["write_code"] });
+  await runtime.prompt(session, { text: "Search the web", grantedPermissions: ["network"] });
+  assert.deepEqual(calls, [
+    ["exec", "--sandbox", "workspace-write", "--cd", "/tmp/project", "--json", "Write a file"],
+    ["--search", "exec", "--sandbox", "read-only", "resume", "permission-session", "Search the web"],
   ]);
 });
 
