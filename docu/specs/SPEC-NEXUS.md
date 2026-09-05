@@ -39,7 +39,7 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 
 - Producto desktop, local-first y orientado inicialmente a un desarrollador avanzado.
 - El dominio se organiza alrededor de `Project → Task → Agent → Change → Verification → Review`.
-- OpenCode y Codex son los runtimes locales iniciales, siempre detrás de adapters y del contrato `AgentRuntimePort`.
+- OpenCode, Codex y Claude Code son los runtimes locales iniciales, siempre detrás de adapters y del contrato `AgentRuntimePort`.
 - Git conserva código, documentación, skills e historial del repositorio.
 - SQLite es la opción provisional para metadata operativa de ADE.
 - Markdown y configuración versionable son el formato preferente de conocimiento.
@@ -244,6 +244,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-05 — documentation-alignment — Se sincronizan README, diseño, release, planes, tareas, SPEC-git-collaboration y SPEC-v0.3 con el contrato vigente: `Git workspace` solo aparece en `Version control`, la topbar conserva contexto global y la baseline pasa a 104 tests TypeScript y 18 Rust. Se regeneran los artefactos derivados de reconciliación.
 - 2026-09-05 — adr-0025 — ADR-0025 formaliza que el runtime es infraestructura transversal y que `Git workspace` sólo se muestra en `Version control`; la topbar queda reservada al contexto global de Project y branch.
 - 2026-09-05 — documentation-reconciliation-scope — Se actualizan los límites de SPEC-v0.2, SPEC-desktop-shell, tareas y ADRs para no presentar Runtime como menú; el grafo excluye documentación de herramientas instalada y todos los artefactos derivados se regeneran sin referencias rotas.
+- 2026-09-05 — claude-code-provider — Se incorpora Claude Code como adapter CLI real del contrato `AgentRuntimePort`: detección por `claude`/`ADE_CLAUDE_COMMAND`, sesiones reanudables por `session_id`, salida JSON y permisos por turno. `Agents` lo muestra junto a Codex y OpenCode; no se persisten credenciales.
 
 ## Automatic Reconciliation Log
 
@@ -277,3 +278,9 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-05 — automatic-reconciliation — docu/specs/SPEC-living-knowledge.md; 12 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/spec-living-knowledge.md, ../generated/qa/spec-living-knowledge.md, ../generated/estimates/spec-living-knowledge.md.
 <!-- reconciliation:docu/adr/0019-projects-minimal-management.md -->
 - 2026-09-05 — automatic-reconciliation — docu/adr/0019-projects-minimal-management.md; 0 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/0019-projects-minimal-management.md, ../generated/qa/0019-projects-minimal-management.md, ../generated/estimates/0019-projects-minimal-management.md.
+<!-- reconciliation:docu/adr/0026-claude-code-cli-adapter.md -->
+- 2026-09-05 — automatic-reconciliation — docu/adr/0026-claude-code-cli-adapter.md; 0 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/0026-claude-code-cli-adapter.md, ../generated/qa/0026-claude-code-cli-adapter.md, ../generated/estimates/0026-claude-code-cli-adapter.md.
+<!-- reconciliation:docu/specs/SPEC-agent-runtime.md -->
+- 2026-09-05 — automatic-reconciliation — docu/specs/SPEC-agent-runtime.md; 9 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/spec-agent-runtime.md, ../generated/qa/spec-agent-runtime.md, ../generated/estimates/spec-agent-runtime.md.
+<!-- reconciliation:docu/specs/SPEC-native-skills.md -->
+- 2026-09-05 — automatic-reconciliation — docu/specs/SPEC-native-skills.md; 12 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/spec-native-skills.md, ../generated/qa/spec-native-skills.md, ../generated/estimates/spec-native-skills.md.

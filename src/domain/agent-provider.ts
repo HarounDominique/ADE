@@ -9,4 +9,5 @@ export type AgentProvider = {
 export const nativeProviders: readonly AgentProvider[] = [
   { id: "opencode", label: "OpenCode", transport: "http", capability: ["implement", "review", "events"], auth: "local" },
   { id: "codex", label: "Codex", transport: "cli", capability: ["implement", "review"], auth: "external" },
+  { id: "claude", label: "Claude Code", transport: "cli", capability: ["implement", "review"], auth: "external" },
 ];

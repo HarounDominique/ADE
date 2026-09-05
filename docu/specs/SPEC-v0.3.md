@@ -11,7 +11,7 @@ Convertir ADE en el workspace agéntico local-first que concentra contexto, term
 ## Scope
 
 - Workspace local: [workspace-core](SPEC-workspace-core.md) define árbol, terminal y contexto.
-- Proveedores: [agent-providers](SPEC-agent-providers.md) conecta Codex/OpenCode y otros adapters con licencias del usuario.
+- Proveedores: [agent-providers](SPEC-agent-providers.md) conecta Codex, Claude Code, OpenCode y otros adapters con licencias del usuario.
 - Skills: [native-skills](SPEC-native-skills.md) distribuye el catálogo nativo y skills personalizadas.
 - Código remoto: [git-collaboration](SPEC-git-collaboration.md) une Git/GitHub con Tasks y gates.
 - Conocimiento vivo: [living-knowledge](SPEC-living-knowledge.md) mantiene referencias, diagramas y reconciliación.
@@ -58,7 +58,7 @@ No quedan preguntas que bloqueen la release 0.3. Las decisiones de producto no n
 - Runtime evidence is bounded at ingestion and old evidence can be pruned per Task. Git mutations can carry `taskId` and are persisted as auditable Task operations.
 - The living-knowledge graph scans nested Markdown and computes transitive citing impact; reconciliation writes versioned QA/estimate/UML artifacts and an idempotent Nexus trace. Its resulting evidence satisfies `documentation-review` for the linked Task.
 - Native skills are loaded from the built-in catalog plus optional project manifests in `.ade/skills/*.json`; project manifests are validated and marked as `source: project`.
-- Skills can select the OpenCode HTTP runtime or the Codex CLI runtime without persisting credentials; both runners preserve the common `AgentRuntimePort` contract.
+- Skills can select the OpenCode HTTP runtime, Codex CLI runtime or Claude Code CLI runtime without persisting credentials; all runners preserve the common `AgentRuntimePort` contract.
 - Agent sessions are persisted by Task (`runtime.sessions`) with provider, directory and status; a saved `sessionId` is selectable from Task detail to resume a skill run.
 - Native and Project skills declare least-privilege manifests. `read_project` and `write_docs` are Project-scoped; `write_code`, `run_commands` and `network` need an explicit per-run grant in the workbench.
 - The selected Task is shell state shared by Work, Changes, Git and the workbench, so skills, reconciliation and Git operations attribute their evidence to the same Task the user is looking at.
@@ -66,7 +66,7 @@ No quedan preguntas que bloqueen la release 0.3. Las decisiones de producto no n
 - Project skills are installable from the workbench. A network source is identified before cloning and rejected with `SKILL_INSTALL_CONFIRMATION_REQUIRED` unless the run is explicitly confirmed.
 - Changes renders the selected Task's ChangeSet, gates and findings; Work renders its persisted runtime activity, agent sessions and Git trace. Skill runtime events are bounded evidence rather than stored provider transcripts.
 - Workspace Core canonizes the selected Project in Tauri and rejects filesystem, terminal and external-open paths outside it, including symlinks that escape it. The file tree loads direct children and expands directories on demand. Its compact mode keeps the active file's ancestor branch visible; its expanded mode hides duplicate view navigation and exposes the full lazy tree. ADR-0013 records the authorization boundary.
-- Provider inspection uses the same Codex command as the runtime, while the workbench renders availability, transport, auth mode and capabilities. Unavailable providers are disabled before a skill can run; no credential is copied into ADE.
+- Provider inspection uses the same Codex and Claude Code commands as their runtimes, while the workbench renders availability, transport, auth mode and capabilities. Unavailable providers are disabled before a skill can run; no credential is copied into ADE.
 - Installed Project skills persist their canonical local or Git source and install time. The workbench can update a selected traceable Project skill, retaining its id and requiring explicit consent before a remote update; sidecar errors are rendered as user feedback.
 - The `Version control` view is the only surface that renders `Git workspace`: it reports the active branch and changed files as well as branches, worktrees and remotes. The Task-scoped UI exposes confirmed branch/worktree/commit/push/PR operations, with explicit worktree path and branch inputs; the topbar keeps only global Project and branch selectors.
 - Workspace terminal uses a persistent native PTY (`portable-pty`) rather than split shell pipes. It is tested with an interactive command and remains constrained to the canonical Project root.
@@ -82,7 +82,7 @@ La terminal actual presenta tabs de sesiones `portable-pty` independientes con p
 
 ## Resolved decisions
 
-- Los proveedores nativos iniciales son Codex CLI y OpenCode HTTP, con sesiones persistentes por Task y sin copiar credenciales a ADE.
+- Los proveedores nativos iniciales son Codex CLI, Claude Code CLI y OpenCode HTTP, con sesiones persistentes por Task y sin copiar credenciales a ADE.
 - La terminal usa un PTY persistente basado en `portable-pty`, confinado a la raíz canónica del Project.
 - GitHub se integra mediante la CLI local `gh`, manteniendo las credenciales fuera de la metadata de ADE.
 - Mermaid es suficiente para el UML inicial y sus artefactos quedan bajo `docu/generated/` junto con QA y estimaciones.

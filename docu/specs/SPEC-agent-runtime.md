@@ -4,7 +4,7 @@
 
 ## Objective
 
-Ejecutar implementaciones y revisiones mediante runtimes intercambiables, empezando por OpenCode y Codex, sin acoplar el dominio a sus internals.
+Ejecutar implementaciones y revisiones mediante runtimes intercambiables, con OpenCode, Codex y Claude Code como adapters iniciales, sin acoplar el dominio a sus internals.
 
 ## Responsibilities
 
@@ -16,7 +16,7 @@ Una conversación puede continuar, renombrarse, resumirse, bifurcarse, archivars
 
 ## Tech Stack
 
-`OpenCodeHttpRuntime` y el adapter local de Codex son las implementaciones iniciales de `AgentRuntimePort`, mediante HTTP/SSE y CLI JSONL respectivamente. El dominio y la aplicación no importan tipos de proveedor. La versión validada en el spike es OpenCode `1.18.26`; la URL se configura con `OPENCODE_URL` y por defecto es `http://127.0.0.1:4096`. Codex usa el comando detectado por el entorno o `ADE_CODEX_COMMAND`.
+`OpenCodeHttpRuntime`, `CodexCliRuntime` y `ClaudeCliRuntime` son las implementaciones iniciales de `AgentRuntimePort`, mediante HTTP/SSE y CLI JSON respectivamente. El dominio y la aplicación no importan tipos de proveedor. La versión validada en el spike es OpenCode `1.18.26`; la URL se configura con `OPENCODE_URL` y por defecto es `http://127.0.0.1:4096`. Codex usa el comando detectado por el entorno o `ADE_CODEX_COMMAND`; Claude Code usa `claude` o `ADE_CLAUDE_COMMAND`.
 
 ## Commands
 
@@ -29,6 +29,8 @@ npm run review -- /ruta/al/repositorio "Describe the task"
 ```
 
 Con OpenCode sirviendo localmente: `opencode serve --hostname 127.0.0.1 --port 4096`. El adapter expone una API reproducible para health, crear sesión, enviar una Task, solicitar salida JSON estructurada, recibir streaming SSE, cancelar y obtener diff. El smoke test real está documentado en [Spike 001](../spikes/001-opencode-runtime.md#smoke-test-real) y la revisión independiente en [Spike 002](../spikes/002-independent-review.md#flujo-validado).
+
+Con Claude Code instalado, el smoke local del adapter puede comprobarse sin abrir una TUI: `claude --print --output-format json --permission-mode plan --permission-prompts none "Inspect the repository"`. La autenticación permanece en Claude Code y no forma parte de la configuración de ADE.
 
 ## Runtime contract
 
@@ -57,6 +59,7 @@ src/application/                 → Orquestación de ejecuciones y reviews
 src/ports/agent-runtime.ts       → Puerto estable del runtime
 src/ports/reviewer.ts            → Puerto estable del Reviewer
 src/adapters/opencode-*.ts       → Adapters HTTP de OpenCode
+src/adapters/*-cli-runtime.ts    → Adapters CLI de Codex y Claude Code
 tests/                            → Tests de contrato, adapters y flujo
 ```
 
@@ -75,11 +78,11 @@ interface AgentRuntimePort {
 
 ## Testing Strategy
 
-Tests de contrato contra un fake runtime; tests unitarios del parser SSE y errores HTTP; smoke test contra OpenCode real; pruebas de cancelación, streaming, directorio, salida estructurada y captura de diff. El Reviewer se prueba con contexto independiente del Implementer y con respuestas inválidas o findings mal formados.
+Tests de contrato contra un fake runtime; tests unitarios de adapters CLI/HTTP, parser SSE y errores HTTP; smoke test contra OpenCode real y health/contrato CLI sin credenciales. Las pruebas cubren cancelación, streaming, directorio, salida estructurada, reanudación y captura de diff. El Reviewer se prueba con contexto independiente del Implementer y con respuestas inválidas o findings mal formados.
 
 ## Boundaries
 
-- **Always:** aislar OpenCode tras un adapter; persistir relación Task/session/execution; hacer explícitos permisos y modelo.
+- **Always:** aislar cada proveedor tras un adapter; persistir relación Task/session/execution; hacer explícitos permisos y modelo.
 - **Ask first:** fork de OpenCode, cambio de runtime, nuevos permisos o ejecución autónoma por defecto.
 - **Never:** afirmar que el agente terminó sin evento/evidencia; pasar toda la conversación del Implementer al Reviewer por conveniencia.
 

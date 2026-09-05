@@ -50,5 +50,5 @@ Un Project nuevo tiene un catálogo de skills y el usuario puede añadir o actua
 
 ## Open Questions
 
-- ¿Formato único compatible con Codex, OpenCode y otros agentes?
+- ¿Formato único compatible con Codex, Claude Code, OpenCode y otros agentes?
 - ¿Marketplace remoto o sólo repositorios locales/Git?

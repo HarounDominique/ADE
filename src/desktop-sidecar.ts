@@ -7,6 +7,7 @@ import { AdeStore } from "./persistence/sqlite-store.js";
 import { getProjectSnapshot } from "./application/project-snapshot.js";
 import { OpenCodeHttpRuntime } from "./adapters/opencode-http-runtime.js";
 import { CodexCliRuntime } from "./adapters/codex-cli-runtime.js";
+import { ClaudeCliRuntime, extractClaudeText } from "./adapters/claude-cli-runtime.js";
 import { runSpike } from "./application/run-spike.js";
 import { createRuntimeEvidence } from "./domain/runtime-evidence.js";
 import { getRuntimeHistory, getTaskDetail } from "./application/task-detail.js";
@@ -209,7 +210,7 @@ export async function runDesktopSidecar(): Promise<void> {
         const params = request.params;
         if (!params?.skillId || !params.intent || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "skillId, intent and repositoryPath are required" } })}\n`);
         else {
-          const runtime = params.provider === "codex" ? new CodexCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+          const runtime = params.provider === "codex" ? new CodexCliRuntime() : params.provider === "claude" ? new ClaudeCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
           let sessionId: string | undefined;
           let createdAt: string | undefined;
           const persist = (id: string, status: string) => store.saveAgentSession({ id, ...(params.taskId ? { taskId: params.taskId } : {}), provider: params.provider ?? "opencode", directory: params.repositoryPath!, status, createdAt: createdAt ?? new Date().toISOString() });
@@ -237,8 +238,8 @@ export async function runDesktopSidecar(): Promise<void> {
             onSession: (session) => {
               sessionId = session.id;
               createdAt = new Date().toISOString();
-              // Codex emits its real resume id only after the first prompt completes.
-              if (params.provider !== "codex") persist(session.id, "RUNNING");
+              // CLI providers emit their real resume id only after the first prompt completes.
+              if (!isPendingCliSession(params.provider, session.id)) persist(session.id, "RUNNING");
             },
             onEvent: (event) => { persistEvent(event); process.stdout.write(`${JSON.stringify({ type: "skill.event", id: request.id, skillId: params.skillId, event })}\n`); },
           }).then((result) => {
@@ -446,18 +447,18 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     return;
   }
   const provider = params.provider;
-  if (provider !== "codex" && provider !== "opencode") {
+  if (provider !== "codex" && provider !== "claude" && provider !== "opencode") {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "PROVIDER_NOT_SUPPORTED", message: `Unsupported agent provider: ${provider}` } })}\n`);
     return;
   }
   void (async () => {
-    const runtime = provider === "codex" ? new CodexCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+    const runtime = provider === "codex" ? new CodexCliRuntime() : provider === "claude" ? new ClaudeCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
     const session = params.sessionId
       ? { id: params.sessionId, directory: params.repositoryPath! }
       : await runtime.createSession({ directory: params.repositoryPath!, title: `ADE ${params.taskId ?? "agent"}` });
-    const isNewCodexSession = provider === "codex" && session.id.startsWith("codex-pending-");
+    const isPendingCli = isPendingCliSession(provider, session.id);
     const createdAt = new Date().toISOString();
-    if (!isNewCodexSession) {
+    if (!isPendingCli) {
       store.saveAgentSession({ id: session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider, directory: params.repositoryPath!, status: "RUNNING", createdAt });
     }
     process.stdout.write(`${JSON.stringify({ type: "agent.started", id: request.id, sessionId: session.id, provider, taskId: params.taskId ?? null })}\n`);
@@ -468,10 +469,10 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
       : Promise.resolve();
     const rawOutput = await runtime.prompt(session, { text: params.prompt!, grantedPermissions: params.grantedPermissions ?? [] });
     await eventPromise;
-    if (isNewCodexSession && session.id.startsWith("codex-pending-")) throw new Error("Codex completed without reporting a resumable session id");
+    if (isPendingCli && session.id.startsWith(`${provider}-pending-`)) throw new Error(`${provider} completed without reporting a resumable session id`);
     store.saveAgentSession({ id: session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider, directory: params.repositoryPath!, status: "COMPLETED", createdAt });
     store.saveAgentMessage({ id: `agent-${request.id}-user`, sessionId: session.id, role: "user", content: params.prompt!, createdAt });
-    const output = provider === "codex" ? extractCodexText(rawOutput) : eventTexts.join("\n\n").trim();
+    const output = provider === "codex" ? extractCodexText(rawOutput) : provider === "claude" ? extractClaudeText(rawOutput) : eventTexts.join("\n\n").trim();
     if (output) store.saveAgentMessage({ id: `agent-${request.id}-assistant`, sessionId: session.id, role: "assistant", content: output, createdAt: new Date().toISOString() });
     let files: readonly import("./ports/agent-runtime.js").FileDiff[] = [];
     try { files = await runtime.diff(session); } catch { /* A provider may not expose a diff for this turn. */ }
@@ -479,6 +480,10 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
   })().catch((error: unknown) => {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "AGENT_PROMPT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
   });
+}
+
+function isPendingCliSession(provider: string | undefined, sessionId: string): boolean {
+  return (provider === "codex" || provider === "claude") && sessionId.startsWith(`${provider}-pending-`);
 }
 
 async function collectAgentEvents(
