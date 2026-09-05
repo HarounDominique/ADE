@@ -273,6 +273,12 @@ test("theme switch is visible in the topbar and exposes light/dark state", () =>
   assert.match(main, /localStorage\.setItem\('ade-theme'/);
 });
 
+test("Agent messages distinguish the user turn and align it to the right", () => {
+  assert.match(main, /agent-message-\$\{escapeHTML\(message\.role\)\}/);
+  assert.match(styles, /\.agent-message-user \{[^}]*align-self: flex-end/);
+  assert.match(styles, /\.agent-message-user \{[^}]*background: color-mix\(in srgb, var\(--blue\) 8%, var\(--panel\)\)/);
+});
+
 test("light theme keeps Explorer hover surfaces light", () => {
   assert.match(styles, /:root\[data-theme="light"\] \.workspace-entry\.directory:hover/);
   assert.match(styles, /:root\[data-theme="light"\] \.workspace-entry\.file:hover/);
