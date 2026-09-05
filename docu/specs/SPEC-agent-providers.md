@@ -38,17 +38,18 @@ La actividad de skills se persiste como evidencia acotada por Task y sesión, y 
 
 ## Agents surface
 
-`Agents` es un workbench conversacional inline y transversal del shell: ocupa la vista principal de ADE y no abre un popup sobre otra vista. Su composición sigue el patrón de una aplicación de agente moderna, con tres zonas persistentes:
+`Agents` es un workbench conversacional inline y transversal del shell: ocupa la vista principal de ADE y no abre un popup sobre otra vista. Su composición prioriza la conversación y mantiene dos zonas persistentes:
 
 - **Sessions rail:** selector de provider (`Codex`, `OpenCode` y futuros adapters), creación de sesión y lista de sesiones persistidas del Project activo.
 - **Conversation thread:** identidad de la sesión, Project/Task de contexto, transcript, composer multilinea, permisos para el turno y estado `READY`/`WORKING`/`ERROR`.
-- **Activity inspector:** actividad observable del runtime, ficheros modificados detectados por Git y skills/tools utilizados. El inspector sirve como evidencia de ejecución y no sustituye al transcript ni al diff.
+
+La vista primaria no incluye un inspector lateral de actividad, ficheros modificados ni skills/tools: se elimina para que el transcript y el composer dispongan del espacio principal. Esa evidencia sigue perteneciendo a los registros persistidos de Task/runtime y podrá exponerse en superficies específicas sin saturar la conversación.
 
 La superficie no expone razonamiento privado o cadena de pensamiento interna. Sólo muestra texto devuelto por el provider y actividad verificable: eventos explícitos, skills ejecutadas y cambios que el repositorio puede identificar. El historial se almacena en el fichero SQLite de metadatos del Project; el código y los artefactos siguen viviendo en el repositorio.
 
 El envío es explícito: el usuario escribe el prompt, elige permisos adicionales por ejecución (`write_code`, `write_docs`, `run_commands`, `network`) y pulsa `Send prompt`. Sin esos permisos el panel no concede capacidades sensibles por inferencia visual. `read_project` es el alcance base del contexto local. Las respuestas de Codex se obtienen del JSONL de `codex exec`; OpenCode se observa mediante su stream de eventos. Si un proveedor no devuelve texto legible, ADE conserva el estado y el error, pero no inventa una respuesta.
 
-El workbench no incrusta la conversación que el usuario pueda tener abierta en ChatGPT/Codex Desktop: invoca el runtime local disponible y conserva el proveedor detrás del adapter. En macOS, Codex se detecta mediante el binario incluido en ChatGPT o `ADE_CODEX_COMMAND`. Por ello la sesión persistente depende de que el proveedor emita un identificador real; una sesión Codex sólo queda reanudable tras capturar `thread_id`. El layout está preparado para añadir proveedores futuros sin cambiar el contrato de conversación, actividad, ficheros ni skills.
+El workbench no incrusta la conversación que el usuario pueda tener abierta en ChatGPT/Codex Desktop: invoca el runtime local disponible y conserva el proveedor detrás del adapter. En macOS, Codex se detecta mediante el binario incluido en ChatGPT o `ADE_CODEX_COMMAND`. Por ello la sesión persistente depende de que el proveedor emita un identificador real; una sesión Codex sólo queda reanudable tras capturar `thread_id`. El layout está preparado para añadir proveedores futuros sin cambiar el contrato de conversación ni sesiones.
 
 Las ejecuciones Codex del sidecar son estrictamente no interactivas: ADE cierra el stdin del proceso después de entregar el prompt para que `codex exec --json` complete su respuesta JSONL y no quede esperando una segunda entrada. La terminal PTY mantiene el comportamiento contrario y conserva stdin abierto para TUIs interactivas.
 

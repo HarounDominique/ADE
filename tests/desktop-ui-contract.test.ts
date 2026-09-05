@@ -11,21 +11,20 @@ test("desktop shell keeps the project workbench areas and critical actions", () 
     assert.match(html, new RegExp(`data-view=\"${view}\"`));
     assert.match(html, new RegExp(`data-panel=\"${view}\"`));
   }
-  for (const action of ["new-task", "open-document", "check-runtime", "restart-sidecar", "refresh-tree", "run-skill", "install-skill", "new-agent-session", "github-status", "create-worktree", "push-branch", "refresh-knowledge"]) {
+  for (const action of ["new-task", "open-document", "check-runtime", "restart-sidecar", "refresh-tree", "new-agent-session", "github-status", "create-worktree", "push-branch", "refresh-knowledge"]) {
     assert.match(html, new RegExp(`data-action=\"${action}\"`));
   }
 });
 
-test("Agents exposes provider selection, resumable sessions and a permission-aware prompt", () => {
+test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(html, /class="agents-workbench"/);
   assert.match(html, /id="agent-session-list"/);
   assert.match(html, /id="agent-session-selector"/);
   assert.match(html, /id="agent-message-list"/);
-  assert.match(html, /id="agent-activity-list"/);
-  assert.match(html, /id="agent-files-list"/);
-  assert.match(html, /id="agent-skills-list"/);
   assert.match(html, /id="agent-prompt-form"/);
   assert.match(html, /id="agent-prompt-input"/);
+  assert.doesNotMatch(html, /class="agent-inspector"/);
+  assert.doesNotMatch(html, /id="agent-activity-list"|id="agent-files-list"|id="agent-skills-list"/);
   assert.match(html, /value="write_code"/);
   assert.match(html, /value="run_commands"/);
   assert.match(main, /method: 'agent\.sessions'/);
@@ -33,10 +32,9 @@ test("Agents exposes provider selection, resumable sessions and a permission-awa
   assert.match(main, /method: 'agent\.prompt'/);
   assert.match(main, /selectAgentSession/);
   assert.match(main, /sendAgentPrompt/);
-  assert.match(main, /requestAgentFiles/);
-  assert.match(main, /renderAgentActivity/);
   assert.match(main, /classList\.toggle\('agent-focus', view === 'agents'\)/);
   assert.match(styles, /\.main-content\.agent-focus > \.git-panel/);
+  assert.match(styles, /grid-template-columns: 188px minmax\(0, 1fr\);/);
 });
 
 test("Agent permissions are explicit checkboxes without a blocking second prompt", () => {
@@ -102,7 +100,6 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(html, /id="agent-provider-status"/);
   assert.match(main, /method: 'skills\.update'/);
   assert.match(main, /refreshSelectedSkill/);
-  assert.match(html, /id="update-skill-button"/);
   assert.match(main, /method: 'service\.list'/);
   assert.match(main, /renderServices/);
   assert.match(html, /id="runtime-service-list"/);

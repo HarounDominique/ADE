@@ -236,6 +236,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-05 — codex-sidecar-stdin — Se corrige el bloqueo de `Agents` con Codex: el adapter cierra stdin en `codex exec --json`, evitando que el proceso espere una segunda entrada y deje el botón en `WORKING`. Los fallos de transporte también devuelven el workbench a `ERROR`; se añade regresión de cierre de stdin.
 - 2026-09-05 — agent-permissions-runtime — Los permisos seleccionados en Agents dejan de ser sólo metadatos: el adapter Codex los traduce a `read-only`/`workspace-write` y `--search` según corresponda, manteniendo `run_commands` sin elevar escritura. La baseline pasa a 96 tests TypeScript.
 - 2026-09-05 — agent-permissions-submit — Los permisos del prompt se conceden mediante los checkboxes explícitos del composer; se elimina el segundo `window.confirm` que podía quedar oculto en la app y bloquear el envío. Se añade regresión de envío con permisos seleccionados.
+- 2026-09-05 — agent-conversation-focus — Se retira el inspector lateral de `Agents` (`Activity`, `Files changed` y `Skills & tools`) para dedicar el espacio a sesiones y conversación. La evidencia observable continúa persistida en los registros de Task/runtime y queda disponible para superficies de detalle futuras.
 
 ## Automatic Reconciliation Log
 
