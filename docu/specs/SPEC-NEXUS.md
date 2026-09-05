@@ -230,6 +230,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-05 — file-workspace — CodeMirror incorpora paquetes oficiales MIT para C++, Java y PHP y Monaco Editor MIT pasa a ser fallback selectivo para 19 familias adicionales; la interfaz común conserva edición, guardado, descarte, temas y atajos. ADR-0023 queda ampliada y el inventario directo de licencias se sincroniza.
 - 2026-09-05 — documentation-alignment — Se sincronizan PRODUCT, índice documental, plan v0.4 y SPEC-workspace-core con la decisión multimotor; no quedan referencias normativas que describan el Editor como textarea o CodeMirror único.
 - 2026-09-05 — agent-surface — Se añade `Agents` a la shell: sesiones Codex/OpenCode persistidas por Project, transcript de mensajes, prompts libres asociados opcionalmente a Task y permisos sensibles explícitos por ejecución. ADR-0024 fija que ADE invoca runtimes locales y no incrusta el chat remoto; `npm run build` y 93 tests TypeScript pasan.
+- 2026-09-05 — agent-surface-ux — Se simplifica `Agents` a un flujo primario `Provider → Session → prompt → Send prompt`; permisos y skills pasan a disclosures plegables. Se conserva la función existente y se reduce la carga visual del menú.
 
 ## Automatic Reconciliation Log
 

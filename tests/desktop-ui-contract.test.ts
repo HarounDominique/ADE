@@ -17,7 +17,7 @@ test("desktop shell keeps the project workbench areas and critical actions", () 
 });
 
 test("Agents exposes provider selection, resumable sessions and a permission-aware prompt", () => {
-  assert.match(html, /id="agent-session-list"/);
+  assert.match(html, /id="agent-session-selector"/);
   assert.match(html, /id="agent-message-list"/);
   assert.match(html, /id="agent-prompt-form"/);
   assert.match(html, /id="agent-prompt-input"/);

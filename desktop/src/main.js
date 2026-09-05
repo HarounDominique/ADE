@@ -1263,13 +1263,9 @@ function requestAgentMessages(sessionId) {
 
 function renderAgentSessions(sessions) {
   agentSessions = sessions;
-  const list = document.getElementById('agent-session-list');
-  if (!list) return;
-  if (!sessions.length) {
-    list.innerHTML = '<p class="agent-empty-state">No persisted sessions for this Project.</p>';
-    return;
-  }
-  list.innerHTML = sessions.map((session) => `<button class="agent-session-item${session.id === activeAgentSessionId ? ' active' : ''}" type="button" data-agent-session-id="${escapeHTML(session.id)}"><span class="agent-session-item-top"><strong>${escapeHTML(session.provider)}</strong><span>${escapeHTML(session.status.toLowerCase())}</span></span><span class="agent-session-item-id">${escapeHTML(session.id)}</span><small>${escapeHTML(new Date(session.updatedAt).toLocaleString())}</small></button>`).join('');
+  const selector = document.getElementById('agent-session-selector');
+  if (!selector) return;
+  selector.innerHTML = `<option value="">New session</option>${sessions.map((session) => `<option value="${escapeHTML(session.id)}"${session.id === activeAgentSessionId ? ' selected' : ''}>${escapeHTML(session.provider)} · ${escapeHTML(session.id.slice(0, 18))} · ${escapeHTML(session.status.toLowerCase())}</option>`).join('')}`;
 }
 
 function renderAgentMessages(messages) {
@@ -1302,7 +1298,8 @@ function selectAgentSession(sessionId) {
 
 function startNewAgentSession() {
   activeAgentSessionId = null;
-  renderAgentSessions(agentSessions);
+  const selector = document.getElementById('agent-session-selector');
+  if (selector) selector.value = '';
   renderAgentMessages([]);
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
@@ -2494,6 +2491,11 @@ document.getElementById('agent-provider')?.addEventListener('change', (event) =>
 });
 document.getElementById('agent-prompt-form')?.addEventListener('submit', sendAgentPrompt);
 document.querySelector('[data-action="new-agent-session"]')?.addEventListener('click', startNewAgentSession);
+document.getElementById('agent-session-selector')?.addEventListener('change', (event) => {
+  const sessionId = event.target.value;
+  if (sessionId) selectAgentSession(sessionId);
+  else startNewAgentSession();
+});
 initializeCodeEditor();
 document.getElementById('agent-skill')?.addEventListener('change', refreshSelectedSkill);
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });

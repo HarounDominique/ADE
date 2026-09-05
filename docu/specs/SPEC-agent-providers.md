@@ -38,7 +38,7 @@ La actividad de skills se persiste como evidencia acotada por Task y sesión, y 
 
 ## Agents surface
 
-`Agents` es la superficie conversacional transversal del shell. Permite seleccionar `Codex` u `OpenCode`, crear una sesión nueva o seleccionar una sesión persistida, enviar un prompt libre y ver el transcript asociado al Project activo y, opcionalmente, a la Task seleccionada. El historial se almacena en el fichero SQLite de metadatos del Project; el código y los artefactos siguen viviendo en el repositorio.
+`Agents` es la superficie conversacional transversal del shell. Permite seleccionar `Codex` u `OpenCode`, crear una sesión nueva o seleccionar una sesión persistida, enviar un prompt libre y ver el transcript asociado al Project activo y, opcionalmente, a la Task seleccionada. El flujo primario sólo muestra `Provider`, `Session`, transcript y `Send prompt`; permisos y skills se presentan como herramientas plegables para evitar competir con la conversación. El historial se almacena en el fichero SQLite de metadatos del Project; el código y los artefactos siguen viviendo en el repositorio.
 
 El envío es explícito: el usuario escribe el prompt, elige permisos adicionales por ejecución (`write_code`, `write_docs`, `run_commands`, `network`) y pulsa `Send prompt`. Sin esos permisos el panel no concede capacidades sensibles por inferencia visual. `read_project` es el alcance base del contexto local. Las respuestas de Codex se obtienen del JSONL de `codex exec`; OpenCode se observa mediante su stream de eventos. Si un proveedor no devuelve texto legible, ADE conserva el estado y el error, pero no inventa una respuesta.
 

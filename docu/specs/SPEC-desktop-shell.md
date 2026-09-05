@@ -78,7 +78,7 @@ Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y la
 
 ### Agents
 
-`Agents` presenta una lista de sesiones persistidas del Project y un transcript central. El usuario puede crear una sesión nueva, reanudar una existente, cambiar entre Codex/OpenCode y enviar prompts asociados al Project activo y a la Task seleccionada. El panel muestra disponibilidad, autenticación y capacidades del proveedor, feedback de ejecución y permisos explícitos para editar código, editar documentación, ejecutar comandos o usar red. Las respuestas se almacenan como mensajes de sesión en el SQLite local para que el menú pueda reconstruirse tras reiniciar ADE. La superficie no afirma integrar el chat remoto de ChatGPT: usa los adapters locales detectados por ADE y muestra el fallo del provider cuando no está disponible.
+`Agents` presenta una conversación central con un flujo primario único: seleccionar `Provider` y `Session`, escribir un prompt y pulsar `Send prompt`. Las sesiones persistidas se eligen desde un selector compacto y `New session` limpia el contexto sin borrar historial. Disponibilidad, autenticación, contexto de Project/Task y feedback quedan visibles cerca de la conversación; permisos sensibles y skills se mantienen plegados bajo `Permissions for this turn` y `Skills and tools`. Las respuestas se almacenan como mensajes de sesión en el SQLite local para que el menú pueda reconstruirse tras reiniciar ADE. La superficie no afirma integrar el chat remoto de ChatGPT: usa los adapters locales detectados por ADE y muestra el fallo del provider cuando no está disponible.
 
 ### Knowledge
 
