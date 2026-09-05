@@ -362,9 +362,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .commit-dialog-close:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .commit-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 .commit-dialog-actions .button { min-width: 86px; }
+.agent-delete-dialog { width: min(420px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--line-strong); border-radius: 12px; color: var(--text); background: var(--panel); box-shadow: 0 24px 70px rgba(39, 54, 70, .22); }
+.agent-delete-dialog::backdrop { background: rgba(35, 47, 60, .35); backdrop-filter: blur(4px); }
+.agent-delete-form { display: grid; gap: 10px; padding: 24px; }
+.agent-delete-form h2 { margin: 0; color: var(--text); font-size: 17px; }
+.agent-delete-form p { margin: 0; color: var(--text-soft); font-size: 12px; line-height: 1.55; }
+.agent-delete-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.agent-delete-actions .button { min-width: 88px; }
+.agent-delete-actions .button.danger { border-color: var(--red); color: #fff; background: var(--red); }
+.agent-delete-actions .button.danger:hover { border-color: color-mix(in srgb, var(--red) 85%, #000); background: color-mix(in srgb, var(--red) 85%, #000); }
 
 :root[data-theme="light"] .git-pending-file.active { background: #e3eef9; }
 :root[data-theme="light"] .commit-dialog { box-shadow: 0 24px 70px #15324d38; }
+:root[data-theme="light"] .agent-delete-dialog { box-shadow: 0 24px 70px #15324d38; }
 
 @media (max-width: 760px) {
   .version-control-tab-row { align-items: stretch; flex-direction: column; gap: 10px; }

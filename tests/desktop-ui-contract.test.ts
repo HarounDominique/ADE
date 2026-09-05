@@ -38,10 +38,15 @@ test("Agents keeps sessions and conversation as the primary surface", () => {
 });
 
 test("Agents exposes an accessible delete action for saved conversations", () => {
+  assert.match(html, /id="agent-delete-dialog"/);
+  assert.match(html, /data-action="confirm-delete-agent-session"/);
+  assert.match(html, /data-action="cancel-delete-agent-session"/);
   assert.match(main, /data-delete-agent-session-id/);
   assert.match(main, /Delete saved conversation/);
   assert.match(main, /agent\.session\.delete/);
-  assert.match(main, /window\.confirm/);
+  const deletion = main.slice(main.indexOf("function openDeleteAgentSessionDialog"), main.indexOf("function startNewAgentSession"));
+  assert.match(deletion, /showModal/);
+  assert.doesNotMatch(deletion, /window\.confirm/);
   assert.match(styles, /\.agent-session-delete:focus-visible/);
 });
 

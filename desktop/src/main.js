@@ -96,6 +96,7 @@ let selectedTaskIntent = '';
 let providerStatuses = [];
 let agentSessions = [];
 let activeAgentSessionId = null;
+let pendingAgentSessionDeletion = null;
 let agentPromptRunning = false;
 let agentActivity = [];
 let agentFiles = [];
@@ -1381,15 +1382,30 @@ function selectAgentSession(sessionId) {
   requestAgentMessages(session.id);
 }
 
-function deleteAgentSession(sessionId) {
+function openDeleteAgentSessionDialog(sessionId) {
   const session = agentSessions.find((candidate) => candidate.id === sessionId);
   if (!session || !nativeInvoke) return;
   if (sessionId === activeAgentSessionId && agentPromptRunning) {
     notify('Stop the active turn before deleting this conversation.');
     return;
   }
-  const confirmed = window.confirm(`Delete this saved ${session.provider} conversation? Its messages will be permanently removed.`);
-  if (!confirmed) return;
+  pendingAgentSessionDeletion = sessionId;
+  const detail = document.getElementById('agent-delete-dialog-copy');
+  if (detail) detail.textContent = `This will permanently remove the ${session.provider} conversation and its saved messages.`;
+  const dialog = document.getElementById('agent-delete-dialog');
+  if (dialog?.showModal) dialog.showModal();
+}
+
+function closeDeleteAgentSessionDialog() {
+  pendingAgentSessionDeletion = null;
+  document.getElementById('agent-delete-dialog')?.close();
+}
+
+function confirmDeleteAgentSession() {
+  const sessionId = pendingAgentSessionDeletion;
+  if (!sessionId || !nativeInvoke) return;
+  pendingAgentSessionDeletion = null;
+  document.getElementById('agent-delete-dialog')?.close();
   const id = `agent-session-delete-${Date.now()}`;
   pendingContextRequests.set(id, 'agent-session-delete');
   pendingAgentSessionDeletes.set(id, sessionId);
@@ -2384,6 +2400,14 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     document.getElementById('commit-dialog')?.close();
     return;
   }
+  if (item.dataset.action === 'cancel-delete-agent-session') {
+    closeDeleteAgentSessionDialog();
+    return;
+  }
+  if (item.dataset.action === 'confirm-delete-agent-session') {
+    confirmDeleteAgentSession();
+    return;
+  }
   if (item.dataset.action === 'commit-local') return;
   if (item.dataset.action === 'push-origin') {
     if (!nativeInvoke || activeVersionControl === 'none') { notify('Push requires a Git Project.'); return; }
@@ -2619,7 +2643,7 @@ document.addEventListener('click', (event) => {
   }
   const deleteAgentSessionButton = event.target.closest('[data-delete-agent-session-id]');
   if (deleteAgentSessionButton) {
-    deleteAgentSession(deleteAgentSessionButton.dataset.deleteAgentSessionId);
+    openDeleteAgentSessionDialog(deleteAgentSessionButton.dataset.deleteAgentSessionId);
     return;
   }
   const directoryEntry = event.target.closest('[data-directory-path].directory');
@@ -2659,6 +2683,9 @@ document.addEventListener('click', (event) => {
 document.getElementById('agent-provider')?.addEventListener('change', (event) => {
   selectedProvider = event.target.value;
   renderProviderSelection();
+});
+document.getElementById('agent-delete-dialog')?.addEventListener('cancel', () => {
+  pendingAgentSessionDeletion = null;
 });
 document.getElementById('agent-prompt-form')?.addEventListener('submit', sendAgentPrompt);
 document.querySelector('[data-action="new-agent-session"]')?.addEventListener('click', startNewAgentSession);
