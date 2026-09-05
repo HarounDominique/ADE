@@ -2,33 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Scaffold reference: ade-ide-workbench.png</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sofia+Sans:wght@700&display=swap">
+  <title>Scaffold reference: ade-sala-evidencia-agents-b.png</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chathura:wght@300&display=swap">
   <link rel="stylesheet" href="layout.css">
-  <style>html,body{margin:0}body{background:#1c1f22}.region{box-sizing:border-box}.region.text p{white-space:pre-wrap}</style>
+  <style>html,body{margin:0}body{background:#f7f7f8}.region{box-sizing:border-box}.region.text p{white-space:pre-wrap}</style>
 </head>
 <body>
 <!-- Reference only. Every region sits at its measured box inside a comp-aspect frame. Take the boxes (layout.css), keep your own semantic structure. -->
-<main class="comp-frame" style="max-width:1586px">
-  <div class="r-activity-rail region chrome" data-region="activity-rail"><!-- narrow IDE activity rail with navigation icons --></div>
-  <div class="r-top-command-bar region chrome" data-region="top-command-bar"><!-- desktop title and command bar --></div>
-  <div class="r-explorer region chrome" data-region="explorer"><!-- repository explorer and file tree --></div>
-  <div class="r-task-summary region chrome" data-region="task-summary"><!-- task summary and metadata surface --></div>
-  <div class="r-task-status-label region text" data-region="task-status-label"><!-- TASK and In Progress labels --><p style="font-size:var(--r-task-status-label-font);line-height:1.05;margin:0">task-status-label</p></div>
-  <div class="r-task-title region text" data-region="task-title"><!-- primary task title --><p style="font-size:var(--r-task-title-font);font-family:var(--r-task-title-family),sans-serif;font-weight:var(--r-task-title-weight);line-height:1.05;margin:0">task-title</p></div>
-  <div class="r-task-description region text" data-region="task-description"><!-- task description and acceptance bullets --><p style="font-size:var(--r-task-description-font);line-height:1.05;margin:0">task-description</p></div>
-  <div class="r-task-metadata region text" data-region="task-metadata"><!-- priority, status, assignee and plan control --><p style="font-size:var(--r-task-metadata-font);line-height:1.05;margin:0">task-metadata</p></div>
-  <div class="r-workbench-tabs region control" data-region="workbench-tabs"><!-- Workbench, Chat, Activity and Artifacts tabs: rebuild the control's chrome from the crop (comp-spec.mjs --crop workbench-tabs); its ink box, border, fill, radius, and label size are the comp's --></div>
-  <div class="r-workbench-steps region chrome" data-region="workbench-steps"><!-- task execution checklist --></div>
-  <div class="r-changed-files region chrome" data-region="changed-files"><!-- changed file list --></div>
-  <div class="r-verification region chrome" data-region="verification"><!-- verification summary and checks --></div>
-  <div class="r-workbench-copy region text" data-region="workbench-copy"><!-- workbench panel labels and status copy --><p style="font-size:var(--r-workbench-copy-font);line-height:1.05;margin:0">workbench-copy</p></div>
-  <div class="r-terminal region chrome" data-region="terminal"><!-- integrated terminal panel --></div>
-  <div class="r-terminal-output region text" data-region="terminal-output"><!-- terminal command and test output --><p style="font-size:var(--r-terminal-output-font);line-height:1.05;margin:0">terminal-output</p></div>
-  <div class="r-inspector region chrome" data-region="inspector"><!-- ADE inspector with session, gates and context --></div>
-  <div class="r-inspector-headings region text" data-region="inspector-headings"><!-- session, objectives and gates headings --><p style="font-size:var(--r-inspector-headings-font);line-height:1.05;margin:0">inspector-headings</p></div>
-  <div class="r-inspector-events region text" data-region="inspector-events"><!-- recent events and context rows --><p style="font-size:var(--r-inspector-events-font);line-height:1.05;margin:0">inspector-events</p></div>
-  <div class="r-status-bar region chrome" data-region="status-bar"><!-- bottom IDE status bar --></div>
+<main class="comp-frame" style="max-width:1587px">
+  <div class="r-window-chrome region chrome" data-region="window-chrome"><!-- macOS title and project context toolbar --></div>
+  <div class="r-primary-navigation region chrome" data-region="primary-navigation"><!-- labeled application navigation with Agents active --></div>
+  <div class="r-explorer region chrome" data-region="explorer"><!-- compact project file explorer --></div>
+  <div class="r-status-bar region chrome" data-region="status-bar"><!-- bottom project and repository status --></div>
+  <div class="r-project-context region control" data-region="project-context"><!-- Project and branch selectors: rebuild the control's chrome from the crop (comp-spec.mjs --crop project-context); its ink box, border, fill, radius, and label size are the comp's --></div>
+  <div class="r-global-actions region control" data-region="global-actions"><!-- share, notifications and account actions: rebuild the control's chrome from the crop (comp-spec.mjs --crop global-actions); its ink box, border, fill, radius, and label size are the comp's --></div>
+  <div class="r-sessions-header region chrome" data-region="sessions-header"><!-- sessions label and new-session action --></div>
+  <div class="r-session-list region chrome" data-region="session-list"><!-- followed, recent and other agent sessions --></div>
+  <div class="r-session-tabs region chrome" data-region="session-tabs"><!-- active session and adjacent session tabs --></div>
+  <div class="r-conversation-user-turn region text" data-region="conversation-user-turn"><!-- user intent message with timestamp --><p style="font-size:var(--r-conversation-user-turn-font);line-height:1.05;margin:0">conversation-user-turn</p></div>
+  <div class="r-conversation-agent-turn region text" data-region="conversation-agent-turn"><!-- agent response with provider identity --><p style="font-size:var(--r-conversation-agent-turn-font);font-family:var(--r-conversation-agent-turn-family),sans-serif;font-weight:var(--r-conversation-agent-turn-weight);line-height:1.05;margin:0">conversation-agent-turn</p></div>
+  <div class="r-tool-evidence region control" data-region="tool-evidence"><!-- collapsible completed-tool evidence row: rebuild the control's chrome from the crop (comp-spec.mjs --crop tool-evidence); its ink box, border, fill, radius, and label size are the comp's --></div>
+  <div class="r-changed-files-evidence region control" data-region="changed-files-evidence"><!-- changed files list with additions and deletions: rebuild the control's chrome from the crop (comp-spec.mjs --crop changed-files-evidence); its ink box, border, fill, radius, and label size are the comp's --></div>
+  <div class="r-inline-diff region text" data-region="inline-diff"><!-- temporary readable inline code diff --><p style="font-size:var(--r-inline-diff-font);line-height:1.05;margin:0">inline-diff</p></div>
+  <div class="r-completion-turn region text" data-region="completion-turn"><!-- agent completion and test evidence --><p style="line-height:1.05;margin:0">completion-turn</p></div>
+  <div class="r-composer region control" data-region="composer"><!-- message composer, permissions and send action: rebuild the control's chrome from the crop (comp-spec.mjs --crop composer); its ink box, border, fill, radius, and label size are the comp's --></div>
+  <div class="r-terminal-tabs region chrome" data-region="terminal-tabs"><!-- persistent native terminal dock header and tabs --></div>
+  <div class="r-terminal-transcript region text" data-region="terminal-transcript"><!-- minimal native terminal transcript --><p style="font-size:var(--r-terminal-transcript-font);line-height:1.05;margin:0">terminal-transcript</p></div>
 </main>
 </body>
 </html>

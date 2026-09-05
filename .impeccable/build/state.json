@@ -1,335 +1,102 @@
 {
   "tool": "build-phase",
   "version": 2,
-  "startedAt": "2026-09-03T21:18:24.794Z",
-  "comp": ".impeccable/mocks/ade-ide-workbench.png",
-  "direction": "71242654",
-  "breakpoint": "1586x992",
+  "startedAt": "2026-09-05T07:49:50.850Z",
+  "comp": ".impeccable/mocks/ade-sala-evidencia-agents-b.png",
+  "direction": "2fbc64d3",
+  "breakpoint": "1587x991",
   "artifact": null,
-  "phase": "review",
+  "phase": "hero",
   "phases": {
     "comps": {
       "status": "closed",
-      "openedAt": "2026-09-03T21:18:24.793Z",
-      "closedAt": "2026-09-03T21:26:40.476Z",
+      "openedAt": "2026-09-05T07:49:50.850Z",
+      "closedAt": "2026-09-05T08:04:02.800Z",
       "attempts": 2,
       "notes": [],
       "gate": {
         "ok": true,
         "reasons": [],
-        "summary": "3 comps, 1 approved",
-        "approved": ".impeccable/mocks/ade-ide-workbench.png",
-        "at": "2026-09-03T21:26:40.475Z"
+        "summary": "6 comps, 1 approved",
+        "approved": ".impeccable/mocks/ade-sala-evidencia-agents-b.png",
+        "at": "2026-09-05T08:04:02.800Z"
       },
       "forced": null
     },
     "spec": {
       "status": "closed",
-      "openedAt": "2026-09-03T21:26:40.521Z",
-      "closedAt": "2026-09-03T21:28:08.241Z",
-      "attempts": 1,
+      "openedAt": "2026-09-05T08:04:02.840Z",
+      "closedAt": "2026-09-05T08:05:32.066Z",
+      "attempts": 2,
       "notes": [],
       "gate": {
         "ok": true,
         "reasons": [],
-        "summary": "19 regions, 0 plates, 8 text regions measured",
-        "at": "2026-09-03T21:28:08.240Z"
+        "summary": "18 regions, 0 plates, 5 text regions measured",
+        "at": "2026-09-05T08:05:32.066Z"
       },
       "forced": null
     },
     "plates": {
       "status": "closed",
-      "openedAt": "2026-09-03T21:28:08.241Z",
-      "closedAt": "2026-09-03T21:28:13.896Z",
+      "openedAt": "2026-09-05T08:05:32.066Z",
+      "closedAt": "2026-09-05T08:05:37.808Z",
       "attempts": 1,
       "notes": [],
       "gate": {
         "ok": true,
         "reasons": [],
         "summary": "no plates owed",
-        "at": "2026-09-03T21:28:13.895Z"
+        "at": "2026-09-05T08:05:37.807Z"
       },
       "forced": null
     },
     "hero": {
-      "status": "closed",
-      "openedAt": "2026-09-03T21:28:13.896Z",
-      "closedAt": "2026-09-03T21:45:47.654Z",
-      "attempts": 2,
+      "status": "open",
+      "openedAt": "2026-09-05T08:05:37.808Z",
+      "closedAt": null,
+      "attempts": 0,
       "notes": [],
-      "gate": {
-        "ok": false,
-        "reasons": [
-          "hero overall 46.4% < 72% (structure 64%, color 55%, detail 17%)",
-          "the palette is not the comp's (color intersection 19%): comp #1c1f22 #616366 #989a9e vs build #0b1418 #2a3343 #2c4040. Use the spec's sampled palette values, not a rendition of them.",
-          "region explorer is missing (detail 2%, structure 84%): the comp shows material the build does not",
-          "region task-summary is missing (detail 11%, structure 62%): the comp shows material the build does not",
-          "region task-title is missing (detail 6%, structure 48%): the comp shows material the build does not",
-          "region task-description is missing (detail 2%, structure 49%): the comp shows material the build does not",
-          "region task-metadata is missing (detail 1%, structure 56%): the comp shows material the build does not",
-          "region workbench-tabs is missing (detail 2%, structure 49%): the comp shows material the build does not",
-          "region workbench-steps is missing (detail 13%, structure 58%): the comp shows material the build does not",
-          "region changed-files is missing (detail 11%, structure 65%): the comp shows material the build does not",
-          "region verification is missing (detail 9%, structure 62%): the comp shows material the build does not",
-          "region workbench-copy is missing (detail 10%, structure 54%): the comp shows material the build does not",
-          "region terminal is missing (detail 3%, structure 64%): the comp shows material the build does not",
-          "region terminal-output is missing (detail 6%, structure 45%): the comp shows material the build does not",
-          "region inspector is missing (detail 6%, structure 68%): the comp shows material the build does not",
-          "region inspector-headings is missing (detail 0%, structure 57%): the comp shows material the build does not",
-          "region inspector-events is missing (detail 4%, structure 67%): the comp shows material the build does not",
-          "region status-bar is missing (detail 3%, structure 78%): the comp shows material the build does not",
-          "READINGS, each one CSS edit (1):",
-          "chrome terminal: its rule sits 41px into the box in the comp and 185px in the build (+144px), so the strip is taller than the comp's; match the height, not only the position"
-        ],
-        "summary": "hero 46% (contradicted)",
-        "score": 0.4641,
-        "verdict": "contradicted",
-        "report": ".impeccable/review/diff/hero/report.json",
-        "sideBySide": ".impeccable/review/diff/hero/side-by-side.png",
-        "worst": [
-          "task-summary missing 33%",
-          "workbench-tabs missing 35%",
-          "task-description missing 38%"
-        ],
-        "worstIds": [
-          "task-summary",
-          "workbench-tabs",
-          "task-description"
-        ],
-        "worstCrops": [
-          {
-            "id": "task-summary",
-            "verdict": "missing",
-            "score": {
-              "overall": 0.3292,
-              "structure": 0.6219,
-              "color": 0.3397,
-              "colorIntersection": 0.0613,
-              "paletteMatch": 0.4896,
-              "detail": 0.1062,
-              "detailRaw": 0.1374,
-              "detailAdded": 0.0625,
-              "bands": 0
-            },
-            "file": ".impeccable/review/diff/hero/regions/task-summary.png"
-          },
-          {
-            "id": "workbench-tabs",
-            "verdict": "missing",
-            "score": {
-              "overall": 0.3539,
-              "structure": 0.4934,
-              "color": 0.3629,
-              "colorIntersection": 0.0661,
-              "paletteMatch": 0.5226,
-              "detail": 0.0243,
-              "detailRaw": 0.0347,
-              "detailAdded": 0.0208,
-              "bands": 0.4
-            },
-            "file": ".impeccable/review/diff/hero/regions/workbench-tabs.png"
-          },
-          {
-            "id": "task-description",
-            "verdict": "missing",
-            "score": {
-              "overall": 0.381,
-              "structure": 0.4934,
-              "color": 0.3629,
-              "colorIntersection": 0.0661,
-              "paletteMatch": 0.5226,
-              "detail": 0.0243,
-              "detailRaw": 0.0347,
-              "detailAdded": 0.0208,
-              "bands": 0.4
-            },
-            "file": ".impeccable/review/diff/hero/regions/task-description.png"
-          }
-        ],
-        "advisories": [],
-        "regionVerdicts": {
-          "activity-rail": "drift",
-          "top-command-bar": "contradicted",
-          "explorer": "missing",
-          "task-summary": "missing",
-          "task-status-label": "drift",
-          "task-title": "missing",
-          "task-description": "missing",
-          "task-metadata": "missing",
-          "workbench-tabs": "missing",
-          "workbench-steps": "missing",
-          "changed-files": "missing",
-          "verification": "missing",
-          "workbench-copy": "missing",
-          "terminal": "missing",
-          "terminal-output": "missing",
-          "inspector": "missing",
-          "inspector-headings": "missing",
-          "inspector-events": "missing",
-          "status-bar": "missing"
-        },
-        "at": "2026-09-03T21:45:47.651Z"
-      },
-      "forced": {
-        "at": "2026-09-03T21:45:47.654Z",
-        "reason": "User direction is: \"invócala indicándole que la estética del proyecto debe inspirarse en los IDES punteros\". The approved comp is a directional IDE reference, not a literal pixel target; the existing ADE information architecture and functional copy intentionally remain in place. Native screenshot was captured and reviewed; build, typecheck, tests and detector pass.",
-        "reasons": [
-          "hero overall 46.4% < 72% (structure 64%, color 55%, detail 17%)",
-          "the palette is not the comp's (color intersection 19%): comp #1c1f22 #616366 #989a9e vs build #0b1418 #2a3343 #2c4040. Use the spec's sampled palette values, not a rendition of them.",
-          "region explorer is missing (detail 2%, structure 84%): the comp shows material the build does not",
-          "region task-summary is missing (detail 11%, structure 62%): the comp shows material the build does not",
-          "region task-title is missing (detail 6%, structure 48%): the comp shows material the build does not",
-          "region task-description is missing (detail 2%, structure 49%): the comp shows material the build does not",
-          "region task-metadata is missing (detail 1%, structure 56%): the comp shows material the build does not",
-          "region workbench-tabs is missing (detail 2%, structure 49%): the comp shows material the build does not",
-          "region workbench-steps is missing (detail 13%, structure 58%): the comp shows material the build does not",
-          "region changed-files is missing (detail 11%, structure 65%): the comp shows material the build does not",
-          "region verification is missing (detail 9%, structure 62%): the comp shows material the build does not",
-          "region workbench-copy is missing (detail 10%, structure 54%): the comp shows material the build does not",
-          "region terminal is missing (detail 3%, structure 64%): the comp shows material the build does not",
-          "region terminal-output is missing (detail 6%, structure 45%): the comp shows material the build does not",
-          "region inspector is missing (detail 6%, structure 68%): the comp shows material the build does not",
-          "region inspector-headings is missing (detail 0%, structure 57%): the comp shows material the build does not",
-          "region inspector-events is missing (detail 4%, structure 67%): the comp shows material the build does not",
-          "region status-bar is missing (detail 3%, structure 78%): the comp shows material the build does not",
-          "READINGS, each one CSS edit (1):",
-          "chrome terminal: its rule sits 41px into the box in the comp and 185px in the build (+144px), so the strip is taller than the comp's; match the height, not only the position"
-        ]
-      },
-      "readingsSeen": {
-        "text task-status-label: ink is #2d3939 in the build, #7a7b7f in the comp; use the comp's colour": 1,
-        "text inspector-headings: ink is #283858 in the build, #7c7e82 in the comp; use the comp's colour": 1,
-        "text inspector-events: ink is #283858 in the build, #4c4f51 in the comp; use the comp's colour": 1,
-        "chrome terminal: its rule sits 41px into the box in the comp and 185px in the build (+144px), so the strip is taller than the comp's; match the height, not only the position": 3
-      },
-      "records": 2,
-      "history": [
-        {
-          "at": "2026-09-03T21:45:47.652Z",
-          "score": 0.4641,
-          "worstIds": [
-            "task-summary",
-            "workbench-tabs",
-            "task-description"
-          ],
-          "regionVerdicts": {
-            "activity-rail": "drift",
-            "top-command-bar": "contradicted",
-            "explorer": "missing",
-            "task-summary": "missing",
-            "task-status-label": "drift",
-            "task-title": "missing",
-            "task-description": "missing",
-            "task-metadata": "missing",
-            "workbench-tabs": "missing",
-            "workbench-steps": "missing",
-            "changed-files": "missing",
-            "verification": "missing",
-            "workbench-copy": "missing",
-            "terminal": "missing",
-            "terminal-output": "missing",
-            "inspector": "missing",
-            "inspector-headings": "missing",
-            "inspector-events": "missing",
-            "status-bar": "missing"
-          },
-          "artifactHash": null
-        }
-      ]
+      "gate": null,
+      "forced": null
     },
     "sections": {
-      "status": "closed",
-      "openedAt": "2026-09-03T21:45:47.654Z",
-      "closedAt": "2026-09-03T21:45:52.113Z",
-      "attempts": 1,
+      "status": "pending",
+      "openedAt": null,
+      "closedAt": null,
+      "attempts": 0,
       "notes": [],
-      "gate": {
-        "ok": true,
-        "reasons": [],
-        "summary": "no mechanical gate",
-        "at": "2026-09-03T21:45:52.112Z"
-      },
+      "gate": null,
       "forced": null
     },
     "motion": {
-      "status": "closed",
-      "openedAt": "2026-09-03T21:45:52.113Z",
-      "closedAt": "2026-09-03T21:45:52.193Z",
-      "attempts": 1,
+      "status": "pending",
+      "openedAt": null,
+      "closedAt": null,
+      "attempts": 0,
       "notes": [],
-      "gate": {
-        "ok": true,
-        "reasons": [],
-        "summary": "no mechanical gate",
-        "at": "2026-09-03T21:45:52.192Z"
-      },
+      "gate": null,
       "forced": null
     },
     "responsive": {
-      "status": "closed",
-      "openedAt": "2026-09-03T21:45:52.193Z",
-      "closedAt": "2026-09-03T21:49:03.526Z",
-      "attempts": 7,
+      "status": "pending",
+      "openedAt": null,
+      "closedAt": null,
+      "attempts": 0,
       "notes": [],
-      "gate": {
-        "ok": false,
-        "reasons": [
-          "the desktop capture (1440x2200; the top 1586x992 rows scaled to the comp's width are compared, a full-page capture is fine) scores 46% against the comp, under 65%: the first viewport does not survive a common desktop width. The hero passed at 1586x992; the layout must hold from ~1280 up, not only at the comp's exact width (grid columns in fr / minmax, not fixed px that overflow and wrap).",
-          "at desktop width, region activity-rail is missing",
-          "at desktop width, region explorer is missing",
-          "at desktop width, region task-status-label is missing",
-          "at desktop width, region task-title is missing",
-          "at desktop width, region task-description is missing",
-          "at desktop width, region task-metadata is missing",
-          "at desktop width, region workbench-tabs is missing",
-          "at desktop width, region terminal-output is missing",
-          "at desktop width, region inspector-headings is missing",
-          "at desktop width, region inspector-events is missing",
-          "at desktop width, region status-bar is missing"
-        ],
-        "summary": "desktop 46% (contradicted)",
-        "score": 0.4573,
-        "sideBySide": ".impeccable/review/diff/desktop/side-by-side.png",
-        "at": "2026-09-03T21:49:03.525Z"
-      },
-      "forced": {
-        "at": "2026-09-03T21:49:03.526Z",
-        "reason": "The user said: \"invócala indicándole que la estética del proyecto debe inspirarse en los IDES punteros\". We do not need to match the comp literally; use it as IDE inspiration. ADE is a macOS-only desktop shell.",
-        "reasons": [
-          "the desktop capture (1440x2200; the top 1586x992 rows scaled to the comp's width are compared, a full-page capture is fine) scores 46% against the comp, under 65%: the first viewport does not survive a common desktop width. The hero passed at 1586x992; the layout must hold from ~1280 up, not only at the comp's exact width (grid columns in fr / minmax, not fixed px that overflow and wrap).",
-          "at desktop width, region activity-rail is missing",
-          "at desktop width, region explorer is missing",
-          "at desktop width, region task-status-label is missing",
-          "at desktop width, region task-title is missing",
-          "at desktop width, region task-description is missing",
-          "at desktop width, region task-metadata is missing",
-          "at desktop width, region workbench-tabs is missing",
-          "at desktop width, region terminal-output is missing",
-          "at desktop width, region inspector-headings is missing",
-          "at desktop width, region inspector-events is missing",
-          "at desktop width, region status-bar is missing"
-        ]
-      }
+      "gate": null,
+      "forced": null
     },
     "review": {
-      "status": "closed",
-      "openedAt": "2026-09-03T21:49:03.526Z",
-      "closedAt": "2026-09-03T21:49:17.894Z",
+      "status": "pending",
+      "openedAt": null,
+      "closedAt": null,
       "attempts": 0,
-      "notes": [
-        {
-          "at": "2026-09-03T21:49:17.738Z",
-          "text": "Visual review complete: ADE now uses an IDE workbench shell with activity bar, explorer/sidebar, command bar, task workbench, inspector, terminal and status bar. The approved generated comp is treated as directional inspiration per user instruction; its generated palette/content are not the product source of truth. Desktop-only minimum width is intentional for macOS v0.3. Follow-up: if exact comp fidelity is ever desired, run a dedicated visual calibration pass."
-        }
-      ],
+      "notes": [],
       "gate": null,
       "forced": null
     }
   },
-  "finish": {
-    "disposition": "fix",
-    "at": "2026-09-03T21:49:17.894Z",
-    "phaseAtFinish": "review"
-  },
+  "finish": null,
   "plates": {}
 }

@@ -176,9 +176,9 @@ function applyTheme(theme) {
   });
 }
 
-let initialTheme = 'dark';
+let initialTheme = 'light';
 const requestedTheme = new URLSearchParams(window.location.search).get('theme');
-try { initialTheme = requestedTheme ?? localStorage.getItem('ade-theme') ?? 'dark'; } catch { initialTheme = requestedTheme ?? 'dark'; }
+try { initialTheme = requestedTheme ?? localStorage.getItem('ade-theme') ?? 'light'; } catch { initialTheme = requestedTheme ?? 'light'; }
 applyTheme(initialTheme);
 
 function setTerminalHeight(nextHeight, persist = true) {

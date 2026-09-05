@@ -2,24 +2,24 @@
 name: ADE
 description: An agentic development workstation for projects, tasks, documentation, Git and local runtimes.
 colors:
-  workspace-bg: "#0b0f14"
-  chrome: "#11171f"
-  chrome-strong: "#0e1319"
-  panel: "#151c25"
-  panel-raised: "#1a232e"
-  panel-soft: "#121920"
-  line: "#293542"
-  line-strong: "#3a4a5a"
-  text: "#e5edf5"
-  text-soft: "#b8c5d2"
-  muted: "#8291a0"
-  faint: "#5d6a78"
-  primary-blue: "#76aef7"
-  accent-cyan: "#64d2c6"
-  success-green: "#70d6a0"
-  warning-amber: "#e4b76b"
-  error-red: "#ef8b92"
-  agent-purple: "#b9a2ef"
+  workspace-bg: "#f7f7f5"
+  chrome: "#eef0f3"
+  chrome-strong: "#e6e9ed"
+  panel: "#fffdfa"
+  panel-raised: "#ffffff"
+  panel-soft: "#f0f2f5"
+  line: "#d9dee5"
+  line-strong: "#c3cad4"
+  text: "#1f2630"
+  text-soft: "#465363"
+  muted: "#778393"
+  faint: "#9aa5b1"
+  primary-blue: "#2858b8"
+  accent-cyan: "#16807d"
+  success-green: "#2c8a5a"
+  warning-amber: "#a46f12"
+  error-red: "#c24d59"
+  agent-purple: "#7656d6"
   light-workspace-bg: "#f3f6fa"
   light-chrome: "#e8eef5"
   light-panel: "#ffffff"
@@ -90,56 +90,56 @@ components:
 
 ## Overview
 
-**Creative North Star: "The Agentic Workbench"**
+**Creative North Star: "Sala de Evidencia"**
 
-ADE is a focused desktop workbench for software development. Its visual language is deliberately inspired by leading IDEs: the interface is organized around persistent context, dense but readable tools, keyboard-oriented controls and clear state transitions. The work surface should feel operational and calm, with every panel earning its space through a concrete development task.
+ADE is a focused desktop workbench for software development driven by agents. Its visual language is inspired by the reading clarity of Codex Desktop and GitHub Desktop, while establishing its own editorial-operational identity: conversations, changes and decisions are treated as evidence that must be easy to follow, compare and revisit. The work surface should feel calm and purposeful, with every panel earning its space through a concrete development task.
 
-The system uses dark graphite and navy chrome by default, with a deliberate light workspace theme for bright environments. Both themes keep cool text, thin structural rules and a restrained cyan accent. It is technical without becoming sterile: success, warning, error and agent states have distinct colors, while depth comes from tonal layering instead of decorative effects.
+The system uses a warm light workspace by default and a distinct night-shift dark theme for low-light work. Both themes keep graphite text, quiet structural rules and restrained semantic accents. It is technical without becoming sterile: success, warning, error and agent states have distinct colors, while depth comes from tonal layering instead of decorative effects.
 
 **Key Characteristics:**
 
-- Familiar IDE grammar: labeled navigation, explorer, command bar, workbench and status bar.
-- Dense information architecture with short labels and monospace operational metadata.
-- Flat-by-default surfaces with thin borders and state-driven accents.
+- Familiar desktop grammar: labeled navigation, explorer, project context, workbench and status bar.
+- Open reading architecture with short labels and monospace operational metadata.
+- Flat-by-default surfaces with softened geometry, quiet rules and state-driven accents.
 - No gradients, glassmorphism, marketing hero panels or ornamental imagery.
 - Theme switching is explicit, persisted per user and never changes the information architecture.
 
 ## Colors
 
-The palette is a dark graphite workspace with cool neutrals and a small set of semantic status colors, mirrored by a high-contrast light workspace. Cyan is the primary interaction accent and should remain scarce enough to communicate focus.
+The palette is a warm, light-first workspace with graphite ink, cool neutrals and a small set of semantic status colors. The dark theme is a distinct night-shift translation rather than a mechanical inversion. Cobalt blue is the primary interaction accent and remains scarce enough to communicate focus.
 
 ### Primary
 
-- **Command Blue** (#76aef7): Focus rings, links and secondary interactive emphasis.
-- **Workbench Cyan** (#64d2c6): Active navigation, primary actions and running states.
+- **Cobalt Action** (#2858b8): Focus rings, links and primary interactive emphasis.
+- **Workbench Teal** (#16807d): Active navigation and running states.
 
 ### Secondary
 
-- **Agent Purple** (#b9a2ef): Provider and agent-specific metadata.
+- **Agent Purple** (#7656d6): Provider and agent-specific metadata.
 
 ### Tertiary
 
-- **Success Green** (#70d6a0): Healthy services, passed gates and completed work.
-- **Warning Amber** (#e4b76b): Review, pending gates and caution states.
-- **Error Red** (#ef8b92): Failed runtime and recovery-required states.
+- **Success Green** (#2c8a5a): Healthy services, passed gates and completed work.
+- **Warning Amber** (#a46f12): Review, pending gates and caution states.
+- **Error Red** (#c24d59): Failed runtime and recovery-required states.
 
 ### Neutral
 
-- **Workspace Black** (#0b0f14): Application canvas.
-- **Graphite Chrome** (#11171f): Explorer and persistent shell surfaces.
-- **Raised Panel** (#1a232e): Hovered panels and secondary controls.
-- **Cool Text** (#e5edf5): Primary headings and decisions.
-- **Muted Text** (#8291a0): Supporting copy.
-- **Structural Line** (#293542): Panel boundaries and separators.
+- **Paper Workspace** (#f7f7f5): Default application canvas.
+- **Soft Chrome** (#eef0f3): Explorer and persistent shell surfaces.
+- **Raised Panel** (#ffffff): Workbench panes and interactive controls.
+- **Graphite Ink** (#1f2630): Primary headings and decisions.
+- **Muted Text** (#778393): Supporting copy.
+- **Structural Line** (#d9dee5): Panel boundaries and separators.
 
-### Light Theme
+### Light Theme (Default)
 
-- **Light Workspace** (#f3f6fa): Alternate application canvas.
-- **Light Chrome** (#e8eef5): Sidebar and toolbar surfaces.
-- **Light Panel** (#ffffff): Workbench panes and content surfaces.
-- **Light Soft Surface** (#edf3f8): Inputs, code surfaces and raised controls.
-- **Light Text** (#152231): Primary headings and decisions.
-- **Light Muted** (#647689): Supporting copy.
+- **Light Workspace** (#f7f7f5): Default application canvas.
+- **Light Chrome** (#eef0f3): Sidebar and toolbar surfaces.
+- **Light Panel** (#fffdfa): Workbench panes and content surfaces.
+- **Light Soft Surface** (#f0f2f5): Inputs, code surfaces and raised controls.
+- **Light Text** (#1f2630): Primary headings and decisions.
+- **Light Muted** (#778393): Supporting copy.
 
 **The Signal Scarcity Rule.** Use cyan, green, amber and red only when they communicate interaction or state; never use them as decoration.
 
@@ -164,7 +164,7 @@ The palette is a dark graphite workspace with cool neutrals and a small set of s
 
 ## Layout
 
-The desktop shell is a two-column IDE frame: one labeled workbench navigation/sidebar and a flexible workbench. The sidebar combines familiar view labels with a persistent project explorer, avoiding duplicate navigation surfaces. A visible vertical grip lets the user resize the sidebar by drag or keyboard, within bounds persisted per Project. A sticky top command bar anchors project context and global actions. The explorer owns a filterable, lazily expanded tree so project navigation stays available while switching views. `Agents` uses a sessions rail plus a conversation-first central thread; activity, changed files and skills remain runtime evidence rather than a permanent third pane. The main work area uses a 15px panel rhythm and 1px structural gaps so adjacent panes read as one instrument rather than a grid of unrelated cards. A fixed native PTY dock remains available at the bottom, above the full-width status bar, and can be resized by drag or keyboard.
+The desktop shell is a two-column evidence workspace: one labeled navigation/sidebar and a flexible workbench. The sidebar combines view labels with a persistent project explorer, avoiding duplicate navigation surfaces. A visible vertical grip lets the user resize it by drag or keyboard, within bounds persisted per Project. A restrained top bar anchors project and branch context. `Agents` uses a sessions rail plus a wide conversation-first central thread; tool activity and changed files stay attached to the relevant turn instead of becoming a permanent inspector. `Version control` uses the same reading rhythm: a focused change list, readable diff and deliberate commit action. Persistent surfaces use generous whitespace, quiet rules and tonal layering rather than a grid of unrelated cards. The native PTY dock remains available at the bottom and can be resized by drag or keyboard.
 
 At narrower desktop widths, the workbench collapses the project context panes into one column and the metric strip and knowledge surfaces reduce to two columns. The labeled sidebar remains visible so navigation never disappears.
 
@@ -172,18 +172,18 @@ At narrower desktop widths, the workbench collapses the project context panes in
 
 ADE is flat-by-default. Depth is conveyed by tonal steps between the canvas, chrome, panel and raised-panel colors, plus thin borders. Shadows are reserved for transient surfaces such as the task dialog and toast; the persistent workspace should not look like a stack of floating cards.
 
-**The Flat Workbench Rule.** A surface earns elevation only when it is transient or interactive; persistent IDE panes use tonal layering and structural lines.
+**The Flat Workbench Rule.** A surface earns elevation only when it is transient or interactive; persistent workbench panes use tonal layering, softened geometry and structural lines.
 
 ## Shapes
 
-The form language is compact and restrained: mostly square corners, 2–4px radii for controls and dialogs, and no pill-shaped containers except compact status treatments where the state benefit is clear. Borders are 1px and low-contrast at rest, becoming blue or cyan on focus and active states.
+The form language is calm and approachable: 7–10px radii for controls and workbench containers, no decorative pills, and compact status treatments only where the state benefit is clear. Borders are 1px and quiet at rest, becoming blue or teal on focus and active states.
 
 ## Components
 
 ### Buttons
 
-- **Shape:** Compact squared controls (3px radius).
-- **Primary:** Cyan background with dark text, 6px 11px padding and a 30px minimum height.
+- **Shape:** Softened controls (7px radius) with clear hit targets.
+- **Primary:** Cobalt background with white text, 7px 13px padding and a 34px minimum height.
 - **Hover / Focus:** Brighten slightly on hover; use a visible blue focus ring for keyboard navigation.
 - **Secondary / Ghost:** Raised graphite for secondary actions; ghost text buttons for low-priority links.
 
@@ -206,7 +206,7 @@ The form language is compact and restrained: mostly square corners, 2–4px radi
 - **Style:** A single labeled navigation controls views inside the project sidebar; the same sidebar owns the Explorer below it. Active items use a 2px cyan edge and a slightly raised surface. Utility actions expose their labels as well as their keyboard affordances.
 - **Interaction:** Hover changes surface and text contrast; focus remains visible; labels and ARIA names are always available for icon-only controls.
 - **Sizing:** The sidebar has a discoverable vertical resize grip. Pointer drag and `←`/`→` resize it; Shift changes the step, Home and End reach the bounds of 190–720 px (responsive to the window), and the width persists for the active Project.
-- **Theme control:** The persistent light/dark switch lives in the top-right global toolbar, beside sync and utility actions. It uses a compact circular thumb with a visible track, keeps dark as the default, and exposes the next action through its label and ARIA state.
+- **Theme control:** The persistent light/dark switch lives in the top-right global toolbar, beside sync and utility actions. It uses a compact circular thumb with a visible track, keeps light as the default, and exposes the next action through its label and ARIA state.
 
 ### Explorer
 

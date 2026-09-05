@@ -50,7 +50,7 @@ La unidad principal no es un archivo ni una conversación aislada, sino una `Tas
 
 - Nombre: ADE — Agentic Development Environment.
 - Voz: técnica, directa y orientada a la acción; el sistema debe comunicar control humano y estado verificable.
-- Dirección solicitada para esta iteración: inspirarse en IDEs punteros, priorizando familiaridad operativa, densidad útil y navegación clara sobre una apariencia de dashboard genérico.
+- Dirección activa para esta iteración: `Sala de Evidencia`, una identidad visual completa y light-first que prioriza lectura de conversaciones, evidencia de cambios, claridad de Git y navegación accesible sobre densidad de IDE o estética de dashboard genérico. Codex Desktop y GitHub Desktop son referencias de jerarquía y flujo, no copias literales.
 
 ## Evidence on Hand
 
@@ -69,4 +69,4 @@ La unidad principal no es un archivo ni una conversación aislada, sino una `Tas
 
 ## Accessibility & Inclusion
 
-No se ha fijado todavía un estándar específico de producto. Se preservarán navegación por teclado, foco visible, contraste suficiente, labels accesibles y estados no dependientes exclusivamente del color.
+La identidad exige navegación por teclado, foco visible, contraste suficiente, labels accesibles, estados no dependientes exclusivamente del color, respeto por `prefers-reduced-motion` y adaptación a distintos tamaños de ventana.
