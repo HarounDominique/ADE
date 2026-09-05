@@ -3,7 +3,7 @@
 <!-- Spec: docu/specs/SPEC-file-workspace.md -->
 <!-- ADR: docu/adr/0014-internal-file-viewer.md · docu/adr/0023-code-editor-and-formatting.md -->
 
-**Estado:** completado y validado a nivel de build/tests; bundle `.app` generado y arrancado manualmente en macOS; baseline actual de 104 tests TypeScript y 18 Rust; smoke gráfico automatizado pendiente.
+**Estado:** completado y validado a nivel de build/tests; bundle `.app` generado y arrancado manualmente en macOS; baseline actual de 109 tests TypeScript y 18 Rust; smoke gráfico automatizado pendiente.
 
 ## Delivery order
 

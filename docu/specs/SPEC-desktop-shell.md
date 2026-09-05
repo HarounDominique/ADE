@@ -83,7 +83,7 @@ Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y la
 - el rail izquierdo lista sesiones del Project activo, permite crear una nueva y seleccionar el provider disponible;
 - el centro contiene la conversación, el estado de la sesión, el contexto Project/Task, el composer multilinea, los permisos del turno y `Send prompt`.
 
-Las sesiones persistidas se pueden reanudar sin borrar historial. La vista primaria no muestra un inspector lateral de actividad, ficheros cambiados ni skills/tools; esos datos siguen persistidos como evidencia de Task/runtime y se reservan para superficies de detalle. `Permissions for this turn` permanece plegable dentro de la conversación para mantener el prompt como acción primaria. Las respuestas se almacenan como mensajes de sesión en SQLite local para que el workbench pueda reconstruirse tras reiniciar ADE. La superficie no afirma integrar el chat remoto de ChatGPT: usa los adapters locales detectados por ADE y muestra el fallo del provider cuando no está disponible. La arquitectura visual y el contrato de datos son provider-neutral para permitir Claude u otros runtimes en futuras iteraciones, sin acoplar la UI a GPT.
+Las sesiones persistidas se pueden reanudar sin borrar historial. La vista primaria no muestra un inspector lateral de actividad, ficheros cambiados ni skills/tools; esos datos siguen persistidos como evidencia de Task/runtime y se reservan para superficies de detalle. `Permissions for this turn` y `Model` permanecen plegables junto al composer para mantener el prompt como acción primaria. El selector muestra el catálogo del provider activo —OpenCode, Codex o Claude Code—, incluye `Provider default` y transmite cualquier alias concreto al runtime; el valor se mantiene en memoria por conversación y vuelve al valor por defecto al rehidratarla. Las respuestas se almacenan como mensajes de sesión en SQLite local para que el workbench pueda reconstruirse tras reiniciar ADE. La superficie no afirma integrar el chat remoto de ChatGPT: usa los adapters locales detectados por ADE y muestra el fallo del provider cuando no está disponible. La arquitectura visual y el contrato de datos son provider-neutral para permitir runtimes futuros, sin acoplar la UI a GPT.
 
 En Codex, los permisos seleccionados se traducen a `read-only` o `workspace-write`, y `network` activa la búsqueda web soportada por el CLI. `run_commands` no concede escritura por sí solo; la granularidad `write_code`/`write_docs` se conserva en el contrato de ADE aunque Codex sólo ofrezca el sandbox de workspace.
 
@@ -127,7 +127,7 @@ npm run desktop:test
 npm run desktop:package:app
 ```
 
-La shell actual se verifica con `npm run build`, `npm test` (104 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
+La shell actual se verifica con `npm run build`, `npm test` (109 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
 
 El shell visual vive en `desktop/src/`. `project-snapshot.js` define el boundary de arranque y `project-context.js` conserva la fusión del Project activo. El comando Tauri `project_context` aporta contexto local y selecciona la raíz canónica. La UI no accede directamente a SQLite, Git ni procesos: Projects y ramas se obtienen mediante el sidecar y el cambio de raíz pasa por Tauri.
 

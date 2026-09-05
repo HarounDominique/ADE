@@ -217,9 +217,9 @@ The form language is calm and approachable: 7–10px radii for controls and work
 ### Buttons
 
 - **Shape:** Softened controls (7px radius) with clear hit targets.
-- **Primary:** Cobalt background with white text, 7px 13px padding and a 34px minimum height.
-- **Hover / Focus:** Brighten slightly on hover; use a visible blue focus ring for keyboard navigation.
-- **Secondary / Ghost:** Raised graphite for secondary actions; ghost text buttons for low-priority links.
+- **Primary:** Cobalt or teal semantic accent with readable dark text, 7px 13px padding and a 34px minimum height.
+- **Hover / Focus:** Raise contrast without inverting the surface; use a visible blue focus ring for keyboard navigation.
+- **Secondary / Ghost:** Raised light panel for secondary actions; ghost text buttons for low-priority links. Dark theme maps the same roles to its night-shift palette.
 
 ### Cards / Containers
 
@@ -231,7 +231,7 @@ The form language is calm and approachable: 7–10px radii for controls and work
 
 ### Inputs / Fields
 
-- **Style:** Dark panel-soft field, 1px line-strong border, 2px radius and monospace text for commands/paths.
+- **Style:** Light panel-soft field by default, 1px line-strong border, 2px radius and monospace text for commands/paths; dark theme maps it to its night-shift panel.
 - **Focus:** Blue outline and line-color shift; never rely on color alone.
 - **Error / Disabled:** Error uses red semantic text; disabled controls reduce opacity and retain their labels.
 

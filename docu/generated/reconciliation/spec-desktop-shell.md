@@ -115,6 +115,12 @@ classDiagram
   class ndocuadr0025crosscuttingruntimeandgitworkspacemd {
     <<document>>
   }
+  class ndocuadr0026claudecodecliadaptermd {
+    <<document>>
+  }
+  class ndocuadr0027providerscopedmodelselectionmd {
+    <<document>>
+  }
   class ndocuknowledgeREADMEmd {
     <<document>>
   }
