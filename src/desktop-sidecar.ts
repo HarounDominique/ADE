@@ -38,7 +38,7 @@ import { LocalGitRepository } from "./adapters/local-git-repository.js";
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
 };
 
 export type DesktopResponse = {
@@ -65,6 +65,14 @@ const runtimeStatus: RuntimeStatus = {
 let runtimeEvidenceSequence = 0;
 let serviceManager: ServiceManager | undefined;
 let declaredServices: readonly ServiceDefinition[] = [];
+type ActiveAgentPrompt = {
+  projectId?: string;
+  runtime?: import("./ports/agent-runtime.js").AgentRuntimePort;
+  session?: import("./ports/agent-runtime.js").SessionHandle;
+  eventAbortController?: AbortController;
+  aborted: boolean;
+};
+const activeAgentPrompts = new Map<string, ActiveAgentPrompt>();
 
 function getRuntimeStatus(): RuntimeStatus {
   return {
@@ -214,6 +222,8 @@ export async function runDesktopSidecar(): Promise<void> {
         }
       } else if (request.method === "agent.prompt") {
         startAgentPrompt(store, request);
+      } else if (request.method === "agent.abort") {
+        void abortAgentPrompt(request);
       } else if (request.method === "skills.run") {
         const params = request.params;
         if (!params?.skillId || !params.intent || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "skillId, intent and repositoryPath are required" } })}\n`);
@@ -449,6 +459,27 @@ async function checkRuntimeHealth(request: DesktopRequest): Promise<void> {
   }
 }
 
+async function abortAgentPrompt(request: DesktopRequest): Promise<void> {
+  const requestId = request.params?.requestId;
+  const active = requestId ? activeAgentPrompts.get(requestId) : undefined;
+  if (!requestId || !active) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "AGENT_NOT_RUNNING", message: "No active agent turn matches this request" } })}\n`);
+    return;
+  }
+  if (request.params?.projectId && active.projectId && request.params.projectId !== active.projectId) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SESSION_PROJECT_MISMATCH", message: "This conversation belongs to another Project" } })}\n`);
+    return;
+  }
+  active.aborted = true;
+  active.eventAbortController?.abort();
+  try {
+    if (active.runtime && active.session) await active.runtime.abort(active.session);
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: { requestId, status: "STOPPING" } })}\n`);
+  } catch (error: unknown) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "AGENT_ABORT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
+  }
+}
+
 function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
   const params = request.params;
   if (!params?.provider || !params.repositoryPath || !params.prompt?.trim()) {
@@ -460,8 +491,12 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "PROVIDER_NOT_SUPPORTED", message: `Unsupported agent provider: ${provider}` } })}\n`);
     return;
   }
+  const operationId = String(request.id);
+  const active: ActiveAgentPrompt = { ...(params.projectId ? { projectId: params.projectId } : {}), aborted: false };
+  activeAgentPrompts.set(operationId, active);
   void (async () => {
     const runtime = provider === "codex" ? new CodexCliRuntime() : provider === "claude" ? new ClaudeCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+    active.runtime = runtime;
     const existingSession = params.sessionId ? store.getAgentSession(params.sessionId) : undefined;
     if (existingSession && existingSession.provider !== provider) throw new Error("Choose New conversation before changing agent provider");
     if (existingSession?.projectId && params.projectId && existingSession.projectId !== params.projectId) throw new Error("This conversation belongs to another Project");
@@ -471,6 +506,7 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     const session = params.sessionId
       ? { id: params.sessionId, directory: params.repositoryPath! }
       : await runtime.createSession({ directory: params.repositoryPath!, title: `ADE ${title}` });
+    active.session = session;
     const isPendingCli = isPendingCliSession(provider, session.id);
     const createdAt = new Date().toISOString();
     if (!isPendingCli) {
@@ -479,11 +515,15 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     process.stdout.write(`${JSON.stringify({ type: "agent.started", id: request.id, sessionId: session.id, provider, taskId: taskId ?? null, title })}\n`);
     const eventTexts: string[] = [];
     const activity: Array<{ label: string; detail?: string; kind: "status" | "tool" }> = [];
+    const eventAbortController = new AbortController();
+    active.eventAbortController = eventAbortController;
     const eventPromise = provider === "opencode"
-      ? collectAgentEvents(runtime, eventTexts, activity)
+      ? collectAgentEvents(runtime, eventTexts, activity, eventAbortController)
       : Promise.resolve();
+    if (active.aborted) throw new Error("AGENT_TURN_ABORTED");
     const rawOutput = await runtime.prompt(session, { text: params.prompt!, ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), grantedPermissions: params.grantedPermissions ?? [] });
     await eventPromise;
+    if (active.aborted) throw new Error("AGENT_TURN_ABORTED");
     if (isPendingCli && session.id.startsWith(`${provider}-pending-`)) throw new Error(`${provider} completed without reporting a resumable session id`);
     store.saveAgentSession({ id: session.id, ...(projectId ? { projectId } : {}), ...(taskId ? { taskId } : {}), provider, directory: params.repositoryPath!, title, status: "COMPLETED", createdAt });
     store.saveAgentMessage({ id: `agent-${request.id}-user`, sessionId: session.id, role: "user", content: params.prompt!, createdAt });
@@ -493,7 +533,17 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     try { files = await runtime.diff(session); } catch { /* A provider may not expose a diff for this turn. */ }
     process.stdout.write(`${JSON.stringify({ id: request.id, result: { sessionId: session.id, provider, status: "COMPLETED", output, activity, files } })}\n`);
   })().catch((error: unknown) => {
-    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "AGENT_PROMPT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
+    if (active.aborted) {
+      const session = active.session;
+      if (session && !isPendingCliSession(provider, session.id)) {
+        store.saveAgentSession({ id: session.id, ...(params.projectId ? { projectId: params.projectId } : {}), ...(params.taskId ? { taskId: params.taskId } : {}), provider, directory: params.repositoryPath!, title: conversationTitle(params.prompt as string), status: "STOPPED", createdAt: new Date().toISOString() });
+      }
+      process.stdout.write(`${JSON.stringify({ type: "agent.stopped", id: request.id, sessionId: session?.id ?? null, provider, status: "STOPPED" })}\n`);
+    } else {
+      process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "AGENT_PROMPT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
+    }
+  }).finally(() => {
+    activeAgentPrompts.delete(operationId);
   });
 }
 
@@ -510,8 +560,8 @@ async function collectAgentEvents(
   runtime: import("./ports/agent-runtime.js").AgentRuntimePort,
   texts: string[],
   activity: Array<{ label: string; detail?: string; kind: "status" | "tool" }>,
+  controller = new AbortController(),
 ): Promise<void> {
-  const controller = new AbortController();
   const collect = (async () => {
     for await (const event of runtime.events(controller.signal)) {
       const text = extractAgentEventText(event.payload);

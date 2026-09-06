@@ -1,4 +1,4 @@
-import { execFile as execFileCallback } from "node:child_process";
+import { execFile as execFileCallback, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt } from "../ports/agent-runtime.js";
@@ -21,6 +21,8 @@ const execute: CommandRunner = (command, args, options) => new Promise((resolve,
 export const executeCodexCommand = execute;
 
 export class CodexCliRuntime implements AgentRuntimePort {
+  private activeChild: ChildProcess | undefined;
+
   constructor(private readonly command = defaultCodexCommand, private readonly runner: CommandRunner = execute) {}
 
   async health(): Promise<{ healthy: boolean; version?: string }> {
@@ -46,7 +48,15 @@ export class CodexCliRuntime implements AgentRuntimePort {
     const { stdout } = await execFile("git", ["diff", "--numstat"], { cwd: session.directory });
     return stdout.split("\n").filter(Boolean).map((line) => { const [additions, deletions, path] = line.split("\t"); return { ...(path ? { path } : {}), additions: Number(additions), deletions: Number(deletions) }; });
   }
-  async abort(): Promise<void> { /* one-shot CLI processes finish or fail atomically */ }
+  async abort(): Promise<void> {
+    const child = this.activeChild;
+    if (!child || child.killed) return;
+    child.kill("SIGTERM");
+    const escalation = setTimeout(() => {
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    }, 1_500);
+    escalation.unref();
+  }
 
   private async executePrompt(session: SessionHandle, text: string, grantedPermissions: readonly AgentPermission[] = [], model?: string): Promise<string> {
     const isNew = session.id.startsWith("codex-pending-");
@@ -59,13 +69,26 @@ export class CodexCliRuntime implements AgentRuntimePort {
       sandbox,
       ...(isNew ? ["--cd", session.directory, "--json", text] : ["resume", session.id, text]),
     ];
-    const { stdout } = await this.runner(this.command, args, { cwd: session.directory, maxBuffer: 4 * 1024 * 1024 });
+    const { stdout } = await this.runPromptCommand(args, session.directory);
     if (isNew) {
       const realSessionId = extractCodexSessionId(stdout);
       if (!realSessionId) throw new Error("Codex completed without reporting a resumable session id");
       session.id = realSessionId;
     }
     return stdout;
+  }
+
+  private runPromptCommand(args: string[], cwd: string): Promise<{ stdout: string }> {
+    if (this.runner !== execute) return this.runner(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 });
+    return new Promise((resolve, reject) => {
+      const child = execFileCallback(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 }, (error, stdout) => {
+        if (this.activeChild === child) this.activeChild = undefined;
+        if (error) reject(error);
+        else resolve({ stdout: stdout.toString() });
+      });
+      this.activeChild = child;
+      child.stdin?.end();
+    });
   }
 }
 

@@ -46,6 +46,10 @@ test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(main, /method: 'agent\.sessions'/);
   assert.match(main, /method: 'agent\.messages'/);
   assert.match(main, /method: 'agent\.prompt'/);
+  assert.match(main, /method: 'agent\.abort'/);
+  assert.match(main, /handleAgentComposerKeydown/);
+  assert.match(main, /agentPromptHistoryByProject/);
+  assert.match(main, /stopAgentPrompt/);
   assert.match(main, /selectAgentSession/);
   assert.match(main, /toggleAgentSessionGroup/);
   assert.match(main, /setAgentRailCollapsed/);

@@ -71,8 +71,13 @@ let activeAgentTaskId = null;
 let agentProjectTasks = [];
 let pendingAgentSessionDeletion = null;
 let agentPromptRunning = false;
+let activeAgentRequestId = null;
+let agentStopRequested = false;
+let agentPromptHistoryIndex = -1;
+let agentPromptHistoryDraft = '';
 let agentRailCollapsed = false;
 const agentGroupExpansion = new Map();
+const agentPromptHistoryByProject = new Map();
 const runtimeEvents = [];
 let activeView = 'projects';
 let pendingGitRefreshInFlight = false;
@@ -1443,6 +1448,10 @@ function renderAgentSessions(sessions) {
 function resetAgentWorkspaceForProject() {
   activeAgentSessionId = null;
   activeAgentTaskId = null;
+  activeAgentRequestId = null;
+  agentStopRequested = false;
+  agentPromptHistoryIndex = -1;
+  agentPromptHistoryDraft = '';
   agentSessionModels.clear();
   agentGroupExpansion.clear();
   agentSessions = [];
@@ -1582,6 +1591,78 @@ function startNewAgentSession() {
   document.getElementById('agent-prompt-input')?.focus();
 }
 
+function agentPromptHistory() {
+  const history = agentPromptHistoryByProject.get(activeProjectId) ?? [];
+  agentPromptHistoryByProject.set(activeProjectId, history);
+  return history;
+}
+
+function rememberAgentPrompt(prompt) {
+  const history = agentPromptHistory();
+  const existing = history.lastIndexOf(prompt);
+  if (existing >= 0) history.splice(existing, 1);
+  history.push(prompt);
+  if (history.length > 50) history.splice(0, history.length - 50);
+  agentPromptHistoryIndex = -1;
+  agentPromptHistoryDraft = '';
+}
+
+function recallAgentPrompt(input, direction) {
+  const history = agentPromptHistory();
+  if (history.length === 0) return false;
+  if (direction < 0) {
+    if (agentPromptHistoryIndex < 0) {
+      agentPromptHistoryDraft = input.value;
+      agentPromptHistoryIndex = history.length - 1;
+    } else {
+      agentPromptHistoryIndex = Math.max(0, agentPromptHistoryIndex - 1);
+    }
+    input.value = history[agentPromptHistoryIndex];
+  } else {
+    if (agentPromptHistoryIndex < 0) return false;
+    if (agentPromptHistoryIndex >= history.length - 1) {
+      agentPromptHistoryIndex = -1;
+      input.value = agentPromptHistoryDraft;
+    } else {
+      agentPromptHistoryIndex += 1;
+      input.value = history[agentPromptHistoryIndex];
+    }
+  }
+  input.setSelectionRange(input.value.length, input.value.length);
+  return true;
+}
+
+function handleAgentComposerKeydown(event) {
+  const input = event.currentTarget;
+  if (!(input instanceof HTMLTextAreaElement) || event.isComposing) return;
+  if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
+    event.preventDefault();
+    document.getElementById('agent-prompt-form')?.requestSubmit();
+    return;
+  }
+  const atStart = input.selectionStart === 0 && input.selectionEnd === 0;
+  const atEnd = input.selectionStart === input.value.length && input.selectionEnd === input.value.length;
+  if (event.key === 'ArrowUp' && atStart && recallAgentPrompt(input, -1)) event.preventDefault();
+  if (event.key === 'ArrowDown' && atEnd && recallAgentPrompt(input, 1)) event.preventDefault();
+}
+
+function stopAgentPrompt() {
+  if (!nativeInvoke || !agentPromptRunning || !activeAgentRequestId || agentStopRequested) return;
+  agentStopRequested = true;
+  const provider = document.getElementById('agent-provider')?.value ?? selectedProvider;
+  const feedback = document.getElementById('agent-feedback');
+  const turnState = document.getElementById('agent-turn-state');
+  if (feedback) feedback.textContent = `Stopping ${provider}…`;
+  if (turnState) { turnState.textContent = 'STOPPING'; turnState.dataset.state = 'stopping'; }
+  nativeInvoke('sidecar_request', {
+    request: JSON.stringify({ id: `agent-abort-${Date.now()}`, method: 'agent.abort', params: { requestId: activeAgentRequestId, projectId: activeProjectId } }),
+  }).catch((error) => {
+    agentStopRequested = false;
+    if (feedback) feedback.textContent = `Could not stop agent: ${error}`;
+    if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
+  });
+}
+
 function sendAgentPrompt(event) {
   event.preventDefault();
   if (!nativeInvoke || agentPromptRunning) return;
@@ -1597,7 +1678,9 @@ function sendAgentPrompt(event) {
   selectedAgentModel = model;
   activeAgentTaskId = taskId;
   if (activeAgentSessionId) agentSessionModels.set(activeAgentSessionId, model);
+  rememberAgentPrompt(prompt);
   agentPromptRunning = true;
+  agentStopRequested = false;
   const button = document.getElementById('agent-send-button');
   const feedback = document.getElementById('agent-feedback');
   if (button) button.disabled = true;
@@ -1605,10 +1688,13 @@ function sendAgentPrompt(event) {
   if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
   if (feedback) feedback.textContent = `Sending prompt to ${provider}…`;
   const requestId = `agent-prompt-${Date.now()}`;
+  activeAgentRequestId = requestId;
   pendingAgentPromptProjects.set(requestId, activeProjectId);
   nativeInvoke('sidecar_request', { request: JSON.stringify({ id: requestId, method: 'agent.prompt', params: { projectId: activeProjectId, provider, repositoryPath: workspaceRootPath, prompt, ...(model ? { model } : {}), ...(activeAgentSessionId ? { sessionId: activeAgentSessionId } : {}), ...(taskId ? { taskId } : {}), grantedPermissions: permissions } }) }).catch((error) => {
     pendingAgentPromptProjects.delete(requestId);
     agentPromptRunning = false;
+    activeAgentRequestId = null;
+    agentStopRequested = false;
     if (button) button.disabled = false;
     if (turnState) { turnState.textContent = 'ERROR'; turnState.dataset.state = 'error'; }
     if (feedback) feedback.textContent = `Agent failed: ${error}`;
@@ -1959,13 +2045,15 @@ async function connectSidecar(snapshot) {
       }
       const agentPromptProject = pendingAgentPromptProjects.get(String(response.id));
       if (agentPromptProject && agentPromptProject !== activeProjectId) {
-        if (response.error || response.result?.status === 'COMPLETED') pendingAgentPromptProjects.delete(String(response.id));
+        if (response.error || response.result?.status === 'COMPLETED' || response.type === 'agent.stopped') pendingAgentPromptProjects.delete(String(response.id));
         return;
       }
       if (response.error) {
         if (String(response.id).startsWith('agent-prompt-')) {
           pendingAgentPromptProjects.delete(String(response.id));
           agentPromptRunning = false;
+          activeAgentRequestId = null;
+          agentStopRequested = false;
           const sendButton = document.getElementById('agent-send-button');
           if (sendButton) sendButton.disabled = false;
           const turnState = document.getElementById('agent-turn-state');
@@ -2132,11 +2220,36 @@ async function connectSidecar(snapshot) {
         if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
         return;
       }
+      if (response.type === 'agent.stopped') {
+        pendingAgentPromptProjects.delete(String(response.id));
+        agentPromptRunning = false;
+        activeAgentRequestId = null;
+        agentStopRequested = false;
+        const button = document.getElementById('agent-send-button');
+        const feedback = document.getElementById('agent-feedback');
+        if (button) button.disabled = false;
+        if (feedback) feedback.textContent = `${response.provider} stopped this turn.`;
+        const turnState = document.getElementById('agent-turn-state');
+        if (turnState) { turnState.textContent = 'READY'; turnState.dataset.state = 'ready'; }
+        if (typeof response.sessionId === 'string' && response.sessionId.includes('-pending-')) {
+          activeAgentSessionId = null;
+          activeAgentTaskId = null;
+          renderAgentTaskSelection();
+          renderAgentSessions(agentSessions);
+          renderAgentMessages([]);
+        } else if (activeAgentSessionId) {
+          requestAgentSessions(workspaceRootPath);
+          requestAgentMessages(activeAgentSessionId);
+        }
+        return;
+      }
       if (response.result?.sessionId && response.result?.provider && response.result?.status === 'COMPLETED') {
         pendingAgentPromptProjects.delete(String(response.id));
         activeAgentSessionId = response.result.sessionId;
         agentSessionModels.set(activeAgentSessionId, selectedAgentModel);
         agentPromptRunning = false;
+        activeAgentRequestId = null;
+        agentStopRequested = false;
         const button = document.getElementById('agent-send-button');
         const feedback = document.getElementById('agent-feedback');
         if (button) button.disabled = false;
@@ -2779,6 +2892,12 @@ document.getElementById('agent-delete-dialog')?.addEventListener('cancel', () =>
   pendingAgentSessionDeletion = null;
 });
 document.getElementById('agent-prompt-form')?.addEventListener('submit', sendAgentPrompt);
+document.getElementById('agent-prompt-input')?.addEventListener('keydown', handleAgentComposerKeydown);
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || activeView !== 'agents' || !agentPromptRunning || document.querySelector('dialog[open]')) return;
+  event.preventDefault();
+  stopAgentPrompt();
+});
 document.getElementById('agent-model')?.addEventListener('change', (event) => {
   selectedAgentModel = event.target.value;
   if (activeAgentSessionId) agentSessionModels.set(activeAgentSessionId, selectedAgentModel);
