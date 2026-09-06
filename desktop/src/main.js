@@ -732,7 +732,10 @@ function setHistoryPaneCollapsed(pane, collapsed, persist = true) {
     toggle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} ${isCommits ? 'commit list' : 'changed file list'}`);
     toggle.title = toggle.getAttribute('aria-label');
   }
-  if (restore) restore.hidden = !collapsed;
+  if (restore) {
+    restore.tabIndex = collapsed ? 0 : -1;
+    restore.setAttribute('aria-hidden', String(!collapsed));
+  }
   if (persist) {
     try { localStorage.setItem(historyPaneStorageKey, JSON.stringify({ commits: historyCommitsCollapsed, files: historyFilesCollapsed })); } catch { /* Persistence is optional. */ }
   }

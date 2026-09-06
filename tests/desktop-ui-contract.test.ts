@@ -61,6 +61,8 @@ test("Version control History lets the user collapse its supporting panes for di
   assert.match(main, /historyPaneStorageKey/);
   assert.match(styles, /history-commits-collapsed/);
   assert.match(styles, /history-files-collapsed/);
+  assert.match(styles, /transition: grid-template-columns 180ms/);
+  assert.match(styles, /prefers-reduced-motion: reduce/);
 });
 
 test("Agents exposes an accessible delete action for saved conversations", () => {
