@@ -97,6 +97,7 @@ let gitHistoryFilter = '';
 let pendingGitFilter = '';
 let pendingGitFiles = [];
 let gitCommitNeedsPush = false;
+let gitUnpushedCommitCount = 0;
 let historyCommitsCollapsed = false;
 let historyFilesCollapsed = false;
 let changesFilesCollapsed = false;
@@ -712,6 +713,7 @@ async function switchProjectFromContext(project) {
     gitBranches = [];
     selectedPendingGitFile = null;
     gitCommitNeedsPush = false;
+    gitUnpushedCommitCount = 0;
     resetAgentWorkspaceForProject();
     renderCommitControls();
     if (selectedFilePath && !selectedFilePath.startsWith(`${workspaceRootPath}/`)) {
@@ -917,6 +919,15 @@ function setVersionControlRemoteStatus(message) {
   if (status) status.textContent = message;
 }
 
+/** Unpushed commits and pending files are separate debts; the operator needs
+    to see both without switching tabs. */
+function renderVersionControlRemoteStatus() {
+  const parts = [];
+  if (gitUnpushedCommitCount) parts.push(`${gitUnpushedCommitCount} commit${gitUnpushedCommitCount === 1 ? '' : 's'} ready to push`);
+  if (pendingGitFiles.length) parts.push(`${pendingGitFiles.length} local change${pendingGitFiles.length === 1 ? '' : 's'}`);
+  setVersionControlRemoteStatus(parts.join(' · ') || 'Working tree clean');
+}
+
 function matchesGitFilter(value, query) {
   if (!query) return true;
   return String(value).toLocaleLowerCase().includes(query.toLocaleLowerCase());
@@ -935,8 +946,10 @@ function renderFilteredGitHistory() {
     if (status) status.textContent = gitHistoryCommits.length ? 'No matching commits' : 'No commits';
     return;
   }
-  list.innerHTML = visibleCommits.map((commit) => `<button class="git-commit-item${commit.hash === selectedGitCommit?.hash ? ' active' : ''}" type="button" data-git-commit="${escapeHTML(commit.hash)}"><span class="git-commit-subject">${escapeHTML(commit.subject)}</span><span class="git-commit-item-meta"><code>${escapeHTML(commit.shortHash)}</code><span>${escapeHTML(commit.author)}</span><time>${escapeHTML(formatGitDate(commit.date))}</time></span></button>`).join('');
-  if (status) status.textContent = query ? `${visibleCommits.length} of ${gitHistoryCommits.length} commits` : `${gitHistoryCommits.length} recent commit${gitHistoryCommits.length === 1 ? '' : 's'}`;
+  list.innerHTML = visibleCommits.map((commit) => `<button class="git-commit-item${commit.hash === selectedGitCommit?.hash ? ' active' : ''}${commit.unpushed ? ' unpushed' : ''}" type="button" data-git-commit="${escapeHTML(commit.hash)}"><span class="git-commit-subject">${escapeHTML(commit.subject)}</span><span class="git-commit-item-meta"><code>${escapeHTML(commit.shortHash)}</code>${commit.unpushed ? '<span class="git-commit-unpushed" title="Not pushed to origin yet">Unpushed</span>' : ''}<span>${escapeHTML(commit.author)}</span><time>${escapeHTML(formatGitDate(commit.date))}</time></span></button>`).join('');
+  const unpushedVisible = visibleCommits.filter((commit) => commit.unpushed).length;
+  const countLabel = query ? `${visibleCommits.length} of ${gitHistoryCommits.length} commits` : `${gitHistoryCommits.length} recent commit${gitHistoryCommits.length === 1 ? '' : 's'}`;
+  if (status) status.textContent = unpushedVisible ? `${countLabel} · ${unpushedVisible} not pushed to origin` : countLabel;
 }
 
 function renderGitHistory(commits) {
@@ -971,7 +984,7 @@ function renderGitCommitDetail(commit, diff = null) {
   }
   if (hash) hash.textContent = commit.shortHash;
   if (title) title.textContent = commit.subject;
-  if (meta) meta.textContent = `${commit.author} · ${formatGitDate(commit.date)} · ${commit.hash}`;
+  if (meta) meta.textContent = `${commit.author} · ${formatGitDate(commit.date)} · ${commit.hash}${commit.unpushed ? ' · Not pushed to origin' : ''}`;
   if (count) count.textContent = `${commit.files.length} file${commit.files.length === 1 ? '' : 's'}`;
   if (files) files.innerHTML = commit.files.length
     ? commit.files.map((file) => `<button class="git-commit-file" type="button" data-git-commit-file="${escapeHTML(file.path)}" title="Show diff for ${escapeHTML(file.path)}"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></button>`).join('')
@@ -1027,8 +1040,7 @@ function renderPendingGitChanges(result) {
     renderDiffOutput(diff, null, 'Loading file diff…');
     requestPendingGitDiff(selectedPendingGitFile);
   }
-  if (pendingGitFiles.length && !gitCommitNeedsPush) setVersionControlRemoteStatus(`${pendingGitFiles.length} local change${pendingGitFiles.length === 1 ? '' : 's'}`);
-  else if (!pendingGitFiles.length && !gitCommitNeedsPush) setVersionControlRemoteStatus('Working tree clean');
+  renderVersionControlRemoteStatus();
   renderCommitControls();
 }
 
@@ -2254,6 +2266,10 @@ async function connectSidecar(snapshot) {
       }
       if (contextPurpose === 'git-history' && Array.isArray(response.result)) {
         renderGitHistory(response.result);
+        gitUnpushedCommitCount = response.result.filter((commit) => commit.unpushed).length;
+        gitCommitNeedsPush = gitUnpushedCommitCount > 0;
+        renderCommitControls();
+        renderVersionControlRemoteStatus();
         const first = response.result.find((commit) => commit.hash === selectedGitCommit?.hash) ?? response.result[0];
         if (first) selectGitCommit(first.hash);
         return;
@@ -2293,6 +2309,7 @@ async function connectSidecar(snapshot) {
       }
       if (contextPurpose === 'git-commit-local' && response.result?.operation === 'commit.create') {
         gitCommitNeedsPush = true;
+        gitUnpushedCommitCount += 1;
         renderCommitControls();
         setSyncState('stale', 'Local commit ready to push');
         setVersionControlRemoteStatus('Local commit ready to push');
@@ -2307,6 +2324,7 @@ async function connectSidecar(snapshot) {
       }
       if (contextPurpose === 'git-push-origin' && response.result?.operation === 'push') {
         gitCommitNeedsPush = false;
+        gitUnpushedCommitCount = 0;
         renderCommitControls();
         setSyncState('ready', 'Pushed just now');
         setVersionControlRemoteStatus('Pushed just now');
@@ -2318,6 +2336,7 @@ async function connectSidecar(snapshot) {
         const path = document.getElementById('project-path')?.textContent;
         if (path) await refreshGitWorkspace(path, nativeInvoke);
         gitCommitNeedsPush = false;
+        gitUnpushedCommitCount = 0;
         setSyncState('ready', 'Synced just now');
         notify(`Branch switched to ${response.result.branch}.`);
         renderCommitControls();

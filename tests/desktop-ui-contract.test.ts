@@ -209,6 +209,11 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   const commitSubmit = main.slice(main.indexOf("document.getElementById('git-commit-form')"), main.indexOf("document.addEventListener('click'"));
   assert.match(commitSubmit, /git\.commit\.create/);
   assert.doesNotMatch(commitSubmit, /window\.confirm/);
+  const remoteActions = main.slice(main.indexOf("item.dataset.action === 'fetch-origin'"), main.indexOf("item.dataset.action === 'refresh-knowledge'"));
+  assert.doesNotMatch(remoteActions, /window\.confirm/);
+  assert.match(main, /gitUnpushedCommitCount = response\.result\.filter/);
+  assert.match(main, /git-commit-unpushed/);
+  assert.match(main, /not pushed to origin/);
   assert.match(html, /data-action="open-file-external"/);
   assert.match(html, /data-action="save-file"/);
   assert.match(html, /data-action="discard-file"/);

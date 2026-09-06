@@ -1056,6 +1056,20 @@ body { color: var(--text); }
 .git-commit-item { min-height: 65px; padding: 11px 15px; border-left: 1px solid transparent; }
 .git-commit-item:hover { background: color-mix(in srgb, var(--blue) 6%, var(--chrome)); }
 .git-commit-item.active { border-left-color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, var(--chrome)); box-shadow: none; }
+.git-commit-item.unpushed { border-left-color: color-mix(in srgb, var(--purple) 70%, var(--line)); }
+.git-commit-item.unpushed.active { border-left-color: var(--blue); }
+.git-commit-unpushed {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--purple) 32%, var(--line));
+  border-radius: 999px;
+  color: var(--purple);
+  background: color-mix(in srgb, var(--purple) 12%, transparent);
+  font: 650 9px var(--mono);
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 .git-commit-detail {
   position: relative;
   grid-template-columns: 304px minmax(0, 1fr);

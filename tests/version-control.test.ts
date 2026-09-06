@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { inspectPendingGitChanges, listGitCommits, readGitCommitDiff, readPendingGitDiff } from "../src/application/git/version-control.js";
+import { inspectPendingGitChanges, listGitCommits, listUnpushedCommits, readGitCommitDiff, readPendingGitDiff } from "../src/application/git/version-control.js";
 
 const execFile = promisify(execFileCallback);
 
@@ -35,6 +35,40 @@ test("version control read model lists commits, changed files and diffs", async 
   assert.deepEqual(latest.files.map((file) => file.path).sort(), ["README.md", "src/main.ts"]);
   const diff = await readGitCommitDiff(directory, latest.hash, "README.md");
   assert.match(diff.diff, /second/);
+});
+
+test("version control read model flags commits the remote has not seen", async () => {
+  const remote = await mkdtemp(join(tmpdir(), "ade-version-control-remote-"));
+  await git(remote, "init", "-q", "--bare");
+  const directory = await mkdtemp(join(tmpdir(), "ade-version-control-unpushed-"));
+  await git(directory, "init", "-q");
+  await git(directory, "config", "user.email", "ade@example.test");
+  await git(directory, "config", "user.name", "ADE Test");
+  await writeFile(join(directory, "README.md"), "first\n");
+  await git(directory, "add", "README.md");
+  await git(directory, "commit", "-qm", "docs: pushed");
+  await git(directory, "remote", "add", "origin", remote);
+  await git(directory, "push", "-q", "-u", "origin", "HEAD");
+  await writeFile(join(directory, "README.md"), "second\n");
+  await git(directory, "commit", "-qam", "docs: local only");
+
+  const commits = await listGitCommits(directory);
+  assert.equal(commits.length, 2);
+  assert.equal(commits[0]?.subject, "docs: local only");
+  assert.equal(commits[0]?.unpushed, true);
+  assert.equal(commits[1]?.unpushed, false);
+  assert.deepEqual([...await listUnpushedCommits(directory)], [commits[0]!.hash]);
+});
+
+test("version control read model reports nothing unpushed without a remote", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ade-version-control-remoteless-"));
+  await git(directory, "init", "-q");
+  await git(directory, "config", "user.email", "ade@example.test");
+  await git(directory, "config", "user.name", "ADE Test");
+  await writeFile(join(directory, "README.md"), "first\n");
+  await git(directory, "add", "README.md");
+  await git(directory, "commit", "-qm", "docs: local repository");
+  assert.equal((await listGitCommits(directory))[0]?.unpushed, false);
 });
 
 test("version control read model exposes tracked, staged and untracked pending files", async () => {

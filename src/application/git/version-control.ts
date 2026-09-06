@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 const execFile = promisify(execFileCallback);
 
 export type GitCommitFile = { status: string; path: string };
-export type GitCommit = { hash: string; shortHash: string; author: string; date: string; subject: string; files: GitCommitFile[] };
+export type GitCommit = { hash: string; shortHash: string; author: string; date: string; subject: string; files: GitCommitFile[]; unpushed: boolean };
 
 function parseCommitFiles(output: string): GitCommitFile[] {
   return output.split("\n").filter(Boolean).map((line) => {
@@ -13,14 +13,26 @@ function parseCommitFiles(output: string): GitCommitFile[] {
   }).filter((file) => file.path.length > 0);
 }
 
+/** Commits the operator still owes the remote.  Without a remote nothing is
+    pushable, so the set stays empty and Push origin remains inert. */
+export async function listUnpushedCommits(directory: string): Promise<Set<string>> {
+  const remotes = await execFile("git", ["remote"], { cwd: directory }).catch(() => ({ stdout: "" }));
+  if (!remotes.stdout.trim()) return new Set();
+  const upstream = await execFile("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], { cwd: directory }).then((result) => result.stdout.trim()).catch(() => "");
+  const args = upstream ? ["rev-list", `${upstream}..HEAD`] : ["rev-list", "HEAD", "--not", "--remotes"];
+  const revisions = await execFile("git", args, { cwd: directory }).catch(() => ({ stdout: "" }));
+  return new Set(revisions.stdout.split("\n").filter(Boolean));
+}
+
 export async function listGitCommits(directory: string, limit = 50): Promise<GitCommit[]> {
   const log = await execFile("git", ["log", `-${limit}`, "--format=%H%x09%h%x09%an%x09%aI%x09%s"], { cwd: directory });
+  const unpushed = await listUnpushedCommits(directory);
   const commits: GitCommit[] = [];
   for (const line of log.stdout.split("\n").filter(Boolean)) {
     const [hash, shortHash, author, date, ...subjectParts] = line.split("\t");
     if (!hash || !shortHash || !author || !date) continue;
     const files = await execFile("git", ["diff-tree", "--root", "--no-commit-id", "--name-status", "-r", "--find-renames", hash], { cwd: directory });
-    commits.push({ hash, shortHash, author, date, subject: subjectParts.join("\t"), files: parseCommitFiles(files.stdout) });
+    commits.push({ hash, shortHash, author, date, subject: subjectParts.join("\t"), files: parseCommitFiles(files.stdout), unpushed: unpushed.has(hash) });
   }
   return commits;
 }
