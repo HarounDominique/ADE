@@ -66,12 +66,12 @@ test("Version control History lets the user collapse its supporting panes for di
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });
 
-test("Version control Changes reserves its second track exclusively for the selected diff", () => {
-  assert.match(styles, /\.changes-workspace \{\s+grid-template-columns: minmax\(300px, 344px\) minmax\(0, 1fr\);/);
-  assert.match(styles, /\.pending-files-pane \{ grid-column: 1; grid-row: 1; min-width: 0; \}/);
-  assert.match(styles, /\.pending-diff-pane \{ display: grid; grid-column: 2; grid-row: 1;/);
-  assert.match(styles, /\.pending-diff-heading \{ grid-column: 1; grid-row: 1;/);
-  assert.match(styles, /\.pending-diff \{ grid-column: 1; grid-row: 2;/);
+test("Version control Changes gives the selected diff every byte outside the file pane", () => {
+  assert.match(styles, /#version-changes-panel \.changes-workspace \{\s+display: flex;/);
+  assert.match(styles, /#version-changes-panel \.pending-files-pane \{\s+display: flex;\s+flex: 0 0 clamp\(300px, 21vw, 344px\);/);
+  assert.match(styles, /#version-changes-panel \.pending-diff-pane \{\s+display: grid;\s+flex: 1 1 0;\s+width: 0;/);
+  assert.match(styles, /#version-changes-panel \.pending-diff-heading \{\s+display: flex;[\s\S]*?width: 100%;/);
+  assert.match(styles, /#version-changes-panel \.pending-diff \{ grid-column: 1; grid-row: 2; width: 100%; min-width: 0; \}/);
 });
 
 test("Agents exposes an accessible delete action for saved conversations", () => {

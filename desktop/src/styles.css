@@ -1097,6 +1097,54 @@ body { color: var(--text); }
   .git-commit-detail { min-height: 460px; }
 }
 
+/* Changes owns a literal two-pane workspace.  Keeping this outside the older
+   grid rules prevents implicit legacy tracks from stealing width from the diff. */
+#version-changes-panel .changes-workspace {
+  display: flex;
+  align-items: stretch;
+  min-height: 0;
+  height: 100%;
+}
+#version-changes-panel .pending-files-pane {
+  display: flex;
+  flex: 0 0 clamp(300px, 21vw, 344px);
+  width: clamp(300px, 21vw, 344px);
+  min-width: 0;
+  grid-column: auto;
+  grid-row: auto;
+}
+#version-changes-panel .pending-diff-pane {
+  display: grid;
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  grid-column: auto;
+  grid-row: auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 73px minmax(0, 1fr);
+}
+#version-changes-panel .pending-diff-heading {
+  display: flex;
+  grid-column: 1;
+  grid-row: 1;
+  width: 100%;
+  min-width: 0;
+}
+#version-changes-panel .pending-diff-heading > div { flex: 1 1 auto; min-width: 0; }
+#version-changes-panel .pending-diff-heading strong { display: block; max-width: 100%; }
+#version-changes-panel .pending-diff { grid-column: 1; grid-row: 2; width: 100%; min-width: 0; }
+
+@media (max-width: 840px) {
+  #version-changes-panel .changes-workspace { display: flex; flex-direction: column; height: auto; }
+  #version-changes-panel .pending-files-pane {
+    flex: 0 0 auto;
+    width: 100%;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  #version-changes-panel .pending-diff-pane { flex: 0 0 auto; width: 100%; min-height: 360px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .version-control-utilities > summary::before { transition-duration: .01ms; }
   .version-history-layout, .git-commit-detail, .history-commit-pane, .history-pane-restore, .git-commit-files-heading, .git-commit-files { transition-duration: .01ms !important; }
