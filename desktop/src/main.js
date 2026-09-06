@@ -1454,9 +1454,17 @@ async function saveActiveDocument() {
 async function discardDocumentChanges() {
   const editor = document.getElementById('document-content');
   if (!editor || !documentDirty) return;
-  await setCodeEditorContent(documentOriginalContent, activeDocument?.path ?? '', true);
-  updateDocumentEditState();
-  notify('Unsaved changes discarded.');
+  requestConfirmation({
+    eyebrow: 'DISCARD CHANGES',
+    title: 'Discard unsaved changes?',
+    copy: `Edits to ${activeDocument?.path ?? 'this file'} are restored to the last saved version. This cannot be undone.`,
+    confirmLabel: 'Discard',
+    tone: 'danger',
+  }, async () => {
+    await setCodeEditorContent(documentOriginalContent, activeDocument?.path ?? '', true);
+    updateDocumentEditState();
+    notify('Unsaved changes discarded.');
+  });
 }
 
 async function formatActiveDocument() {

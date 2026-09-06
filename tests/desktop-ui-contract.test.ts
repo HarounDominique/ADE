@@ -122,6 +122,8 @@ test("guarded actions confirm in-app because the webview has no window prompts",
   assert.match(main, /pendingConfirmation = onConfirm/);
   const removal = main.slice(main.indexOf("function removeProjectFromUI"), main.indexOf("function renderChanges"));
   assert.match(removal, /requestConfirmation\(/);
+  const discard = main.slice(main.indexOf("async function discardDocumentChanges"), main.indexOf("async function formatActiveDocument"));
+  assert.match(discard, /requestConfirmation\(/);
   assert.match(main, /worktree-form'\)\?\.addEventListener\('submit'/);
 });
 
