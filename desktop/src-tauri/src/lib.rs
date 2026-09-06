@@ -941,6 +941,28 @@ mod tests {
         root
     }
 
+    /// A process that exits immediately, spelled for the platform running the
+    /// suite. `sh` only happens to exist on Windows CI because Git ships it.
+    fn spawn_exiting_process() -> std::process::Child {
+        #[cfg(target_os = "windows")]
+        let command = std::process::Command::new("cmd").args(["/C", "exit 0"]).spawn();
+        #[cfg(not(target_os = "windows"))]
+        let command = std::process::Command::new("sh").args(["-c", "exit 0"]).spawn();
+        command.expect("spawn fixture")
+    }
+
+    /// Process teardown is not instantaneous, and how long it takes is the
+    /// platform's business. Poll for the outcome instead of guessing a delay.
+    fn wait_until<F: Fn() -> bool>(condition: F) -> bool {
+        for _ in 0..100 {
+            if condition() {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        false
+    }
+
     #[test]
     fn project_context_rejects_missing_repository() {
         let workspace = WorkspaceRoot::default();
@@ -1049,7 +1071,8 @@ mod tests {
         let (mut process, reader) = start_terminal_pty(&root).expect("start PTY");
         process
             .writer
-            .write_all(b"printf ADE_PTY_OK\\nexit\\n")
+            // `echo` is the one spelling both /bin/sh and cmd understand.
+            .write_all(b"echo ADE_PTY_OK\\nexit\\n")
             .expect("write PTY input");
         process.writer.flush().expect("flush PTY input");
         let (sender, receiver) = std::sync::mpsc::channel();
@@ -1207,27 +1230,16 @@ mod tests {
     #[test]
     fn sidecar_status_reaps_an_unexpected_exit() {
         let supervisor = SidecarSupervisor::default();
-        let child = std::process::Command::new("sh")
-            .args(["-c", "exit 0"])
-            .spawn()
-            .expect("spawn fixture");
-        *supervisor.child.lock().expect("lock state") = Some(child);
+        *supervisor.child.lock().expect("lock state") = Some(spawn_exiting_process());
 
-        std::thread::sleep(std::time::Duration::from_millis(20));
-
-        assert!(!supervisor.reap_finished().expect("status"));
+        assert!(wait_until(|| !supervisor.reap_finished().expect("status")));
     }
 
     #[test]
     fn sidecar_stop_handles_a_process_that_already_exited() {
         let supervisor = SidecarSupervisor::default();
-        let child = std::process::Command::new("sh")
-            .args(["-c", "exit 0"])
-            .spawn()
-            .expect("spawn fixture");
-        *supervisor.child.lock().expect("lock state") = Some(child);
-
-        std::thread::sleep(std::time::Duration::from_millis(20));
+        *supervisor.child.lock().expect("lock state") = Some(spawn_exiting_process());
+        wait_until(|| !supervisor.reap_finished().expect("status"));
 
         supervisor.stop().expect("stop exited process");
         assert!(!supervisor.reap_finished().expect("status"));
