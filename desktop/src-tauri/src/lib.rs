@@ -1065,6 +1065,13 @@ mod tests {
         fs::remove_dir_all(root).expect("remove fixture");
     }
 
+    // Not run on Windows: input written before the console host starts reading is
+    // dropped by ConPTY, where a Unix tty would have buffered it, so this races.
+    // Waiting for a prompt first means deciding what the Windows shell is and what
+    // it prints -- an open question in SPEC-cross-platform-support, and not one to
+    // settle from a machine that cannot observe the answer. Windows PTY behaviour
+    // stays unverified rather than asserted by a test written for a Unix shell.
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn terminal_pty_runs_an_interactive_shell_command() {
         let root = fixture_root("terminal-pty");
