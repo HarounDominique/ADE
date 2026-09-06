@@ -6,10 +6,15 @@ Generated from the current documentation graph.
 
 - [ ] Review and synchronize [README.md](../../../README.md)
 - [ ] Review and synchronize [docu/README.md](../../README.md)
+- [ ] Review and synchronize [docu/adr/0029-chatgpt-inspired-agent-workbench.md](../../adr/0029-chatgpt-inspired-agent-workbench.md)
+- [ ] Review and synchronize [docu/knowledge/README.md](../../knowledge/README.md)
+- [ ] Review and synchronize [docu/knowledge/chatgpt-desktop-agents-audit.md](../../knowledge/chatgpt-desktop-agents-audit.md)
 - [ ] Review and synchronize [docu/releases/v0.3-close.md](../../releases/v0.3-close.md)
 - [ ] Review and synchronize [docu/specs/SPEC-NEXUS.md](../../specs/SPEC-NEXUS.md)
+- [ ] Review and synchronize [docu/specs/SPEC-agent-providers.md](../../specs/SPEC-agent-providers.md)
 - [ ] Review and synchronize [docu/specs/SPEC-agent-runtime.md](../../specs/SPEC-agent-runtime.md)
 - [ ] Review and synchronize [docu/specs/SPEC-desktop-shell.md](../../specs/SPEC-desktop-shell.md)
+- [ ] Review and synchronize [docu/specs/SPEC-living-knowledge.md](../../specs/SPEC-living-knowledge.md)
 - [ ] Review and synchronize [docu/specs/SPEC-v0.2.md](../../specs/SPEC-v0.2.md)
 - [ ] Review and synchronize [docu/specs/SPEC-v0.3.md](../../specs/SPEC-v0.3.md)
 - [ ] Review and synchronize [docu/spikes/001-opencode-runtime.md](../../spikes/001-opencode-runtime.md)
@@ -127,7 +132,13 @@ classDiagram
   class ndocuadr0028githubdesktopversioncontrolparitymd {
     <<document>>
   }
+  class ndocuadr0029chatgptinspiredagentworkbenchmd {
+    <<document>>
+  }
   class ndocuknowledgeREADMEmd {
+    <<document>>
+  }
+  class ndocuknowledgechatgptdesktopagentsauditmd {
     <<document>>
   }
   class ndocuknowledgegithubdesktopauditmd {
@@ -205,6 +216,9 @@ classDiagram
   class ntasksplanagentsurfacemd {
     <<document>>
   }
+  class ntasksplanagentworkbenchparitymd {
+    <<document>>
+  }
   class ntasksplanfileworkspacemd {
     <<document>>
   }
@@ -239,6 +253,11 @@ classDiagram
   ndocuadr0022versioncontrolcommitflowmd --> ndocuadr0020versioncontrolsurfacemd : references
   ndocuadr0023codeeditorandformattingmd --> ndesktopTHIRDPARTYLICENSESmd : references
   ndocuadr0028githubdesktopversioncontrolparitymd --> ndocuknowledgegithubdesktopauditmd : references
+  ndocuadr0029chatgptinspiredagentworkbenchmd --> ndocuknowledgechatgptdesktopagentsauditmd : references
+  ndocuknowledgeREADMEmd --> ndocuknowledgegithubdesktopauditmd : references
+  ndocuknowledgeREADMEmd --> ndocuknowledgechatgptdesktopagentsauditmd : references
+  ndocuknowledgechatgptdesktopagentsauditmd --> ndocuspecsSPECagentprovidersmd : agents-surface
+  ndocuknowledgechatgptdesktopagentsauditmd --> ndocuspecsSPECdesktopshellmd : agents
   ndocureleasesv03closemd --> ndocuspecsSPECv03md : references
   ndocureleasesv03closemd --> ndocuspecsSPECfileworkspacemd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECprojecttaskworkflowmd : references
@@ -254,6 +273,8 @@ classDiagram
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECgitcollaborationmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPEClivingknowledgemd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : references
+  ndocuspecsSPECNEXUSmd --> ndocuknowledgechatgptdesktopagentsauditmd : references
+  ndocuspecsSPECNEXUSmd --> ndocuadr0029chatgptinspiredagentworkbenchmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : product-contract
   ndocuspecsSPECNEXUSmd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
   ndocuspecsSPECNEXUSmd --> ndocuadr0023codeeditorandformattingmd : references
@@ -265,13 +286,17 @@ classDiagram
   ndocuspecsSPECNEXUSmd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdesktopshellmd : version-control
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECgitcollaborationmd : git-workspace
+  ndocuspecsSPECNEXUSmd --> ndocuadr0029chatgptinspiredagentworkbenchmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdevelopmentworkflowmd : gates-and-invariants
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECv02md : references
+  ndocuspecsSPECagentprovidersmd --> ndocuknowledgechatgptdesktopagentsauditmd : references
+  ndocuspecsSPECagentprovidersmd --> ndocuadr0029chatgptinspiredagentworkbenchmd : references
   ndocuspecsSPECagentruntimemd --> ndocuspikes001opencoderuntimemd : smoke-test-real
   ndocuspecsSPECagentruntimemd --> ndocuspikes002independentreviewmd : flujo-validado
   ndocuspecsSPECagentruntimemd --> ndocuspikes002independentreviewmd : flujo-validado
   ndocuspecsSPECchangesreviewgovernancemd --> ndocuspecsSPECdevelopmentworkflowmd : transitions-and-triggers
   ndocuspecsSPECdesktopshellmd --> ndocuspecsSPECfileworkspacemd : product-contract
+  ndocuspecsSPECdesktopshellmd --> ndocuadr0029chatgptinspiredagentworkbenchmd : references
   ndocuspecsSPECdesktopshellmd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
   ndocuspecsSPECdesktopshellmd --> ndocuknowledgegithubdesktopauditmd : references
   ndocuspecsSPECdesktopshellmd --> ndocuspikes003desktopframeworkmd : resultado
@@ -326,4 +351,8 @@ classDiagram
   ntaskstodomd --> ndocuspecsSPECdesktopshellmd : version-control
   ntaskstodomd --> ndocuspecsSPECgitcollaborationmd : git-workspace
   ntaskstodomd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
+  ntaskstodomd --> ntasksplanagentworkbenchparitymd : references
+  ntaskstodomd --> ndocuspecsSPECagentprovidersmd : next-iteration-agent-workbench
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : agents
+  ntaskstodomd --> ndocuadr0029chatgptinspiredagentworkbenchmd : references
 ```

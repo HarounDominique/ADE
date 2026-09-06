@@ -12,7 +12,7 @@ Accepted
 
 ADE ya puede crear y reanudar sesiones locales de Codex, Claude Code y OpenCode, persistir mensajes y seleccionar un modelo dependiente del provider. Su composición actual mantiene un rail plano de conversaciones y un thread central, pero aún no traduce con suficiente claridad el trabajo de un desarrollador dirigido por agentes: recuperar conversaciones relacionadas con una Task, concentrarse en el hilo y distinguir un turno en ejecución sin convertir la vista en un inspector de IDE.
 
-La auditoría [ChatGPT Desktop para Agents](../knowledge/chatgpt-desktop-agents-audit.md) estudia las referencias oficiales y adapta sus patrones a los límites de ADE. A diferencia de ChatGPT, ADE ya tiene una autoridad global para Project y branch, y debe mantener varias familias de providers/runtimes locales.
+La auditoría [ChatGPT Desktop para Agents](../knowledge/chatgpt-desktop-agents-audit.md) estudia las referencias oficiales y adapta sus patrones a los límites de ADE. A diferencia de ChatGPT, ADE ya tiene una autoridad global para Project, Task y branch, y debe mantener varias familias de providers/runtimes locales.
 
 ## Decision
 
@@ -20,7 +20,7 @@ La auditoría [ChatGPT Desktop para Agents](../knowledge/chatgpt-desktop-agents-
 
 Cada conversación se vincula a un provider al crear la sesión. El usuario puede cambiar de modelo para el siguiente turno dentro del catálogo de ese provider; cambiar de provider crea una conversación nueva, posiblemente asociada a la misma Task, para no corromper la reanudación real de sesiones heterogéneas.
 
-El compositor concentra provider, modelo y permisos del turno. Los estados y la evidencia verificable se adjuntan al turno que los genera mediante bloques plegables. ADE no muestra razonamiento privado.
+La topbar concentra la Task activa y el thread concentra provider, modelo y permisos del turno. Una conversación nueva hereda la Task global; una sesión existente conserva la suya. Los estados y la evidencia verificable se adjuntan al turno que los genera mediante bloques plegables. ADE no muestra razonamiento privado.
 
 ## Alternatives considered
 
@@ -49,7 +49,7 @@ Rechazado: Codex, Claude Code y OpenCode no comparten identificadores ni protoco
 
 ## Implementation evidence
 
-La entrega persiste `project_id` y `title` en `agent_sessions`, migra bases existentes y mantiene compatibilidad de lectura con sesiones heredadas por directorio. El sidecar filtra sesiones por Project, rechaza acceso/borrado cruzado y no permite reanudar una sesión con otro provider. La shell agrupa el rail por Task/General, preselecciona la Task activa para conversaciones nuevas, bloquea cambiar la asociación de una conversación ya existente y descarta respuestas que lleguen tras cambiar de Project. `npm test` pasa con 117 tests TypeScript y `npm run build`/`npm --prefix desktop run build` pasan.
+La entrega persiste `project_id` y `title` en `agent_sessions`, migra bases existentes y mantiene compatibilidad de lectura con sesiones heredadas por directorio. El sidecar filtra sesiones por Project, rechaza acceso/borrado cruzado y no permite reanudar una sesión con otro provider. La shell agrupa el rail por Task/General, preselecciona la Task global para conversaciones nuevas, bloquea cambiar la asociación de una conversación ya existente y descarta respuestas que lleguen tras cambiar de Project. `Current task` ofrece un máximo de 12 registros por creación descendente y refresca las superficies dependientes. `npm test` pasa con 117 tests TypeScript y `npm run build`/`npm --prefix desktop run build` pasan.
 
 ## Acceptance criteria for implementation
 

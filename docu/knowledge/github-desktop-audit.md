@@ -55,7 +55,7 @@ ADE debe conservar esa separación. En particular, `Commit` no debe significar `
 
 | Patrón observado | Aplicación en ADE | Estado |
 |---|---|---|
-| Repositorio y rama siempre visibles | Topbar con `Current project` y `Current branch` | Implementado; debe conservarse |
+| Repositorio, Task y rama siempre visibles | Topbar con `Current project`, `Current task` y `Current branch` | Implementado; la Task se limita a 12 registros por creación descendente |
 | Selector de repositorio con filtro, recientes y alta | Selector de Project con Projects Git/No Git | Parcial; ampliar en la próxima iteración |
 | Tabs `Changes`/`History` | Tabs accesibles de `Version control` | Implementado |
 | Lista de cambios a la izquierda | Working tree filtrable y seleccionable | Implementado |
@@ -85,7 +85,7 @@ El cambio de Project o branch invalida y vuelve a cargar la lista, el fichero ac
 - El título y el cuerpo del commit son opcionales según el flujo, pero la acción deja claro si crea un commit local o publica cambios.
 - `History` mantiene una lista navegable, filtro, detalles del commit y diff legible sin abandonar la vista. Implementado.
 - Las columnas auxiliares de `History` se pueden contraer y restaurar desde sus cabeceras sin perder la alineación; el diff recalcula su espacio y reenvuelve líneas largas al cambiar el layout. Implementado.
-- Los selectores de Project y branch son rápidos, filtrables, accesibles por teclado y coherentes con el estado real del repositorio.
+- Los selectores de Project, Task y branch son rápidos, accesibles por teclado y coherentes con el estado real del Project; Task muestra las últimas 12 creadas sin perder una selección anterior.
 - La interfaz conserva los contratos de seguridad existentes: no descarta cambios locales ni fuerza un cambio de branch.
 
 ## Fuera de este contrato

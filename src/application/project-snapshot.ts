@@ -5,6 +5,7 @@ export type ProjectTaskSummary = {
   id: string;
   intent: string;
   status: TaskStatus;
+  createdAt: string;
   updatedAt: string;
   projectId: string | null;
   repositoryPath: string | null;
@@ -36,6 +37,7 @@ export function getProjectSnapshot(store: AdeStore, projectId: string): ProjectS
         id: task.id,
         intent: task.intent,
         status: task.status as TaskStatus,
+        createdAt: events[0]?.at ?? "",
         updatedAt: events.at(-1)?.at ?? "",
         projectId: task.projectId,
         repositoryPath: task.repositoryPath,

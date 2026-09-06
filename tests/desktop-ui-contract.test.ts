@@ -31,9 +31,9 @@ test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(html, /id="agent-rail-toggle"[\s\S]*data-action="toggle-agent-rail"/);
   assert.doesNotMatch(html, /agent-session-location/);
   assert.match(styles, /\.agent-thread-header \{\n  min-height: 62px/);
-  assert.match(html, /class="agent-thread-settings"[\s\S]*id="agent-provider"[\s\S]*id="agent-model"[\s\S]*id="agent-task"/);
+  assert.match(html, /class="agent-thread-settings"[\s\S]*id="agent-provider"[\s\S]*id="agent-model"/);
   assert.match(styles, /max-height: clamp\(96px, 24vh, 220px\)/);
-  assert.match(html, /id="agent-task"/);
+  assert.doesNotMatch(html, /id="agent-task"/);
   assert.match(html, /id="agent-provider"/);
   assert.match(main, /data-agent-group-toggle/);
   assert.match(html, /id="agent-message-list"/);
@@ -131,8 +131,10 @@ test("Agent permissions are explicit checkboxes without a blocking second prompt
 
 test("desktop shell exposes the Git context bar and Explorer search affordance", () => {
   assert.match(html, /id="repository-context-button"/);
+  assert.match(html, /id="task-context-button"/);
   assert.match(html, /id="branch-context-button"/);
   assert.match(html, /id="repository-context-menu"/);
+  assert.match(html, /id="task-context-menu"/);
   assert.match(html, /id="branch-context-menu"/);
   assert.match(html, /class="explorer-search-trigger"/);
   assert.match(html, /data-action="focus-search"/);
@@ -168,7 +170,9 @@ test("desktop shell wires critical actions to Tauri commands", () => {
     assert.match(main, new RegExp(`['\"]${command}['\"]`));
   }
   assert.match(main, /method: 'task\.run'/);
-  assert.match(main, /renderChanges\(snapshot\.tasks/);
+  assert.match(main, /renderChanges\(agentProjectTasks\)/);
+  assert.match(main, /maxTaskContextItems = 12/);
+  assert.match(main, /taskCreatedAt/);
   assert.match(main, /list_directory/);
   assert.match(main, /method: 'github\.status'/);
   for (const id of ["git-commit-list", "git-commit-files", "git-commit-diff", "git-pending-files", "git-pending-diff", "git-history-filter", "git-pending-filter", "git-remote-status", "git-fetch-origin", "commit-dialog", "commit-title", "commit-body", "git-push-origin", "commit-branch-name"]) assert.match(html, new RegExp(`id="${id}"`));

@@ -3,7 +3,7 @@
 ## Inputs
 
 - Changed spec: docu/adr/0028-github-desktop-version-control-parity.md
-- Direct and transitive dependents: 9
+- Direct and transitive dependents: 17
 - Broken references: 0
 
 ## Estimate

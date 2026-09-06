@@ -8,10 +8,15 @@ Validate the behavior and acceptance criteria changed by docu/specs/SPEC-git-col
 
 - README.md
 - docu/README.md
+- docu/adr/0029-chatgpt-inspired-agent-workbench.md
+- docu/knowledge/README.md
+- docu/knowledge/chatgpt-desktop-agents-audit.md
 - docu/releases/v0.3-close.md
 - docu/specs/SPEC-NEXUS.md
+- docu/specs/SPEC-agent-providers.md
 - docu/specs/SPEC-agent-runtime.md
 - docu/specs/SPEC-desktop-shell.md
+- docu/specs/SPEC-living-knowledge.md
 - docu/specs/SPEC-v0.2.md
 - docu/specs/SPEC-v0.3.md
 - docu/spikes/001-opencode-runtime.md

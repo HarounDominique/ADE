@@ -22,6 +22,7 @@ test("ProjectSnapshot composes only the selected Project Tasks", () => {
   assert.equal(snapshot.tasks[0]?.status, "IN_PROGRESS");
   assert.equal(snapshot.metrics.activeTasks, 1);
   assert.equal(snapshot.metrics.inReview, 0);
+  assert.ok(snapshot.tasks[0]?.createdAt);
   assert.ok(snapshot.tasks[0]?.updatedAt);
   store.close();
 });

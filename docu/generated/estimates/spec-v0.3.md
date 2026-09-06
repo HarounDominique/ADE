@@ -3,7 +3,7 @@
 ## Inputs
 
 - Changed spec: docu/specs/SPEC-v0.3.md
-- Direct and transitive dependents: 12
+- Direct and transitive dependents: 17
 - Broken references: 0
 
 ## Estimate

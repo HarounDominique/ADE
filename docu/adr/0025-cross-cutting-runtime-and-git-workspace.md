@@ -12,11 +12,11 @@ Accepted
 
 La shell acumulaba paneles operativos compartidos fuera de la superficie que les daba sentido. En particular, `Git workspace` aparecía junto al contenido de Projects, Tasks, Project context y otras vistas, aunque su estado y sus acciones pertenecen al trabajo de control de versiones. Del mismo modo, el runtime ya no necesita una vista lateral propia: Agents, Work, terminal y el sidecar consumen su estado de forma transversal.
 
-Esta duplicación aumentaba la densidad visual, hacía difícil entender qué se podía hacer en cada menú y restaba espacio al contenido principal. La topbar ya ofrece el contexto global de Project y branch, por lo que no debe convertirse en otro panel Git operativo.
+Esta duplicación aumentaba la densidad visual, hacía difícil entender qué se podía hacer en cada menú y restaba espacio al contenido principal. La topbar ya ofrece el contexto global de Project, Task y branch, por lo que no debe convertirse en otro panel Git operativo.
 
 ## Decision
 
-`Git workspace` sólo se renderiza dentro de `Version control`. `Projects`, `Editor`, `Agents`, `Work` y `Project context` no muestran su estado ni sus acciones Git; conservan únicamente las responsabilidades propias de cada vista. La topbar mantiene los selectores globales `Current project` y `Current branch` como orientación y cambio de contexto.
+`Git workspace` sólo se renderiza dentro de `Version control`. `Projects`, `Editor`, `Agents`, `Work` y `Project context` no muestran su estado ni sus acciones Git; conservan únicamente las responsabilidades propias de cada vista. La topbar mantiene los selectores globales `Current project`, `Current task` y `Current branch` como orientación y cambio de contexto.
 
 El runtime y los servicios permanecen implementados en el sidecar y en los casos de uso correspondientes, pero se tratan como infraestructura transversal y no como una entrada de navegación o panel visible independiente.
 

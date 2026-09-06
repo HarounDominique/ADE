@@ -72,6 +72,7 @@ let agentSessions = [];
 let activeAgentSessionId = null;
 let activeAgentTaskId = null;
 let agentProjectTasks = [];
+const maxTaskContextItems = 12;
 let pendingAgentSessionDeletion = null;
 let agentPromptRunning = false;
 let activeAgentRequestId = null;
@@ -548,9 +549,10 @@ function renderSnapshot(snapshot) {
   }
   const terminalCwd = document.getElementById('terminal-cwd');
   if (terminalCwd) terminalCwd.textContent = activeProject.repositoryPath;
-  renderChanges(snapshot.tasks ?? []);
-  renderProjectTasks(snapshot.tasks ?? []);
   agentProjectTasks = snapshot.tasks ?? [];
+  renderChanges(agentProjectTasks);
+  renderProjectTasks(agentProjectTasks);
+  renderTaskContext();
   renderAgentTaskSelection();
   if (activeView === 'agents') renderAgentSessions(agentSessions);
   if (snapshot.sync) setSyncState(snapshot.sync.state, snapshot.sync.label);
@@ -617,6 +619,63 @@ function renderBranchMenu() {
     : '<p class="git-context-empty">No local branches found.</p>';
 }
 
+function taskCreatedAt(task) {
+  const timestamp = Date.parse(task.createdAt ?? task.updatedAt ?? '');
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function orderedTaskContextItems() {
+  return [...agentProjectTasks].sort((left, right) => taskCreatedAt(right) - taskCreatedAt(left));
+}
+
+function visibleTaskContextItems() {
+  const ordered = orderedTaskContextItems();
+  const selected = ordered.find((task) => task.id === selectedTaskId);
+  const recent = ordered.slice(0, maxTaskContextItems);
+  return selected && !recent.some((task) => task.id === selected.id) ? [...recent, selected] : recent;
+}
+
+function renderTaskContextMenu() {
+  const menu = document.getElementById('task-context-menu');
+  if (!menu) return;
+  const tasks = visibleTaskContextItems();
+  menu.innerHTML = tasks.length
+    ? tasks.map((task) => `<button class="git-context-option${task.id === selectedTaskId ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${task.id === selectedTaskId}" data-task-context-id="${escapeHTML(task.id)}"><span class="git-option-mark" aria-hidden="true">${task.id === selectedTaskId ? '✓' : ''}</span><span><strong>${escapeHTML(task.intent)}</strong><small>${escapeHTML(task.id)} · ${escapeHTML(task.status.replaceAll('_', ' '))}</small></span></button>`).join('')
+    : '<p class="git-context-empty">No tasks in this Project.</p>';
+}
+
+function renderTaskContext() {
+  const tasks = orderedTaskContextItems();
+  const selected = tasks.find((task) => task.id === selectedTaskId) ?? tasks[0] ?? null;
+  selectedTaskId = selected?.id ?? null;
+  selectedTaskIntent = selected?.intent ?? '';
+  const name = document.getElementById('current-task-name');
+  if (name) name.textContent = selected?.intent ?? 'No task';
+  const button = document.getElementById('task-context-button');
+  if (button) {
+    button.disabled = false;
+    button.setAttribute('aria-disabled', 'false');
+    button.title = tasks.length ? 'Switch active task' : 'No tasks in this Project';
+  }
+  renderTaskContextMenu();
+}
+
+function selectTaskContext(taskId) {
+  const task = agentProjectTasks.find((item) => item.id === taskId);
+  if (!task) return;
+  selectedTaskId = task.id;
+  selectedTaskIntent = task.intent;
+  if (!activeAgentSessionId) activeAgentTaskId = task.id;
+  renderChanges(agentProjectTasks);
+  renderProjectTasks(agentProjectTasks);
+  renderTaskContext();
+  renderAgentTaskSelection();
+  closeGitContextMenus();
+  nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `detail-${task.id}-${Date.now()}`, method: 'task.detail', params: { taskId: task.id } }) });
+  nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `git-ops-${task.id}-${Date.now()}`, method: 'task.git.operations', params: { taskId: task.id } }) });
+  nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `review-${task.id}-${Date.now()}`, method: 'change.review', params: { taskId: task.id } }) });
+}
+
 function toggleGitContextMenu(kind) {
   if (kind === 'branch' && activeVersionControl === 'none') return;
   const menu = document.getElementById(`${kind}-context-menu`);
@@ -630,6 +689,8 @@ function toggleGitContextMenu(kind) {
   if (kind === 'repository') {
     renderRepositoryMenu();
     if (!projectCatalogLoaded) void sendContextRequest('project.list', {}, 'projects');
+  } else if (kind === 'task') {
+    renderTaskContextMenu();
   } else {
     menu.innerHTML = '<p class="git-context-empty">Loading branches…</p>';
     void sendContextRequest('git.workspace', { repositoryPath: document.getElementById('project-path')?.textContent }, 'branches');
@@ -722,7 +783,7 @@ function removeProjectFromUI(project) {
 }
 
 function renderChanges(tasks) {
-  const task = tasks.find((item) => item.id === selectedTaskId) ?? tasks.find((item) => ['UNDER_REVIEW', 'READY_FOR_HUMAN'].includes(item.status)) ?? tasks[0];
+  const task = tasks.find((item) => item.id === selectedTaskId) ?? [...tasks].sort((left, right) => taskCreatedAt(right) - taskCreatedAt(left))[0];
   selectedTaskId = task?.id ?? null;
   selectedTaskIntent = task?.intent ?? '';
   const values = {
@@ -1450,14 +1511,10 @@ function agentGroupId(session) {
 }
 
 function renderAgentTaskSelection() {
-  const select = document.getElementById('agent-task');
-  if (!select) return;
   const activeSession = activeAgentSessionId ? agentSessions.find((session) => session.id === activeAgentSessionId) : null;
-  const taskId = activeSession?.taskId ?? activeAgentTaskId ?? '';
-  select.innerHTML = `<option value="">General</option>${agentProjectTasks.map((task) => `<option value="${escapeHTML(task.id)}">${escapeHTML(task.intent)}</option>`).join('')}`;
-  select.value = agentProjectTasks.some((task) => task.id === taskId) ? taskId : '';
-  select.disabled = Boolean(activeSession);
-  select.title = activeSession ? 'Task association is fixed for an existing conversation. Start a new conversation to choose another Task.' : 'Optionally associate this new conversation with a Task.';
+  const taskId = activeSession?.taskId ?? activeAgentTaskId ?? selectedTaskId ?? null;
+  const context = document.getElementById('agent-session-context');
+  if (context) context.textContent = agentTaskName(taskId);
 }
 
 function renderAgentSessions(sessions) {
@@ -1717,7 +1774,7 @@ function sendAgentPrompt(event) {
   const prompt = input?.value.trim();
   const provider = document.getElementById('agent-provider')?.value ?? selectedProvider;
   const model = document.getElementById('agent-model')?.value ?? '';
-  const taskId = activeAgentSessionId ? (agentSessions.find((session) => session.id === activeAgentSessionId)?.taskId ?? null) : (document.getElementById('agent-task')?.value || null);
+  const taskId = activeAgentSessionId ? (agentSessions.find((session) => session.id === activeAgentSessionId)?.taskId ?? null) : (selectedTaskId ?? null);
   if (!prompt) return;
   if (!providerIsAvailable(provider)) { notify('Selected agent provider is unavailable.'); return; }
   const permissions = [...document.querySelectorAll('#agent-prompt-form input[type="checkbox"]:checked')].map((item) => item.value);
@@ -2767,6 +2824,7 @@ document.getElementById('terminal-new-tab')?.addEventListener('click', () => {
   notify('New terminal session opened.');
 });
 document.getElementById('repository-context-button')?.addEventListener('click', () => toggleGitContextMenu('repository'));
+document.getElementById('task-context-button')?.addEventListener('click', () => toggleGitContextMenu('task'));
 document.getElementById('branch-context-button')?.addEventListener('click', () => toggleGitContextMenu('branch'));
 document.getElementById('git-commit-form')?.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -2826,6 +2884,11 @@ document.addEventListener('click', (event) => {
   const branchOption = event.target.closest('[data-branch-name]');
   if (branchOption) {
     void switchBranchFromContext(branchOption.dataset.branchName);
+    return;
+  }
+  const taskOption = event.target.closest('[data-task-context-id]');
+  if (taskOption) {
+    selectTaskContext(taskOption.dataset.taskContextId);
     return;
   }
   const closeButton = event.target.closest('[data-terminal-close-id]');
@@ -2948,12 +3011,6 @@ document.addEventListener('keydown', (event) => {
 document.getElementById('agent-model')?.addEventListener('change', (event) => {
   selectedAgentModel = event.target.value;
   if (activeAgentSessionId) agentSessionModels.set(activeAgentSessionId, selectedAgentModel);
-});
-document.getElementById('agent-task')?.addEventListener('change', (event) => {
-  if (activeAgentSessionId) return;
-  activeAgentTaskId = event.target.value || null;
-  const context = document.getElementById('agent-session-context');
-  if (context) context.textContent = agentTaskName(activeAgentTaskId);
 });
 document.querySelector('[data-action="new-agent-session"]')?.addEventListener('click', startNewAgentSession);
 initializeCodeEditor();

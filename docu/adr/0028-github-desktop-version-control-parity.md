@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-La shell de ADE ya tiene un MVP funcional de control de versiones: Projects, contexto de Project y branch, historial, cambios pendientes, diff, commit local, push y fetch. El problema pendiente es de distribución y comprensión: Version control todavía puede presentar demasiado chrome, separación espacial poco útil y una jerarquía menos directa que la de las herramientas de referencia.
+La shell de ADE ya tiene un MVP funcional de control de versiones: Projects, contexto de Project, Task y branch, historial, cambios pendientes, diff, commit local, push y fetch. El problema pendiente es de distribución y comprensión: Version control todavía puede presentar demasiado chrome, separación espacial poco útil y una jerarquía menos directa que la de las herramientas de referencia.
 
 Se auditó en vivo GitHub Desktop en macOS para entender sus pantallas, opciones y flujos sin asumir que un IDE tradicional sea el modelo adecuado. El detalle observado se conserva en [Auditoría de GitHub Desktop](../knowledge/github-desktop-audit.md).
 
@@ -23,7 +23,7 @@ Se auditó en vivo GitHub Desktop en macOS para entender sus pantallas, opciones
 3. En `Changes`, reservar una columna compacta para filtro y selección de ficheros y dedicar el espacio principal al diff del fichero activo.
 4. En `History`, mostrar lista de commits, filtro, detalle del commit, ficheros afectados y diff seleccionable; las columnas auxiliares se contraen independientemente y conservan un control de restauración accesible. La comparación entre ramas queda pendiente de un contrato backend específico.
 5. Tratar `Commit`, `Push origin` y `Fetch origin` como operaciones distintas y reconocibles. `Commit` crea únicamente un commit local.
-6. Hacer que Project y branch sean selectores de contexto de primera clase; al cambiar cualquiera se rehidratan lista, selección, diff y estado Git.
+6. Hacer que Project, Task y branch sean selectores de contexto de primera clase; al cambiar cualquiera se rehidratan lista, selección, diff y estado Git.
 7. Retirar duplicaciones visuales y paneles que compitan con el diff. `Git workspace` seguirá existiendo sólo dentro de `Version control`, pero se integrará en sus tabs en lugar de actuar como un workbench paralelo.
 8. Mantener los invariantes existentes: no descartar cambios locales, no forzar cambios de branch, confirmar mutaciones sensibles y mostrar errores con una reentrada clara.
 
