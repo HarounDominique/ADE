@@ -1,7 +1,7 @@
 # Nexus: ADE — Agentic Development Environment
 
 **Estado:** v0.1 MVP implementado; v0.2 cerrada; v0.3 cerrada; slice v0.4 con Projects, Editor multimotor, Agents conversacionales, Projects Git/No Git y contexto de shell implementada y validada en build/tests
-**Última actualización:** 2026-09-05
+**Última actualización:** 2026-09-06
 **Fuente:** informe fundacional de ADE proporcionado por el usuario
 
 Este nexus es el índice único de las specs de ADE. Las specs se citan por `module id + heading`, nunca por número de línea.
@@ -88,6 +88,8 @@ El dock inferior expone tabs de terminal `portable-pty` persistentes, redimensio
 
 La shell mantiene el contexto Git en la topbar para orientación global, pero reserva el panel operativo `Git workspace` exclusivamente a `Version control`; las demás vistas no duplican su estado ni sus acciones.
 
+La siguiente iteración de `Version control` queda guiada por la auditoría de GitHub Desktop y [ADR-0028](../adr/0028-github-desktop-version-control-parity.md): `Changes` debe priorizar working tree y diff, `History` debe priorizar commit y diff, y Project/branch, commit local, push y fetch deben conservar responsabilidades visibles y separadas. Es un objetivo de distribución y flujo; no se declara implementado hasta superar sus criterios de aceptación.
+
 La iteración de hardening de shell elimina chrome simulado: no se renderizan tareas fixture, estado de salud, identidad local, notificaciones ni ayudas sin fuente/acción. `Work` comunica carga o vacío real y abre cada Task mediante control de teclado accesible. El grafo documental se limita a `Project context`; las tabs `History`/`Changes` completan el patrón ARIA y navegación de teclado. La ventana Tauri abre a 1180 × 780 px, fija mínimo 900 × 640 px y el límite reactivo del lateral preserva 580 px de workbench. Monaco, sus contribuciones y Prettier se cargan bajo demanda para no penalizar el primer render; CodeMirror sigue siendo el motor inmediato de la ruta principal. La decisión de editor se actualiza en [ADR-0023](../adr/0023-code-editor-and-formatting.md).
 
 ## Current v0.4 slice
@@ -101,6 +103,7 @@ El Editor usa una interfaz común con CodeMirror 6 como motor principal y Monaco
 La slice v0.4 implementa [SPEC-file-workspace](SPEC-file-workspace.md#product-contract): el fichero de texto seleccionado aparece dentro de ADE en `Editor`, con superficie completa, lectura y escritura Tauri autorizadas, estado dirty, `Save`, `Discard`, límite de 2 MiB y apertura externa únicamente mediante una acción explícita. La superficie selecciona CodeMirror o Monaco según la extensión y conserva el mismo contrato de edición. `Projects` permite registrar carpetas Git y No Git desde el selector nativo de macOS. `Agents` mantiene el rail de sesiones y la conversación como superficie única de trabajo, sin un inspector lateral permanente. El cambio de Project conserva la identidad activa en toda la shell y descarta únicamente el documento seleccionado si queda fuera de la nueva raíz. No se adelanta un editor completo ni una integración LSP.
 
 - 2026-09-05 — desktop-shell-hardening — Se eliminaron estados simulados y chrome no accionable; Work, tabs y diálogos ganaron contratos de accesibilidad; el grafo quedó limitado a Project context; la ventana y el lateral se hicieron adaptativos; Monaco/Prettier pasan a módulos bajo demanda. Se propagó a `SPEC-desktop-shell`, `DESIGN`, `PRODUCT`, README, ADR-0023 y tareas.
+- 2026-09-06 — github-desktop-audit — Se audita GitHub Desktop en macOS y se formaliza la siguiente iteración de Version control: contexto persistente de Project/branch, tabs Changes/History, diff dominante, selector de repositorios y separación commit local → push → fetch. La evidencia está en [github-desktop-audit](../knowledge/github-desktop-audit.md) y la decisión en [ADR-0028](../adr/0028-github-desktop-version-control-parity.md); todavía no es una capacidad implementada.
 
 ## Scope boundary
 
@@ -256,7 +259,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 <!-- reconciliation:docu/specs/SPEC-NEXUS.md -->
 - 2026-09-05 — automatic-reconciliation — docu/specs/SPEC-NEXUS.md; 9 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/spec-nexus.md, ../generated/qa/spec-nexus.md, ../generated/estimates/spec-nexus.md.
 <!-- reconciliation:docu/specs/SPEC-desktop-shell.md -->
-- 2026-09-05 — automatic-reconciliation — docu/specs/SPEC-desktop-shell.md; 9 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/spec-desktop-shell.md, ../generated/qa/spec-desktop-shell.md, ../generated/estimates/spec-desktop-shell.md.
+- 2026-09-06 — automatic-reconciliation — docu/specs/SPEC-desktop-shell.md; 9 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/spec-desktop-shell.md, ../generated/qa/spec-desktop-shell.md, ../generated/estimates/spec-desktop-shell.md.
 <!-- reconciliation:docu/specs/SPEC-v0.3.md -->
 - 2026-09-05 — automatic-reconciliation — docu/specs/SPEC-v0.3.md; 12 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/spec-v0.3.md, ../generated/qa/spec-v0.3.md, ../generated/estimates/spec-v0.3.md.
 <!-- reconciliation:docu/specs/SPEC-workspace-core.md -->
@@ -293,3 +296,5 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-05 — automatic-reconciliation — docu/adr/0027-provider-scoped-model-selection.md; 0 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/0027-provider-scoped-model-selection.md, ../generated/qa/0027-provider-scoped-model-selection.md, ../generated/estimates/0027-provider-scoped-model-selection.md.
 <!-- reconciliation:docu/adr/0023-code-editor-and-formatting.md -->
 - 2026-09-05 — automatic-reconciliation — docu/adr/0023-code-editor-and-formatting.md; 13 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/0023-code-editor-and-formatting.md, ../generated/qa/0023-code-editor-and-formatting.md, ../generated/estimates/0023-code-editor-and-formatting.md.
+<!-- reconciliation:docu/adr/0028-github-desktop-version-control-parity.md -->
+- 2026-09-06 — automatic-reconciliation — docu/adr/0028-github-desktop-version-control-parity.md; 9 dependent document(s), 0 broken reference(s). Artifacts: ../generated/reconciliation/0028-github-desktop-version-control-parity.md, ../generated/qa/0028-github-desktop-version-control-parity.md, ../generated/estimates/0028-github-desktop-version-control-parity.md.

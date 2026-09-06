@@ -1,4 +1,4 @@
-# Reconciliation: docu/specs/SPEC-desktop-shell.md
+# Reconciliation: docu/adr/0028-github-desktop-version-control-parity.md
 
 Generated from the current documentation graph.
 
