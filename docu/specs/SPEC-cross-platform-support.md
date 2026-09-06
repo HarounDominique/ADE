@@ -26,9 +26,11 @@ Un séptimo punto queda identificado pero sin resolver: la canonización de ruta
 
 La verificación de plataforma no se delega a la intuición ni a la lectura del código: un cambio se considera portable cuando una máquina de esa plataforma lo compila y ejecuta sus tests.
 
-- **CI por matriz.** `macos-latest`, `windows-latest` y `ubuntu-latest` ejecutan la misma secuencia: instalar dependencias, construir el sidecar, `npm test`, `cargo test` y compilación del shell.
+- **CI por matriz.** `windows-latest` y `ubuntu-latest` ejecutan la misma secuencia: instalar dependencias, construir el sidecar, `npm test`, compilar el bundle, `cargo test` y compilar el shell. macOS queda fuera de la matriz deliberadamente: es la plataforma de desarrollo, se verifica en local en cada cambio, y en un repositorio privado su runner se factura al décuplo de las plataformas que la matriz existe para cubrir.
 - **Lo que CI cubre y lo que no.** CI demuestra que compila, que los tests pasan y que el script de construcción del sidecar funciona en esa plataforma. No demuestra que la ventana abra, que el PTY se comporte ni que el escape hatch haga lo que promete: eso exige un smoke manual por plataforma.
-- **Grados de soporte.** Una plataforma es `verificada` cuando CI está verde y existe un smoke manual registrado; `construible` cuando sólo CI está verde; `no verificada` en cualquier otro caso. La documentación debe nombrar el grado, nunca insinuar más.
+- **Grados de soporte.** Una plataforma es `verificada` cuando su secuencia está verde y existe un smoke manual registrado; `construible` cuando sólo lo está la secuencia; `no verificada` en cualquier otro caso. La documentación debe nombrar el grado, nunca insinuar más.
+
+**Estado a 2026-09-06:** macOS `verificada` (secuencia local verde y aplicación arrancada a mano). Windows y Linux `construibles` (matriz verde el 2026-09-06, sin smoke manual). El PTY en Windows no está cubierto ni siquiera por la matriz.
 
 ## Out of scope
 
@@ -38,13 +40,13 @@ Tampoco entra abstraer Git: ADE seguirá invocando el `git` del sistema y exigie
 
 ## Acceptance criteria
 
-1. ⏳ Las cinco fronteras de plataforma están detrás de `cfg(target_os)` o de una comprobación explícita, sin rutas ni comandos de un sistema concreto en el camino común.
-2. ⏳ CI ejecuta la matriz de tres plataformas en cada push y su resultado es visible.
-3. ⏳ `windows-latest` compila el shell, construye el sidecar y pasa los tests Rust y TypeScript.
-4. ⏳ `ubuntu-latest` hace lo mismo.
+1. ⏳ Las siete fronteras de plataforma están detrás de `cfg(target_os)` o de una comprobación explícita, sin rutas ni comandos de un sistema concreto en el camino común. Cinco lo están; la detección de proveedores y la canonización de rutas siguen abiertas.
+2. ✅ CI ejecuta la matriz en cada push y su resultado es visible; macOS se verifica en local por la decisión de coste registrada arriba.
+3. ✅ `windows-latest` compila el shell, construye el sidecar y pasa los tests Rust y TypeScript, con el test del PTY excluido en esa plataforma.
+4. ✅ `ubuntu-latest` hace lo mismo, sin exclusiones.
 5. ⏳ Un smoke manual en Windows registra que la ventana abre, la terminal responde y el escape hatch abre fichero y terminal.
 6. ⏳ La autorización del workspace se comporta igual en las tres plataformas, incluidos los prefijos UNC de Windows.
-7. ⏳ La documentación nombra el grado de soporte real de cada plataforma.
+7. ✅ La documentación nombra el grado de soporte real de cada plataforma.
 
 ## Verification
 
