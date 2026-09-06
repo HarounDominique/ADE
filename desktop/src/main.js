@@ -52,6 +52,7 @@ let workspaceSearchToken = 0;
 let workspaceSearchTimer = null;
 const terminalResizer = document.getElementById('terminal-resizer');
 const terminalSizeToggle = document.getElementById('terminal-size-toggle');
+const terminalDock = document.getElementById('terminal-dock-panel');
 const sidebarResizer = document.getElementById('sidebar-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
 const sidebarStorageKey = `ade-sidebar-width:${activeProjectId}`;
@@ -59,6 +60,7 @@ const historyPaneStorageKey = 'ade-history-pane-layout';
 let terminalHeight = 138;
 let terminalResizeState = null;
 let terminalFitFrame = null;
+let terminalSizeTransitionTimer = null;
 let sidebarWidth = 246;
 let sidebarResizeState = null;
 let activeServiceId = null;
@@ -241,6 +243,27 @@ function updateTerminalSizeToggle() {
   const action = expanded ? 'Reduce terminal to minimum height' : 'Expand terminal to maximum height';
   terminalSizeToggle?.setAttribute('aria-label', action);
   if (terminalSizeToggle) terminalSizeToggle.title = action;
+}
+
+function clearTerminalSizeTransition() {
+  if (terminalSizeTransitionTimer !== null) {
+    clearTimeout(terminalSizeTransitionTimer);
+    terminalSizeTransitionTimer = null;
+  }
+  terminalDock?.classList.remove('terminal-size-transitioning');
+}
+
+function animateTerminalHeight(nextHeight) {
+  clearTerminalSizeTransition();
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    setTerminalHeight(nextHeight);
+    return;
+  }
+  terminalDock?.classList.add('terminal-size-transitioning');
+  requestAnimationFrame(() => {
+    setTerminalHeight(nextHeight);
+    terminalSizeTransitionTimer = setTimeout(clearTerminalSizeTransition, 260);
+  });
 }
 
 function setTerminalHeight(nextHeight, persist = true) {
@@ -427,6 +450,7 @@ setSidebarWidth(sidebarWidth, false);
 
 terminalResizer?.addEventListener('pointerdown', (event) => {
   if (event.target.closest('#terminal-size-toggle')) return;
+  clearTerminalSizeTransition();
   event.preventDefault();
   terminalResizeState = { pointerId: event.pointerId, startY: event.clientY, startHeight: terminalHeight };
   terminalResizer.setPointerCapture?.(event.pointerId);
@@ -453,7 +477,10 @@ terminalResizer?.addEventListener('keydown', (event) => {
 });
 terminalSizeToggle?.addEventListener('click', () => {
   const bounds = terminalHeightBounds();
-  setTerminalHeight(terminalHeight >= bounds.max ? bounds.min : bounds.max);
+  animateTerminalHeight(terminalHeight >= bounds.max ? bounds.min : bounds.max);
+});
+terminalDock?.addEventListener('transitionend', (event) => {
+  if (event.propertyName === 'height') clearTerminalSizeTransition();
 });
 window.addEventListener('resize', () => setTerminalHeight(terminalHeight, false));
 sidebarResizer?.addEventListener('pointerdown', (event) => {

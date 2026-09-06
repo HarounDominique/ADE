@@ -249,6 +249,8 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(main, /scheduleTerminalFit/);
   assert.match(main, /terminalHeightBounds/);
   assert.match(main, /updateTerminalSizeToggle/);
+  assert.match(main, /animateTerminalHeight/);
+  assert.match(styles, /\.terminal-dock\.terminal-size-transitioning/);
   assert.match(main, /ResizeObserver/);
   assert.match(main, /sessionId: tab\.id/);
   assert.match(main, /payload\?\.session_id/);
