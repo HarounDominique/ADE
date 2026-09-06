@@ -63,6 +63,9 @@ test("Version control History lets the user collapse its supporting panes for di
   assert.match(styles, /history-files-collapsed/);
   assert.match(styles, /transition: grid-template-columns 180ms/);
   assert.match(styles, /\.history-pane-restore \{ position: absolute;/);
+  assert.match(html, /history-commits-toggle[\s\S]*?history-commits-restore/);
+  assert.match(html, /history-files-toggle[\s\S]*?history-files-restore/);
+  assert.match(styles, /#history-files-restore \{ opacity: 1; pointer-events: auto; transform: translate\(0, -50%\); \}/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });
 
