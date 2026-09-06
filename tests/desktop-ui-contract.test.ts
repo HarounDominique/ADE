@@ -66,6 +66,14 @@ test("Version control History lets the user collapse its supporting panes for di
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });
 
+test("Version control Changes reserves its second track exclusively for the selected diff", () => {
+  assert.match(styles, /\.changes-workspace \{\s+grid-template-columns: minmax\(300px, 344px\) minmax\(0, 1fr\);/);
+  assert.match(styles, /\.pending-files-pane \{ grid-column: 1; grid-row: 1; min-width: 0; \}/);
+  assert.match(styles, /\.pending-diff-pane \{ display: grid; grid-column: 2; grid-row: 1;/);
+  assert.match(styles, /\.pending-diff-heading \{ grid-column: 1; grid-row: 1;/);
+  assert.match(styles, /\.pending-diff \{ grid-column: 1; grid-row: 2;/);
+});
+
 test("Agents exposes an accessible delete action for saved conversations", () => {
   assert.match(html, /id="agent-delete-dialog"/);
   assert.match(html, /data-action="confirm-delete-agent-session"/);

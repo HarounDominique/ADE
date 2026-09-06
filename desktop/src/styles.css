@@ -996,9 +996,10 @@ body { color: var(--text); }
 .version-history-layout { height: calc(100vh - var(--terminal-height, 138px) - 126px); min-height: 390px; }
 .changes-workspace {
   grid-template-columns: minmax(300px, 344px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
 }
-.pending-files-pane { grid-column: 1; }
+.pending-files-pane { grid-column: 1; grid-row: 1; min-width: 0; }
 .changes-section-heading { min-height: 73px; padding: 13px 18px; }
 .changes-section-heading h2 { margin: 3px 0 0; }
 .pending-files-pane > .version-control-filter { padding: 10px 12px 2px; background: var(--chrome); }
@@ -1012,9 +1013,9 @@ body { color: var(--text); }
   border-color: color-mix(in srgb, var(--blue) 28%, var(--line));
   box-shadow: inset 1px 0 0 var(--blue);
 }
-.pending-diff-pane { grid-column: 2; }
-.pending-diff-heading { min-height: 73px; padding: 13px 22px; }
-.pending-diff { padding: 18px 22px 28px; }
+.pending-diff-pane { display: grid; grid-column: 2; grid-row: 1; min-width: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: 73px minmax(0, 1fr); }
+.pending-diff-heading { grid-column: 1; grid-row: 1; min-width: 0; min-height: 73px; padding: 13px 22px; }
+.pending-diff { grid-column: 1; grid-row: 2; min-width: 0; padding: 18px 22px 28px; }
 .git-diff-output { border: 0; border-radius: 0; }
 .git-diff-line { padding: 0 10px; }
 .git-diff-line.added { background: color-mix(in srgb, var(--green) 13%, transparent); }
