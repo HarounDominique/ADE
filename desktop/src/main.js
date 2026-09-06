@@ -57,6 +57,7 @@ const sidebarResizer = document.getElementById('sidebar-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
 const sidebarStorageKey = `ade-sidebar-width:${activeProjectId}`;
 const historyPaneStorageKey = 'ade-history-pane-layout';
+const changesPaneStorageKey = 'ade-changes-pane-layout';
 let terminalHeight = 138;
 let terminalResizeState = null;
 let terminalFitFrame = null;
@@ -98,6 +99,7 @@ let pendingGitFiles = [];
 let gitCommitNeedsPush = false;
 let historyCommitsCollapsed = false;
 let historyFilesCollapsed = false;
+let changesFilesCollapsed = false;
 let codeEditorView = null;
 let monacoEditor = null;
 let monaco = null;
@@ -870,6 +872,34 @@ function restoreHistoryPaneLayout() {
   } catch { /* Persistence is optional. */ }
   setHistoryPaneCollapsed('commits', historyCommitsCollapsed, false);
   setHistoryPaneCollapsed('files', historyFilesCollapsed, false);
+}
+
+function setChangesPaneCollapsed(collapsed, persist = true) {
+  const workspace = document.querySelector('#version-changes-panel .changes-workspace');
+  changesFilesCollapsed = collapsed;
+  workspace?.classList.toggle('changes-files-collapsed', changesFilesCollapsed);
+  const toggle = document.getElementById('changes-files-toggle');
+  const restore = document.getElementById('changes-files-restore');
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} changed file list`);
+    toggle.title = toggle.getAttribute('aria-label');
+  }
+  if (restore) {
+    restore.tabIndex = collapsed ? 0 : -1;
+    restore.setAttribute('aria-hidden', String(!collapsed));
+  }
+  if (persist) {
+    try { localStorage.setItem(changesPaneStorageKey, JSON.stringify({ files: changesFilesCollapsed })); } catch { /* Persistence is optional. */ }
+  }
+}
+
+function restoreChangesPaneLayout() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(changesPaneStorageKey) ?? '{}');
+    changesFilesCollapsed = Boolean(stored.files);
+  } catch { /* Persistence is optional. */ }
+  setChangesPaneCollapsed(changesFilesCollapsed, false);
 }
 
 function renderCommitControls() {
@@ -2844,6 +2874,11 @@ document.addEventListener('click', (event) => {
     setHistoryPaneCollapsed(pane, pane === 'commits' ? !historyCommitsCollapsed : !historyFilesCollapsed);
     return;
   }
+  const changesPaneToggle = event.target.closest('[data-changes-pane-toggle]');
+  if (changesPaneToggle) {
+    setChangesPaneCollapsed(!changesFilesCollapsed);
+    return;
+  }
   const versionControlTab = event.target.closest('[data-version-control-tab]');
   if (versionControlTab) {
     const tab = versionControlTab.dataset.versionControlTab;
@@ -2990,6 +3025,7 @@ document.getElementById('git-pending-filter')?.addEventListener('input', (event)
   renderPendingGitChanges({ files: pendingGitFiles });
 });
 restoreHistoryPaneLayout();
+restoreChangesPaneLayout();
 document.getElementById('agent-provider')?.addEventListener('change', (event) => {
   selectedProvider = event.target.value;
   selectedAgentModel = '';

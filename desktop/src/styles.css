@@ -949,7 +949,7 @@ body { color: var(--text); }
 .pending-changes-layout { height: calc(100vh - var(--terminal-height, 138px) - 142px); min-height: 420px; }
 .changes-workspace { height: 100%; border: 0; border-radius: 0; box-shadow: none; grid-template-columns: minmax(280px, .58fr) minmax(0, 1fr) minmax(0, 1fr); }
 .pending-files-pane { display: flex; grid-column: 1; min-width: 0; flex-direction: column; border-right: 1px solid var(--line); background: var(--chrome); }
-.changes-section-heading { display: grid; align-content: center; min-height: 84px; padding: 15px 20px; border-bottom: 1px solid var(--line); }
+.changes-section-heading { display: flex; align-items: center; justify-content: space-between; min-height: 84px; padding: 15px 20px; border-bottom: 1px solid var(--line); }
 .changes-section-heading h2 { margin: 4px 0 3px; color: var(--text); font-size: 15px; letter-spacing: -.01em; }
 .changes-hint { font-size: 10px; }
 .git-pending-files { flex: 1; padding: 10px; overflow: auto; border: 0; background: transparent; }
@@ -1097,6 +1097,17 @@ body { color: var(--text); }
 .git-commit-detail.history-files-collapsed .git-commit-files { opacity: 0; pointer-events: none; transform: translateX(-8px); }
 .git-commit-detail.history-files-collapsed #history-files-restore { opacity: 1; pointer-events: auto; transform: translate(0, -50%); }
 
+.pending-files-pane { position: relative; overflow: hidden; transition: flex-basis 180ms cubic-bezier(.2, .8, .2, 1), width 180ms cubic-bezier(.2, .8, .2, 1); }
+.changes-section-heading { position: relative; overflow: hidden; }
+.changes-section-heading > div, .changes-section-heading .changes-hint, .changes-section-heading #changes-files-toggle, .pending-files-pane > .version-control-filter, .pending-files-pane .git-pending-files { transition: opacity 130ms ease-out, transform 180ms cubic-bezier(.2, .8, .2, 1); }
+#version-changes-panel .changes-workspace.changes-files-collapsed .pending-files-pane { flex: 0 0 34px; width: 34px; }
+.changes-workspace.changes-files-collapsed .changes-section-heading > div,
+.changes-workspace.changes-files-collapsed .changes-section-heading .changes-hint,
+.changes-workspace.changes-files-collapsed #changes-files-toggle,
+.changes-workspace.changes-files-collapsed .pending-files-pane > .version-control-filter,
+.changes-workspace.changes-files-collapsed .git-pending-files { opacity: 0; pointer-events: none; transform: translateX(-8px); }
+.changes-workspace.changes-files-collapsed #changes-files-restore { opacity: 1; pointer-events: auto; transform: translate(0, -50%); }
+
 .version-control-utilities { border-top: 1px solid var(--line); background: var(--panel-soft); }
 .version-control-utilities > summary { min-height: 38px; padding: 11px 24px; color: var(--text-soft); cursor: pointer; font: 650 10px var(--mono); list-style: none; }
 .version-control-utilities > summary::-webkit-details-marker { display: none; }
@@ -1175,6 +1186,7 @@ body { color: var(--text); }
     border-bottom: 1px solid var(--line);
   }
   #version-changes-panel .pending-diff-pane { flex: 0 0 auto; width: 100%; min-height: 360px; }
+  #version-changes-panel .changes-workspace.changes-files-collapsed .pending-files-pane { flex: 0 0 34px; width: 100%; min-height: 34px; }
 }
 
 /* Diffs are evidence, so no line is allowed to disappear beyond a resized pane. */
@@ -1196,7 +1208,7 @@ body { color: var(--text); }
 
 @media (prefers-reduced-motion: reduce) {
   .version-control-utilities > summary::before { transition-duration: .01ms; }
-  .version-history-layout, .git-commit-detail, .history-commit-pane, .history-pane-restore, .git-commit-files-heading, .git-commit-files { transition-duration: .01ms !important; }
+  .version-history-layout, .git-commit-detail, .history-commit-pane, .history-pane-restore, .git-commit-files-heading, .git-commit-files, .pending-files-pane, .git-pending-files { transition-duration: .01ms !important; }
 }
 
 /* The global toolbar already owns Project and branch.  A conversation only
