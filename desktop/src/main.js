@@ -2715,7 +2715,6 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'fetch-origin') {
     if (!nativeInvoke || activeVersionControl === 'none') { notify('Fetch requires a Git Project.'); return; }
-    if (!window.confirm('Fetch origin for the active Project?')) return;
     setSyncState('stale', 'Fetching origin…');
     void sendContextRequest('git.fetch.origin', { repositoryPath: workspaceRootPath, actor: 'human', reason: 'Fetch requested from Version control', confirmed: true }, 'git-fetch').catch((error) => notify(error instanceof Error ? error.message : 'Fetch failed.'));
     return;
@@ -2747,7 +2746,6 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   if (item.dataset.action === 'push-origin') {
     if (!nativeInvoke || activeVersionControl === 'none') { notify('Push requires a Git Project.'); return; }
     if (!gitCommitNeedsPush) { notify('Create a local commit before pushing.'); return; }
-    if (!window.confirm('Push the local commit to origin?')) return;
     setSyncState('stale', 'Pushing to origin…');
     void sendContextRequest('git.push', { repositoryPath: workspaceRootPath, reason: 'Push requested from Version control', actor: 'human', confirmed: true }, 'git-push-origin').catch((error) => notify(error instanceof Error ? error.message : 'Push failed.'));
     return;
