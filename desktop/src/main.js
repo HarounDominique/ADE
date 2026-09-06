@@ -1714,7 +1714,7 @@ function updateExplorerMode(expanded) {
   const primaryNav = document.querySelector('.primary-nav');
   const toggle = document.querySelector('[data-action="toggle-explorer"]');
   sidebar?.classList.toggle('explorer-expanded', expanded);
-  primaryNav?.setAttribute('aria-hidden', String(expanded));
+  primaryNav?.setAttribute('aria-hidden', 'false');
   toggle?.setAttribute('aria-expanded', String(expanded));
   toggle?.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} workspace tree`);
   toggle?.setAttribute('title', `${expanded ? 'Collapse' : 'Expand'} workspace tree`);

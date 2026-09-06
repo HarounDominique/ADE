@@ -263,12 +263,12 @@ test("workspace search returns files directly and restores their compact branch 
 
 test("explorer mode changes preserve continuity with a reduced-motion path", () => {
   assert.match(styles, /\.sidebar\.explorer-expanded \.primary-nav/);
-  assert.match(styles, /visibility: hidden/);
+  assert.match(styles, /\.primary-nav \.nav-item:not\(\.active\) \{ display: none; \}/);
   assert.match(styles, /\.workspace-tree\.is-transitioning/);
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(main, /loadWorkspaceTree\([^\n]+\{ animate: true \}/);
   assert.match(main, /requestAnimationFrame\(\(\) => tree\.classList\.remove\('is-transitioning'\)\)/);
-  assert.match(main, /primaryNav\?\.setAttribute\('aria-hidden', String\(expanded\)\)/);
+  assert.match(main, /primaryNav\?\.setAttribute\('aria-hidden', 'false'\)/);
 });
 
 test("document editor fills its viewport and exposes save state", () => {

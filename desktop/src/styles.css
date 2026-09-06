@@ -201,7 +201,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* Explorer focus mode keeps the selected file's path visible without losing context. */
 .explorer-actions { display: flex; align-items: center; gap: 2px; }
 .explorer-actions .icon-button svg { transition: transform .16s ease; }
-.sidebar.explorer-expanded .primary-nav { max-height: 0; margin-bottom: 0; padding-bottom: 0; border-bottom-color: transparent; opacity: 0; pointer-events: none; visibility: hidden; transform: translateY(-8px); transition-delay: 0s, 0s, 0s, 0s, 0s, .24s, 0s; }
+.sidebar.explorer-expanded .primary-nav { max-height: 58px; margin-bottom: 10px; padding-bottom: 10px; border-bottom-color: var(--line); opacity: 1; pointer-events: auto; visibility: visible; transform: none; }
+.sidebar.explorer-expanded .primary-nav .nav-item:not(.active) { display: none; }
 .sidebar.explorer-expanded .explorer-section { margin-top: 0; }
 .sidebar.explorer-expanded .workspace-tree { padding-top: 8px; }
 .workspace-tree { opacity: 1; transform: translateY(0); transition: opacity .16s ease, transform .24s cubic-bezier(.16,1,.3,1), padding-top .24s cubic-bezier(.16,1,.3,1); }
