@@ -118,7 +118,22 @@ classDiagram
   class ndocuadr0025crosscuttingruntimeandgitworkspacemd {
     <<document>>
   }
+  class ndocuadr0026claudecodecliadaptermd {
+    <<document>>
+  }
+  class ndocuadr0027providerscopedmodelselectionmd {
+    <<document>>
+  }
+  class ndocuadr0028githubdesktopversioncontrolparitymd {
+    <<document>>
+  }
   class ndocuknowledgeREADMEmd {
+    <<document>>
+  }
+  class ndocuknowledgegithubdesktopauditmd {
+    <<document>>
+  }
+  class ndocuknowledgeuiredesignlabmd {
     <<document>>
   }
   class ndocureleasesv03closemd {
@@ -223,6 +238,7 @@ classDiagram
   ndocuREADMEmd --> ndocuspecsSPECNEXUSmd : references
   ndocuadr0022versioncontrolcommitflowmd --> ndocuadr0020versioncontrolsurfacemd : references
   ndocuadr0023codeeditorandformattingmd --> ndesktopTHIRDPARTYLICENSESmd : references
+  ndocuadr0028githubdesktopversioncontrolparitymd --> ndocuknowledgegithubdesktopauditmd : references
   ndocureleasesv03closemd --> ndocuspecsSPECv03md : references
   ndocureleasesv03closemd --> ndocuspecsSPECfileworkspacemd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECprojecttaskworkflowmd : references
@@ -239,9 +255,16 @@ classDiagram
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPEClivingknowledgemd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : product-contract
+  ndocuspecsSPECNEXUSmd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
+  ndocuspecsSPECNEXUSmd --> ndocuadr0023codeeditorandformattingmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : product-contract
   ndocuspecsSPECNEXUSmd --> ndocuadr0023codeeditorandformattingmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : product-contract
+  ndocuspecsSPECNEXUSmd --> ndocuknowledgegithubdesktopauditmd : references
+  ndocuspecsSPECNEXUSmd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
+  ndocuspecsSPECNEXUSmd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
+  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdesktopshellmd : version-control
+  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECgitcollaborationmd : git-workspace
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdevelopmentworkflowmd : gates-and-invariants
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECv02md : references
   ndocuspecsSPECagentruntimemd --> ndocuspikes001opencoderuntimemd : smoke-test-real
@@ -249,6 +272,8 @@ classDiagram
   ndocuspecsSPECagentruntimemd --> ndocuspikes002independentreviewmd : flujo-validado
   ndocuspecsSPECchangesreviewgovernancemd --> ndocuspecsSPECdevelopmentworkflowmd : transitions-and-triggers
   ndocuspecsSPECdesktopshellmd --> ndocuspecsSPECfileworkspacemd : product-contract
+  ndocuspecsSPECdesktopshellmd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
+  ndocuspecsSPECdesktopshellmd --> ndocuknowledgegithubdesktopauditmd : references
   ndocuspecsSPECdesktopshellmd --> ndocuspikes003desktopframeworkmd : resultado
   ndocuspecsSPECdesktopshellmd --> ndocuadr0009tauridesktopshellmd : references
   ndocuspecsSPECdesktopshellmd --> ndocuspikes004desktoptransportmd : recomendación-provisional
@@ -295,4 +320,10 @@ classDiagram
   ntaskstodomd --> ndocuadr0024agentsurfacemd : references
   ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
   ntaskstodomd --> ndocuspecsSPECgitcollaborationmd : references
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
+  ntaskstodomd --> ndocuspecsSPECfileworkspacemd : references
+  ntaskstodomd --> ndocuadr0023codeeditorandformattingmd : references
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : version-control
+  ntaskstodomd --> ndocuspecsSPECgitcollaborationmd : git-workspace
+  ntaskstodomd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
 ```

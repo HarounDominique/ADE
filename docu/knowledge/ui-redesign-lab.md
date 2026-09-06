@@ -63,3 +63,7 @@ La primera pasada todavía era demasiado próxima al shell anterior. La segunda 
 Los handlers, ids accesibles, flujos de commit/push, selección de sesión y permisos permanecen inalterados. El bundle se construye correctamente y la batería mantiene 112 tests. La instancia macOS previamente abierta no se ha cerrado de forma automática para preservar terminales y trabajo del usuario; se necesita un relanzamiento limpio para inspeccionar esta segunda pasada en pantalla.
 
 Se verificó el bundle macOS en una instancia real de ADE con conversaciones de Claude Code y cambios Git del proyecto Apache Camel. `npm test` mantiene 112 tests correctos y el build desktop completa. La validación pendiente antes de cualquier merge es una revisión humana de esta dirección y, si se acepta, una segunda pasada focalizada en densidad, estados vacíos y jerarquía de `Version control`.
+
+## Estado actual de la rama — 2026-09-06
+
+La rama de prueba continuó hasta una implementación operativa de la segunda pasada de `Version control`. `Changes` usa un split real de working tree y diff; `History` permite contraer de forma independiente commits y ficheros modificados, conserva controles de restauración alineados con sus cabeceras y anima la transición; el diff se adapta al ancho disponible y reenvuelve líneas largas preservando espacios y color. La baseline vigente es `npm test` con 115 tests TypeScript y `cargo test` con 18 tests Rust. Las cifras 112/18 de los apartados anteriores son evidencia histórica de esa iteración, no el estado actual.

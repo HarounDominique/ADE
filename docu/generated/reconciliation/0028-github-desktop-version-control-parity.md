@@ -259,6 +259,9 @@ classDiagram
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECfileworkspacemd : product-contract
   ndocuspecsSPECNEXUSmd --> ndocuknowledgegithubdesktopauditmd : references
   ndocuspecsSPECNEXUSmd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
+  ndocuspecsSPECNEXUSmd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
+  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdesktopshellmd : version-control
+  ndocuspecsSPECNEXUSmd --> ndocuspecsSPECgitcollaborationmd : git-workspace
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdevelopmentworkflowmd : gates-and-invariants
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECv02md : references
   ndocuspecsSPECagentruntimemd --> ndocuspikes001opencoderuntimemd : smoke-test-real
@@ -317,4 +320,7 @@ classDiagram
   ntaskstodomd --> ndocuspecsSPECdesktopshellmd : references
   ntaskstodomd --> ndocuspecsSPECfileworkspacemd : references
   ntaskstodomd --> ndocuadr0023codeeditorandformattingmd : references
+  ntaskstodomd --> ndocuspecsSPECdesktopshellmd : version-control
+  ntaskstodomd --> ndocuspecsSPECgitcollaborationmd : git-workspace
+  ntaskstodomd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
 ```

@@ -18,4 +18,4 @@ Implemented on 2026-09-05.
 
 ## Verification
 
-`npm run build` and `npm test` pass (109 TypeScript tests). Manual `.app` smoke with a real provider turn remains a release-level check because availability depends on the local installation and license. The current provider catalog includes OpenCode, Codex and Claude Code; model aliases are provider-scoped and kept in memory per conversation.
+`npm run build` and `npm test` pass (115 TypeScript tests). Manual `.app` smoke with a real provider turn remains a release-level check because availability depends on the local installation and license. The current provider catalog includes OpenCode, Codex and Claude Code; model aliases are provider-scoped and kept in memory per conversation.

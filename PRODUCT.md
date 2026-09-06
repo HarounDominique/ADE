@@ -43,7 +43,7 @@ La unidad principal no es un archivo ni una conversación aislada, sino una `Tas
 - Proveedores OpenCode, Codex y Claude Code, con sesiones reanudables por Task y sin copiar credenciales a ADE.
 - `Agents` como workbench inline: rail de sesiones/provider y conversación central, con selector de modelo dependiente del provider junto a los permisos; el inspector lateral de actividad, ficheros y skills no forma parte de la vista primaria.
 - Skills nativas y skills de Project instalables/actualizables con permisos explícitos por ejecución.
-- Git/GitHub con status, branches, worktrees, commits, push y PRs atribuidos a Tasks.
+- Git/GitHub con status, branches, worktrees, commits, push y PRs atribuidos a Tasks; `Version control` separa Changes/History, mantiene el diff dominante, permite colapsar columnas auxiliares de History y adapta el diff al ancho disponible.
 - Documentación viva con grafo de referencias, Mermaid y reconciliación de specs/ADRs.
 - Evidencia, gates, reviews y servicios locales persistidos por Project/Task.
 - v0.3 se valida en macOS; cloud, colaboración realtime, editor completo, `.dmg`, retrieval semántico, checkpoints automáticos y commits autónomos están fuera de alcance. La shell sí incluye un editor de texto interno acotado, con guardado y descarte bajo la raíz del Project.

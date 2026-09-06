@@ -265,3 +265,18 @@
   - Acceptance: no hay chrome simulado ni fixtures de Tasks; Knowledge y Git sólo muestran sus paneles propios; Tasks, tabs y diálogos son accesibles por teclado; la ventana macOS conserva un workbench usable al redimensionar; Monaco y Prettier no bloquean la carga inicial.
   - Verify: `node --check desktop/src/main.js`, `npm run build`, `npm --prefix desktop run build`, `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y `git diff --check`.
   - Files: `desktop/src/`, `desktop/src-tauri/tauri.conf.json`, `tests/desktop-ui-contract.test.ts`, `README.md`, `PRODUCT.md`, `DESIGN.md`, `docu/`.
+
+## Version control hardening — 2026-09-06
+
+- [x] Task: Consolidar Changes como split real de working tree y diff
+  - Acceptance: la lista de cambios y el diff usan dos paneles flexibles sin tracks implícitos ni huecos reservados; seleccionar un fichero actualiza el diff dominante.
+  - Verify: `npm test` (115 tests TypeScript), `npm run build` y bundle `.app` macOS.
+  - Specs: [SPEC-desktop-shell](../docu/specs/SPEC-desktop-shell.md#version-control), [SPEC-git-collaboration](../docu/specs/SPEC-git-collaboration.md#git-workspace), [ADR-0028](../docu/adr/0028-github-desktop-version-control-parity.md).
+
+- [x] Task: Hacer History colapsable y legible en cambios de layout
+  - Acceptance: commits y ficheros modificados se contraen de forma independiente; cada panel conserva un control de restauración accesible, alineado con su cabecera y animado salvo `prefers-reduced-motion`.
+  - Verify: `npm test` (115 tests TypeScript) y revisión manual del `.app`.
+
+- [x] Task: Adaptar el diff al ancho disponible
+  - Acceptance: líneas largas del diff se reenvuelven sin perder espacios, color ni selección; el ancho útil se recalcula al expandir, contraer o redimensionar columnas.
+  - Verify: `npm test` (115 tests TypeScript), `npm run build` y revisión manual de Changes/History.

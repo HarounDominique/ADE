@@ -84,6 +84,7 @@ El cambio de Project o branch invalida y vuelve a cargar la lista, el fichero ac
 - Al seleccionar un fichero de `Changes` cambia el diff en la misma vista, con feedback de selección y estados `loading`, `empty` y `failed`. Implementado.
 - El título y el cuerpo del commit son opcionales según el flujo, pero la acción deja claro si crea un commit local o publica cambios.
 - `History` mantiene una lista navegable, filtro, detalles del commit y diff legible sin abandonar la vista. Implementado.
+- Las columnas auxiliares de `History` se pueden contraer y restaurar desde sus cabeceras sin perder la alineación; el diff recalcula su espacio y reenvuelve líneas largas al cambiar el layout. Implementado.
 - Los selectores de Project y branch son rápidos, filtrables, accesibles por teclado y coherentes con el estado real del repositorio.
 - La interfaz conserva los contratos de seguridad existentes: no descarta cambios locales ni fuerza un cambio de branch.
 
