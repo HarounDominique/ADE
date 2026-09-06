@@ -21,7 +21,7 @@ Se auditó en vivo GitHub Desktop en macOS para entender sus pantallas, opciones
 1. Mantener una cabecera persistente con repositorio/Project, branch, estado de fetch y estado de publicación.
 2. Mantener dos tabs principales: `Changes` para el working tree y `History` para la evidencia histórica.
 3. En `Changes`, reservar una columna compacta para filtro y selección de ficheros y dedicar el espacio principal al diff del fichero activo.
-4. En `History`, mostrar lista de commits, filtro, detalle del commit, ficheros afectados y diff seleccionable. La comparación entre ramas queda pendiente de un contrato backend específico.
+4. En `History`, mostrar lista de commits, filtro, detalle del commit, ficheros afectados y diff seleccionable; las columnas auxiliares se contraen independientemente y conservan un control de restauración accesible. La comparación entre ramas queda pendiente de un contrato backend específico.
 5. Tratar `Commit`, `Push origin` y `Fetch origin` como operaciones distintas y reconocibles. `Commit` crea únicamente un commit local.
 6. Hacer que Project y branch sean selectores de contexto de primera clase; al cambiar cualquiera se rehidratan lista, selección, diff y estado Git.
 7. Retirar duplicaciones visuales y paneles que compitan con el diff. `Git workspace` seguirá existiendo sólo dentro de `Version control`, pero se integrará en sus tabs en lugar de actuar como un workbench paralelo.
@@ -67,4 +67,4 @@ Rechazado: ADE necesita conservar Projects No Git, Agents, documentación viva y
 
 ## Implementation evidence
 
-La implementación de 2026-09-06 entrega `Changes` como tab inicial, filtro de ficheros, filtro de historial, estado remoto, `Fetch origin`, `Push origin` y `Commit` independientes, diff dominante y el disclosure `Repository actions` para operaciones menos frecuentes. `npm run build` y `npm test` pasan con 112 tests TypeScript. El bundle macOS genera `ADE.app`; el empaquetado de `.dmg` sigue fuera de este corte.
+La implementación de 2026-09-06 entrega `Changes` como tab inicial, filtro de ficheros, filtro de historial, estado remoto, `Fetch origin`, `Push origin` y `Commit` independientes, diff dominante, paneles auxiliares de `History` contraíbles con restauración accesible y el disclosure `Repository actions` para operaciones menos frecuentes. `npm run build` y `npm test` pasan con 112 tests TypeScript. El bundle macOS genera `ADE.app`; el empaquetado de `.dmg` sigue fuera de este corte.

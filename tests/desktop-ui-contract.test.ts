@@ -53,6 +53,16 @@ test("Git workspace is visible only inside Version control", () => {
   assert.match(styles, /\.version-control-utilities \.git-panel \{ display: block;/);
 });
 
+test("Version control History lets the user collapse its supporting panes for diff reading", () => {
+  for (const id of ["history-commits-toggle", "history-commits-restore", "history-files-toggle", "history-files-restore"]) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(html, /data-history-pane-toggle="commits"/);
+  assert.match(html, /data-history-pane-toggle="files"/);
+  assert.match(main, /function setHistoryPaneCollapsed/);
+  assert.match(main, /historyPaneStorageKey/);
+  assert.match(styles, /history-commits-collapsed/);
+  assert.match(styles, /history-files-collapsed/);
+});
+
 test("Agents exposes an accessible delete action for saved conversations", () => {
   assert.match(html, /id="agent-delete-dialog"/);
   assert.match(html, /data-action="confirm-delete-agent-session"/);

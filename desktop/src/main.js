@@ -54,6 +54,7 @@ const terminalResizer = document.getElementById('terminal-resizer');
 const sidebarResizer = document.getElementById('sidebar-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
 const sidebarStorageKey = `ade-sidebar-width:${activeProjectId}`;
+const historyPaneStorageKey = 'ade-history-pane-layout';
 let terminalHeight = 138;
 let terminalResizeState = null;
 let terminalFitFrame = null;
@@ -82,6 +83,8 @@ let gitHistoryFilter = '';
 let pendingGitFilter = '';
 let pendingGitFiles = [];
 let gitCommitNeedsPush = false;
+let historyCommitsCollapsed = false;
+let historyFilesCollapsed = false;
 let codeEditorView = null;
 let monacoEditor = null;
 let monaco = null;
@@ -712,6 +715,37 @@ function renderVersionControlTabs(activeTab) {
   document.querySelectorAll('[data-version-control-panel]').forEach((panel) => {
     panel.hidden = panel.dataset.versionControlPanel !== activeTab;
   });
+}
+
+function setHistoryPaneCollapsed(pane, collapsed, persist = true) {
+  const layout = document.getElementById('version-history-layout');
+  const detail = document.getElementById('git-commit-detail');
+  const isCommits = pane === 'commits';
+  if (isCommits) historyCommitsCollapsed = collapsed;
+  else historyFilesCollapsed = collapsed;
+  layout?.classList.toggle('history-commits-collapsed', historyCommitsCollapsed);
+  detail?.classList.toggle('history-files-collapsed', historyFilesCollapsed);
+  const toggle = document.getElementById(isCommits ? 'history-commits-toggle' : 'history-files-toggle');
+  const restore = document.getElementById(isCommits ? 'history-commits-restore' : 'history-files-restore');
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} ${isCommits ? 'commit list' : 'changed file list'}`);
+    toggle.title = toggle.getAttribute('aria-label');
+  }
+  if (restore) restore.hidden = !collapsed;
+  if (persist) {
+    try { localStorage.setItem(historyPaneStorageKey, JSON.stringify({ commits: historyCommitsCollapsed, files: historyFilesCollapsed })); } catch { /* Persistence is optional. */ }
+  }
+}
+
+function restoreHistoryPaneLayout() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(historyPaneStorageKey) ?? '{}');
+    historyCommitsCollapsed = Boolean(stored.commits);
+    historyFilesCollapsed = Boolean(stored.files);
+  } catch { /* Persistence is optional. */ }
+  setHistoryPaneCollapsed('commits', historyCommitsCollapsed, false);
+  setHistoryPaneCollapsed('files', historyFilesCollapsed, false);
 }
 
 function renderCommitControls() {
@@ -2491,6 +2525,12 @@ document.getElementById('git-commit-form')?.addEventListener('submit', (event) =
   void sendContextRequest('git.commit.create', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), reason: 'Local commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-local').catch((error) => notify(error instanceof Error ? error.message : 'Commit failed.'));
 });
 document.addEventListener('click', (event) => {
+  const historyPaneToggle = event.target.closest('[data-history-pane-toggle]');
+  if (historyPaneToggle) {
+    const pane = historyPaneToggle.dataset.historyPaneToggle;
+    setHistoryPaneCollapsed(pane, pane === 'commits' ? !historyCommitsCollapsed : !historyFilesCollapsed);
+    return;
+  }
   const versionControlTab = event.target.closest('[data-version-control-tab]');
   if (versionControlTab) {
     const tab = versionControlTab.dataset.versionControlTab;
@@ -2626,6 +2666,7 @@ document.getElementById('git-pending-filter')?.addEventListener('input', (event)
   pendingGitFilter = event.target.value;
   renderPendingGitChanges({ files: pendingGitFiles });
 });
+restoreHistoryPaneLayout();
 document.getElementById('agent-provider')?.addEventListener('change', (event) => {
   selectedProvider = event.target.value;
   selectedAgentModel = '';
