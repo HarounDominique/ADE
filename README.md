@@ -1,6 +1,8 @@
-# ADE — Agentic Development Environment
+# Assay
 
-ADE es una workstation local-first para ingeniería de software agéntica: el humano define intención y restricciones, los agentes implementan, y el sistema hace visibles los cambios, la ejecución, la verificación y la revisión.
+Assay es una workstation local-first para ingeniería de software agéntica: el humano define intención y restricciones, los agentes implementan, y el sistema hace visibles los cambios, la ejecución, la verificación y la revisión.
+
+El nombre nombra la postura: un *assay* es la determinación de la composición y la pureza de una muestra. Lo que un agente afirma haber hecho no es autoridad sobre lo que hizo; el código, los tests y Git lo son. El repositorio y el binario conservan `ade` como identificador técnico, y la decisión está en [ADR-0032](docu/adr/0032-product-identity.md).
 
 Este repositorio comienza deliberadamente por la documentación. La documentación es la fuente de intención y arquitectura; Git conserva el estado e historial del código; ADE conserva la metadata operativa del workflow.
 

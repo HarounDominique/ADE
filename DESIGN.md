@@ -1,6 +1,6 @@
 ---
-name: ADE
-description: An agentic development workstation for projects, tasks, documentation, Git and local runtimes.
+name: Assay
+description: A local-first workstation where an agent's work is weighed against evidence before it is accepted.
 colors:
   workspace-bg: "#f7f7f5"
   chrome: "#eef0f3"

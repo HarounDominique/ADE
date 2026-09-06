@@ -6,7 +6,7 @@
 
 desktop (macOS)
 
-ADE se distribuye en esta iteración como shell desktop Tauri para macOS; la interfaz de trabajo es HTML/CSS y debe conservar affordances propias de una herramienta desktop.
+Assay se distribuye en esta iteración como shell desktop Tauri para macOS; la interfaz de trabajo es HTML/CSS y debe conservar affordances propias de una herramienta desktop.
 
 La shell prioriza claridad verificable sobre ornamentación: una acción visible debe funcionar, un estado visible debe tener una fuente real y cada panel debe vivir únicamente en la vista donde el usuario puede actuar sobre él.
 
@@ -20,11 +20,11 @@ Desarrolladores individuales avanzados que dirigen agentes de IA sobre repositor
 
 ## Product Purpose
 
-ADE concentra Project, Task, contexto de workspace, terminal, proveedores agénticos, skills, Git/GitHub y documentación viva. El humano define intención, restricciones y aceptación; los agentes ejecutan; ADE hace observable, verificable, reversible y revisable el resultado.
+Assay concentra Project, Task, contexto de workspace, terminal, proveedores agénticos, skills, Git/GitHub y documentación viva. El humano define intención, restricciones y aceptación; los agentes ejecutan; Assay hace observable, verificable, reversible y revisable el resultado.
 
 ## Positioning
 
-La unidad principal no es un archivo ni una conversación aislada, sino una `Task` trazable desde la intención hasta la sesión, el ChangeSet, la evidencia, las gates y la revisión. ADE organiza runtimes y herramientas intercambiables alrededor de ese flujo.
+La unidad principal no es un archivo ni una conversación aislada, sino una `Task` trazable desde la intención hasta la sesión, el ChangeSet, la evidencia, las gates y la revisión. Assay organiza runtimes y herramientas intercambiables alrededor de ese flujo.
 
 ## Operating Context
 

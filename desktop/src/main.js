@@ -523,7 +523,7 @@ function renderSnapshot(snapshot) {
   const currentBranch = hasGit ? (activeGitBranch ?? activeProject.branch ?? 'detached') : 'No Git';
   const values = {
     'project-name': activeProject.name,
-    'project-description': activeProject.description ?? 'Local ADE project',
+    'project-description': activeProject.description ?? 'Local Assay project',
     'project-path': activeProject.repositoryPath,
     'project-branch': currentBranch,
     'working-tree-state': snapshot.project.workingTree,
@@ -581,7 +581,7 @@ function renderProjectsList() {
     const isActive = project.id === activeProjectId;
     const versionControl = project.versionControl === 'none' ? 'No Git' : 'Git';
     const canRemove = !isActive || registeredProjects.length > 1;
-    return `<div class="project-list-item${isActive ? ' active' : ''}"><button class="project-list-select" type="button" data-project-id="${escapeHTML(project.id)}"><span class="project-list-icon" aria-hidden="true">${isActive ? '●' : '○'}</span><span class="project-list-copy"><strong>${escapeHTML(project.name)}</strong><small>${escapeHTML(project.repositoryPath)}</small></span><span class="project-list-vcs">${versionControl}</span><span class="project-list-arrow" aria-hidden="true">→</span></button><button class="project-list-remove" type="button" data-remove-project-id="${escapeHTML(project.id)}" aria-label="Remove ${escapeHTML(project.name)} from ADE" title="Remove from ADE"${canRemove ? '' : ' disabled'}>×</button></div>`;
+    return `<div class="project-list-item${isActive ? ' active' : ''}"><button class="project-list-select" type="button" data-project-id="${escapeHTML(project.id)}"><span class="project-list-icon" aria-hidden="true">${isActive ? '●' : '○'}</span><span class="project-list-copy"><strong>${escapeHTML(project.name)}</strong><small>${escapeHTML(project.repositoryPath)}</small></span><span class="project-list-vcs">${versionControl}</span><span class="project-list-arrow" aria-hidden="true">→</span></button><button class="project-list-remove" type="button" data-remove-project-id="${escapeHTML(project.id)}" aria-label="Remove ${escapeHTML(project.name)} from Assay" title="Remove from Assay"${canRemove ? '' : ' disabled'}>×</button></div>`;
   }).join('');
   if (status) status.textContent = `${registeredProjects.length} project${registeredProjects.length === 1 ? '' : 's'}`;
 }
@@ -747,7 +747,7 @@ async function switchBranchFromContext(branch) {
   closeGitContextMenus();
   setSyncState('stale', `Switching to ${branch}…`);
   try {
-    await sendContextRequest('git.branch.switch', { repositoryPath: path, branch, actor: 'human', reason: 'Branch selected from ADE Git context bar', confirmed: true }, 'switch-branch');
+    await sendContextRequest('git.branch.switch', { repositoryPath: path, branch, actor: 'human', reason: 'Branch selected from Assay Git context bar', confirmed: true }, 'switch-branch');
   } catch (error) {
     setSyncState('failed', 'Branch switch failed');
     notify(error instanceof Error ? error.message : 'Branch switch failed.');
@@ -783,7 +783,7 @@ function removeProjectFromUI(project) {
   requestConfirmation({
     eyebrow: 'REMOVE PROJECT',
     title: `Remove “${project.name}” from ADE?`,
-    copy: 'ADE stops tracking this Project. Its files stay on disk and can be added again later.',
+    copy: 'Assay stops tracking this Project. Its files stay on disk and can be added again later.',
     confirmLabel: 'Remove',
     tone: 'danger',
   }, () => {
@@ -1366,7 +1366,7 @@ async function renderDocumentResult(result) {
   setDocumentHeader({ title: result.name, path: result.relativePath, kind: result.kind === 'text' ? 'TEXT' : result.kind.toUpperCase(), externalDisabled: false });
   const isText = result.kind === 'text';
   status.hidden = isText;
-  status.textContent = isText ? '' : (result.message ?? 'This file cannot be previewed inside ADE.');
+  status.textContent = isText ? '' : (result.message ?? 'This file cannot be previewed inside Assay.');
   content.hidden = !isText;
   await setCodeEditorContent(isText ? (result.content ?? '') : '', result.path ?? result.name, isText);
   documentOriginalContent = isText ? (result.content ?? '') : '';
@@ -1405,7 +1405,7 @@ async function openFileInADE(filePath) {
     await renderDocumentResult(result);
   } catch (error) {
     await renderDocumentError(filePath, error);
-    notify('Unable to read file inside ADE.');
+    notify('Unable to read file inside Assay.');
     console.warn('File preview unavailable:', error);
   }
 }
@@ -1444,7 +1444,7 @@ async function saveActiveDocument() {
     documentOriginalContent = content;
     activeDocument = { ...activeDocument, content, size: new TextEncoder().encode(content).length };
     updateDocumentEditState();
-    notify('File saved in ADE.');
+    notify('File saved in Assay.');
   } catch (error) {
     notify('Unable to save file.');
     console.warn('File save unavailable:', error);
@@ -1645,7 +1645,7 @@ function renderAgentMessages(messages) {
     list.innerHTML = '<li class="agent-empty-state">Send a prompt to begin.</li>';
     return;
   }
-  list.innerHTML = messages.map((message) => `<li class="agent-message agent-message-${escapeHTML(message.role)}"><div class="agent-message-meta"><strong>${escapeHTML(message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Agent' : 'ADE')}</strong><time>${escapeHTML(new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time></div><div class="agent-message-content">${escapeHTML(message.content)}</div></li>`).join('');
+  list.innerHTML = messages.map((message) => `<li class="agent-message agent-message-${escapeHTML(message.role)}"><div class="agent-message-meta"><strong>${escapeHTML(message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Agent' : 'Assay')}</strong><time>${escapeHTML(new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time></div><div class="agent-message-content">${escapeHTML(message.content)}</div></li>`).join('');
   list.scrollTop = list.scrollHeight;
 }
 
@@ -1932,7 +1932,7 @@ function renderProjectTasks(tasks) {
     const actionMarkup = action ? action[0] === 'RUN'
       ? `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-run="true">${action[1]}</button>`
       : `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-next="${action[0]}">${action[1]}</button>` : '';
-    return `<article class="task-card${task.id === selectedTaskId || (!selectedTaskId && index === 0) ? ' selected-task' : ''}"><button class="task-card-select" type="button" data-task-select="${escapeHTML(task.id)}" aria-label="Open task ${escapeHTML(task.id)}: ${escapeHTML(task.intent)}" aria-current="${task.id === selectedTaskId || (!selectedTaskId && index === 0) ? 'true' : 'false'}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from ADE metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div></button>${actionMarkup}</article>`;
+    return `<article class="task-card${task.id === selectedTaskId || (!selectedTaskId && index === 0) ? ' selected-task' : ''}"><button class="task-card-select" type="button" data-task-select="${escapeHTML(task.id)}" aria-label="Open task ${escapeHTML(task.id)}: ${escapeHTML(task.intent)}" aria-current="${task.id === selectedTaskId || (!selectedTaskId && index === 0) ? 'true' : 'false'}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from Assay metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div></button>${actionMarkup}</article>`;
   }).join('');
   lists.forEach((list) => { list.innerHTML = cards; });
 }
@@ -2316,7 +2316,7 @@ async function connectSidecar(snapshot) {
           if (nextProject) await switchProjectFromContext(nextProject);
         } else {
           setSyncState('ready', 'Synced just now');
-          notify('Project removed from ADE. Files were kept on disk.');
+          notify('Project removed from Assay. Files were kept on disk.');
         }
         return;
       }
@@ -2888,12 +2888,12 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   if (['create-branch', 'create-commit', 'push-branch', 'create-pr'].includes(item.dataset.action)) {
     if (!nativeInvoke) { notify('Git operations require the sidecar.'); return; }
     const taskSuffix = selectedTaskId ? selectedTaskId.toLowerCase().replace(/[^a-z0-9-]/g, '-') : 'ade-next';
-    const labels = { 'create-branch': ['git.branch.create', `feature/${taskSuffix}`], 'create-commit': ['git.commit.create', selectedTaskId ? `chore: record ${selectedTaskId}` : 'chore: record ADE changes'], 'push-branch': ['git.push', ''], 'create-pr': [gitWorkflow === 'direct' ? 'git.push' : 'github.pr.create', gitWorkflow === 'direct' ? '' : selectedTaskIntent || 'ADE change'] };
+    const labels = { 'create-branch': ['git.branch.create', `feature/${taskSuffix}`], 'create-commit': ['git.commit.create', selectedTaskId ? `chore: record ${selectedTaskId}` : 'chore: record Assay changes'], 'push-branch': ['git.push', ''], 'create-pr': [gitWorkflow === 'direct' ? 'git.push' : 'github.pr.create', gitWorkflow === 'direct' ? '' : selectedTaskIntent || 'Assay change'] };
     const [method, intent] = labels[item.dataset.action];
     requestConfirmation({
       eyebrow: 'GIT OPERATION',
       title: `Run ${method}?`,
-      copy: intent ? `ADE runs it on the active Project as “${intent}”.` : 'ADE runs it on the active Project and its current branch.',
+      copy: intent ? `ADE runs it on the active Project as “${intent}”.` : 'Assay runs it on the active Project and its current branch.',
       confirmLabel: 'Run',
     }, () => {
       nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => {
@@ -2971,7 +2971,7 @@ document.getElementById('worktree-form')?.addEventListener('submit', (event) => 
   const path = document.getElementById('worktree-path')?.value.trim();
   if (!branch || !path) { notify('Enter a branch and an absolute path for the worktree.'); return; }
   document.getElementById('worktree-dialog')?.close();
-  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-worktree-${Date.now()}`, method: 'git.worktree.create', params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, branch, worktreePath: path, actor: 'human', reason: 'Confirmed in ADE Git workspace', confirmed: true } }) }).catch((error) => { notify('Worktree creation failed.'); console.warn(error); });
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-worktree-${Date.now()}`, method: 'git.worktree.create', params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, branch, worktreePath: path, actor: 'human', reason: 'Confirmed in Assay Git workspace', confirmed: true } }) }).catch((error) => { notify('Worktree creation failed.'); console.warn(error); });
 });
 document.getElementById('confirm-dialog')?.addEventListener('close', () => { pendingConfirmation = null; });
 document.addEventListener('click', (event) => {

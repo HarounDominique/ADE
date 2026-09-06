@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ADE",
+  "productName": "Assay",
   "version": "0.1.0",
   "identifier": "com.ade.desktop",
   "build": {

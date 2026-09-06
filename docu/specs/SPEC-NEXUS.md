@@ -1,18 +1,18 @@
-# Nexus: ADE — Agentic Development Environment
+# Nexus: Assay
 
 **Estado:** v0.1 MVP implementado; v0.2 cerrada; v0.3 cerrada; slice v0.4 con Projects, Editor multimotor, Agents conversacionales, Projects Git/No Git y contexto de shell implementada y validada en build/tests
 **Última actualización:** 2026-09-06
-**Fuente:** informe fundacional de ADE proporcionado por el usuario
+**Fuente:** informe fundacional del producto proporcionado por el usuario
 
 Este nexus es el índice único de las specs de ADE. Las specs se citan por `module id + heading`, nunca por número de línea.
 
 ## Product brief
 
-ADE es una **Agentic Software Engineering Workstation** para el desarrollador individual avanzado que dirige agentes capaces de explorar, modificar y verificar software. El problema que resuelve es la fragmentación entre agente, IDE, terminal, Git, documentación, skills y runtime: ninguna herramienta representa simultáneamente la intención, el contexto, el cambio y su aceptabilidad.
+Assay es una **Agentic Software Engineering Workstation** para el desarrollador individual avanzado que dirige agentes capaces de explorar, modificar y verificar software. El problema que resuelve es la fragmentación entre agente, IDE, terminal, Git, documentación, skills y runtime: ninguna herramienta representa simultáneamente la intención, el contexto, el cambio y su aceptabilidad.
 
-La visión es que el humano dirija intención y restricciones, los agentes ejecuten trabajo y ADE haga observable, verificable, reversible y revisable el resultado. ADE no compite por tener el mejor modelo: organiza el workflow por encima de modelos y runtimes intercambiables.
+La visión es que el humano dirija intención y restricciones, los agentes ejecuten trabajo y Assay haga observable, verificable, reversible y revisable el resultado. Assay no compite por tener el mejor modelo: organiza el workflow por encima de modelos y runtimes intercambiables.
 
-Éxito inicial significa que el usuario pueda trabajar una semana principalmente dentro de ADE y reducir drásticamente los cambios de contexto. La primera versión es desktop/local-first; el diseño debe poder evolucionar a equipos sin introducir cloud en el MVP.
+Éxito inicial significa que el usuario pueda trabajar una semana principalmente dentro de Assay y reducir drásticamente los cambios de contexto. La primera versión es desktop/local-first; el diseño debe poder evolucionar a equipos sin introducir cloud en el MVP.
 
 ## Product principles
 
@@ -261,6 +261,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-05 — agent-model-selection — `Agents` añade un selector de modelo dependiente del provider junto a los permisos; la selección se refresca al cambiar de conversación, `Provider default` evita overrides y Codex/Claude Code reciben el alias elegido mediante sus CLIs.
 - 2026-09-06 — version-control-push-state — `git.history` marca cada commit con `unpushed` resolviéndolo contra el repositorio (`@{upstream}..HEAD`, `HEAD --not --remotes` o vacío sin remotos), de modo que `Push origin` deja de depender de lo ocurrido en la sesión y `History` señala lo que el repositorio debe al remoto. Se retiran las confirmaciones redundantes de `Push origin` y `Fetch origin`, y el control de contracción de `Changed files` se alinea con el de `History`. Se propagó a `SPEC-git-collaboration`, `SPEC-desktop-shell` y `SPEC-v0.3`. `npm test` pasa con 120 tests TypeScript y `cargo test` con 18 Rust.
 - 2026-09-06 — in-app-confirmations — Las acciones guardadas dejan de usar `window.confirm`/`window.prompt`, que el webview no responde y dejaban inertes retirar un Project, descartar cambios y las operaciones de `Repository actions`, además de hacer inalcanzable la creación de worktrees. Pasan a un diálogo propio de la shell, con campos reales para rama y ruta del worktree; `Discard` gana la confirmación que nunca tuvo. [ADR-0030](../adr/0030-in-app-confirmation-surface.md) fija la decisión y enmienda la cláusula de confirmación de [ADR-0022](../adr/0022-version-control-commit-flow.md); el contrato de producto queda en [SPEC-desktop-shell](SPEC-desktop-shell.md#interaction-states) y se propagó a `SPEC-git-collaboration` y `SPEC-file-workspace`.
+- 2026-09-06 — product-identity — El producto pasa a llamarse **Assay**: un *assay* determina la composición y pureza de una muestra, que es la traducción exacta de «el agente no es autoridad sobre su propio resultado». ADE describía una categoría hoy en disputa —tres significados en competencia y competidores publicando su definición—, prometía un IDE que el producto no es y colisionaba fuera del software. `ade` se conserva como identificador técnico: binario, comando, ids de módulo, `ADE_*` y `.ade/`. [ADR-0032](../adr/0032-product-identity.md) fija la decisión y las alternativas descartadas; se propagó al cliente, README, PRODUCT, DESIGN y este nexus.
 
 ## Automatic Reconciliation Log
 
