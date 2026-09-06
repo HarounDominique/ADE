@@ -71,6 +71,7 @@ let activeAgentTaskId = null;
 let agentProjectTasks = [];
 let pendingAgentSessionDeletion = null;
 let agentPromptRunning = false;
+let agentRailCollapsed = false;
 const agentGroupExpansion = new Map();
 const runtimeEvents = [];
 let activeView = 'projects';
@@ -1476,6 +1477,18 @@ function toggleAgentSessionGroup(groupId) {
   renderAgentSessions(agentSessions);
 }
 
+function setAgentRailCollapsed(collapsed) {
+  agentRailCollapsed = collapsed;
+  const workbench = document.querySelector('.agents-workbench');
+  const toggle = document.getElementById('agent-rail-toggle');
+  const content = document.getElementById('agent-session-rail-content');
+  workbench?.classList.toggle('agent-rail-collapsed', collapsed);
+  toggle?.setAttribute('aria-expanded', String(!collapsed));
+  toggle?.setAttribute('aria-label', collapsed ? 'Expand conversations' : 'Collapse conversations');
+  if (toggle) toggle.title = collapsed ? 'Expand conversations' : 'Collapse conversations';
+  content?.toggleAttribute('inert', collapsed);
+}
+
 function selectAgentSession(sessionId) {
   const session = agentSessions.find((candidate) => candidate.id === sessionId);
   if (!session) return;
@@ -2439,6 +2452,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   if (item.dataset.action === 'toggle-explorer') {
     if (explorerExpanded) void collapseExplorer();
     else void expandExplorer();
+    return;
+  }
+  if (item.dataset.action === 'toggle-agent-rail') {
+    setAgentRailCollapsed(!agentRailCollapsed);
     return;
   }
   if (item.dataset.action === 'refresh-git') {

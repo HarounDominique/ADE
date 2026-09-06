@@ -1321,3 +1321,39 @@ body { color: var(--text); }
   .agent-thread-settings .agent-model-choice { width: 116px; }
   .agent-thread-settings .agent-task-choice { width: min(150px, 40vw); }
 }
+
+/* Conversations behaves like the supporting panes in History: its width can
+   recede, while its restore control remains in the reading path. */
+.agents-workbench {
+  transition: grid-template-columns 200ms cubic-bezier(.16, 1, .3, 1);
+}
+.agent-rail-actions { display: flex; align-items: center; gap: 5px; }
+.agent-rail-toggle {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+.agent-rail-toggle:hover { border-color: color-mix(in srgb, var(--blue) 25%, var(--line)); color: var(--blue); background: color-mix(in srgb, var(--blue) 7%, var(--panel)); }
+.agent-rail-toggle:focus-visible { outline: 2px solid color-mix(in srgb, var(--blue) 60%, transparent); outline-offset: 1px; }
+.agent-rail-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.9; transition: transform 180ms cubic-bezier(.16, 1, .3, 1); }
+#agent-session-rail-content { min-width: 0; overflow: hidden; opacity: 1; transform: translateX(0); transition: opacity 110ms ease-out 55ms, transform 200ms cubic-bezier(.16, 1, .3, 1) 20ms; }
+.agents-workbench.agent-rail-collapsed { grid-template-columns: 48px minmax(0, 1fr); }
+.agents-workbench.agent-rail-collapsed .agent-session-rail { padding-right: 0; padding-left: 0; }
+.agents-workbench.agent-rail-collapsed .agent-rail-heading { justify-content: center; padding: 0; }
+.agents-workbench.agent-rail-collapsed .agent-rail-heading h2,
+.agents-workbench.agent-rail-collapsed .agent-new-session { display: none; }
+.agents-workbench.agent-rail-collapsed .agent-rail-toggle svg { transform: rotate(180deg); }
+.agents-workbench.agent-rail-collapsed #agent-session-rail-content { opacity: 0; pointer-events: none; transform: translateX(-12px); transition-delay: 0ms; }
+@media (max-width: 760px) {
+  .agents-workbench.agent-rail-collapsed { grid-template-columns: 42px minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agents-workbench, .agent-rail-toggle svg, #agent-session-rail-content { transition-duration: .01ms !important; }
+}

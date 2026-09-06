@@ -28,6 +28,7 @@ test("runtime infrastructure stays cross-cutting instead of becoming a visible m
 test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(html, /class="agents-workbench"/);
   assert.match(html, /id="agent-session-list"/);
+  assert.match(html, /id="agent-rail-toggle"[\s\S]*data-action="toggle-agent-rail"/);
   assert.doesNotMatch(html, /agent-session-location/);
   assert.match(styles, /\.agent-thread-header \{\n  min-height: 62px/);
   assert.match(html, /class="agent-thread-settings"[\s\S]*id="agent-provider"[\s\S]*id="agent-model"[\s\S]*id="agent-task"/);
@@ -47,11 +48,13 @@ test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(main, /method: 'agent\.prompt'/);
   assert.match(main, /selectAgentSession/);
   assert.match(main, /toggleAgentSessionGroup/);
+  assert.match(main, /setAgentRailCollapsed/);
   assert.match(main, /sendAgentPrompt/);
   assert.match(main, /classList\.toggle\('agent-focus', view === 'agents'\)/);
   assert.match(styles, /\.main-content\.agent-focus > \.git-panel/);
   assert.match(styles, /grid-template-columns: 248px minmax\(0, 1fr\);/);
   assert.match(styles, /agent-task-group-toggle/);
+  assert.match(styles, /\.agents-workbench\.agent-rail-collapsed/);
 });
 
 test("Git workspace is visible only inside Version control", () => {
