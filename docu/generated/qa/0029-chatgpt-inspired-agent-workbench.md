@@ -1,8 +1,8 @@
-# QA impact: docu/specs/SPEC-agent-providers.md
+# QA impact: docu/adr/0029-chatgpt-inspired-agent-workbench.md
 
 ## Functional scope
 
-Validate the behavior and acceptance criteria changed by docu/specs/SPEC-agent-providers.md.
+Validate the behavior and acceptance criteria changed by docu/adr/0029-chatgpt-inspired-agent-workbench.md.
 
 ## Affected specifications
 

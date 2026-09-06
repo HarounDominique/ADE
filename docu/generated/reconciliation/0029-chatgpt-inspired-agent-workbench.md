@@ -1,4 +1,4 @@
-# Reconciliation: docu/specs/SPEC-agent-providers.md
+# Reconciliation: docu/adr/0029-chatgpt-inspired-agent-workbench.md
 
 Generated from the current documentation graph.
 

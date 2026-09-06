@@ -57,6 +57,16 @@ Las ejecuciones Codex del sidecar son estrictamente no interactivas: ADE cierra 
 
 Los permisos del composer se traducen a cada CLI: Codex usa `--sandbox read-only`/`workspace-write` y `--search`; Claude Code usa `--permission-mode plan` por defecto, `acceptEdits` al conceder escritura y una lista explícita de tools (`Read`, `Glob`, `Grep`, `Edit`, `Write`, `Bash`, `WebFetch`, `WebSearch`) según el turno. `run_commands` no concede escritura por sí solo. La distinción entre editar código y documentación se conserva como permiso de ADE, aunque ambos CLIs aplican sus propias granularidades.
 
+## Next iteration: Agent workbench
+
+La siguiente iteración está definida por la [auditoría de ChatGPT Desktop](../knowledge/chatgpt-desktop-agents-audit.md) y el [ADR-0029](../adr/0029-chatgpt-inspired-agent-workbench.md). No está implementada aún. Conserva el contrato actual de adaptadores, permisos, persistencia y borrado, pero cambia la recuperación visual de sesiones:
+
+- El rail se limita estrictamente al Project activo y agrupa conversaciones por `Task`; las sesiones sin Task aparecen bajo `General`. Nunca replica la agrupación por Project de ChatGPT porque ADE ya tiene `Projects` y topbar como contexto canónico.
+- Las conversaciones se ordenan por última actividad dentro de cada grupo; los grupos son contraíbles, el grupo de la sesión activa no se oculta y el cambio de Project invalida resultados asíncronos anteriores.
+- El thread conserva todo el ancho restante: no añade inspector derecho de Git, rama, commit, archivos modificados, actividad global o skills. El estado/evidencia verificable se puede adjuntar y contraer dentro del turno que lo produjo.
+- Provider, modelo y permisos viven junto al composer. La conversación conserva el provider con el que fue creada para reanudarla correctamente; cambiar de provider crea una conversación nueva asociable a la misma Task. Cambiar de modelo sólo afecta al siguiente turno del provider de la conversación.
+- ADE sigue sin revelar razonamiento privado ni sincronizar conversaciones remotas de ChatGPT/Codex Desktop.
+
 ## Availability and selection
 
 Al iniciar el shell, ADE inspecciona el endpoint local de OpenCode, el mismo comando que usa el runner de Codex (por defecto, el binario incluido en ChatGPT para macOS o `ADE_CODEX_COMMAND`) y el comando `claude` (o `ADE_CLAUDE_COMMAND`). El selector visual muestra todos los proveedores, deshabilita los que no están disponibles y deja visible su transporte, auth externa/local y capacidades. Una ejecución no se inicia contra un proveedor declarado no disponible.

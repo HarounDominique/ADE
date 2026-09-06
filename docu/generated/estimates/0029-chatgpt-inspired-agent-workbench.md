@@ -1,8 +1,8 @@
-# Estimate: docu/specs/SPEC-agent-providers.md
+# Estimate: docu/adr/0029-chatgpt-inspired-agent-workbench.md
 
 ## Inputs
 
-- Changed spec: docu/specs/SPEC-agent-providers.md
+- Changed spec: docu/adr/0029-chatgpt-inspired-agent-workbench.md
 - Direct and transitive dependents: 17
 - Broken references: 0
 
@@ -16,4 +16,4 @@
 
 ## Traceability
 
-See [reconciliation report](../reconciliation/spec-agent-providers.md) and [QA impact](../qa/spec-agent-providers.md).
+See [reconciliation report](../reconciliation/0029-chatgpt-inspired-agent-workbench.md) and [QA impact](../qa/0029-chatgpt-inspired-agent-workbench.md).

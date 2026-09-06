@@ -89,6 +89,8 @@ Las sesiones persistidas se pueden reanudar sin borrar historial. La vista prima
 
 En Codex, los permisos seleccionados se traducen a `read-only` o `workspace-write`, y `network` activa la búsqueda web soportada por el CLI. `run_commands` no concede escritura por sí solo; la granularidad `write_code`/`write_docs` se conserva en el contrato de ADE aunque Codex sólo ofrezca el sandbox de workspace.
 
+La próxima mejora de distribución no está implementada y sigue [ADR-0029](../adr/0029-chatgpt-inspired-agent-workbench.md): el rail se agrupará por Task y `General` dentro del Project activo, la conversación ocupará todo el ancho restante y los estados observables se adjuntarán al turno correspondiente. El selector global de Project/branch conserva su responsabilidad; Agents no vuelve a mostrar conversaciones de otros Projects ni un inspector de Git/commit/rama.
+
 ### Knowledge
 
 Muestra documentos seleccionados, motivo de inclusión, clase (`canonical`, `operational`, `agent`) e impacto pendiente. Los documentos canónicos se abren para consulta mediante Tauri, limitado a `docu/specs`, y sus cambios pasan por la gate documental.

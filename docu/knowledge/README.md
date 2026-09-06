@@ -9,3 +9,8 @@ Los documentos nuevos deben declarar `id`, `class`, `status`, `updatedAt` y `sou
 - `agent`: convenciones e instrucciones para agentes.
 
 El contenido se versiona en Git y no sustituye `docu/specs/` ni `docu/adr/`.
+
+Auditorías operativas vigentes:
+
+- [GitHub Desktop para Version control](github-desktop-audit.md).
+- [ChatGPT Desktop para Agents](chatgpt-desktop-agents-audit.md).
