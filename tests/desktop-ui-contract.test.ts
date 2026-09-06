@@ -48,8 +48,9 @@ test("Agents keeps sessions and conversation as the primary surface", () => {
 
 test("Git workspace is visible only inside Version control", () => {
   assert.match(main, /classList\.toggle\('version-control-focus', view === 'changes'\)/);
-  assert.match(styles, /\.git-panel \{ display: none; /);
-  assert.match(styles, /\.main-content\.version-control-focus > \.git-panel \{ display: block; \}/);
+  assert.match(html, /class="version-control-utilities"/);
+  assert.match(html, /<summary>Repository actions<\/summary>/);
+  assert.match(styles, /\.version-control-utilities \.git-panel \{ display: block;/);
 });
 
 test("Agents exposes an accessible delete action for saved conversations", () => {
@@ -124,7 +125,7 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /renderChanges\(snapshot\.tasks/);
   assert.match(main, /list_directory/);
   assert.match(main, /method: 'github\.status'/);
-  for (const id of ["git-commit-list", "git-commit-files", "git-commit-diff", "git-pending-files", "git-pending-diff", "commit-dialog", "commit-title", "commit-body", "git-push-origin", "commit-branch-name"]) assert.match(html, new RegExp(`id="${id}"`));
+  for (const id of ["git-commit-list", "git-commit-files", "git-commit-diff", "git-pending-files", "git-pending-diff", "git-history-filter", "git-pending-filter", "git-remote-status", "git-fetch-origin", "commit-dialog", "commit-title", "commit-body", "git-push-origin", "commit-branch-name"]) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(html, /data-action="commit-local"/);
   assert.match(html, /data-action="push-origin"/);
   assert.match(html, /data-action="open-commit-dialog"/);
@@ -147,6 +148,8 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /git\.pending\.diff/);
   assert.match(main, /data-git-pending-file/);
   assert.match(main, /requestPendingGitChanges/);
+  assert.match(main, /renderFilteredGitHistory/);
+  assert.match(main, /pendingGitFilter/);
   assert.match(main, /activeView === 'changes'/);
   assert.match(main, /setInterval\(\(\) =>/);
   assert.match(main, /git\.fetch\.origin/);

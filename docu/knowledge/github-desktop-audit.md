@@ -59,12 +59,12 @@ ADE debe conservar esa separación. En particular, `Commit` no debe significar `
 | Selector de repositorio con filtro, recientes y alta | Selector de Project con Projects Git/No Git | Parcial; ampliar en la próxima iteración |
 | Tabs `Changes`/`History` | Tabs accesibles de `Version control` | Implementado |
 | Lista de cambios a la izquierda | Working tree filtrable y seleccionable | Implementado |
-| Diff como superficie dominante | Diff ocupa la columna derecha completa, sin huecos | Objetivo de paridad; corregir distribución pendiente |
+| Diff como superficie dominante | Diff ocupa la columna derecha completa, sin huecos | Implementado |
 | Commit contextual en `Changes` | ADE usa botón `Commit` y diálogo modal | Implementado; validar contra uso integrado de GitHub Desktop |
 | Commit local separado de Push | `Commit` local, después `Push origin` | Implementado |
 | Fetch visible e independiente | `Fetch origin` independiente | Implementado |
-| Historial con detalle y diff | Commit, ficheros y diff seleccionable | Implementado; mejorar distribución |
-| Compare branch | Filtro/selector de comparación de ramas | Pendiente |
+| Historial con detalle y diff | Lista de commits, ficheros y diff en tres zonas | Implementado |
+| Compare branch | Filtro/selector de comparación de ramas | Pendiente de contrato backend |
 | Selección parcial de líneas | Inclusión por fichero actualmente; hunk/línea después | Pendiente y fuera del primer corte si eleva riesgo |
 
 ## Flujo objetivo de ADE
@@ -79,15 +79,14 @@ El cambio de Project o branch invalida y vuelve a cargar la lista, el fichero ac
 
 ## Criterios de calidad de la siguiente iteración
 
-- La mayor parte del área de Version control se dedica al diff o al detalle del commit; no quedan columnas vacías entre lista y diff.
+- La mayor parte del área de Version control se dedica al diff o al detalle del commit; no quedan columnas vacías entre lista y diff. Implementado.
 - El usuario distingue en un vistazo `working tree`, `commit local`, `push pendiente` y `fetch`.
-- Al seleccionar un fichero de `Changes` cambia el diff en la misma vista, con feedback de selección y estados `loading`, `empty` y `failed`.
+- Al seleccionar un fichero de `Changes` cambia el diff en la misma vista, con feedback de selección y estados `loading`, `empty` y `failed`. Implementado.
 - El título y el cuerpo del commit son opcionales según el flujo, pero la acción deja claro si crea un commit local o publica cambios.
-- `History` mantiene una lista navegable, detalles del commit y diff legible sin abandonar la vista.
+- `History` mantiene una lista navegable, filtro, detalles del commit y diff legible sin abandonar la vista. Implementado.
 - Los selectores de Project y branch son rápidos, filtrables, accesibles por teclado y coherentes con el estado real del repositorio.
 - La interfaz conserva los contratos de seguridad existentes: no descarta cambios locales ni fuerza un cambio de branch.
 
 ## Fuera de este contrato
 
 No se adopta la identidad visual completa de GitHub Desktop, sus menús internos ni sus servicios GitHub. Tampoco se introduce en esta iteración una integración de PR, selección parcial por línea o gestión avanzada de ramas salvo que una decisión posterior lo priorice explícitamente.
-

@@ -78,6 +78,9 @@ let gitBranches = [];
 let gitHistoryCommits = [];
 let selectedGitCommit = null;
 let selectedPendingGitFile = null;
+let gitHistoryFilter = '';
+let pendingGitFilter = '';
+let pendingGitFiles = [];
 let gitCommitNeedsPush = false;
 let codeEditorView = null;
 let monacoEditor = null;
@@ -715,24 +718,46 @@ function renderCommitControls() {
   const branch = document.getElementById('current-branch-name')?.textContent?.trim() || 'current branch';
   const branchLabel = document.getElementById('commit-branch-name');
   const pushButton = document.getElementById('git-push-origin');
+  const commitButton = document.getElementById('git-commit-local');
   if (branchLabel) branchLabel.textContent = branch;
   if (pushButton) pushButton.disabled = !gitCommitNeedsPush || activeVersionControl === 'none';
+  if (commitButton) commitButton.disabled = !pendingGitFiles.length || activeVersionControl === 'none';
 }
 
-function renderGitHistory(commits) {
+function setVersionControlRemoteStatus(message) {
+  const status = document.getElementById('git-remote-status');
+  if (status) status.textContent = message;
+}
+
+function matchesGitFilter(value, query) {
+  if (!query) return true;
+  return String(value).toLocaleLowerCase().includes(query.toLocaleLowerCase());
+}
+
+function renderFilteredGitHistory() {
   const list = document.getElementById('git-commit-list');
   const status = document.getElementById('git-history-status');
   if (!list) return;
-  gitHistoryCommits = Array.isArray(commits) ? commits : [];
-  if (!gitHistoryCommits.length) {
-    list.innerHTML = '<div class="git-empty-state">No commits found.</div>';
-    if (status) status.textContent = 'No commits';
-    selectedGitCommit = null;
-    renderGitCommitDetail(null);
+  const query = gitHistoryFilter.trim();
+  const visibleCommits = query
+    ? gitHistoryCommits.filter((commit) => matchesGitFilter(`${commit.subject} ${commit.author} ${commit.shortHash} ${commit.hash}`, query))
+    : gitHistoryCommits;
+  if (!visibleCommits.length) {
+    list.innerHTML = `<div class="git-empty-state">${gitHistoryCommits.length ? 'No commits match this filter.' : 'No commits found.'}</div>`;
+    if (status) status.textContent = gitHistoryCommits.length ? 'No matching commits' : 'No commits';
     return;
   }
-  list.innerHTML = gitHistoryCommits.map((commit) => `<button class="git-commit-item${commit.hash === selectedGitCommit?.hash ? ' active' : ''}" type="button" data-git-commit="${escapeHTML(commit.hash)}"><span class="git-commit-subject">${escapeHTML(commit.subject)}</span><span class="git-commit-item-meta"><code>${escapeHTML(commit.shortHash)}</code><span>${escapeHTML(commit.author)}</span><time>${escapeHTML(formatGitDate(commit.date))}</time></span></button>`).join('');
-  if (status) status.textContent = `${gitHistoryCommits.length} recent commit${gitHistoryCommits.length === 1 ? '' : 's'}`;
+  list.innerHTML = visibleCommits.map((commit) => `<button class="git-commit-item${commit.hash === selectedGitCommit?.hash ? ' active' : ''}" type="button" data-git-commit="${escapeHTML(commit.hash)}"><span class="git-commit-subject">${escapeHTML(commit.subject)}</span><span class="git-commit-item-meta"><code>${escapeHTML(commit.shortHash)}</code><span>${escapeHTML(commit.author)}</span><time>${escapeHTML(formatGitDate(commit.date))}</time></span></button>`).join('');
+  if (status) status.textContent = query ? `${visibleCommits.length} of ${gitHistoryCommits.length} commits` : `${gitHistoryCommits.length} recent commit${gitHistoryCommits.length === 1 ? '' : 's'}`;
+}
+
+function renderGitHistory(commits) {
+  gitHistoryCommits = Array.isArray(commits) ? commits : [];
+  if (!gitHistoryCommits.length) {
+    selectedGitCommit = null;
+    renderGitCommitDetail(null);
+  }
+  renderFilteredGitHistory();
 }
 
 function formatGitDate(value) {
@@ -793,21 +818,29 @@ function renderPendingGitChanges(result) {
   const diff = document.getElementById('git-pending-diff');
   const count = document.getElementById('git-pending-file-count');
   const fileName = document.getElementById('git-pending-file-name');
-  const pendingFiles = result?.files ?? [];
-  const nextSelectedFile = pendingFiles.find((file) => file.path === selectedPendingGitFile)?.path ?? pendingFiles[0]?.path ?? null;
+  pendingGitFiles = result?.files ?? [];
+  const query = pendingGitFilter.trim();
+  const visibleFiles = query
+    ? pendingGitFiles.filter((file) => matchesGitFilter(file.path, query))
+    : pendingGitFiles;
+  const nextSelectedFile = visibleFiles.find((file) => file.path === selectedPendingGitFile)?.path ?? visibleFiles[0]?.path ?? null;
   const selectionChanged = nextSelectedFile !== selectedPendingGitFile;
   selectedPendingGitFile = nextSelectedFile;
-  if (status) status.textContent = pendingFiles.length ? `${pendingFiles.length} pending file${pendingFiles.length === 1 ? '' : 's'}` : 'Working tree clean';
-  if (count) count.textContent = pendingFiles.length ? `${pendingFiles.length} file${pendingFiles.length === 1 ? '' : 's'} changed` : 'Working tree clean';
+  const changedLabel = pendingGitFiles.length ? `${pendingGitFiles.length} file${pendingGitFiles.length === 1 ? '' : 's'} changed` : 'Working tree clean';
+  if (status) status.textContent = query && pendingGitFiles.length ? `${visibleFiles.length} of ${pendingGitFiles.length} shown` : changedLabel;
+  if (count) count.textContent = query && pendingGitFiles.length ? `${visibleFiles.length} of ${pendingGitFiles.length}` : changedLabel;
   if (fileName) fileName.textContent = selectedPendingGitFile ?? 'Select a file';
-  if (files) files.innerHTML = pendingFiles.length
-    ? pendingFiles.map((file) => `<button class="git-pending-file${file.path === selectedPendingGitFile ? ' active' : ''}" type="button" data-git-pending-file="${escapeHTML(file.path)}"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></button>`).join('')
-    : '<div class="git-empty-state">No changes pending.</div>';
-  if (!pendingFiles.length) renderDiffOutput(diff, null, 'No pending changes.');
+  if (files) files.innerHTML = visibleFiles.length
+    ? visibleFiles.map((file) => `<button class="git-pending-file${file.path === selectedPendingGitFile ? ' active' : ''}" type="button" data-git-pending-file="${escapeHTML(file.path)}"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></button>`).join('')
+    : `<div class="git-empty-state">${pendingGitFiles.length ? 'No files match this filter.' : 'No changes pending.'}</div>`;
+  if (!pendingGitFiles.length) renderDiffOutput(diff, null, 'No pending changes.');
+  else if (!visibleFiles.length) renderDiffOutput(diff, null, 'No files match this filter.');
   else if (selectionChanged) {
     renderDiffOutput(diff, null, 'Loading file diff…');
     requestPendingGitDiff(selectedPendingGitFile);
   }
+  if (pendingGitFiles.length && !gitCommitNeedsPush) setVersionControlRemoteStatus(`${pendingGitFiles.length} local change${pendingGitFiles.length === 1 ? '' : 's'}`);
+  else if (!pendingGitFiles.length && !gitCommitNeedsPush) setVersionControlRemoteStatus('Working tree clean');
   renderCommitControls();
 }
 
@@ -1906,6 +1939,7 @@ async function connectSidecar(snapshot) {
       }
       if (contextPurpose === 'git-fetch') {
         setSyncState('ready', 'Fetched just now');
+        setVersionControlRemoteStatus('Fetched just now');
         notify('Fetched origin.');
         requestVersionControlData(workspaceRootPath);
         return;
@@ -1914,6 +1948,7 @@ async function connectSidecar(snapshot) {
         gitCommitNeedsPush = true;
         renderCommitControls();
         setSyncState('stale', 'Local commit ready to push');
+        setVersionControlRemoteStatus('Local commit ready to push');
         notify(`Commit ${response.result.commit?.slice(0, 7) ?? ''} created locally.`.trim());
         const title = document.getElementById('commit-title');
         const body = document.getElementById('commit-body');
@@ -1927,6 +1962,7 @@ async function connectSidecar(snapshot) {
         gitCommitNeedsPush = false;
         renderCommitControls();
         setSyncState('ready', 'Pushed just now');
+        setVersionControlRemoteStatus('Pushed just now');
         notify(`Pushed ${response.result.branch ?? 'current branch'} to origin.`);
         requestVersionControlData(workspaceRootPath);
         return;
@@ -2581,6 +2617,14 @@ document.querySelector('.version-control-tabs')?.addEventListener('keydown', (ev
   const nextTab = tabs[nextIndex];
   renderVersionControlTabs(nextTab.dataset.versionControlTab);
   nextTab.focus();
+});
+document.getElementById('git-history-filter')?.addEventListener('input', (event) => {
+  gitHistoryFilter = event.target.value;
+  renderFilteredGitHistory();
+});
+document.getElementById('git-pending-filter')?.addEventListener('input', (event) => {
+  pendingGitFilter = event.target.value;
+  renderPendingGitChanges({ files: pendingGitFiles });
 });
 document.getElementById('agent-provider')?.addEventListener('change', (event) => {
   selectedProvider = event.target.value;
