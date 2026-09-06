@@ -206,6 +206,9 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /git\.commit\.create/);
   assert.match(main, /git\.push/);
   assert.doesNotMatch(main, /git\.commit\.push/);
+  const commitSubmit = main.slice(main.indexOf("document.getElementById('git-commit-form')"), main.indexOf("document.addEventListener('click'"));
+  assert.match(commitSubmit, /git\.commit\.create/);
+  assert.doesNotMatch(commitSubmit, /window\.confirm/);
   assert.match(html, /data-action="open-file-external"/);
   assert.match(html, /data-action="save-file"/);
   assert.match(html, /data-action="discard-file"/);

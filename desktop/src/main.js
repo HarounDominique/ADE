@@ -2834,7 +2834,6 @@ document.getElementById('git-commit-form')?.addEventListener('submit', (event) =
   const pendingStatus = document.getElementById('git-pending-status')?.textContent ?? '';
   if (!title) { notify('Enter a commit title.'); return; }
   if (pendingStatus === 'Working tree clean' || pendingStatus.startsWith('This Project')) { notify('There are no pending changes to commit.'); return; }
-  if (!window.confirm(`Create local commit “${title}”?`)) return;
   setSyncState('stale', 'Creating local commit…');
   void sendContextRequest('git.commit.create', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), reason: 'Local commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-local').catch((error) => notify(error instanceof Error ? error.message : 'Commit failed.'));
 });
