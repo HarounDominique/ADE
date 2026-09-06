@@ -7,27 +7,24 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Portability is a claim about machines, not about code, so every platform
-  # ADE targets runs the same sequence on its own runner.
+  # Portability is a claim about machines, not about code, so each platform runs
+  # the same sequence on its own runner.  macOS is deliberately absent: it is
+  # verified locally on every change, and on a private repository its runner
+  # bills at ten times the rate of the platforms this matrix exists to answer for.
   matrix:
     name: ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
-    # Windows and Linux are unverified; their result is information, not a gate,
-    # until SPEC-cross-platform-support's acceptance criteria are met.
-    continue-on-error: ${{ matrix.required == false }}
+    # Both are unverified; their result is information, not a gate, until
+    # SPEC-cross-platform-support's acceptance criteria are met.
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: macos
-            runner: macos-latest
-            required: true
           - platform: windows
             runner: windows-latest
-            required: false
           - platform: linux
             runner: ubuntu-latest
-            required: false
     steps:
       - uses: actions/checkout@v4
 
