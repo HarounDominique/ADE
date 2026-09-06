@@ -90,6 +90,19 @@ test("SQLite persists resumable agent sessions per Task", () => {
   store.close();
 });
 
+test("SQLite isolates agent sessions by Project while keeping legacy directory sessions readable", () => {
+  const store = new AdeStore();
+  store.saveAgentSession({ id: "session-project-a", projectId: "project-a", provider: "codex", directory: "/tmp/shared", title: "Inspect login flow", status: "COMPLETED", createdAt: "2026-09-06T00:00:00.000Z" });
+  store.saveAgentSession({ id: "session-project-b", projectId: "project-b", provider: "claude", directory: "/tmp/shared", title: "Review retry flow", status: "COMPLETED", createdAt: "2026-09-06T00:01:00.000Z" });
+  store.saveAgentSession({ id: "session-legacy", provider: "opencode", directory: "/tmp/legacy", status: "COMPLETED", createdAt: "2026-09-06T00:02:00.000Z" });
+
+  assert.deepEqual(store.listAgentSessionsForProject("project-a", "/tmp/shared").map((session) => session.id), ["session-project-a"]);
+  assert.deepEqual(store.listAgentSessionsForProject("project-b", "/tmp/shared").map((session) => session.id), ["session-project-b"]);
+  assert.equal(store.getAgentSession("session-project-a")?.title, "Inspect login flow");
+  assert.deepEqual(store.listAgentSessionsForProject("project-legacy", "/tmp/legacy").map((session) => session.id), ["session-legacy"]);
+  store.close();
+});
+
 test("SQLite deletes an agent session and cascades its messages", () => {
   const store = new AdeStore();
   store.saveAgentSession({ id: "session-delete", provider: "codex", directory: "/tmp/project", status: "COMPLETED", createdAt: "2026-09-03T00:00:00.000Z" });

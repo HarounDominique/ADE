@@ -286,7 +286,6 @@ classDiagram
   ndocuspecsSPECNEXUSmd --> ndocuadr0028githubdesktopversioncontrolparitymd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdesktopshellmd : version-control
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECgitcollaborationmd : git-workspace
-  ndocuspecsSPECNEXUSmd --> ndocuknowledgechatgptdesktopagentsauditmd : references
   ndocuspecsSPECNEXUSmd --> ndocuadr0029chatgptinspiredagentworkbenchmd : references
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECdevelopmentworkflowmd : gates-and-invariants
   ndocuspecsSPECNEXUSmd --> ndocuspecsSPECv02md : references

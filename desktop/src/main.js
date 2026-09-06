@@ -67,8 +67,11 @@ let selectedTaskIntent = '';
 let providerStatuses = [];
 let agentSessions = [];
 let activeAgentSessionId = null;
+let activeAgentTaskId = null;
+let agentProjectTasks = [];
 let pendingAgentSessionDeletion = null;
 let agentPromptRunning = false;
+const agentGroupExpansion = new Map();
 const runtimeEvents = [];
 let activeView = 'projects';
 let pendingGitRefreshInFlight = false;
@@ -96,6 +99,7 @@ const pendingContextRequests = new Map();
 const pendingAgentSessionPaths = new Map();
 const pendingAgentMessageSessions = new Map();
 const pendingAgentSessionDeletes = new Map();
+const pendingAgentPromptProjects = new Map();
 const pendingSnapshotProjects = new Map();
 const pendingProjectRemovals = new Map();
 
@@ -493,6 +497,9 @@ function renderSnapshot(snapshot) {
   if (terminalCwd) terminalCwd.textContent = activeProject.repositoryPath;
   renderChanges(snapshot.tasks ?? []);
   renderProjectTasks(snapshot.tasks ?? []);
+  agentProjectTasks = snapshot.tasks ?? [];
+  renderAgentTaskSelection();
+  if (activeView === 'agents') renderAgentSessions(agentSessions);
   if (snapshot.sync) setSyncState(snapshot.sync.state, snapshot.sync.label);
   renderProjectsList();
 }
@@ -1355,7 +1362,7 @@ function requestAgentSessions(path = workspaceRootPath) {
   pendingAgentSessionPaths.set(id, path);
   const list = document.getElementById('agent-session-list');
   if (list) list.innerHTML = '<p class="agent-empty-state">Loading sessions…</p>';
-  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.sessions', params: { repositoryPath: path } }) });
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.sessions', params: { projectId: activeProjectId, repositoryPath: path } }) });
 }
 
 function requestAgentMessages(sessionId) {
@@ -1363,25 +1370,80 @@ function requestAgentMessages(sessionId) {
   const id = `agent-messages-${Date.now()}`;
   pendingContextRequests.set(id, 'agent-messages');
   pendingAgentMessageSessions.set(id, sessionId);
-  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.messages', params: { sessionId } }) });
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.messages', params: { sessionId, projectId: activeProjectId, repositoryPath: workspaceRootPath } }) });
+}
+
+function agentTaskForId(taskId) {
+  return agentProjectTasks.find((task) => task.id === taskId);
+}
+
+function agentTaskName(taskId) {
+  if (!taskId) return 'General';
+  const task = agentTaskForId(taskId);
+  return task?.intent ?? `Task ${taskId}`;
+}
+
+function agentSessionTitle(session) {
+  return session.title?.trim() || `Conversation ${session.id.slice(0, 12)}`;
+}
+
+function agentSessionTimestamp(session) {
+  const updated = new Date(session.updatedAt);
+  return Number.isNaN(updated.valueOf()) ? '' : updated.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function agentGroupId(session) {
+  return session.taskId ? `task:${session.taskId}` : 'general';
+}
+
+function renderAgentTaskSelection() {
+  const select = document.getElementById('agent-task');
+  if (!select) return;
+  const activeSession = activeAgentSessionId ? agentSessions.find((session) => session.id === activeAgentSessionId) : null;
+  const taskId = activeSession?.taskId ?? activeAgentTaskId ?? '';
+  select.innerHTML = `<option value="">General</option>${agentProjectTasks.map((task) => `<option value="${escapeHTML(task.id)}">${escapeHTML(task.intent)}</option>`).join('')}`;
+  select.value = agentProjectTasks.some((task) => task.id === taskId) ? taskId : '';
+  select.disabled = Boolean(activeSession);
+  select.title = activeSession ? 'Task association is fixed for an existing conversation. Start a new conversation to choose another Task.' : 'Optionally associate this new conversation with a Task.';
 }
 
 function renderAgentSessions(sessions) {
   agentSessions = sessions;
-  const selector = document.getElementById('agent-session-selector');
-  if (!selector) return;
-  selector.innerHTML = `<option value="">New session</option>${sessions.map((session) => `<option value="${escapeHTML(session.id)}"${session.id === activeAgentSessionId ? ' selected' : ''}>${escapeHTML(session.provider)} · ${escapeHTML(session.id.slice(0, 18))} · ${escapeHTML(session.status.toLowerCase())}</option>`).join('')}`;
+  renderAgentTaskSelection();
+  const railProject = document.getElementById('agent-rail-project');
+  if (railProject) railProject.textContent = activeProject.name;
   const list = document.getElementById('agent-session-list');
-  if (list) {
-    list.innerHTML = sessions.length
-      ? sessions.map((session) => `<div class="agent-session-item${session.id === activeAgentSessionId ? ' active' : ''}" role="option" aria-selected="${session.id === activeAgentSessionId}"><button class="agent-session-select" type="button" data-agent-session-id="${escapeHTML(session.id)}"><span class="agent-session-item-top"><strong>${escapeHTML(session.provider)}</strong><span>${escapeHTML(session.status.toLowerCase())}</span></span><small>${escapeHTML(session.id.slice(0, 22))}</small></button><button class="agent-session-delete icon-button" type="button" data-delete-agent-session-id="${escapeHTML(session.id)}" aria-label="Delete saved conversation ${escapeHTML(session.id.slice(0, 12))}" title="Delete saved conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M8 7l1-2h6l1 2m-9 0 1 13h6l1-13"/></svg></button></div>`).join('')
-      : '<p class="agent-empty-state">No saved sessions yet.</p>';
+  if (!list) return;
+  if (!sessions.length) {
+    list.innerHTML = '<p class="agent-empty-state">No conversations in this Project yet.</p>';
+    return;
   }
+  const groups = new Map();
+  for (const session of sessions) {
+    const id = agentGroupId(session);
+    if (!groups.has(id)) groups.set(id, { id, taskId: session.taskId ?? null, sessions: [] });
+    groups.get(id).sessions.push(session);
+  }
+  const orderedGroups = [...groups.values()].sort((left, right) => {
+    if (left.id === 'general') return 1;
+    if (right.id === 'general') return -1;
+    return new Date(right.sessions[0].updatedAt).valueOf() - new Date(left.sessions[0].updatedAt).valueOf();
+  });
+  list.innerHTML = orderedGroups.map((group) => {
+    const containsActive = group.sessions.some((session) => session.id === activeAgentSessionId);
+    const expanded = containsActive || agentGroupExpansion.get(group.id) !== false;
+    const groupLabel = group.taskId ? agentTaskName(group.taskId) : 'General';
+    const task = group.taskId ? agentTaskForId(group.taskId) : null;
+    const items = group.sessions.map((session) => `<div class="agent-session-item${session.id === activeAgentSessionId ? ' active' : ''}" role="listitem"><button class="agent-session-select" type="button" data-agent-session-id="${escapeHTML(session.id)}" aria-current="${session.id === activeAgentSessionId ? 'page' : 'false'}"><strong>${escapeHTML(agentSessionTitle(session))}</strong><span class="agent-session-item-meta"><span>${escapeHTML(session.provider)}</span><span>${escapeHTML(session.status.toLowerCase())}</span><time>${escapeHTML(agentSessionTimestamp(session))}</time></span></button><button class="agent-session-delete icon-button" type="button" data-delete-agent-session-id="${escapeHTML(session.id)}" aria-label="Delete saved conversation ${escapeHTML(agentSessionTitle(session))}" title="Delete saved conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M8 7l1-2h6l1 2m-9 0 1 13h6l1-13"/></svg></button></div>`).join('');
+    return `<section class="agent-task-group${containsActive ? ' contains-active' : ''}" data-agent-group="${escapeHTML(group.id)}"><button class="agent-task-group-toggle" type="button" data-agent-group-toggle="${escapeHTML(group.id)}" aria-expanded="${expanded}" aria-controls="agent-group-${escapeHTML(group.id)}"><span><strong>${escapeHTML(groupLabel)}</strong>${task ? `<small>${escapeHTML(task.status.replaceAll('_', ' '))}</small>` : ''}</span><span class="agent-group-count">${group.sessions.length}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg></button><div class="agent-task-group-list" id="agent-group-${escapeHTML(group.id)}"${expanded ? '' : ' hidden'}>${items}</div></section>`;
+  }).join('');
 }
 
 function resetAgentWorkspaceForProject() {
   activeAgentSessionId = null;
+  activeAgentTaskId = null;
   agentSessionModels.clear();
+  agentGroupExpansion.clear();
   agentSessions = [];
   selectedAgentModel = '';
   renderAgentSessions([]);
@@ -1391,10 +1453,10 @@ function resetAgentWorkspaceForProject() {
   const title = document.getElementById('agent-session-title');
   const location = document.getElementById('agent-session-location');
   const context = document.getElementById('agent-session-context');
-  if (providerLabel) providerLabel.textContent = `${selectedProvider} · new session`;
-  if (title) title.textContent = 'Start an agent session';
+  if (providerLabel) providerLabel.textContent = 'New conversation';
+  if (title) title.textContent = 'Start a conversation';
   if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
-  if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
+  if (context) context.textContent = agentTaskName(activeAgentTaskId);
 }
 
 function renderAgentMessages(messages) {
@@ -1408,10 +1470,19 @@ function renderAgentMessages(messages) {
   list.scrollTop = list.scrollHeight;
 }
 
+function toggleAgentSessionGroup(groupId) {
+  const group = document.querySelector(`[data-agent-group="${CSS.escape(groupId)}"]`);
+  if (!group || group.classList.contains('contains-active')) return;
+  const expanded = group.querySelector('.agent-task-group-toggle')?.getAttribute('aria-expanded') === 'true';
+  agentGroupExpansion.set(groupId, !expanded);
+  renderAgentSessions(agentSessions);
+}
+
 function selectAgentSession(sessionId) {
   const session = agentSessions.find((candidate) => candidate.id === sessionId);
   if (!session) return;
   activeAgentSessionId = session.id;
+  activeAgentTaskId = session.taskId ?? null;
   selectedProvider = session.provider;
   selectedAgentModel = agentSessionModels.get(session.id) ?? '';
   const provider = document.getElementById('agent-provider');
@@ -1421,10 +1492,10 @@ function selectAgentSession(sessionId) {
   const title = document.getElementById('agent-session-title');
   const location = document.getElementById('agent-session-location');
   const context = document.getElementById('agent-session-context');
-  if (providerLabel) providerLabel.textContent = `${session.provider} · ${session.status.toLowerCase()}`;
-  if (title) title.textContent = `Session ${session.id.slice(0, 18)}`;
+  if (providerLabel) providerLabel.textContent = session.provider;
+  if (title) title.textContent = agentSessionTitle(session);
   if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
-  if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
+  if (context) context.textContent = agentTaskName(activeAgentTaskId);
   renderAgentSessions(agentSessions);
   requestAgentMessages(session.id);
 }
@@ -1478,7 +1549,7 @@ function confirmDeleteAgentSession() {
   const id = `agent-session-delete-${Date.now()}`;
   pendingContextRequests.set(id, 'agent-session-delete');
   pendingAgentSessionDeletes.set(id, sessionId);
-  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.session.delete', params: { sessionId } }) }).catch((error) => {
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.session.delete', params: { sessionId, projectId: activeProjectId } }) }).catch((error) => {
     pendingContextRequests.delete(id);
     pendingAgentSessionDeletes.delete(id);
     notify('Conversation could not be deleted.');
@@ -1488,18 +1559,17 @@ function confirmDeleteAgentSession() {
 
 function startNewAgentSession() {
   activeAgentSessionId = null;
+  activeAgentTaskId = selectedTaskId ?? null;
   selectedAgentModel = '';
-  const selector = document.getElementById('agent-session-selector');
-  if (selector) selector.value = '';
   renderAgentMessages([]);
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
   const location = document.getElementById('agent-session-location');
   const context = document.getElementById('agent-session-context');
-  if (providerLabel) providerLabel.textContent = `${selectedProvider} · new session`;
-  if (title) title.textContent = 'Start an agent session';
+  if (providerLabel) providerLabel.textContent = 'New conversation';
+  if (title) title.textContent = 'Start a conversation';
   if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
-  if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
+  if (context) context.textContent = agentTaskName(activeAgentTaskId);
   renderModelSelection();
   renderAgentSessions(agentSessions);
   document.getElementById('agent-prompt-input')?.focus();
@@ -1512,11 +1582,13 @@ function sendAgentPrompt(event) {
   const prompt = input?.value.trim();
   const provider = document.getElementById('agent-provider')?.value ?? selectedProvider;
   const model = document.getElementById('agent-model')?.value ?? '';
+  const taskId = activeAgentSessionId ? (agentSessions.find((session) => session.id === activeAgentSessionId)?.taskId ?? null) : (document.getElementById('agent-task')?.value || null);
   if (!prompt) return;
   if (!providerIsAvailable(provider)) { notify('Selected agent provider is unavailable.'); return; }
   const permissions = [...document.querySelectorAll('#agent-prompt-form input[type="checkbox"]:checked')].map((item) => item.value);
   selectedProvider = provider;
   selectedAgentModel = model;
+  activeAgentTaskId = taskId;
   if (activeAgentSessionId) agentSessionModels.set(activeAgentSessionId, model);
   agentPromptRunning = true;
   const button = document.getElementById('agent-send-button');
@@ -1525,7 +1597,10 @@ function sendAgentPrompt(event) {
   const turnState = document.getElementById('agent-turn-state');
   if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
   if (feedback) feedback.textContent = `Sending prompt to ${provider}…`;
-  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `agent-prompt-${Date.now()}`, method: 'agent.prompt', params: { provider, repositoryPath: workspaceRootPath, prompt, ...(model ? { model } : {}), ...(activeAgentSessionId ? { sessionId: activeAgentSessionId } : {}), ...(selectedTaskId && selectedTaskId !== '—' ? { taskId: selectedTaskId } : {}), grantedPermissions: permissions } }) }).catch((error) => {
+  const requestId = `agent-prompt-${Date.now()}`;
+  pendingAgentPromptProjects.set(requestId, activeProjectId);
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: requestId, method: 'agent.prompt', params: { projectId: activeProjectId, provider, repositoryPath: workspaceRootPath, prompt, ...(model ? { model } : {}), ...(activeAgentSessionId ? { sessionId: activeAgentSessionId } : {}), ...(taskId ? { taskId } : {}), grantedPermissions: permissions } }) }).catch((error) => {
+    pendingAgentPromptProjects.delete(requestId);
     agentPromptRunning = false;
     if (button) button.disabled = false;
     if (turnState) { turnState.textContent = 'ERROR'; turnState.dataset.state = 'error'; }
@@ -1875,8 +1950,14 @@ async function connectSidecar(snapshot) {
         pendingSnapshotProjects.delete(String(response.id));
         if (snapshotProjectId !== activeProjectId) return;
       }
+      const agentPromptProject = pendingAgentPromptProjects.get(String(response.id));
+      if (agentPromptProject && agentPromptProject !== activeProjectId) {
+        if (response.error || response.result?.status === 'COMPLETED') pendingAgentPromptProjects.delete(String(response.id));
+        return;
+      }
       if (response.error) {
         if (String(response.id).startsWith('agent-prompt-')) {
+          pendingAgentPromptProjects.delete(String(response.id));
           agentPromptRunning = false;
           const sendButton = document.getElementById('agent-send-button');
           if (sendButton) sendButton.disabled = false;
@@ -2032,19 +2113,22 @@ async function connectSidecar(snapshot) {
       }
       if (response.type === 'agent.started') {
         activeAgentSessionId = response.sessionId;
+        activeAgentTaskId = response.taskId ?? null;
         const providerLabel = document.getElementById('agent-session-provider');
         const title = document.getElementById('agent-session-title');
         const location = document.getElementById('agent-session-location');
         const context = document.getElementById('agent-session-context');
-        if (providerLabel) providerLabel.textContent = `${response.provider} · running`;
-        if (title) title.textContent = `Session ${response.sessionId.slice(0, 18)}`;
+        if (providerLabel) providerLabel.textContent = response.provider;
+        if (title) title.textContent = response.title || `Conversation ${response.sessionId.slice(0, 12)}`;
         if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
-        if (context) context.textContent = `${activeProject.name} · ${response.taskId ?? 'no Task selected'}`;
+        if (context) context.textContent = agentTaskName(activeAgentTaskId);
+        renderAgentTaskSelection();
         const turnState = document.getElementById('agent-turn-state');
         if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
         return;
       }
       if (response.result?.sessionId && response.result?.provider && response.result?.status === 'COMPLETED') {
+        pendingAgentPromptProjects.delete(String(response.id));
         activeAgentSessionId = response.result.sessionId;
         agentSessionModels.set(activeAgentSessionId, selectedAgentModel);
         agentPromptRunning = false;
@@ -2607,6 +2691,11 @@ document.addEventListener('click', (event) => {
     selectAgentSession(agentSession.dataset.agentSessionId);
     return;
   }
+  const agentGroupToggle = event.target.closest('[data-agent-group-toggle]');
+  if (agentGroupToggle) {
+    toggleAgentSessionGroup(agentGroupToggle.dataset.agentGroupToggle);
+    return;
+  }
   const deleteAgentSessionButton = event.target.closest('[data-delete-agent-session-id]');
   if (deleteAgentSessionButton) {
     openDeleteAgentSessionDialog(deleteAgentSessionButton.dataset.deleteAgentSessionId);
@@ -2685,12 +2774,13 @@ document.getElementById('agent-model')?.addEventListener('change', (event) => {
   selectedAgentModel = event.target.value;
   if (activeAgentSessionId) agentSessionModels.set(activeAgentSessionId, selectedAgentModel);
 });
-document.querySelector('[data-action="new-agent-session"]')?.addEventListener('click', startNewAgentSession);
-document.getElementById('agent-session-selector')?.addEventListener('change', (event) => {
-  const sessionId = event.target.value;
-  if (sessionId) selectAgentSession(sessionId);
-  else startNewAgentSession();
+document.getElementById('agent-task')?.addEventListener('change', (event) => {
+  if (activeAgentSessionId) return;
+  activeAgentTaskId = event.target.value || null;
+  const context = document.getElementById('agent-session-context');
+  if (context) context.textContent = agentTaskName(activeAgentTaskId);
 });
+document.querySelector('[data-action="new-agent-session"]')?.addEventListener('click', startNewAgentSession);
 initializeCodeEditor();
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });
 window.addEventListener('beforeunload', () => {

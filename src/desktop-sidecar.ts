@@ -107,6 +107,9 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
     if (request.method === "agent.session.delete") {
       const sessionId = request.params?.sessionId;
       if (!sessionId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "sessionId is required" } };
+      const session = store.getAgentSession(sessionId);
+      if (!session) return { id: request.id, error: { code: "SESSION_NOT_FOUND", message: `Agent session ${sessionId} was not found` } };
+      if (request.params?.projectId && session.projectId && session.projectId !== request.params.projectId) return { id: request.id, error: { code: "SESSION_PROJECT_MISMATCH", message: "This conversation belongs to another Project" } };
       store.deleteAgentSession(sessionId);
       return { id: request.id, result: { id: sessionId, removed: true } };
     }
@@ -198,12 +201,17 @@ export async function runDesktopSidecar(): Promise<void> {
           .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "PROVIDERS_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "agent.sessions") {
         const repositoryPath = request.params?.repositoryPath;
-        const sessions = store.listAgentSessions().filter((session) => !repositoryPath || session.directory === repositoryPath);
+        const sessions = store.listAgentSessionsForProject(request.params?.projectId, repositoryPath);
         process.stdout.write(`${JSON.stringify({ id: request.id, result: sessions })}\n`);
       } else if (request.method === "agent.messages") {
         const sessionId = request.params?.sessionId;
         if (!sessionId) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "sessionId is required" } })}\n`);
-        else process.stdout.write(`${JSON.stringify({ id: request.id, result: store.listAgentMessages(sessionId) })}\n`);
+        else {
+          const session = store.getAgentSession(sessionId);
+          if (!session) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SESSION_NOT_FOUND", message: `Agent session ${sessionId} was not found` } })}\n`);
+          else if (request.params?.projectId && session.projectId && session.projectId !== request.params.projectId) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "SESSION_PROJECT_MISMATCH", message: "This conversation belongs to another Project" } })}\n`);
+          else process.stdout.write(`${JSON.stringify({ id: request.id, result: store.listAgentMessages(sessionId) })}\n`);
+        }
       } else if (request.method === "agent.prompt") {
         startAgentPrompt(store, request);
       } else if (request.method === "skills.run") {
@@ -454,15 +462,21 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
   }
   void (async () => {
     const runtime = provider === "codex" ? new CodexCliRuntime() : provider === "claude" ? new ClaudeCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+    const existingSession = params.sessionId ? store.getAgentSession(params.sessionId) : undefined;
+    if (existingSession && existingSession.provider !== provider) throw new Error("Choose New conversation before changing agent provider");
+    if (existingSession?.projectId && params.projectId && existingSession.projectId !== params.projectId) throw new Error("This conversation belongs to another Project");
+    const taskId = existingSession?.taskId ?? params.taskId;
+    const projectId = existingSession?.projectId ?? params.projectId;
+    const title = existingSession?.title ?? conversationTitle(params.prompt as string);
     const session = params.sessionId
       ? { id: params.sessionId, directory: params.repositoryPath! }
-      : await runtime.createSession({ directory: params.repositoryPath!, title: `ADE ${params.taskId ?? "agent"}` });
+      : await runtime.createSession({ directory: params.repositoryPath!, title: `ADE ${title}` });
     const isPendingCli = isPendingCliSession(provider, session.id);
     const createdAt = new Date().toISOString();
     if (!isPendingCli) {
-      store.saveAgentSession({ id: session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider, directory: params.repositoryPath!, status: "RUNNING", createdAt });
+      store.saveAgentSession({ id: session.id, ...(projectId ? { projectId } : {}), ...(taskId ? { taskId } : {}), provider, directory: params.repositoryPath!, title, status: "RUNNING", createdAt });
     }
-    process.stdout.write(`${JSON.stringify({ type: "agent.started", id: request.id, sessionId: session.id, provider, taskId: params.taskId ?? null })}\n`);
+    process.stdout.write(`${JSON.stringify({ type: "agent.started", id: request.id, sessionId: session.id, provider, taskId: taskId ?? null, title })}\n`);
     const eventTexts: string[] = [];
     const activity: Array<{ label: string; detail?: string; kind: "status" | "tool" }> = [];
     const eventPromise = provider === "opencode"
@@ -471,7 +485,7 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     const rawOutput = await runtime.prompt(session, { text: params.prompt!, ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), grantedPermissions: params.grantedPermissions ?? [] });
     await eventPromise;
     if (isPendingCli && session.id.startsWith(`${provider}-pending-`)) throw new Error(`${provider} completed without reporting a resumable session id`);
-    store.saveAgentSession({ id: session.id, ...(params.taskId ? { taskId: params.taskId } : {}), provider, directory: params.repositoryPath!, status: "COMPLETED", createdAt });
+    store.saveAgentSession({ id: session.id, ...(projectId ? { projectId } : {}), ...(taskId ? { taskId } : {}), provider, directory: params.repositoryPath!, title, status: "COMPLETED", createdAt });
     store.saveAgentMessage({ id: `agent-${request.id}-user`, sessionId: session.id, role: "user", content: params.prompt!, createdAt });
     const output = provider === "codex" ? extractCodexText(rawOutput) : provider === "claude" ? extractClaudeText(rawOutput) : eventTexts.join("\n\n").trim();
     if (output) store.saveAgentMessage({ id: `agent-${request.id}-assistant`, sessionId: session.id, role: "assistant", content: output, createdAt: new Date().toISOString() });
@@ -481,6 +495,11 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
   })().catch((error: unknown) => {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "AGENT_PROMPT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
   });
+}
+
+function conversationTitle(prompt: string): string {
+  const normalized = prompt.replace(/\s+/g, " ").trim();
+  return normalized.length > 72 ? `${normalized.slice(0, 69).trimEnd()}…` : normalized;
 }
 
 function isPendingCliSession(provider: string | undefined, sessionId: string): boolean {

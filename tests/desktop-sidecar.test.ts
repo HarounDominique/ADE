@@ -59,6 +59,17 @@ test("desktop sidecar deletes a saved agent conversation", () => {
   store.close();
 });
 
+test("desktop sidecar refuses to delete a conversation from another Project", () => {
+  const store = new AdeStore();
+  store.saveAgentSession({ id: "session-project-bound", projectId: "project-a", provider: "codex", directory: "/tmp/project-a", status: "COMPLETED", createdAt: "2026-09-06T00:00:00.000Z" });
+
+  const response = handleDesktopRequest(store, { id: "delete-wrong-project", method: "agent.session.delete", params: { sessionId: "session-project-bound", projectId: "project-b" } });
+
+  assert.deepEqual(response, { id: "delete-wrong-project", error: { code: "SESSION_PROJECT_MISMATCH", message: "This conversation belongs to another Project" } });
+  assert.equal(store.getAgentSession("session-project-bound")?.id, "session-project-bound");
+  store.close();
+});
+
 test("desktop sidecar returns actionable protocol errors", () => {
   const store = new AdeStore();
 

@@ -1,7 +1,7 @@
 ---
 id: chatgpt-desktop-agents-audit
 class: operational
-status: proposed
+status: implemented
 updatedAt: 2026-09-06
 source: user-brief, official-openai-documentation, ADE-source-audit
 ---
@@ -86,7 +86,7 @@ Una conversación agéntica necesita distinguir mensaje, ejecución, resultado y
 - `New conversation` pide provider y asociación opcional a Task antes de crear la sesión. Cuando hay una Task activa, la preselecciona sin imponerla.
 - Borrar, renombrar y futuros archive/branch viven en el menú contextual de cada conversación; borrar conserva el diálogo explícito existente y nunca toca archivos, Task ni Git.
 
-## Flujos que se implementarán después de aprobar esta auditoría
+## Flujos implementados
 
 ### Nueva conversación asociada a una Task
 
@@ -102,7 +102,7 @@ Una conversación agéntica necesita distinguir mensaje, ejecución, resultado y
 
 No se trasladan a Agents los flujos de contexto Git, working tree, commit, push, fetch, rama, PR ni diff. El usuario los consulta en `Version control` sin perder la conversación persistida.
 
-## Criterios de aceptación de la futura implementación
+## Criterios de aceptación verificados
 
 - Sólo se renderizan conversaciones del Project activo; ninguna respuesta asíncrona puede repoblar el rail con el Project anterior.
 - El rail agrupa por Task y `General`, ordena conversaciones por actividad y conserva el grupo de la conversación activa abierto.

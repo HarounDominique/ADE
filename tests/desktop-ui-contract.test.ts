@@ -28,7 +28,9 @@ test("runtime infrastructure stays cross-cutting instead of becoming a visible m
 test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(html, /class="agents-workbench"/);
   assert.match(html, /id="agent-session-list"/);
-  assert.match(html, /id="agent-session-selector"/);
+  assert.match(html, /id="agent-task"/);
+  assert.match(html, /id="agent-provider"/);
+  assert.match(main, /data-agent-group-toggle/);
   assert.match(html, /id="agent-message-list"/);
   assert.match(html, /id="agent-prompt-form"/);
   assert.match(html, /id="agent-prompt-input"/);
@@ -40,10 +42,12 @@ test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(main, /method: 'agent\.messages'/);
   assert.match(main, /method: 'agent\.prompt'/);
   assert.match(main, /selectAgentSession/);
+  assert.match(main, /toggleAgentSessionGroup/);
   assert.match(main, /sendAgentPrompt/);
   assert.match(main, /classList\.toggle\('agent-focus', view === 'agents'\)/);
   assert.match(styles, /\.main-content\.agent-focus > \.git-panel/);
-  assert.match(styles, /grid-template-columns: 188px minmax\(0, 1fr\);/);
+  assert.match(styles, /grid-template-columns: 248px minmax\(0, 1fr\);/);
+  assert.match(styles, /agent-task-group-toggle/);
 });
 
 test("Git workspace is visible only inside Version control", () => {
@@ -103,6 +107,8 @@ test("switching Project refreshes and isolates the Agent session history", () =>
   assert.match(main, /if \(agentSessionRequestPath !== workspaceRootPath\) return;/);
   assert.match(main, /pendingAgentMessageSessions\.set\(id, sessionId\)/);
   assert.match(main, /if \(agentMessageRequestSession !== activeAgentSessionId\) return;/);
+  assert.match(main, /pendingAgentPromptProjects\.set\(requestId, activeProjectId\)/);
+  assert.match(main, /agentPromptProject !== activeProjectId/);
 });
 
 test("Agent permissions are explicit checkboxes without a blocking second prompt", () => {

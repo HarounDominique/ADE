@@ -281,12 +281,12 @@
   - Acceptance: líneas largas del diff se reenvuelven sin perder espacios, color ni selección; el ancho útil se recalcula al expandir, contraer o redimensionar columnas.
   - Verify: `npm test` (115 tests TypeScript), `npm run build` y revisión manual de Changes/History.
 
-## Agents workbench — propuesta 2026-09-06
+## Agents workbench — 2026-09-06
 
-- [ ] Task: Reorganizar Agents por Task con conversación dominante
+- [x] Task: Reorganizar Agents por Task con conversación dominante
   - Plan: [plan-agent-workbench-parity.md](plan-agent-workbench-parity.md)
   - Spec: [SPEC-agent-providers.md](../docu/specs/SPEC-agent-providers.md#next-iteration-agent-workbench) · [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md#agents)
   - ADR: [0029-chatgpt-inspired-agent-workbench.md](../docu/adr/0029-chatgpt-inspired-agent-workbench.md)
   - Acceptance: el rail muestra sólo conversaciones del Project activo, agrupadas por Task y `General`; el thread usa todo el ancho restante; provider/modelo/permisos siguen siendo explícitos y cambiar de provider crea una sesión nueva sin falsear su reanudación.
-  - Verify: `npm run build`, `npm test`, contratos de agrupación/invalidation/provider-modelo y smoke macOS con provider real disponible.
+  - Verify: `npm run build`, `npm --prefix desktop run build`, `npm test` (117 TypeScript tests), contratos de agrupación/invalidation/provider-modelo y smoke macOS pendiente de provider real disponible.
   - Files: `src/persistence/`, `src/desktop-sidecar.ts`, `desktop/src/`, `tests/`, `docu/`.

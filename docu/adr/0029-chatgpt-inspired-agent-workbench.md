@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Date
 
@@ -16,7 +16,7 @@ La auditoría [ChatGPT Desktop para Agents](../knowledge/chatgpt-desktop-agents-
 
 ## Decision
 
-En la siguiente implementación, `Agents` conservará un workbench de dos zonas: rail de conversaciones y thread central. El rail se limitará al Project activo y organizará las conversaciones por `Task`, con un grupo `General` para prompts sin Task. Project, branch, Git y diffs no aparecerán como una tercera columna ni como un inspector lateral permanente.
+`Agents` conserva un workbench de dos zonas: rail de conversaciones y thread central. El rail se limita al Project activo y organiza las conversaciones por `Task`, con un grupo `General` para prompts sin Task. Project, branch, Git y diffs no aparecen como una tercera columna ni como un inspector lateral permanente.
 
 Cada conversación se vincula a un provider al crear la sesión. El usuario puede cambiar de modelo para el siguiente turno dentro del catálogo de ese provider; cambiar de provider crea una conversación nueva, posiblemente asociada a la misma Task, para no corromper la reanudación real de sesiones heterogéneas.
 
@@ -46,6 +46,10 @@ Rechazado: Codex, Claude Code y OpenCode no comparten identificadores ni protoco
 - La UI necesitará estados explícitos para Task sin conversaciones, conversación no reanudable, provider no disponible y cambio de Project durante una respuesta asíncrona.
 - El thread gana espacio y continuidad; la navegación gana contexto semántico de Task.
 - Se requerirán pruebas de agrupación, selección, invalidación de contexto, provider/modelo y accesibilidad del rail.
+
+## Implementation evidence
+
+La entrega persiste `project_id` y `title` en `agent_sessions`, migra bases existentes y mantiene compatibilidad de lectura con sesiones heredadas por directorio. El sidecar filtra sesiones por Project, rechaza acceso/borrado cruzado y no permite reanudar una sesión con otro provider. La shell agrupa el rail por Task/General, preselecciona la Task activa para conversaciones nuevas, bloquea cambiar la asociación de una conversación ya existente y descarta respuestas que lleguen tras cambiar de Project. `npm test` pasa con 117 tests TypeScript y `npm run build`/`npm --prefix desktop run build` pasan.
 
 ## Acceptance criteria for implementation
 
