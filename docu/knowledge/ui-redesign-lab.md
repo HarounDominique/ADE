@@ -53,4 +53,13 @@ El cambio de composición comprobado es deliberado:
 - `Version control` deja de usar pestañas segmentadas como contenedor; `Changes` se convierte en un split real de ficheros a la izquierda y diff dominante a la derecha.
 - El selector de Project/rama se expresa como dos controles separados, no como una franja encuadrada; navegación, Explorer y terminal usan la misma escala tipográfica y de superficie.
 
+## Segunda pasada: superficies operativas
+
+La primera pasada todavía era demasiado próxima al shell anterior. La segunda cambia el markup de las dos áreas que deben justificar el producto:
+
+- `Agents` expresa conversaciones como navegación y comunicación: rail con `Conversations` y acción `New`, thread sin tarjeta exterior y compositor integrado de dos columnas.
+- `Changes` deja de ser una tarjeta genérica: `Working tree` y `Diff` son paneles persistentes con encabezados, conteo de ficheros y nombre de la selección sincronizado al elegir un fichero. Las líneas añadidas, eliminadas y hunks reciben fondo semántico ligero.
+
+Los handlers, ids accesibles, flujos de commit/push, selección de sesión y permisos permanecen inalterados. El bundle se construye correctamente y la batería mantiene 112 tests. La instancia macOS previamente abierta no se ha cerrado de forma automática para preservar terminales y trabajo del usuario; se necesita un relanzamiento limpio para inspeccionar esta segunda pasada en pantalla.
+
 Se verificó el bundle macOS en una instancia real de ADE con conversaciones de Claude Code y cambios Git del proyecto Apache Camel. `npm test` mantiene 112 tests correctos y el build desktop completa. La validación pendiente antes de cualquier merge es una revisión humana de esta dirección y, si se acepta, una segunda pasada focalizada en densidad, estados vacíos y jerarquía de `Version control`.

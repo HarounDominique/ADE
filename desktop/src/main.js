@@ -791,11 +791,15 @@ function renderPendingGitChanges(result) {
   const status = document.getElementById('git-pending-status');
   const files = document.getElementById('git-pending-files');
   const diff = document.getElementById('git-pending-diff');
+  const count = document.getElementById('git-pending-file-count');
+  const fileName = document.getElementById('git-pending-file-name');
   const pendingFiles = result?.files ?? [];
   const nextSelectedFile = pendingFiles.find((file) => file.path === selectedPendingGitFile)?.path ?? pendingFiles[0]?.path ?? null;
   const selectionChanged = nextSelectedFile !== selectedPendingGitFile;
   selectedPendingGitFile = nextSelectedFile;
   if (status) status.textContent = pendingFiles.length ? `${pendingFiles.length} pending file${pendingFiles.length === 1 ? '' : 's'}` : 'Working tree clean';
+  if (count) count.textContent = pendingFiles.length ? `${pendingFiles.length} file${pendingFiles.length === 1 ? '' : 's'} changed` : 'Working tree clean';
+  if (fileName) fileName.textContent = selectedPendingGitFile ?? 'Select a file';
   if (files) files.innerHTML = pendingFiles.length
     ? pendingFiles.map((file) => `<button class="git-pending-file${file.path === selectedPendingGitFile ? ' active' : ''}" type="button" data-git-pending-file="${escapeHTML(file.path)}"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></button>`).join('')
     : '<div class="git-empty-state">No changes pending.</div>';
@@ -809,6 +813,8 @@ function renderPendingGitChanges(result) {
 
 function requestPendingGitDiff(file) {
   if (!nativeInvoke || !workspaceRootPath || !file) return;
+  const fileName = document.getElementById('git-pending-file-name');
+  if (fileName) fileName.textContent = file;
   void sendContextRequest('git.pending.diff', { repositoryPath: workspaceRootPath, file }, 'git-pending-diff').catch((error) => notify(error instanceof Error ? error.message : 'Unable to load file diff.'));
 }
 
