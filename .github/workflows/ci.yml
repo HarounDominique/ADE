@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # Portability is a claim about machines, not about code, so every platform
+  # ADE targets runs the same sequence on its own runner.
+  matrix:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    # Windows and Linux are unverified; their result is information, not a gate,
+    # until SPEC-cross-platform-support's acceptance criteria are met.
+    continue-on-error: ${{ matrix.required == false }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos
+            runner: macos-latest
+            required: true
+          - platform: windows
+            runner: windows-latest
+            required: false
+          - platform: linux
+            runner: ubuntu-latest
+            required: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      # Tauri needs WebKitGTK and its build dependencies on Linux only.
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix desktop
+
+      - name: Typecheck
+        run: npm run build
+
+      - name: Build sidecar
+        run: npm run desktop:sidecar:build
+
+      - name: Test TypeScript
+        run: npm test
+
+      - name: Test Rust
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml
+
+      - name: Build shell bundle
+        run: npm --prefix desktop run build
+
+      - name: Compile shell
+        run: cargo build --manifest-path desktop/src-tauri/Cargo.toml
