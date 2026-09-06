@@ -701,113 +701,149 @@ body { color: var(--text); }
   .agent-model-choice { min-width: 0; }
 }
 
-/* UI redesign lab — a quiet reading desk for agent work, not a dashboard skin. */
+/* UI redesign lab — an evidence desk, not a dashboard skin. */
 :root {
-  --bg: #f6f7f9;
-  --chrome: #fafbfc;
-  --chrome-strong: #f1f3f6;
+  --bg: #f5f5f3;
+  --chrome: #f0f1f2;
+  --chrome-strong: #e6e8eb;
   --panel: #ffffff;
   --panel-raised: #ffffff;
-  --panel-soft: #f4f6f8;
-  --line: #e1e5ea;
-  --line-strong: #cbd3dc;
-  --text: #1d2633;
-  --text-soft: #3e4b5c;
-  --muted: #687588;
-  --faint: #8994a4;
-  --blue: #3569c8;
-  --cyan: #197c7a;
-  --green: #1e7b4e;
-  --amber: #986718;
-  --red: #b44753;
-  --purple: #6557c8;
-  --shadow-soft: 0 8px 24px rgba(27, 39, 54, .07);
+  --panel-soft: #f7f8f9;
+  --line: #dfe2e6;
+  --line-strong: #c6ccd4;
+  --text: #20242b;
+  --text-soft: #424b57;
+  --muted: #69727e;
+  --faint: #89919c;
+  --blue: #2563c4;
+  --cyan: #187672;
+  --green: #24724e;
+  --amber: #94631c;
+  --red: #b54551;
+  --purple: #6356bf;
+  --shadow-soft: 0 12px 28px rgba(31, 36, 43, .08);
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 :root[data-theme="dark"] {
-  --bg: #15191f;
-  --chrome: #1b2028;
-  --chrome-strong: #14181e;
-  --panel: #20262f;
-  --panel-raised: #252c36;
-  --panel-soft: #1a2028;
-  --line: #323b48;
-  --line-strong: #4a5667;
-  --text: #edf1f5;
-  --text-soft: #c6d0db;
-  --muted: #99a7b7;
-  --faint: #728094;
-  --blue: #8eb4ff;
-  --cyan: #78d4cf;
-  --green: #7dd8a6;
-  --amber: #efc979;
-  --red: #f19da6;
+  --bg: #171a1f;
+  --chrome: #1d2128;
+  --chrome-strong: #16191e;
+  --panel: #22272f;
+  --panel-raised: #272d36;
+  --panel-soft: #1b2027;
+  --line: #343b46;
+  --line-strong: #4c5665;
+  --text: #edf0f3;
+  --text-soft: #c8d0d9;
+  --muted: #9ba6b4;
+  --faint: #747f8d;
+  --blue: #8db7ff;
+  --cyan: #79d4ca;
+  --green: #82d4a6;
+  --amber: #f0c97a;
+  --red: #f1a0a8;
   --purple: #c7b8ff;
-  --shadow-soft: 0 12px 30px rgba(0, 0, 0, .24);
+  --shadow-soft: 0 16px 36px rgba(0, 0, 0, .28);
 }
 
-::selection { background: color-mix(in srgb, var(--blue) 24%, transparent); }
+::selection { background: color-mix(in srgb, var(--blue) 22%, transparent); }
 * { scrollbar-color: color-mix(in srgb, var(--muted) 48%, transparent) transparent; }
 
 .app-shell { background: var(--bg); }
-.sidebar { padding: 18px 12px 12px; background: var(--chrome); }
-.brand { padding: 0 8px 17px; font-size: 14px; font-weight: 680; letter-spacing: -.01em; }
-.brand-mark { width: 26px; height: 26px; border-radius: 7px; box-shadow: none; }
-.primary-nav { gap: 4px; }
-.nav-item { min-height: 36px; border-radius: 7px; font-size: 12px; }
-.nav-item.active { color: var(--text); background: color-mix(in srgb, var(--blue) 10%, var(--chrome)); box-shadow: inset 2px 0 0 var(--blue); }
+.sidebar { padding: 20px 13px 13px; background: var(--chrome); }
+.brand { padding: 0 9px 22px; font-size: 15px; font-weight: 720; letter-spacing: -.025em; }
+.brand-mark { width: 28px; height: 28px; border-radius: 8px; background: #273f6f; box-shadow: 0 3px 8px rgba(32, 53, 96, .19); }
+.primary-nav { gap: 5px; }
+.nav-item { min-height: 38px; padding: 8px 10px; border-radius: 8px; color: var(--text-soft); font-size: 12px; }
+.nav-item:hover { color: var(--text); background: rgba(36, 50, 70, .055); }
+.nav-item.active { color: #17355e; background: #dfe9fa; box-shadow: inset 3px 0 0 #356dcc; }
 .nav-item.active .nav-icon { color: var(--blue); }
-.explorer-section { margin-top: 17px; padding-top: 15px; }
-.explorer-title h2 { letter-spacing: .04em; }
-.workspace-entry { border-radius: 5px; }
+.explorer-section { margin-top: 21px; padding-top: 16px; }
+.explorer-title h2 { color: var(--muted); letter-spacing: .08em; }
+.explorer-filter { background: rgba(255, 255, 255, .72); }
+.workspace-entry { min-height: 30px; border-radius: 6px; font-size: 11px; }
+:root:not([data-theme="dark"]) .workspace-entry.directory:hover,
+:root:not([data-theme="dark"]) .workspace-entry.file:hover { background: #e4e9f0; }
+:root:not([data-theme="dark"]) .workspace-entry.selected { background: #dce9fb; }
 
-.topbar { min-height: 56px; padding: 0 24px; background: color-mix(in srgb, var(--chrome) 96%, transparent); }
-.breadcrumb-root { color: var(--text-soft); background: transparent; font-family: var(--sans); font-weight: 600; }
-.git-context-bar { height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
-.git-context-control + .git-context-control { border-left-color: var(--line); }
-.git-context-button { padding: 4px 12px; }
-.git-context-button:hover, .git-context-button[aria-expanded="true"] { background: color-mix(in srgb, var(--blue) 6%, var(--panel)); }
-.git-context-copy small { font: 500 9px/1.2 var(--sans); letter-spacing: .035em; }
-.git-context-copy strong { font-size: 11px; font-weight: 650; }
-.theme-switch { border-radius: 7px; font-family: var(--sans); font-weight: 600; letter-spacing: .02em; text-transform: none; }
+.topbar { min-height: 64px; padding: 0 26px; background: var(--panel); }
+.breadcrumb { gap: 7px; font-size: 12px; }
+.breadcrumb-root { padding: 5px 0; color: var(--text); background: transparent; font-family: var(--sans); font-weight: 700; }
+.git-context-bar { height: 42px; border: 0; border-radius: 0; background: transparent; }
+.git-context-control { margin: 0 3px; border-radius: 8px; }
+.git-context-control + .git-context-control { border-left: 0; }
+.git-context-button { padding: 5px 12px; border: 1px solid transparent; border-radius: 8px; }
+.git-context-button:hover, .git-context-button[aria-expanded="true"] { border-color: var(--line); background: var(--panel-soft); }
+.git-context-copy small { font: 650 9px/1.1 var(--sans); letter-spacing: .055em; }
+.git-context-copy strong { font-size: 12px; font-weight: 700; }
+.theme-switch { padding: 6px 8px; border-radius: 8px; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: .01em; text-transform: none; }
 
-.view { padding: 20px 26px 30px; }
-.button { border-radius: 7px; box-shadow: none; font-weight: 600; }
-.button.primary { box-shadow: 0 2px 6px color-mix(in srgb, var(--blue) 20%, transparent); }
-.projects-list-panel, .workspace-tree-panel, .knowledge-card, .runtime-card { border-radius: 8px; }
+.view { padding: 24px 30px 34px; }
+.button { border-radius: 8px; box-shadow: none; font-weight: 650; }
+.button.primary { border-color: #275fb8; background: #2f69c9; box-shadow: 0 3px 9px rgba(41, 88, 168, .2); }
+.projects-list-panel, .workspace-tree-panel, .knowledge-card, .runtime-card { border-radius: 10px; }
 
-/* Conversation uses proximity, not a stack of independent cards. */
-.main-content.agent-focus .agents-view { padding: 0 14px 14px; }
-.main-content.agent-focus .agents-workspace { border-radius: 9px; box-shadow: var(--shadow-soft); }
-.agent-session-rail { background: var(--chrome); }
-.agent-rail-heading h2 { font-weight: 680; }
-.agent-session-item { border-radius: 6px; }
-.agent-session-item.active { box-shadow: inset 2px 0 0 var(--purple); }
-.agent-thread-header { min-height: 66px; padding: 14px 22px 12px; }
-.agent-thread-header h2 { font-size: 16px; }
-.agent-thread .agent-message-list { gap: 10px; padding: 22px clamp(20px, 5vw, 64px); }
-.agent-message { max-width: min(760px, 84%); padding: 13px 15px; border-color: transparent; border-radius: 10px; background: var(--panel-soft); }
-.agent-message-user { border-color: transparent; background: color-mix(in srgb, var(--blue) 11%, var(--panel)); }
-.agent-message-content { font-size: 13px; line-height: 1.62; }
-.agent-thread .agent-prompt-form { padding: 14px clamp(18px, 4vw, 42px) 16px; }
-.agent-thread .agent-prompt-form textarea { min-height: 72px; border-radius: 8px; }
+/* Conversation reads as a continuous record; only the user's turn is a bubble. */
+.main-content.agent-focus .agents-view { padding: 0 20px 18px; }
+.main-content.agent-focus .agents-workspace { border-radius: 12px; box-shadow: var(--shadow-soft); }
+.agents-workbench { grid-template-columns: 250px minmax(0, 1fr); }
+.agent-session-rail { gap: 15px; padding: 18px 0; background: #f1f3f6; }
+.agent-rail-heading { padding: 0 18px; }
+.agent-rail-heading h2 { font-size: 13px; font-weight: 720; }
+.agent-rail-label { padding: 0 18px; }
+.agent-rail-label select { background: #fff; }
+.agent-session-item { padding-right: 10px; padding-left: 18px; border-radius: 0; }
+.agent-session-item:hover, .agent-session-item.active { background: rgba(255, 255, 255, .72); }
+.agent-session-item.active { box-shadow: inset 3px 0 0 var(--purple); }
+.agent-session-item-top { font-size: 11px; font-weight: 650; }
+.agent-thread { background: var(--panel); }
+.agent-thread-header { min-height: 72px; padding: 16px 30px 13px; background: var(--panel); }
+.agent-thread-header h2 { font-size: 18px; letter-spacing: -.025em; }
+.agent-session-location { font-size: 10px; }
+.agent-turn-state { border-radius: 999px; font-size: 9px; }
+.agent-thread .agent-message-list { gap: 0; padding: 24px clamp(28px, 6vw, 92px); }
+.agent-message { width: min(800px, 100%); max-width: none; padding: 17px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+.agent-message-user { align-self: flex-end; width: auto; max-width: min(680px, 82%); margin: 12px 0 12px auto; padding: 14px 16px; border: 1px solid #bfd0ec; border-radius: 11px; background: #eff5ff; }
+.agent-message-content { font-size: 14px; line-height: 1.7; }
+.agent-message-meta { color: var(--faint); font-size: 10px; }
+.agent-thread .agent-prompt-form { margin: 0 24px 18px; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 11px; background: var(--panel); }
+.agent-thread .agent-prompt-form textarea { min-height: 78px; border: 0; border-radius: 7px; background: transparent; }
+.agent-thread .agent-prompt-form textarea:focus { box-shadow: none; outline: 2px solid color-mix(in srgb, var(--blue) 26%, transparent); }
 
-/* GitHub Desktop-like reading: tabs are navigation, the diff is the surface. */
-.version-control-view { padding: 18px 26px 30px; }
-.version-control-tab-row { min-height: 38px; margin-bottom: 13px; }
-.version-control-tabs { gap: 18px; padding: 0; border: 0; border-radius: 0; background: transparent; }
-.version-control-tab { min-width: 0; padding: 9px 2px; border-radius: 0; font-family: var(--sans); font-size: 12px; font-weight: 600; text-transform: none; }
-.version-control-tab.active { background: transparent; box-shadow: inset 0 -2px 0 var(--blue); }
-.version-history-layout, .changes-workspace { border-radius: 8px; box-shadow: none; }
-.git-commit-list { background: var(--chrome); }
-.git-commit-item { min-height: 70px; padding: 12px 14px; }
-.git-commit-item.active { box-shadow: inset 2px 0 0 var(--blue); }
-.git-pending-file { min-height: 36px; }
-.git-pending-file.active { box-shadow: inset 2px 0 0 var(--blue); }
-.git-diff-output { border-radius: 6px; background: color-mix(in srgb, var(--panel-soft) 88%, var(--panel)); }
+/* Git uses an actual split view: files are chosen on the left, evidence stays wide. */
+.version-control-view { padding: 18px 30px 30px; }
+.version-control-tab-row { min-height: 44px; margin-bottom: 12px; }
+.version-control-tabs { gap: 22px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.version-control-tab { min-width: 0; padding: 10px 1px; border-radius: 0; font-family: var(--sans); font-size: 13px; font-weight: 700; text-transform: none; }
+.version-control-tab.active { color: var(--blue); background: transparent; box-shadow: inset 0 -2px 0 var(--blue); }
+.version-control-toolbar { min-height: 38px; padding: 0 2px; }
+.version-control-status { font-size: 10px; }
+.version-history-layout, .changes-workspace { border-radius: 10px; box-shadow: var(--shadow-soft); }
+.git-commit-list { background: #f4f5f7; }
+.git-commit-item { min-height: 76px; padding: 14px 16px; }
+.git-commit-subject { font-size: 12px; }
+.git-commit-item.active { box-shadow: inset 3px 0 0 var(--blue); }
+.pending-changes-layout { min-height: 0; }
+.changes-workspace { display: grid; grid-template-columns: minmax(300px, .82fr) minmax(0, 1.65fr); align-items: stretch; }
+.changes-section-heading { grid-column: 1 / -1; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.git-pending-files { grid-column: 1; margin: 0; padding: 12px; border-right: 1px solid var(--line); background: #f6f7f9; }
+.git-pending-file { min-height: 42px; padding: 10px 11px; border-radius: 7px; font-size: 11px; }
+.git-pending-file.active { box-shadow: inset 3px 0 0 var(--blue); }
+.pending-diff { grid-column: 2; min-height: 0; max-height: none; margin: 0; padding: 16px 18px; border: 0; border-radius: 0; background: var(--panel); font-size: 11px; line-height: 1.65; }
+.git-diff-output { background: var(--panel); }
 
-.terminal-dock { background: var(--chrome); box-shadow: 0 -6px 18px color-mix(in srgb, var(--text) 5%, transparent); }
-.terminal-surface { border-radius: 6px; }
+.terminal-dock { background: var(--chrome); box-shadow: 0 -7px 18px color-mix(in srgb, var(--text) 6%, transparent); }
+.terminal-surface { border-radius: 7px; }
+
+:root[data-theme="dark"] .nav-item.active { color: var(--text); background: #26354c; }
+:root[data-theme="dark"] .agent-session-rail,
+:root[data-theme="dark"] .git-commit-list,
+:root[data-theme="dark"] .git-pending-files { background: var(--chrome); }
+:root[data-theme="dark"] .agent-session-item:hover,
+:root[data-theme="dark"] .agent-session-item.active { background: #282f3a; }
+:root[data-theme="dark"] .agent-message-user { border-color: #40587a; background: #263956; }
 
 @media (prefers-reduced-motion: no-preference) {
   .nav-item, .workspace-entry, .git-context-button, .agent-session-item, .agent-message, .git-commit-item, .git-pending-file, .button { transition: color .14s ease, background-color .14s ease, border-color .14s ease, box-shadow .14s ease; }

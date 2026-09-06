@@ -45,6 +45,12 @@ Una herramienta macOS clara y serena, con la jerarquía de Codex Desktop para co
 
 ## Primera pasada aplicada
 
-La primera prueba modifica únicamente `desktop/src/styles.css`: consolida una paleta light-first menos azulada, una noche separada pero legible, reduce el peso del chrome, convierte `Agents` en una superficie de lectura más amplia y rebaja `Version control` a pestañas de navegación con el diff como zona dominante. No altera el DOM, la semántica, los comandos ni los flujos de Project, Git o agentes.
+La prueba modifica exclusivamente `desktop/src/styles.css`, sin alterar DOM, semántica, comandos ni flujos de Project, Git o agentes. Consolida una paleta light-first menos azulada, una noche equivalente y legible, y reduce el peso del chrome.
 
-Se verificó el bundle macOS en una instancia real de ADE con conversaciones de Claude Code y cambios Git del proyecto Apache Camel. `npm test` mantiene 112 tests correctos y el build desktop completa. La validación pendiente antes de cualquier merge es una revisión humana de esta variante y, si se acepta la dirección, una segunda pasada focalizada en tipografía y densidad de `Version control`.
+El cambio de composición comprobado es deliberado:
+
+- `Agents` pasa de una suma de tarjetas a un registro de lectura continuo: rail de sesiones sobrio, respuesta del agente a ancho útil y turno humano distinguible, a la derecha, como burbuja propia.
+- `Version control` deja de usar pestañas segmentadas como contenedor; `Changes` se convierte en un split real de ficheros a la izquierda y diff dominante a la derecha.
+- El selector de Project/rama se expresa como dos controles separados, no como una franja encuadrada; navegación, Explorer y terminal usan la misma escala tipográfica y de superficie.
+
+Se verificó el bundle macOS en una instancia real de ADE con conversaciones de Claude Code y cambios Git del proyecto Apache Camel. `npm test` mantiene 112 tests correctos y el build desktop completa. La validación pendiente antes de cualquier merge es una revisión humana de esta dirección y, si se acepta, una segunda pasada focalizada en densidad, estados vacíos y jerarquía de `Version control`.
