@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { loadServiceDefinitions } from "../src/application/local-runtime/service-config.js";
 import { inspectGitWorkspace } from "../src/application/git/workspace-status.js";
 
@@ -22,5 +22,9 @@ test("git workspace inspection returns branch, changes and worktrees", async () 
   assert.ok(result.currentBranch);
   assert.deepEqual(result.changedFiles, []);
   assert.ok(Array.isArray(result.branches));
-  assert.ok(result.worktrees.some((path) => path === canonicalRoot));
+  // Git prints worktree paths with forward slashes even on Windows, where
+  // realpath returns backslashes. The claim is that the root is listed, not
+  // that both tools spell a path the same way.
+  const sameLocation = (left: string, right: string) => left.split(sep).join("/") === right.split(sep).join("/");
+  assert.ok(result.worktrees.some((path) => sameLocation(path, canonicalRoot)));
 });

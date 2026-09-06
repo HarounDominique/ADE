@@ -58,6 +58,7 @@ npm --prefix desktop run build
 ## Open Questions
 
 - **Canonización de rutas en Windows.** `WorkspaceRoot::resolve` canoniza y compara con `starts_with`. Si `canonicalize` devuelve prefijos UNC de forma inconsistente entre la raíz y el fichero pedido, la comparación puede rechazar rutas legítimas y bloquear el árbol entero. Requiere ejecución real para decidir entre normalizar el prefijo o comparar por componentes.
+- **Grafía de rutas entre Git y Node.** `git worktree list` emite rutas con `/` incluso en Windows, mientras Node devuelve `\`. Hoy sólo afecta a la comparación de un test, pero cualquier código futuro que contraste una ruta de Git con una del filesystem chocará con las dos grafías. Queda abierto si `inspectGitWorkspace` debe normalizar su salida a rutas nativas antes de exponerla.
 - **Shell por defecto en Windows.** `cmd` es el mínimo común; PowerShell es lo que un desarrollador espera. La elección afecta al prompt, al color y a las secuencias que xterm.js recibe.
 - **Node como dependencia del sidecar.** El lanzador de reserva asume un Node instalado cuando la distribución carece del fuse SEA. Queda abierto si Windows debe empaquetar su propio runtime en vez de depender de una instalación previa.
 - **Linux y WebKitGTK.** Tauri exige `webkit2gtk` y sus dependencias de sistema; queda abierto qué mínimo de distribución se declara soportado.
