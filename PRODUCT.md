@@ -38,7 +38,7 @@ La unidad principal no es un archivo ni una conversación aislada, sino una `Tas
 
 - Workspace local con raíz canónica, árbol perezoso, apertura segura de archivos y terminal PTY persistente.
 - Shell desktop con navegación lateral única, Explorer compacto/expandido animado y tema claro/oscuro persistente.
-- Dock de terminal inferior redimensionable con transcript único, prompt mínimo, historial `↑`/`↓` y completado de rutas `cd` mediante `Tab`.
+- Dock de terminal inferior redimensionable con transcript único, prompt mínimo, historial `↑`/`↓` y completado de rutas `cd` mediante `Tab`; un control centrado en el divisor alterna directamente entre sus alturas mínima y máxima sin modificar esos límites.
 - Editor interno acotado para ficheros de texto, con lectura/escritura segura, estado dirty, guardado, descarte, estados de preview y apertura externa explícita. CodeMirror 6 cubre los lenguajes oficiales incorporados y Monaco Editor aporta un fallback MIT para lenguajes adicionales, sin cambiar la superficie común.
 - Proveedores OpenCode, Codex y Claude Code, con sesiones reanudables por Task y sin copiar credenciales a ADE.
 - `Agents` como workbench inline: rail de conversaciones del Project activo agrupadas por Task/General, contraíble con transición y conversación central dominante; provider, modelo dependiente y Task viven en la cabecera contextual, mientras permisos y envío viven junto al composer. El composer conserva un historial local por Project con `↑`/`↓`, envía con `Enter` (`Shift+Enter` añade línea) y detiene el turno activo con `Esc`, abortando el runtime del proveedor. El inspector lateral de actividad, ficheros y skills no forma parte de la vista primaria.

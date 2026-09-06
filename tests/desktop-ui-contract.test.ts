@@ -232,6 +232,7 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(html, />Projects<\/span>/);
   assert.match(html, />Editor<\/span>/);
   assert.match(html, /id="terminal-resizer" role="separator"/);
+  assert.match(html, /id="terminal-size-toggle"/);
   assert.match(main, /ade-terminal-height/);
   assert.match(main, /setPointerCapture/);
   assert.match(html, /class="terminal-surface" tabindex="0"/);
@@ -246,6 +247,8 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(main, /tab\.terminal\.open/);
   assert.match(main, /terminal_resize/);
   assert.match(main, /scheduleTerminalFit/);
+  assert.match(main, /terminalHeightBounds/);
+  assert.match(main, /updateTerminalSizeToggle/);
   assert.match(main, /ResizeObserver/);
   assert.match(main, /sessionId: tab\.id/);
   assert.match(main, /payload\?\.session_id/);

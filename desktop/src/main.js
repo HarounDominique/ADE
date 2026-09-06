@@ -51,6 +51,7 @@ let workspaceSearchIndex = null;
 let workspaceSearchToken = 0;
 let workspaceSearchTimer = null;
 const terminalResizer = document.getElementById('terminal-resizer');
+const terminalSizeToggle = document.getElementById('terminal-size-toggle');
 const sidebarResizer = document.getElementById('sidebar-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
 const sidebarStorageKey = `ade-sidebar-width:${activeProjectId}`;
@@ -228,13 +229,27 @@ const requestedTheme = new URLSearchParams(window.location.search).get('theme');
 try { initialTheme = requestedTheme ?? localStorage.getItem('ade-theme') ?? 'light'; } catch { initialTheme = requestedTheme ?? 'light'; }
 applyTheme(initialTheme);
 
+function terminalHeightBounds() {
+  return { min: 110, max: Math.max(260, Math.round(window.innerHeight * 0.72)) };
+}
+
+function updateTerminalSizeToggle() {
+  const bounds = terminalHeightBounds();
+  const expanded = terminalHeight >= bounds.max;
+  terminalSizeToggle?.setAttribute('aria-expanded', String(expanded));
+  terminalSizeToggle?.setAttribute('data-expanded', String(expanded));
+  const action = expanded ? 'Reduce terminal to minimum height' : 'Expand terminal to maximum height';
+  terminalSizeToggle?.setAttribute('aria-label', action);
+  if (terminalSizeToggle) terminalSizeToggle.title = action;
+}
+
 function setTerminalHeight(nextHeight, persist = true) {
-  const minHeight = 110;
-  const maxHeight = Math.max(260, Math.round(window.innerHeight * 0.72));
-  terminalHeight = Math.max(minHeight, Math.min(maxHeight, Math.round(nextHeight)));
+  const bounds = terminalHeightBounds();
+  terminalHeight = Math.max(bounds.min, Math.min(bounds.max, Math.round(nextHeight)));
   document.documentElement.style.setProperty('--terminal-height', `${terminalHeight}px`);
-  terminalResizer?.setAttribute('aria-valuemax', String(maxHeight));
+  terminalResizer?.setAttribute('aria-valuemax', String(bounds.max));
   terminalResizer?.setAttribute('aria-valuenow', String(terminalHeight));
+  updateTerminalSizeToggle();
   scheduleTerminalFit();
   if (persist) {
     try { localStorage.setItem(terminalStorageKey, String(terminalHeight)); } catch { /* Persistence is optional. */ }
@@ -411,6 +426,7 @@ try {
 setSidebarWidth(sidebarWidth, false);
 
 terminalResizer?.addEventListener('pointerdown', (event) => {
+  if (event.target.closest('#terminal-size-toggle')) return;
   event.preventDefault();
   terminalResizeState = { pointerId: event.pointerId, startY: event.clientY, startHeight: terminalHeight };
   terminalResizer.setPointerCapture?.(event.pointerId);
@@ -432,8 +448,12 @@ terminalResizer?.addEventListener('keydown', (event) => {
     event.preventDefault();
     setTerminalHeight(terminalHeight + (event.key === 'ArrowUp' ? step : -step));
   }
-  if (event.key === 'Home') { event.preventDefault(); setTerminalHeight(110); }
-  if (event.key === 'End') { event.preventDefault(); setTerminalHeight(window.innerHeight * 0.72); }
+  if (event.key === 'Home') { event.preventDefault(); setTerminalHeight(terminalHeightBounds().min); }
+  if (event.key === 'End') { event.preventDefault(); setTerminalHeight(terminalHeightBounds().max); }
+});
+terminalSizeToggle?.addEventListener('click', () => {
+  const bounds = terminalHeightBounds();
+  setTerminalHeight(terminalHeight >= bounds.max ? bounds.min : bounds.max);
 });
 window.addEventListener('resize', () => setTerminalHeight(terminalHeight, false));
 sidebarResizer?.addEventListener('pointerdown', (event) => {
