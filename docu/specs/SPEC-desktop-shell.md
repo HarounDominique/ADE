@@ -20,6 +20,8 @@ El arranque debe:
 
 El shell debe funcionar sin cloud y conservar la capacidad de abrir el repositorio en un IDE o terminal externo. La navegación principal debe ser una única superficie lateral etiquetada, sin duplicar una barra de iconos con otro menú de texto.
 
+La shell no puede presentar controles decorativos o estados inventados. Indicadores de salud, notificaciones, identidad de operador, tareas de ejemplo o selectores aparentes sólo se muestran si tienen una fuente y una acción reales. El panel documental vive únicamente en `Project context`; `Git workspace` vive únicamente en `Version control`.
+
 ## Information architecture
 
 Las áreas visibles son `PROJECTS`, `EDITOR`, `AGENTS`, `WORK`, `KNOWLEDGE` y `VERSION CONTROL`. `Projects` administra el catálogo local y el Project activo; `Editor` es la superficie de ficheros; `Agents` es la superficie conversacional para runtimes locales. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y evidencia de runtime se consume desde sus superficies respectivas sin exponer un menú Runtime independiente.
@@ -49,7 +51,7 @@ El resumen operativo dentro de `Projects` no es una entrada separada ni un segun
 
 ### Sidebar and Explorer
 
-El lateral combina una navegación etiquetada para `Projects`, `Editor`, `Work`, `Knowledge` y `Changes` con el Explorer del Project. No se muestran simultáneamente dos menús que representen las mismas vistas. Un divisor vertical visible permite redimensionar el lateral por pointer o teclado, con límites de 190–720 px (acotados responsivamente al ancho de ventana) y ancho persistido por Project. El Explorer tiene dos estados:
+El lateral combina una navegación etiquetada para `Projects`, `Editor`, `Work`, `Knowledge` y `Changes` con el Explorer del Project. No se muestran simultáneamente dos menús que representen las mismas vistas. Un divisor vertical visible permite redimensionar el lateral por pointer o teclado, con límites de 190–720 px (acotados responsivamente para reservar al menos 580 px al workbench) y ancho persistido por Project. El Explorer tiene dos estados:
 
 - **Compacto:** cuando existe un archivo activo, muestra su rama de carpetas desde la raíz del Project hasta el archivo, ocultando hermanos no relevantes y manteniendo el contexto como un breadcrumb en formato árbol. Si todavía no hay archivo activo, muestra los hijos directos de la raíz.
 - **Expandido:** al pulsar el control de expansión o una carpeta de la rama compacta, oculta las opciones de navegación y convierte el árbol en la superficie principal del lateral. Los hijos se cargan perezosamente y la rama seleccionada permanece resaltada.
@@ -62,7 +64,7 @@ El filtro del Explorer busca recursivamente por nombre y ruta, pero muestra como
 
 Seleccionar un fichero de texto en el Explorer abre su contenido dentro del workbench, en un editor interno con motor seleccionable por lenguaje: CodeMirror para los paquetes oficiales de ADE y Monaco como fallback para lenguajes adicionales. El documento muestra nombre, ruta relativa, lenguaje detectado y estado de carga. El documento activo se mantiene sincronizado con la rama compacta del Explorer, permite resaltado sintáctico, navegación estructural básica, `Format` cuando el lenguaje tiene formatter aprobado, `Save`, `Discard` y `⌘/Ctrl+S`, y no altera la Task ni el dock de terminal.
 
-El Editor trata binarios, ficheros ilegibles y previews demasiado grandes con estados explicativos. `Open externally` es una acción separada y explícita; seleccionar un fichero nunca debe lanzar automáticamente una aplicación del sistema. La lectura se solicita al backend Tauri y queda sometida a la autorización de la raíz del Project. El alcance completo está en [file-workspace](SPEC-file-workspace.md#product-contract).
+El Editor trata binarios, ficheros ilegibles y previews demasiado grandes con estados explicativos. `Open externally` es una acción separada y explícita; seleccionar un fichero nunca debe lanzar automáticamente una aplicación del sistema. La lectura se solicita al backend Tauri y queda sometida a la autorización de la raíz del Project. CodeMirror cubre la ruta principal inmediatamente; Monaco, sus contribuciones y Prettier se dividen e importan bajo demanda al abrir un lenguaje fallback o solicitar `Format`. El alcance completo está en [file-workspace](SPEC-file-workspace.md#product-contract).
 
 ### Terminal dock
 
@@ -74,7 +76,7 @@ El shell real conserva `Enter`, `↑`/`↓`, `Tab`, el completado, el historial 
 
 ### Work
 
-Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y las transiciones seguras atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor, y refrescan el resumen de `Projects`. Una Task en `READY`, `CHANGES_REQUESTED` o `BLOCKED` puede iniciar `task.run`; la shell recibe aceptación inmediata y eventos de Implementer, mientras el sidecar persiste la transición, diff y ChangeSet. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados.
+Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y las transiciones seguras atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor, y refrescan el resumen de `Projects`. Una Task en `READY`, `CHANGES_REQUESTED` o `BLOCKED` puede iniciar `task.run`; la shell recibe aceptación inmediata y eventos de Implementer, mientras el sidecar persiste la transición, diff y ChangeSet. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados. Mientras se cargan no se sustituyen por fixtures; cuando no hay Tasks se muestra un estado vacío y cada Task real se abre mediante un botón nativo, con foco visible y etiqueta accesible.
 
 ### Agents
 
@@ -93,7 +95,7 @@ Muestra documentos seleccionados, motivo de inclusión, clase (`canonical`, `ope
 
 ### Version control
 
-Conserva el icono de control de versiones y sustituye la antigua cola de revisión. La superficie `Version control` es la única que muestra el panel contextual `Git workspace`, con estado de la rama, cambios, worktrees, remotos y operaciones Git vinculadas a la Task; ese panel no se repite en `Projects`, `Editor`, `Agents`, `Work` ni `Project context`. La pestaña `History` lista los commits recientes del Project activo; al seleccionar uno muestra autor, fecha, ficheros modificados y el diff del commit, con selección opcional de un fichero para aislar su diff. La pestaña `Changes` sigue el patrón de GitHub Desktop: muestra el working tree como lista de ficheros seleccionables y el diff legible del fichero activo, con líneas de contexto, añadidas, eliminadas y hunks resaltadas. El botón `Commit` se sitúa junto a las tabs y abre un diálogo modal para el título y cuerpo opcional; sólo crea el commit local. Al completarse habilita `Push origin`, que publica la rama actual bajo confirmación explícita. Mientras `Version control` está visible, `git.pending` se consulta periódicamente con actualización silenciosa para reflejar cambios hechos desde ADE, desde la terminal o desde otra aplicación, sin obligar a cambiar de vista ni pulsar Refresh; las respuestas de un Project anterior se descartan. `Fetch origin` actualiza las referencias remotas bajo confirmación explícita. Los estados `No Git`, `loading`, `empty`, `failed`, `fetching`, `committing` y `local commit ready to push` deben ser visibles; un fallo de push no oculta el commit si ya llegó a crearse.
+Conserva el icono de control de versiones y sustituye la antigua cola de revisión. La superficie `Version control` es la única que muestra el panel contextual `Git workspace`, con estado de la rama, cambios, worktrees, remotos y operaciones Git vinculadas a la Task; ese panel no se repite en `Projects`, `Editor`, `Agents`, `Work` ni `Project context`. La pestaña `History` lista los commits recientes del Project activo; al seleccionar uno muestra autor, fecha, ficheros modificados y el diff del commit, con selección opcional de un fichero para aislar su diff. La pestaña `Changes` sigue el patrón de GitHub Desktop: muestra el working tree como lista de ficheros seleccionables y el diff legible del fichero activo, con líneas de contexto, añadidas, eliminadas y hunks resaltadas. El botón `Commit` se sitúa junto a las tabs y abre un diálogo modal para el título y cuerpo opcional; sólo crea el commit local. Al completarse habilita `Push origin`, que publica la rama actual bajo confirmación explícita. Las tabs implementan el patrón accesible completo: `aria-controls`, `aria-labelledby`, un único tab stop y navegación con `←`/`→`, Home y End. Mientras `Version control` está visible, `git.pending` se consulta periódicamente con actualización silenciosa para reflejar cambios hechos desde ADE, desde la terminal o desde otra aplicación, sin obligar a cambiar de vista ni pulsar Refresh; las respuestas de un Project anterior se descartan. `Fetch origin` actualiza las referencias remotas bajo confirmación explícita. Los estados `No Git`, `loading`, `empty`, `failed`, `fetching`, `committing` y `local commit ready to push` deben ser visibles; un fallo de push no oculta el commit si ya llegó a crearse.
 
 ### Runtime infrastructure
 
@@ -127,7 +129,7 @@ npm run desktop:test
 npm run desktop:package:app
 ```
 
-La shell actual se verifica con `npm run build`, `npm test` (109 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
+La shell actual se verifica con `npm run build`, `npm test` (112 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente.
 
 El shell visual vive en `desktop/src/`. `project-snapshot.js` define el boundary de arranque y `project-context.js` conserva la fusión del Project activo. El comando Tauri `project_context` aporta contexto local y selecciona la raíz canónica. La UI no accede directamente a SQLite, Git ni procesos: Projects y ramas se obtienen mediante el sidecar y el cambio de raíz pasa por Tauri.
 

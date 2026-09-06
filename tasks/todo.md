@@ -258,3 +258,10 @@
   - Acceptance: el panel operativo `Git workspace` sólo aparece en `Version control`; Projects, Editor, Agents, Work y Project context no duplican su estado ni sus acciones Git, mientras la topbar conserva el contexto global de Project y branch.
   - Verify: `npm test`, `npm run build`, `git diff --check` y comprobación manual del `.app` en macOS.
   - Files: `desktop/src/main.js`, `desktop/src/styles.css`, `tests/desktop-ui-contract.test.ts`, `docu/`.
+
+- [x] Task: Endurecer la shell desktop y su carga inicial
+  - Spec: [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md) · [SPEC-file-workspace.md](../docu/specs/SPEC-file-workspace.md)
+  - ADR: [0023-code-editor-and-formatting.md](../docu/adr/0023-code-editor-and-formatting.md)
+  - Acceptance: no hay chrome simulado ni fixtures de Tasks; Knowledge y Git sólo muestran sus paneles propios; Tasks, tabs y diálogos son accesibles por teclado; la ventana macOS conserva un workbench usable al redimensionar; Monaco y Prettier no bloquean la carga inicial.
+  - Verify: `node --check desktop/src/main.js`, `npm run build`, `npm --prefix desktop run build`, `npm test`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml` y `git diff --check`.
+  - Files: `desktop/src/`, `desktop/src-tauri/tauri.conf.json`, `tests/desktop-ui-contract.test.ts`, `README.md`, `PRODUCT.md`, `DESIGN.md`, `docu/`.

@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const html = readFileSync(new URL("../desktop/src/index.html", import.meta.url), "utf8");
 const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../desktop/src/styles.css", import.meta.url), "utf8");
+const desktopBuild = readFileSync(new URL("../desktop/build.mjs", import.meta.url), "utf8");
 
 test("desktop shell keeps the project workbench areas and critical actions", () => {
   for (const view of ["projects", "editor", "agents", "work", "knowledge", "changes"]) {
@@ -122,8 +123,6 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /method: 'task\.run'/);
   assert.match(main, /renderChanges\(snapshot\.tasks/);
   assert.match(main, /list_directory/);
-  assert.match(main, /method: 'skills\.run'/);
-  assert.match(main, /method: 'skills\.install'/);
   assert.match(main, /method: 'github\.status'/);
   for (const id of ["git-commit-list", "git-commit-files", "git-commit-diff", "git-pending-files", "git-pending-diff", "commit-dialog", "commit-title", "commit-body", "git-push-origin", "commit-branch-name"]) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(html, /data-action="commit-local"/);
@@ -139,8 +138,6 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(html, /id="agent-model"/);
   assert.match(main, /renderModelSelection/);
   assert.match(main, /model \? \{ model \}/);
-  assert.match(main, /method: 'skills\.update'/);
-  assert.match(main, /refreshSelectedSkill/);
   assert.match(main, /method: 'service\.list'/);
   assert.match(main, /renderServices/);
   assert.match(html, /id="document-viewer"/);
@@ -167,6 +164,8 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(main, /discardDocumentChanges/);
   assert.match(main, /documentDirty/);
   assert.match(main, /item\.dataset\.action === 'open-file-external'/);
+  assert.doesNotMatch(main, /agent-skill|native-skills-list|agent-activity-list|agent-files-list/);
+  assert.match(main, /resumeAgentConversation/);
 });
 
 test("workspace tree expands directories lazily and keeps symlinks non-actionable", () => {
@@ -310,6 +309,40 @@ test("dark theme keeps a dedicated night-evidence palette", () => {
   assert.match(darkTheme, /--cyan: #69d5c8/);
   assert.match(main, /editor\.background': '#142333'/);
   assert.match(main, /background: '#142333', foreground: '#d7eee9'/);
+});
+
+test("desktop shell removes simulated chrome and keeps Task selection accessible", () => {
+  assert.doesNotMatch(html, /Local workspace|All systems nominal|Local operator|Human in command|brand-beta/);
+  assert.doesNotMatch(html, /data-action="show-notifications"|data-action="show-help"/);
+  assert.doesNotMatch(html, /TASK-042|TASK-041/);
+  assert.match(html, /id="work-task-list" aria-live="polite"/);
+  assert.match(main, /class="task-card-select" type="button" data-task-select=/);
+  assert.match(main, /No tasks yet\. Create one when you are ready to delegate work/);
+  assert.match(styles, /\.task-card-select:focus-visible/);
+  assert.match(html, /OpenCode · Codex · Claude Code/);
+});
+
+test("desktop shell scopes knowledge, dialogs and tabs to their actual work", () => {
+  const knowledgeStart = html.indexOf('data-panel="knowledge"');
+  const knowledgeEnd = html.indexOf('data-panel="changes"');
+  const graphIndex = html.indexOf('knowledge-graph-panel');
+  assert.ok(graphIndex > knowledgeStart && graphIndex < knowledgeEnd);
+  assert.match(html, /id="new-task-dialog" aria-labelledby="new-task-dialog-title" aria-describedby="new-task-dialog-copy"/);
+  assert.match(html, /id="version-history-tab"/);
+  assert.match(html, /aria-labelledby="version-history-tab"/);
+  assert.match(html, /id="version-changes-tab"/);
+  assert.match(main, /event\.key === 'ArrowRight'/);
+  assert.match(main, /event\.key === 'ArrowLeft'/);
+});
+
+test("heavy editor modules load only when a matching action needs them", () => {
+  assert.match(main, /async function loadMonaco\(\)/);
+  assert.match(main, /import\('monaco-editor\/esm\/vs\/editor\/editor\.api\.js'\)/);
+  assert.match(main, /async function loadPrettier\(\)/);
+  assert.match(main, /import\('prettier\/standalone'\)/);
+  assert.doesNotMatch(main, /^import \* as monaco/m);
+  assert.match(desktopBuild, /splitting: true/);
+  assert.match(html, /href="\/main\.css"/);
 });
 
 test("Agent messages distinguish the user turn and align it to the right", () => {

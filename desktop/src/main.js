@@ -21,38 +21,6 @@ import { defaultHighlightStyle, bracketMatching, indentOnInput, syntaxHighlighti
 import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
-import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
-import 'monaco-editor/esm/vs/basic-languages/cpp/cpp.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/csharp/csharp.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/dart/dart.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/dockerfile/dockerfile.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/elixir/elixir.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/fsharp/fsharp.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/go/go.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/graphql/graphql.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/java/java.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/kotlin/kotlin.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/lua/lua.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/objective-c/objective-c.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/perl/perl.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/php/php.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/powershell/powershell.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/protobuf/protobuf.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/python/python.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/r/r.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/scala/scala.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/shell/shell.contribution.js';
-import 'monaco-editor/esm/vs/basic-languages/swift/swift.contribution.js';
-import * as prettier from 'prettier/standalone';
-import * as prettierBabel from 'prettier/plugins/babel';
-import * as prettierEstree from 'prettier/plugins/estree';
-import * as prettierTypescript from 'prettier/plugins/typescript';
-import * as prettierPostcss from 'prettier/plugins/postcss';
-import * as prettierHtml from 'prettier/plugins/html';
-import * as prettierMarkdown from 'prettier/plugins/markdown';
-import * as prettierYaml from 'prettier/plugins/yaml';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 const panels = [...document.querySelectorAll('.view')];
@@ -100,9 +68,6 @@ let agentSessions = [];
 let activeAgentSessionId = null;
 let pendingAgentSessionDeletion = null;
 let agentPromptRunning = false;
-let agentActivity = [];
-let agentFiles = [];
-let agentSkillsUsed = [];
 const runtimeEvents = [];
 let activeView = 'projects';
 let pendingGitRefreshInFlight = false;
@@ -116,6 +81,9 @@ let selectedPendingGitFile = null;
 let gitCommitNeedsPush = false;
 let codeEditorView = null;
 let monacoEditor = null;
+let monaco = null;
+let monacoLoader = null;
+let prettierLoader = null;
 let activeEditorEngine = 'codemirror';
 const codeEditorLanguage = new Compartment();
 const pendingContextRequests = new Map();
@@ -125,7 +93,9 @@ const pendingAgentSessionDeletes = new Map();
 const pendingSnapshotProjects = new Map();
 const pendingProjectRemovals = new Map();
 
-monaco.editor.defineTheme('ade-dark', {
+function configureMonacoThemes() {
+  if (!monaco) return;
+  monaco.editor.defineTheme('ade-dark', {
   base: 'vs-dark',
   inherit: true,
   rules: [],
@@ -139,8 +109,8 @@ monaco.editor.defineTheme('ade-dark', {
     'editorCursor.foreground': '#69d5c8',
     'editorIndentGuide.background': '#2f4357',
   },
-});
-monaco.editor.defineTheme('ade-light', {
+  });
+  monaco.editor.defineTheme('ade-light', {
   base: 'vs',
   inherit: true,
   rules: [],
@@ -154,10 +124,65 @@ monaco.editor.defineTheme('ade-light', {
     'editorCursor.foreground': '#0e827b',
     'editorIndentGuide.background': '#c6d2de',
   },
-});
+  });
+}
+
+async function loadMonaco() {
+  if (monaco) return monaco;
+  if (!monacoLoader) {
+    monacoLoader = Promise.all([
+      import('monaco-editor/esm/vs/editor/editor.api.js'),
+      import('monaco-editor/esm/vs/basic-languages/cpp/cpp.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/csharp/csharp.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/dart/dart.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/dockerfile/dockerfile.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/elixir/elixir.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/fsharp/fsharp.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/go/go.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/graphql/graphql.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/java/java.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/kotlin/kotlin.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/lua/lua.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/objective-c/objective-c.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/perl/perl.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/php/php.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/powershell/powershell.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/protobuf/protobuf.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/python/python.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/r/r.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/rust/rust.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/scala/scala.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/shell/shell.contribution.js'),
+      import('monaco-editor/esm/vs/basic-languages/swift/swift.contribution.js'),
+    ]).then(([editor]) => {
+      monaco = editor;
+      configureMonacoThemes();
+      applyMonacoTheme(document.documentElement.dataset.theme);
+      return monaco;
+    });
+  }
+  return monacoLoader;
+}
+
+async function loadPrettier() {
+  if (!prettierLoader) {
+    prettierLoader = Promise.all([
+      import('prettier/standalone'),
+      import('prettier/plugins/babel'),
+      import('prettier/plugins/estree'),
+      import('prettier/plugins/typescript'),
+      import('prettier/plugins/postcss'),
+      import('prettier/plugins/html'),
+      import('prettier/plugins/markdown'),
+      import('prettier/plugins/yaml'),
+    ]).then(([prettier, ...plugins]) => ({ prettier, plugins }));
+  }
+  return prettierLoader;
+}
 
 function applyMonacoTheme(theme) {
-  monaco.editor.setTheme(theme === 'light' ? 'ade-light' : 'ade-dark');
+  if (monaco) monaco.editor.setTheme(theme === 'light' ? 'ade-light' : 'ade-dark');
 }
 
 function applyTheme(theme) {
@@ -211,7 +236,7 @@ function scheduleTerminalFit() {
 }
 
 function sidebarWidthBounds() {
-  return { min: 190, max: Math.min(720, Math.max(420, Math.round(window.innerWidth * 0.58))) };
+  return { min: 190, max: Math.min(720, Math.max(190, window.innerWidth - 580)) };
 }
 
 function setSidebarWidth(nextWidth, persist = true) {
@@ -575,7 +600,6 @@ async function switchProjectFromContext(project) {
     await refreshGitWorkspace(workspaceRootPath, nativeInvoke);
     requestAgentSessions(workspaceRootPath);
     await sendContextRequest('project.snapshot', { projectId: activeProjectId }, 'snapshot');
-    await sendContextRequest('skills.list', { repositoryPath: workspaceRootPath }, 'skills');
     await sendContextRequest('service.list', { repositoryPath: workspaceRootPath }, 'services');
     notify(`Project switched to ${project.name}.`);
   } catch (error) {
@@ -680,6 +704,7 @@ function renderVersionControlTabs(activeTab) {
     const active = tab.dataset.versionControlTab === activeTab;
     tab.classList.toggle('active', active);
     tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll('[data-version-control-panel]').forEach((panel) => {
     panel.hidden = panel.dataset.versionControlPanel !== activeTab;
@@ -931,7 +956,6 @@ const formatterParsers = {
   json: 'json-stringify', jsonc: 'json', css: 'css', scss: 'scss',
   html: 'html', htm: 'html', md: 'markdown', markdown: 'markdown', yaml: 'yaml', yml: 'yaml',
 };
-const prettierPlugins = [prettierBabel, prettierEstree, prettierTypescript, prettierPostcss, prettierHtml, prettierMarkdown, prettierYaml];
 
 function fileExtension(filePath = '') {
   return String(filePath).split('/').at(-1)?.toLowerCase().split('.').at(-1) ?? '';
@@ -982,9 +1006,11 @@ function initializeCodeEditor() {
   });
 }
 
-function initializeMonacoEditor() {
+async function initializeMonacoEditor() {
   const parent = document.getElementById('document-content');
-  if (!parent || monacoEditor) return;
+  if (!parent) return null;
+  await loadMonaco();
+  if (monacoEditor) return monacoEditor;
   monacoEditor = monaco.editor.create(parent, {
     value: '',
     language: 'plaintext',
@@ -1005,6 +1031,7 @@ function initializeMonacoEditor() {
   });
   monacoEditor.onDidChangeModelContent(() => updateDocumentEditState());
   monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { void saveActiveDocument(); });
+  return monacoEditor;
 }
 
 function showEditorEngine(engine) {
@@ -1014,10 +1041,10 @@ function showEditorEngine(engine) {
   parent.querySelector('.monaco-editor')?.classList.toggle('editor-engine-hidden', engine !== 'monaco');
 }
 
-function setCodeEditorContent(content = '', filePath = '', focus = false) {
+async function setCodeEditorContent(content = '', filePath = '', focus = false) {
   const definition = editorDefinitionForPath(filePath);
   if (definition?.monacoLanguage) {
-    initializeMonacoEditor();
+    await initializeMonacoEditor();
     if (!monacoEditor) return;
     monacoEditor.setValue(content);
     const model = monacoEditor.getModel();
@@ -1066,7 +1093,7 @@ function updateDocumentEditState() {
   }
 }
 
-function renderDocumentLoading(filePath) {
+async function renderDocumentLoading(filePath) {
   const viewer = document.getElementById('document-viewer');
   const status = document.getElementById('document-viewer-status');
   const content = document.getElementById('document-content');
@@ -1076,13 +1103,13 @@ function renderDocumentLoading(filePath) {
   status.hidden = false;
   status.textContent = 'Reading file…';
   content.hidden = true;
-  setCodeEditorContent('', filePath);
+  await setCodeEditorContent('', filePath);
   documentOriginalContent = '';
   documentDirty = false;
   updateDocumentEditState();
 }
 
-function renderDocumentResult(result) {
+async function renderDocumentResult(result) {
   const viewer = document.getElementById('document-viewer');
   const status = document.getElementById('document-viewer-status');
   const content = document.getElementById('document-content');
@@ -1094,14 +1121,14 @@ function renderDocumentResult(result) {
   status.hidden = isText;
   status.textContent = isText ? '' : (result.message ?? 'This file cannot be previewed inside ADE.');
   content.hidden = !isText;
-  setCodeEditorContent(isText ? (result.content ?? '') : '', result.path ?? result.name, isText);
+  await setCodeEditorContent(isText ? (result.content ?? '') : '', result.path ?? result.name, isText);
   documentOriginalContent = isText ? (result.content ?? '') : '';
   documentDirty = false;
   updateDocumentEditState();
   if (isText) (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
 }
 
-function renderDocumentError(filePath, error) {
+async function renderDocumentError(filePath, error) {
   const viewer = document.getElementById('document-viewer');
   const status = document.getElementById('document-viewer-status');
   const content = document.getElementById('document-content');
@@ -1112,7 +1139,7 @@ function renderDocumentError(filePath, error) {
   status.hidden = false;
   status.textContent = `Unable to read file: ${String(error)}`;
   content.hidden = true;
-  setCodeEditorContent('', filePath);
+  await setCodeEditorContent('', filePath);
   documentOriginalContent = '';
   documentDirty = false;
   updateDocumentEditState();
@@ -1125,18 +1152,18 @@ async function openFileInADE(filePath) {
   }
   showView('editor');
   updateWorkspaceFileSelection(filePath);
-  renderDocumentLoading(filePath);
+  await renderDocumentLoading(filePath);
   try {
     const result = await nativeInvoke('read_file', { path: filePath });
-    renderDocumentResult(result);
+    await renderDocumentResult(result);
   } catch (error) {
-    renderDocumentError(filePath, error);
+    await renderDocumentError(filePath, error);
     notify('Unable to read file inside ADE.');
     console.warn('File preview unavailable:', error);
   }
 }
 
-function closeFilePreview() {
+async function closeFilePreview() {
   if (documentDirty && !window.confirm('Discard unsaved changes to this file?')) return;
   const viewer = document.getElementById('document-viewer');
   if (viewer) viewer.hidden = false;
@@ -1144,7 +1171,7 @@ function closeFilePreview() {
   const content = document.getElementById('document-content');
   if (status) status.hidden = true;
   if (content) content.hidden = false;
-  setCodeEditorContent('');
+  await setCodeEditorContent('');
   setDocumentHeader({ title: 'No file selected', path: 'Select a file from Explorer to open its code.', kind: '—', externalDisabled: true });
   activeDocument = null;
   documentOriginalContent = '';
@@ -1168,10 +1195,10 @@ async function saveActiveDocument() {
   }
 }
 
-function discardDocumentChanges() {
+async function discardDocumentChanges() {
   const editor = document.getElementById('document-content');
   if (!editor || !documentDirty) return;
-  setCodeEditorContent(documentOriginalContent, activeDocument?.path ?? '', true);
+  await setCodeEditorContent(documentOriginalContent, activeDocument?.path ?? '', true);
   updateDocumentEditState();
   notify('Unsaved changes discarded.');
 }
@@ -1183,14 +1210,15 @@ async function formatActiveDocument() {
   const formatButton = document.getElementById('format-document');
   if (formatButton) formatButton.disabled = true;
   try {
+    const { prettier, plugins } = await loadPrettier();
     const formatted = await prettier.format(codeEditorValue(), {
       parser,
-      plugins: prettierPlugins,
+      plugins,
       filepath: activeDocument.path,
       tabWidth: 2,
       useTabs: false,
     });
-    setCodeEditorContent(formatted, activeDocument.path, true);
+    await setCodeEditorContent(formatted, activeDocument.path, true);
     updateDocumentEditState();
     notify('Document formatted.');
   } catch (error) {
@@ -1244,31 +1272,6 @@ function renderProviders(providers) {
   renderModelSelection();
 }
 
-function refreshSelectedSkill() {
-  const select = document.getElementById('agent-skill');
-  const option = select?.selectedOptions?.[0];
-  const update = document.getElementById('update-skill-button');
-  const detail = document.getElementById('agent-skill-status');
-  const projectSkill = option?.dataset.source === 'project';
-  const installedFrom = option?.dataset.installedFrom;
-  if (update) update.disabled = !projectSkill || !installedFrom;
-  if (detail) detail.textContent = projectSkill
-    ? (installedFrom ? `Project skill · source: ${installedFrom}` : 'Project skill without a recorded source; update is unavailable.')
-    : 'Native ADE skill · versioned with the application.';
-}
-
-function renderSkills(skills) {
-  const detail = document.getElementById('native-skills-list');
-  if (detail) detail.textContent = skills.map((skill) => skill.label).join(' · ');
-  const select = document.getElementById('agent-skill');
-  if (select) {
-    const previous = select.value;
-    select.innerHTML = skills.map((skill) => `<option value="${escapeHTML(skill.id)}" data-permissions="${escapeHTML(skill.permissions.join(','))}" data-source="${escapeHTML(skill.source)}"${skill.installedFrom ? ` data-installed-from="${escapeHTML(skill.installedFrom)}"` : ''}>${escapeHTML(skill.label)}${skill.source === 'project' ? ' · Project' : ''}</option>`).join('');
-    if ([...select.options].some((option) => option.value === previous)) select.value = previous;
-  }
-  refreshSelectedSkill();
-}
-
 function requestAgentSessions(path = workspaceRootPath) {
   if (!nativeInvoke || !path) return;
   const id = `agent-sessions-${Date.now()}`;
@@ -1285,13 +1288,6 @@ function requestAgentMessages(sessionId) {
   pendingContextRequests.set(id, 'agent-messages');
   pendingAgentMessageSessions.set(id, sessionId);
   nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'agent.messages', params: { sessionId } }) });
-}
-
-function requestAgentFiles() {
-  if (!nativeInvoke || !workspaceRootPath) return;
-  const id = `agent-files-${Date.now()}`;
-  pendingContextRequests.set(id, 'agent-files');
-  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'git.pending', params: { repositoryPath: workspaceRootPath } }) });
 }
 
 function renderAgentSessions(sessions) {
@@ -1311,15 +1307,9 @@ function resetAgentWorkspaceForProject() {
   activeAgentSessionId = null;
   agentSessionModels.clear();
   agentSessions = [];
-  agentActivity = [];
-  agentFiles = [];
-  agentSkillsUsed = [];
   selectedAgentModel = '';
   renderAgentSessions([]);
   renderAgentMessages([]);
-  renderAgentActivity();
-  renderAgentFiles();
-  renderAgentSkills();
   renderModelSelection();
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
@@ -1329,43 +1319,6 @@ function resetAgentWorkspaceForProject() {
   if (title) title.textContent = 'Start an agent session';
   if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
   if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
-}
-
-function renderAgentActivity() {
-  const list = document.getElementById('agent-activity-list');
-  const count = document.getElementById('agent-activity-state');
-  if (count) count.textContent = agentPromptRunning ? 'Running' : agentActivity.length ? `${agentActivity.length} events` : 'Idle';
-  if (!list) return;
-  list.innerHTML = agentActivity.length
-    ? agentActivity.slice(-12).map((item) => `<li class="agent-activity-item agent-activity-${escapeHTML(item.kind ?? 'status')}"><span class="agent-activity-marker" aria-hidden="true"></span><div><strong>${escapeHTML(item.label)}</strong>${item.detail ? `<small>${escapeHTML(item.detail)}</small>` : ''}</div></li>`).join('')
-    : '<li class="agent-inspector-empty">Activity appears here while the agent works.</li>';
-  list.scrollTop = list.scrollHeight;
-}
-
-function renderAgentFiles(files = agentFiles) {
-  agentFiles = Array.isArray(files) ? files : [];
-  const list = document.getElementById('agent-files-list');
-  const count = document.getElementById('agent-files-count');
-  if (count) count.textContent = String(agentFiles.length);
-  if (!list) return;
-  list.innerHTML = agentFiles.length
-    ? agentFiles.map((file) => `<li class="agent-file-item"><code>${escapeHTML(file.path ?? file.file ?? 'Changed file')}</code><span>${file.additions ?? 0}<i>+</i> ${file.deletions ?? 0}<em>−</em></span></li>`).join('')
-    : '<li class="agent-inspector-empty">No changes detected.</li>';
-}
-
-function renderAgentSkills() {
-  const list = document.getElementById('agent-skills-list');
-  const count = document.getElementById('agent-skills-count');
-  if (count) count.textContent = String(agentSkillsUsed.length);
-  if (!list) return;
-  list.innerHTML = agentSkillsUsed.length
-    ? agentSkillsUsed.map((skill) => `<li class="agent-skill-item"><strong>${escapeHTML(skill.label)}</strong><small>${escapeHTML(skill.detail ?? 'Used in this turn')}</small></li>`).join('')
-    : '<li class="agent-inspector-empty">No skills used this turn.</li>';
-}
-
-function addAgentActivity(label, detail = '', kind = 'status') {
-  agentActivity = [...agentActivity, { label, ...(detail ? { detail } : {}), kind }].slice(-20);
-  renderAgentActivity();
 }
 
 function renderAgentMessages(messages) {
@@ -1398,6 +1351,28 @@ function selectAgentSession(sessionId) {
   if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
   renderAgentSessions(agentSessions);
   requestAgentMessages(session.id);
+}
+
+function resumeAgentConversation(sessionId, provider) {
+  const knownSession = agentSessions.find((session) => session.id === sessionId);
+  if (knownSession) {
+    showView('agents');
+    selectAgentSession(sessionId);
+    return;
+  }
+  activeAgentSessionId = sessionId;
+  selectedProvider = provider || selectedProvider;
+  const providerSelect = document.getElementById('agent-provider');
+  if (providerSelect) providerSelect.value = selectedProvider;
+  const providerLabel = document.getElementById('agent-session-provider');
+  const title = document.getElementById('agent-session-title');
+  if (providerLabel) providerLabel.textContent = `${selectedProvider} · resumed`;
+  if (title) title.textContent = `Session ${sessionId.slice(0, 18)}`;
+  renderProviderSelection();
+  renderModelSelection();
+  showView('agents');
+  requestAgentSessions(workspaceRootPath);
+  requestAgentMessages(sessionId);
 }
 
 function openDeleteAgentSessionDialog(sessionId) {
@@ -1449,12 +1424,6 @@ function startNewAgentSession() {
   if (title) title.textContent = 'Start an agent session';
   if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
   if (context) context.textContent = `${activeProject.name} · ${selectedTaskId ?? 'no Task selected'}`;
-  agentActivity = [];
-  agentFiles = [];
-  agentSkillsUsed = [];
-  renderAgentActivity();
-  renderAgentFiles();
-  renderAgentSkills();
   renderModelSelection();
   renderAgentSessions(agentSessions);
   document.getElementById('agent-prompt-input')?.focus();
@@ -1480,20 +1449,22 @@ function sendAgentPrompt(event) {
   const turnState = document.getElementById('agent-turn-state');
   if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
   if (feedback) feedback.textContent = `Sending prompt to ${provider}…`;
-  addAgentActivity('Prompt sent', `${provider} · ${activeProject.name}`, 'prompt');
   nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `agent-prompt-${Date.now()}`, method: 'agent.prompt', params: { provider, repositoryPath: workspaceRootPath, prompt, ...(model ? { model } : {}), ...(activeAgentSessionId ? { sessionId: activeAgentSessionId } : {}), ...(selectedTaskId && selectedTaskId !== '—' ? { taskId: selectedTaskId } : {}), grantedPermissions: permissions } }) }).catch((error) => {
     agentPromptRunning = false;
     if (button) button.disabled = false;
     if (turnState) { turnState.textContent = 'ERROR'; turnState.dataset.state = 'error'; }
     if (feedback) feedback.textContent = `Agent failed: ${error}`;
-    addAgentActivity('Agent failed', String(error), 'error');
   });
   if (input) input.value = '';
 }
 
 function renderProjectTasks(tasks) {
   const lists = [...document.querySelectorAll('#project-task-list, #work-task-list')];
-  if (lists.length === 0 || tasks.length === 0) return;
+  if (lists.length === 0) return;
+  if (tasks.length === 0) {
+    lists.forEach((list) => { list.innerHTML = '<p class="task-empty-state">No tasks yet. Create one when you are ready to delegate work.</p>'; });
+    return;
+  }
   const cards = tasks.map((task, index) => {
     const status = escapeHTML(task.status.replaceAll('_', ' '));
     const tone = ['UNDER_REVIEW', 'READY_FOR_HUMAN', 'BLOCKED'].includes(task.status) ? 'review' : 'building';
@@ -1503,7 +1474,7 @@ function renderProjectTasks(tasks) {
     const actionMarkup = action ? action[0] === 'RUN'
       ? `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-run="true">${action[1]}</button>`
       : `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-next="${action[0]}">${action[1]}</button>` : '';
-    return `<article class="task-card${task.id === selectedTaskId || (!selectedTaskId && index === 0) ? ' selected-task' : ''}" data-task-select="${escapeHTML(task.id)}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from ADE metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div>${actionMarkup}</article>`;
+    return `<article class="task-card${task.id === selectedTaskId || (!selectedTaskId && index === 0) ? ' selected-task' : ''}"><button class="task-card-select" type="button" data-task-select="${escapeHTML(task.id)}" aria-label="Open task ${escapeHTML(task.id)}: ${escapeHTML(task.intent)}" aria-current="${task.id === selectedTaskId || (!selectedTaskId && index === 0) ? 'true' : 'false'}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from ADE metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div></button>${actionMarkup}</article>`;
   }).join('');
   lists.forEach((list) => { list.innerHTML = cards; });
 }
@@ -1526,51 +1497,6 @@ function renderTaskDetail(detail) {
     ? `<ul class="task-trace-list">${detail.runtimeEvidence.slice(0, 12).map((item) => `<li><strong>${escapeHTML(item.type)}</strong> · ${escapeHTML(item.summary)}<small>${escapeHTML(new Date(item.at).toLocaleString())}${item.sessionId ? ` · ${escapeHTML(item.sessionId)}` : ''}</small></li>`).join('')}</ul>`
     : '<p class="task-trace-empty">No persisted runtime activity for this Task.</p>';
   panel.innerHTML = `<p class="eyebrow">TASK DETAIL</p><div class="task-detail-heading"><div><span class="task-id">${escapeHTML(task.id)}</span><h2>${escapeHTML(task.intent)}</h2></div><span class="task-status building">${escapeHTML(task.status.replaceAll('_', ' '))}</span></div><p>${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p><h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
-}
-
-function runSkillFromUI(sessionId) {
-  if (!nativeInvoke) { notify('Skill execution requires the sidecar.'); return; }
-  const select = document.getElementById('agent-skill');
-  const skillId = select?.value;
-  const providerSelect = document.getElementById('agent-provider');
-  selectedProvider = providerSelect?.value ?? 'opencode';
-  const model = document.getElementById('agent-model')?.value ?? '';
-  const feedback = document.getElementById('agent-feedback');
-  if (!skillId) { notify('No native skill selected.'); return; }
-  if (!providerIsAvailable(selectedProvider)) {
-    if (feedback) feedback.textContent = `${selectedProvider} is unavailable. Check the provider connection before running a skill.`;
-    notify('Selected provider is unavailable.');
-    return;
-  }
-  const declared = (select?.selectedOptions?.[0]?.dataset.permissions ?? '').split(',').filter(Boolean);
-  const explicit = declared.filter((permission) => !['read_project', 'write_docs'].includes(permission));
-  if (explicit.length && !window.confirm(`${skillId} requests: ${explicit.join(', ')}. Allow for this run?`)) {
-    if (feedback) feedback.textContent = `${skillId} cancelled: permission not granted.`;
-    return;
-  }
-  const taskId = selectedTaskId;
-  if (feedback) feedback.textContent = `${sessionId ? 'Resuming' : 'Starting'} ${skillId} with ${selectedProvider}…`;
-  if (!agentSkillsUsed.some((skill) => skill.id === skillId)) {
-    agentSkillsUsed = [...agentSkillsUsed, { id: skillId, label: skillId, detail: `${selectedProvider} · running in this Project` }];
-    renderAgentSkills();
-  }
-  addAgentActivity(skillId, `${selectedProvider} · skill execution started`, 'skill');
-  nativeInvoke('sidecar_request', {
-    request: JSON.stringify({
-      id: `skill-run-${Date.now()}`,
-      method: 'skills.run',
-      params: {
-        skillId,
-        provider: selectedProvider,
-        intent: selectedTaskIntent || document.getElementById('task-intent')?.value || 'Inspect the active Project and propose the next useful action.',
-        repositoryPath: document.getElementById('project-path')?.textContent,
-        grantedPermissions: explicit,
-        ...(model ? { model } : {}),
-        ...(sessionId ? { sessionId } : {}),
-        ...(taskId && taskId !== '—' ? { taskId } : {}),
-      },
-    }),
-  }).catch((error) => { if (feedback) feedback.textContent = `Skill failed: ${error}`; notify('Skill execution failed.'); });
 }
 
 async function refreshProjectContext(snapshot) {
@@ -1852,7 +1778,6 @@ async function connectSidecar(snapshot) {
     await invoke('sidecar_request', {
       request: JSON.stringify({ id: `runtime-${Date.now()}`, method: 'runtime.status' }),
     });
-    await invoke('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list', params: { repositoryPath: activeProject.repositoryPath } }) });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `providers-${Date.now()}`, method: 'providers.inspect' }) });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `services-${Date.now()}`, method: 'service.list', params: { repositoryPath: activeProject.repositoryPath } }) });
     requestAgentSessions(activeProject.repositoryPath);
@@ -1881,7 +1806,6 @@ async function connectSidecar(snapshot) {
           if (sendButton) sendButton.disabled = false;
           const turnState = document.getElementById('agent-turn-state');
           if (turnState) { turnState.textContent = 'ERROR'; turnState.dataset.state = 'error'; }
-          addAgentActivity('Agent failed', response.error.message, 'error');
         }
         if (contextPurpose === 'remove-project') pendingProjectRemovals.delete(String(response.id));
         if (contextPurpose === 'projects') {
@@ -1970,10 +1894,6 @@ async function connectSidecar(snapshot) {
         renderAgentMessages(response.result);
         return;
       }
-      if (contextPurpose === 'agent-files' && response.result?.files) {
-        renderAgentFiles(response.result.files);
-        return;
-      }
       if (contextPurpose === 'git-diff' && response.result?.commit && selectedGitCommit?.hash === response.result.commit) {
         renderGitCommitDetail(selectedGitCommit, response.result.diff);
         return;
@@ -2028,11 +1948,6 @@ async function connectSidecar(snapshot) {
         const feedback = document.getElementById('agent-feedback');
         const payload = response.event?.payload;
         if (feedback) feedback.textContent = `${response.skillId}: ${payload?.type ?? response.event?.type ?? 'event'}`;
-        if (!agentSkillsUsed.some((skill) => skill.id === response.skillId)) {
-          agentSkillsUsed = [...agentSkillsUsed, { id: response.skillId, label: response.skillId, detail: 'Running in this Project' }];
-          renderAgentSkills();
-        }
-        addAgentActivity(response.skillId, payload?.type ?? response.event?.type ?? 'skill event', 'skill');
         renderRuntimeEvent(selectedTaskId ?? 'skill', response.event);
         return;
       }
@@ -2048,7 +1963,6 @@ async function connectSidecar(snapshot) {
         if (context) context.textContent = `${activeProject.name} · ${response.taskId ?? 'no Task selected'}`;
         const turnState = document.getElementById('agent-turn-state');
         if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
-        addAgentActivity('Session active', `${response.provider} is working in ${activeProject.name}`, 'status');
         return;
       }
       if (response.result?.sessionId && response.result?.provider && response.result?.status === 'COMPLETED') {
@@ -2061,12 +1975,6 @@ async function connectSidecar(snapshot) {
         if (feedback) feedback.textContent = `${response.result.provider} completed this turn.`;
         const turnState = document.getElementById('agent-turn-state');
         if (turnState) { turnState.textContent = 'READY'; turnState.dataset.state = 'ready'; }
-        addAgentActivity('Response ready', `${response.result.provider} completed the turn`, 'complete');
-        if (Array.isArray(response.result.activity)) {
-          response.result.activity.forEach((item) => addAgentActivity(item.label ?? item.type ?? 'Provider event', item.detail ?? '', item.kind ?? 'tool'));
-        }
-        if (Array.isArray(response.result.files)) renderAgentFiles(response.result.files);
-        else requestAgentFiles();
         requestAgentSessions(workspaceRootPath);
         requestAgentMessages(activeAgentSessionId);
         return;
@@ -2134,20 +2042,9 @@ async function connectSidecar(snapshot) {
         renderProviders(response.result);
         return;
       }
-      if (Array.isArray(response.result) && response.result[0]?.permissions) {
-        renderSkills(response.result);
-        notify(`${response.result.length} native skills available.`);
-        return;
-      }
       if (response.result?.skillId && response.result?.sessionId) {
         const feedback = document.getElementById('agent-feedback');
         if (feedback) feedback.textContent = `${response.result.skillId} completed in ${response.result.sessionId} (${selectedProvider}).`;
-        return;
-      }
-      if (response.result?.id && response.result?.source && response.result?.permissions) {
-        const feedback = document.getElementById('agent-feedback');
-        if (feedback) feedback.textContent = `${response.result.label} ${response.result.updated ? 'updated from its recorded source' : 'installed in this Project'}.`;
-        nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list', params: { repositoryPath: document.getElementById('project-path')?.textContent } }) });
         return;
       }
       if (response.type === 'review.completed' || response.type === 'review.failed') {
@@ -2335,14 +2232,6 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     notify('Workspace search focused.');
     return;
   }
-  if (item.dataset.action === 'show-notifications') {
-    notify('No new notifications.');
-    return;
-  }
-  if (item.dataset.action === 'show-help') {
-    notify('Use the activity bar, ⌘K search and the terminal dock to navigate ADE.');
-    return;
-  }
   if (item.dataset.action === 'new-task') {
     taskDialog?.showModal();
     taskIntent?.focus();
@@ -2468,11 +2357,11 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'discard-file') {
-    discardDocumentChanges();
+    void discardDocumentChanges();
     return;
   }
   if (item.dataset.action === 'close-file') {
-    closeFilePreview();
+    void closeFilePreview();
     return;
   }
   if (item.dataset.action === 'create-worktree') {
@@ -2499,40 +2388,8 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     }).catch((error) => { notify('Git operation failed.'); console.warn(error); });
     return;
   }
-  if (item.dataset.action === 'run-skill') {
-    runSkillFromUI();
-    return;
-  }
-  if (item.dataset.action === 'install-skill') {
-    if (!nativeInvoke) { notify('Skill installation requires the sidecar.'); return; }
-    const source = document.getElementById('skill-source')?.value.trim();
-    const remote = /^(https?:\/\/|git@)/.test(source ?? '') || /^[\w.-]+\/[\w.-]+$/.test(source ?? '');
-    if (!source) { notify('Enter a local skill.json path or GitHub repository.'); return; }
-    if (remote && !window.confirm(`Install ${source} from the network into this Project?`)) return;
-    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `skill-install-${Date.now()}`, method: 'skills.install', params: { repositoryPath: document.getElementById('project-path')?.textContent, intent: source, confirmed: remote } }) }).catch((error) => { notify('Skill installation failed.'); console.warn(error); });
-    return;
-  }
-  if (item.dataset.action === 'update-skill') {
-    if (!nativeInvoke) { notify('Skill update requires the sidecar.'); return; }
-    const select = document.getElementById('agent-skill');
-    const option = select?.selectedOptions?.[0];
-    const source = option?.dataset.installedFrom;
-    if (!option || option.dataset.source !== 'project' || !source) { notify('Select a Project skill with a recorded source.'); return; }
-    const remote = /^(https?:\/\/|git@)/.test(source) || /^[\w.-]+\/[\w.-]+$/.test(source);
-    if (remote && !window.confirm(`Update ${option.value} from ${source}?`)) return;
-    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `skill-update-${Date.now()}`, method: 'skills.update', params: { repositoryPath: document.getElementById('project-path')?.textContent, skillId: option.value, confirmed: remote } }) }).catch((error) => { notify('Skill update failed.'); console.warn(error); });
-    return;
-  }
   if (item.dataset.action === 'github-status') {
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `github-${Date.now()}`, method: 'github.status' }) });
-    return;
-  }
-  if (item.dataset.action === 'inspect-providers') {
-    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `providers-${Date.now()}`, method: 'providers.inspect' }) });
-    return;
-  }
-  if (item.dataset.action === 'list-skills') {
-    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `skills-${Date.now()}`, method: 'skills.list', params: { repositoryPath: document.getElementById('project-path')?.textContent } }) });
     return;
   }
   if (item.dataset.action === 'open-document') {
@@ -2657,10 +2514,7 @@ document.addEventListener('click', (event) => {
   }
   const resumeButton = event.target.closest('[data-resume-session]');
   if (resumeButton) {
-    const provider = resumeButton.dataset.sessionProvider;
-    const providerSelect = document.getElementById('agent-provider');
-    if (providerSelect && provider) providerSelect.value = provider;
-    runSkillFromUI(resumeButton.dataset.resumeSession);
+    resumeAgentConversation(resumeButton.dataset.resumeSession, resumeButton.dataset.sessionProvider);
     return;
   }
   const agentSession = event.target.closest('[data-agent-session-id]');
@@ -2692,7 +2546,7 @@ document.addEventListener('click', (event) => {
     return;
   }
   const taskCard = event.target.closest('[data-task-select]');
-  if (taskCard && !event.target.closest('button')) {
+  if (taskCard) {
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `detail-${taskCard.dataset.taskSelect}-${Date.now()}`, method: 'task.detail', params: { taskId: taskCard.dataset.taskSelect } }) });
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `git-ops-${taskCard.dataset.taskSelect}-${Date.now()}`, method: 'task.git.operations', params: { taskId: taskCard.dataset.taskSelect } }) });
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `review-${taskCard.dataset.taskSelect}-${Date.now()}`, method: 'change.review', params: { taskId: taskCard.dataset.taskSelect } }) });
@@ -2706,6 +2560,21 @@ document.addEventListener('click', (event) => {
   const button = event.target.closest('[data-task-id][data-task-next]');
   if (!button) return;
   advanceTaskFromUI(button.dataset.taskId, button.dataset.taskNext, button);
+});
+document.querySelector('.version-control-tabs')?.addEventListener('keydown', (event) => {
+  const tabs = [...document.querySelectorAll('[data-version-control-tab]')];
+  const currentIndex = tabs.indexOf(event.target);
+  if (currentIndex < 0) return;
+  let nextIndex = currentIndex;
+  if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length;
+  else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+  else if (event.key === 'Home') nextIndex = 0;
+  else if (event.key === 'End') nextIndex = tabs.length - 1;
+  else return;
+  event.preventDefault();
+  const nextTab = tabs[nextIndex];
+  renderVersionControlTabs(nextTab.dataset.versionControlTab);
+  nextTab.focus();
 });
 document.getElementById('agent-provider')?.addEventListener('change', (event) => {
   selectedProvider = event.target.value;
@@ -2729,7 +2598,6 @@ document.getElementById('agent-session-selector')?.addEventListener('change', (e
   else startNewAgentSession();
 });
 initializeCodeEditor();
-document.getElementById('agent-skill')?.addEventListener('change', refreshSelectedSkill);
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });
 window.addEventListener('beforeunload', () => {
   nativeInvoke?.('terminal_stop_all').catch(() => {});

@@ -18,6 +18,8 @@ Se adopta una interfaz común de editor con dos motores. CodeMirror 6 es el moto
 
 Se incorpora Prettier como formatter explícito para JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown y YAML. El botón `Format` sólo se habilita cuando existe un parser compatible; no se presenta como formatter universal. Python, Rust, SQL y XML mantienen resaltado e indentación de CodeMirror hasta que ADE defina una ejecución local segura y trazable para sus formatters específicos.
 
+Monaco, sus contribuciones de lenguaje y Prettier no forman parte del arranque crítico: el bundler los divide en módulos y ADE los importa sólo al abrir un lenguaje fallback o pulsar `Format`. CodeMirror conserva la ruta común inmediata.
+
 CodeMirror, sus paquetes oficiales, Monaco y Prettier se aceptan por sus licencias MIT. Las dependencias directas quedan inventariadas en [THIRD_PARTY_LICENSES.md](../../desktop/THIRD_PARTY_LICENSES.md); el lockfile es la fuente de versiones concretas y debe usarse para generar el aviso transitivo en cada release empaquetada.
 
 ## Alternatives considered
@@ -43,6 +45,6 @@ Rechazado: aumenta la superficie de mantenimiento y obliga a ejecutar herramient
 - El fichero deja de renderizarse como `textarea` plano y pasa a un modelo de documento mantenido por la interfaz común, con CodeMirror o Monaco según el lenguaje.
 - El guardado, descarte, estado dirty y atajo `⌘/Ctrl+S` siguen perteneciendo al contrato existente de ADE.
 - La edición obtiene una base extensible para búsqueda, plegado, navegación y futuras integraciones LSP sin introducirlas ahora.
-- La aplicación incorpora Monaco y sus definiciones fallback, aumentando el bundle; la lista de contribuciones se mantiene explícita para evitar cargar el catálogo completo innecesariamente.
+- La aplicación incorpora Monaco y sus definiciones fallback, pero los deja fuera de la carga inicial mediante módulos bajo demanda; la lista de contribuciones se mantiene explícita para evitar cargar el catálogo completo innecesariamente.
 - El resaltado no equivale a IntelliSense ni a un formatter. Cada formatter futuro debe evaluarse por lenguaje, ejecución local, permisos y licencia.
 - `Format` puede modificar el documento y por ello sólo actúa de forma explícita; el usuario conserva el control mediante `Discard` antes de guardar.

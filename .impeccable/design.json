@@ -1,94 +1,46 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-04T09:20:00.000Z",
+  "generatedAt": "2026-09-05T18:10:00.000Z",
   "title": "Design System: ADE",
   "extensions": {
     "colorMeta": {
-      "workspace-bg": { "role": "neutral", "displayName": "Workspace Black", "canonical": "#0b0f14", "tonalRamp": ["#0b0f14", "#11171f", "#151c25", "#1a232e", "#293542", "#5d6a78", "#b8c5d2", "#e5edf5"] },
-      "accent-cyan": { "role": "primary", "displayName": "Workbench Cyan", "canonical": "#64d2c6", "tonalRamp": ["#102b2b", "#16423f", "#1f5c56", "#2d847b", "#64d2c6", "#8be3d9", "#b8f0e8", "#e7fbf8"] },
-      "primary-blue": { "role": "primary", "displayName": "Command Blue", "canonical": "#76aef7", "tonalRamp": ["#12243e", "#1e3a63", "#2e5790", "#4a7fc2", "#76aef7", "#9bc5fa", "#c1dcfd", "#eaf3ff"] },
-      "success-green": { "role": "tertiary", "displayName": "Success Green", "canonical": "#70d6a0", "tonalRamp": ["#102c20", "#17472f", "#236741", "#3b9862", "#70d6a0", "#99e4bb", "#c0f0d3", "#eafbf1"] },
-      "warning-amber": { "role": "tertiary", "displayName": "Warning Amber", "canonical": "#e4b76b", "tonalRamp": ["#302719", "#503e22", "#74572e", "#a77d3d", "#e4b76b", "#edcc96", "#f5dfbd", "#fdf6e9"] },
-      "error-red": { "role": "tertiary", "displayName": "Error Red", "canonical": "#ef8b92", "tonalRamp": ["#351a1f", "#59252c", "#82343e", "#b95661", "#ef8b92", "#f5afb3", "#f9cfd1", "#fff0f1"] },
-      "light-workspace-bg": { "role": "neutral", "displayName": "Light Workspace", "canonical": "#f3f6fa" },
-      "light-chrome": { "role": "neutral", "displayName": "Light Chrome", "canonical": "#e8eef5" },
-      "light-panel": { "role": "neutral", "displayName": "Light Panel", "canonical": "#ffffff" },
-      "light-panel-soft": { "role": "neutral", "displayName": "Light Soft Panel", "canonical": "#edf3f8" },
-      "light-line": { "role": "neutral", "displayName": "Light Structural Line", "canonical": "#c6d2de" },
-      "light-text": { "role": "neutral", "displayName": "Light Text", "canonical": "#152231" },
-      "light-muted": { "role": "neutral", "displayName": "Light Muted Text", "canonical": "#647689" },
-      "light-blue": { "role": "primary", "displayName": "Light Command Blue", "canonical": "#2865b1" },
-      "light-cyan": { "role": "primary", "displayName": "Light Workbench Cyan", "canonical": "#0e827b" },
-      "light-green": { "role": "tertiary", "displayName": "Light Success Green", "canonical": "#167646" },
-      "light-amber": { "role": "tertiary", "displayName": "Light Warning Amber", "canonical": "#8a5d11" },
-      "light-red": { "role": "tertiary", "displayName": "Light Error Red", "canonical": "#ab3d47" }
+      "workspace-bg": { "role": "neutral", "displayName": "Warm Workspace", "canonical": "#f7f7f5" },
+      "chrome": { "role": "neutral", "displayName": "Desktop Chrome", "canonical": "#eef0f3" },
+      "panel": { "role": "neutral", "displayName": "Evidence Panel", "canonical": "#fffdfa" },
+      "text": { "role": "neutral", "displayName": "Graphite Ink", "canonical": "#1f2630" },
+      "muted": { "role": "neutral", "displayName": "Readable Metadata", "canonical": "#586878" },
+      "primary-blue": { "role": "primary", "displayName": "Command Blue", "canonical": "#2858b8" },
+      "accent-cyan": { "role": "primary", "displayName": "Evidence Teal", "canonical": "#16807d" },
+      "agent-purple": { "role": "tertiary", "displayName": "Agent Purple", "canonical": "#7656d6" },
+      "dark-workspace-bg": { "role": "neutral", "displayName": "Night Workspace", "canonical": "#0f1724" }
     },
     "typographyMeta": {
       "display": { "displayName": "Workbench Display", "purpose": "View and project titles only." },
       "label": { "displayName": "Trace Mono", "purpose": "Paths, IDs, commands and state labels." }
     },
-    "shadows": [
-      { "name": "transient-surface", "value": "0 20px 80px rgba(0,0,0,0.67)", "purpose": "Task dialog and other transient surfaces." },
-      { "name": "toast", "value": "0 12px 30px rgba(0,0,0,0.53)", "purpose": "Temporary feedback toast." }
-    ],
     "motion": [
-      { "name": "state-change", "value": "160ms ease", "purpose": "Navigation and transient state changes." }
+      { "name": "context-transition", "value": "160–240ms ease-out", "purpose": "Explorer context only; reduced motion keeps immediate readable state changes." }
     ],
     "breakpoints": [
-      { "name": "compact-desktop", "value": "1080px" },
-      { "name": "narrow-desktop", "value": "1180px" }
+      { "name": "minimum-desktop", "value": "900px" },
+      { "name": "workbench-reserve", "value": "580px" }
     ]
   },
   "components": [
-    {
-      "name": "Primary Button",
-      "kind": "button",
-      "refersTo": "button-primary",
-      "description": "Use for the single highest-value action in a pane.",
-      "html": "<button class=\"ds-btn-primary\">NEW TASK</button>",
-      "css": ".ds-btn-primary { min-height: 30px; padding: 6px 11px; border: 1px solid #79cfc0; border-radius: 3px; color: #071312; background: #64d2c6; font: 700 11px 'Avenir Next', sans-serif; } .ds-btn-primary:hover { background: #78e1d4; } .ds-btn-primary:focus-visible { outline: 2px solid #76aef7; outline-offset: 2px; }"
-    },
-    {
-      "name": "Secondary Button",
-      "kind": "button",
-      "refersTo": "button-secondary",
-      "description": "Use for supporting actions that remain available without competing with the primary action.",
-      "html": "<button class=\"ds-btn-secondary\">RUN</button>",
-      "css": ".ds-btn-secondary { min-height: 30px; padding: 6px 11px; border: 1px solid #3a4a5a; border-radius: 3px; color: #b8c5d2; background: #1a232e; font: 400 11px 'Avenir Next', sans-serif; } .ds-btn-secondary:hover { border-color: #76aef7; color: #e5edf5; } .ds-btn-secondary:focus-visible { outline: 2px solid #76aef7; outline-offset: 2px; }"
-    },
-    {
-      "name": "Trace Input",
-      "kind": "input",
-      "refersTo": "input",
-      "description": "A compact field for terminal commands, paths and skill sources.",
-      "html": "<input class=\"ds-input\" aria-label=\"Command\" value=\"pwd\" />",
-      "css": ".ds-input { width: 100%; padding: 7px 9px; border: 1px solid #3a4a5a; border-radius: 2px; color: #b8c5d2; background: #121920; font: 400 10px 'SF Mono', monospace; } .ds-input:focus-visible { outline: 2px solid #76aef7; outline-offset: 2px; }"
-    },
-    {
-      "name": "Navigation Item",
-      "kind": "nav",
-      "description": "A labeled IDE navigation item with a visible active edge and an inline icon.",
-      "html": "<button class=\"ds-nav-item is-active\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 5.5h6l2 2h8v11H4z\"/></svg><span>Project</span></button>",
-      "css": ".ds-nav-item { display: flex; align-items: center; gap: 10px; min-height: 31px; padding: 6px 9px; border: 0; border-left: 2px solid transparent; color: #8291a0; background: transparent; font: 400 11px 'Avenir Next', sans-serif; text-align: left; } .ds-nav-item svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; } .ds-nav-item:hover, .ds-nav-item.is-active { color: #e5edf5; background: #17222c; } .ds-nav-item.is-active { border-left-color: #64d2c6; } .ds-nav-item:focus-visible { outline: 2px solid #76aef7; outline-offset: 2px; }"
-    },
-    {
-      "name": "Workbench Pane",
-      "kind": "custom",
-      "description": "A flat IDE pane that groups task intent, evidence or runtime context.",
-      "html": "<section class=\"ds-pane\"><h2>Verification</h2><p>18 passed · 2 failed</p></section>",
-      "css": ".ds-pane { padding: 14px; border: 1px solid #293542; color: #e5edf5; background: #151c25; } .ds-pane h2 { margin: 0 0 7px; font: 600 13px 'Avenir Next', sans-serif; } .ds-pane p { margin: 0; color: #8291a0; font: 400 10px 'Avenir Next', sans-serif; }"
-    }
+    { "name": "Task selector", "kind": "button", "description": "A real keyboard-focusable control for a persisted Task; never a fixture card." },
+    { "name": "Version-control tabs", "kind": "tablist", "description": "History and Changes use ARIA relationships and arrow, Home and End keyboard navigation." },
+    { "name": "Project context controls", "kind": "menu button", "description": "Only persistent, actionable project and branch controls belong in the topbar." }
   ],
   "narrative": {
-    "northStar": "The Agentic Workbench",
-    "overview": "ADE is a focused desktop workbench for software development. Its visual language is deliberately inspired by leading IDEs: the interface is organized around persistent context, dense but readable tools, keyboard-oriented controls and clear state transitions. The work surface should feel operational and calm, with every panel earning its space through a concrete development task.\n\nThe system uses dark graphite and navy chrome, cool text, thin structural rules and a restrained cyan accent. It is technical without becoming sterile: success, warning, error and agent states have distinct colors, while depth comes from tonal layering instead of decorative effects.",
-    "keyCharacteristics": ["Familiar IDE grammar: labeled navigation, explorer, command bar, workbench and status bar.", "Dense information architecture with short labels and monospace operational metadata.", "Flat-by-default surfaces with thin borders and state-driven accents.", "No gradients, glassmorphism, marketing hero panels or ornamental imagery."],
+    "northStar": "Sala de Evidencia",
+    "overview": "ADE is a light-first macOS agentic workbench. Conversations, code changes and decisions are evidence to read and act on, not dashboard decoration. The shell stays calm, accessible and pragmatic: every visible control has a real action, every state has a source, and each panel appears only where it is useful.",
+    "keyCharacteristics": ["Labeled desktop navigation, explorer, terminal and project context.", "Warm light default with a distinct ink-blue dark theme.", "Flat structural panes, readable metadata and restrained semantic accents.", "Task, dialog and tab controls are keyboard-complete.", "Heavy editor capabilities load only when requested."],
     "rules": [
-      { "name": "The Signal Scarcity Rule", "body": "Use cyan, green, amber and red only when they communicate interaction or state; never use them as decoration.", "section": "colors" },
-      { "name": "The Traceable Type Rule", "body": "Use the mono face for anything a developer may copy, compare or use to locate evidence; use the sans face for intent and explanation.", "section": "typography" },
-      { "name": "The Flat Workbench Rule", "body": "A surface earns elevation only when it is transient or interactive; persistent IDE panes use tonal layering and structural lines.", "section": "elevation" }
+      { "name": "Truthful chrome", "body": "Do not render placeholder tasks, fake health, identity, notifications or controls without an action.", "section": "information-architecture" },
+      { "name": "Owned surfaces", "body": "Git workspace belongs to Version control and the documentation graph to Project context; global availability does not justify global placement.", "section": "information-architecture" },
+      { "name": "Readable adaptation", "body": "Preserve a 580px workbench reserve and respect reduced motion without hiding the resulting state.", "section": "responsive" }
     ],
-    "dos": ["Do make the current task and its evidence the visual center of the workbench.", "Do preserve familiar IDE affordances: tree navigation, command bar, tabs, terminal and status bar.", "Do use semantic color for state and keep focus states visible for keyboard users.", "Do keep operational labels short and traceable, with paths and IDs in monospace."],
-    "donts": ["Don't turn the workbench into a marketing dashboard of equal-weight metric cards.", "Don't use gradients, glassmorphism or decorative illustrations in the desktop shell.", "Don't use Unicode glyphs as substitute icons; use inline SVG with an accessible label.", "Don't add a rounded container when a structural pane or simple divider communicates the relationship more clearly."]
+    "dos": ["Use visible focus states.", "Prefer direct labels over ornamental chrome.", "Keep code, conversation and diffs easy to scan."],
+    "donts": ["Do not simulate runtime state.", "Do not use generic dashboard cards for operational evidence.", "Do not eagerly load optional editor engines."]
   }
 }

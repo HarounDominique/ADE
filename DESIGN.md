@@ -12,8 +12,8 @@ colors:
   line-strong: "#c3cad4"
   text: "#1f2630"
   text-soft: "#465363"
-  muted: "#778393"
-  faint: "#9aa5b1"
+  muted: "#586878"
+  faint: "#69798a"
   primary-blue: "#2858b8"
   accent-cyan: "#16807d"
   success-green: "#2c8a5a"
@@ -44,7 +44,7 @@ colors:
   light-panel-soft: "#edf3f8"
   light-line: "#c6d2de"
   light-text: "#152231"
-  light-muted: "#647689"
+  light-muted: "#586878"
   light-blue: "#2865b1"
   light-cyan: "#0e827b"
   light-green: "#167646"
@@ -118,6 +118,7 @@ The system uses a warm light workspace by default and a distinct night-shift dar
 
 - Familiar desktop grammar: labeled navigation, explorer, project context, workbench and status bar.
 - Open reading architecture with short labels and monospace operational metadata.
+- Truthful chrome: persistent controls represent real, available actions or real state; simulated health, user identity, notifications and placeholder work never occupy the shell.
 - Flat-by-default surfaces with softened geometry, quiet rules and state-driven accents.
 - No gradients, glassmorphism, marketing hero panels or ornamental imagery.
 - Theme switching is explicit, persisted per user and never changes the information architecture.
@@ -147,7 +148,7 @@ The palette is a warm, light-first workspace with graphite ink, cool neutrals an
 - **Soft Chrome** (#eef0f3): Explorer and persistent shell surfaces.
 - **Raised Panel** (#ffffff): Workbench panes and interactive controls.
 - **Graphite Ink** (#1f2630): Primary headings and decisions.
-- **Muted Text** (#778393): Supporting copy.
+- **Muted Text** (#586878): Supporting copy with readable contrast.
 - **Structural Line** (#d9dee5): Panel boundaries and separators.
 
 ### Light Theme (Default)
@@ -157,7 +158,7 @@ The palette is a warm, light-first workspace with graphite ink, cool neutrals an
 - **Light Panel** (#fffdfa): Workbench panes and content surfaces.
 - **Light Soft Surface** (#f0f2f5): Inputs, code surfaces and raised controls.
 - **Light Text** (#1f2630): Primary headings and decisions.
-- **Light Muted** (#778393): Supporting copy.
+- **Light Muted** (#586878): Supporting copy with readable contrast.
 
 ### Dark Theme
 
@@ -240,7 +241,7 @@ The form language is calm and approachable: 7–10px radii for controls and work
 - **Style:** A single labeled navigation controls views inside the project sidebar; the same sidebar owns the Explorer below it. Active items use a 2px cyan edge and a slightly raised surface. Utility actions expose their labels as well as their keyboard affordances.
 - **Interaction:** Hover changes surface and text contrast; focus remains visible; labels and ARIA names are always available for icon-only controls.
 - **Sizing:** The sidebar has a discoverable vertical resize grip. Pointer drag and `←`/`→` resize it; Shift changes the step, Home and End reach the bounds of 190–720 px (responsive to the window), and the width persists for the active Project.
-- **Theme control:** The persistent light/dark switch lives in the top-right global toolbar, beside sync and utility actions. It uses a compact circular thumb with a visible track, keeps light as the default, and exposes the next action through its label and ARIA state.
+- **Theme control:** The persistent light/dark switch lives in the top-right global toolbar. It uses a compact circular thumb with a visible track, keeps light as the default, and exposes the next action through its label and ARIA state.
 
 ### Explorer
 
@@ -256,6 +257,15 @@ The native terminal is a fixed bottom dock with tabbed familiar console surfaces
 ### Workbench Pane
 
 The signature component is the IDE workbench: task intent, changed files, verification, agent session context and native terminal appear as coordinated panes. Keep the active task visually anchored with a cyan edge or active tab, and expose evidence without hiding it behind decorative summaries.
+
+### Integrity, accessibility and adaptation
+
+- The Tauri window opens at 1180 × 780 px and has a 900 × 640 px minimum. The sidebar cap reserves at least 580 px for the work surface, even after a persisted resize is restored.
+- `Tasks` never show fixture cards. While loading they expose a status; when empty they offer a clear next action. Task selection is a native button with a visible keyboard focus state.
+- `History` and `Changes` use the tab pattern completely: `aria-controls`, `aria-labelledby`, roving tab stop and `←`/`→`, Home and End navigation.
+- The documentation graph belongs only to `Project context`; `Git workspace` belongs only to `Version control`. A surface must not appear globally merely because its data is globally available.
+- Respect reduced-motion preferences by removing spatial transitions from non-essential surfaces while preserving an immediate, readable state change. Explorer expansion keeps its short transition for users without that preference.
+- CodeMirror stays available for the common path. Monaco and Prettier are loaded on demand when a matching language or explicit `Format` action needs them, so the first workbench render remains responsive.
 
 ## Do's and Don'ts
 
