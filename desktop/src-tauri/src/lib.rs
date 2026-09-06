@@ -1071,8 +1071,11 @@ mod tests {
         let (mut process, reader) = start_terminal_pty(&root).expect("start PTY");
         process
             .writer
-            // `echo` is the one spelling both /bin/sh and cmd understand.
-            .write_all(b"echo ADE_PTY_OK\\nexit\\n")
+            // `echo` is the one spelling both /bin/sh and cmd understand, and the
+            // newlines have to be real: with `\\n` the line was never submitted and
+            // the assertion matched the terminal's echo of the input instead of any
+            // command output.
+            .write_all(b"echo ADE_PTY_OK\nexit\n")
             .expect("write PTY input");
         process.writer.flush().expect("flush PTY input");
         let (sender, receiver) = std::sync::mpsc::channel();
