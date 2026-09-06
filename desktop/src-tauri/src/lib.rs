@@ -126,6 +126,43 @@ fn terminal_start_in(
     Ok(())
 }
 
+/// The escape hatch is the one place ADE hands a path to the host desktop, and
+/// each platform names that handoff differently.  Keeping it here means the
+/// callers stay about authorization, not about which OS is running.
+fn open_with_desktop(path: &Path, what: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let spawned = Command::new("open").arg(path).spawn();
+    #[cfg(target_os = "windows")]
+    let spawned = Command::new("cmd").args(["/C", "start", ""]).arg(path).spawn();
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    let spawned = Command::new("xdg-open").arg(path).spawn();
+    spawned
+        .map(|_| ())
+        .map_err(|error| format!("Unable to open {what}: {error}"))
+}
+
+/// Opening a terminal *at* a directory has no portable spelling: macOS targets
+/// Terminal.app by name, Windows starts a shell whose cwd is the directory.
+fn open_terminal_at(directory: &Path) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let spawned = Command::new("open")
+        .args(["-a", "Terminal"])
+        .arg(directory)
+        .spawn();
+    #[cfg(target_os = "windows")]
+    let spawned = Command::new("cmd")
+        .args(["/C", "start", "cmd", "/K", "cd", "/D"])
+        .arg(directory)
+        .spawn();
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    let spawned = Command::new("x-terminal-emulator")
+        .current_dir(directory)
+        .spawn();
+    spawned
+        .map(|_| ())
+        .map_err(|error| format!("Unable to open Terminal: {error}"))
+}
+
 fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Send>), String> {
     let pty = native_pty_system();
     let pair = pty
@@ -396,11 +433,7 @@ fn open_file_in(workspace: &WorkspaceRoot, path: &str) -> Result<(), String> {
     if !file.is_file() {
         return Err(format!("File does not exist: {}", file.display()));
     }
-    Command::new("open")
-        .arg(file)
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("Unable to open file: {error}"))
+    open_with_desktop(&file, "file")
 }
 
 #[tauri::command]
@@ -643,11 +676,7 @@ fn open_terminal_in(workspace: &WorkspaceRoot, repository_path: &str) -> Result<
             repository.display()
         ));
     }
-    Command::new("open")
-        .args(["-a", "Terminal", &repository.to_string_lossy()])
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("Unable to open Terminal: {error}"))
+    open_terminal_at(&repository)
 }
 
 #[tauri::command]
@@ -683,11 +712,47 @@ fn open_document_in(
     if !document.is_file() {
         return Err(format!("Document does not exist: {}", document.display()));
     }
-    Command::new("open")
-        .arg(&document)
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("Unable to open document: {error}"))
+    open_with_desktop(&document, "document")
+}
+
+/// A packaged `.app` inherits a login shell's PATH, a packaged `.exe` does not,
+/// so the well-known install locations are the fallback when PATH has no node.
+/// `ADE_SIDECAR_NODE` always wins, which is what the dev loop and CI set.
+fn resolve_node_binary() -> String {
+    if let Some(explicit) = std::env::var("ADE_SIDECAR_NODE")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+    {
+        return explicit;
+    }
+    #[cfg(target_os = "windows")]
+    let candidates = [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:\\Program Files (x86)\\nodejs\\node.exe",
+    ];
+    #[cfg(not(target_os = "windows"))]
+    let candidates = ["/opt/homebrew/opt/node@24/bin/node", "/usr/local/bin/node"];
+    candidates
+        .iter()
+        .find(|candidate| Path::new(candidate).is_file())
+        .map(|candidate| (*candidate).to_string())
+        .unwrap_or_else(|| "node".to_string())
+}
+
+/// The packaged sidecar is a single executable, except where Node lacks the SEA
+/// fuse and the build falls back to a launcher script.  Probe both spellings and
+/// let the last candidate surface the spawn error if neither exists.
+fn resolve_sidecar_binary(resource_dir: &Path) -> PathBuf {
+    let candidates: &[&str] = if cfg!(target_os = "windows") {
+        &["sidecar-dist/ade-sidecar.exe", "sidecar-dist/ade-sidecar.cmd"]
+    } else {
+        &["sidecar-dist/ade-sidecar"]
+    };
+    candidates
+        .iter()
+        .map(|candidate| resource_dir.join(candidate))
+        .find(|candidate| candidate.is_file())
+        .unwrap_or_else(|| resource_dir.join(candidates[0]))
 }
 
 #[tauri::command]
@@ -713,22 +778,11 @@ fn sidecar_start(
         if let Ok(binary) = std::env::var("ADE_SIDECAR_BIN") {
             Command::new(binary)
         } else if script.is_file() {
-            let node = std::env::var("ADE_SIDECAR_NODE")
-                .ok()
-                .filter(|value| !value.trim().is_empty())
-                .or_else(|| {
-                    ["/opt/homebrew/opt/node@24/bin/node", "/usr/local/bin/node"]
-                        .iter()
-                        .find(|candidate| Path::new(candidate).is_file())
-                        .map(|candidate| (*candidate).to_string())
-                })
-                .unwrap_or_else(|| "node".to_string());
-            let mut command = Command::new(node);
+            let mut command = Command::new(resolve_node_binary());
             command.arg(script);
             command
         } else {
-            let binary = resource_dir.join("sidecar-dist/ade-sidecar");
-            Command::new(binary)
+            Command::new(resolve_sidecar_binary(&resource_dir))
         }
     };
     let mut child = command
