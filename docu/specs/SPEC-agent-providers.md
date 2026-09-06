@@ -40,8 +40,8 @@ La actividad de skills se persiste como evidencia acotada por Task y sesión, y 
 
 `Agents` es un workbench conversacional inline y transversal del shell: ocupa la vista principal de ADE y no abre un popup sobre otra vista. Su composición prioriza la conversación y mantiene dos zonas persistentes:
 
-- **Sessions rail:** selector de provider (`Codex`, `OpenCode`, `Claude Code` y futuros adapters), creación de sesión y lista de sesiones persistidas del Project activo. Cada conversación guardada ofrece una acción de borrado accesible que abre un diálogo modal con `Delete`/`Cancel`; al confirmarla se eliminan la sesión y sus mensajes persistidos, sin tocar código ni artefactos del repositorio.
-- **Conversation thread:** identidad de la sesión, Project/Task de contexto, transcript, composer multilinea, permisos para el turno y estado `READY`/`WORKING`/`ERROR`.
+- **Sessions rail:** creación de sesión y lista de sesiones persistidas del Project activo, agrupada por Task/General. Cada conversación guardada ofrece una acción de borrado accesible que abre un diálogo modal con `Delete`/`Cancel`; al confirmarla se eliminan la sesión y sus mensajes persistidos, sin tocar código ni artefactos del repositorio.
+- **Conversation thread:** una cabecera contextual compacta muestra provider, título, Task y estado, sin repetir la ruta ni el Project ya presentes en la barra global. El resto del espacio pertenece al transcript y al composer multilinea, con permisos por turno y estado `READY`/`WORKING`/`ERROR`.
 
 La vista primaria no incluye un inspector lateral de actividad, ficheros modificados ni skills/tools: se elimina para que el transcript y el composer dispongan del espacio principal. Esa evidencia sigue perteneciendo a los registros persistidos de Task/runtime y podrá exponerse en superficies específicas sin saturar la conversación.
 

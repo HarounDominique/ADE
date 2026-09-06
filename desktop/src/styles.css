@@ -1191,3 +1191,67 @@ body { color: var(--text); }
   .version-control-utilities > summary::before { transition-duration: .01ms; }
   .version-history-layout, .git-commit-detail, .history-commit-pane, .history-pane-restore, .git-commit-files-heading, .git-commit-files { transition-duration: .01ms !important; }
 }
+
+/* The global toolbar already owns Project and branch.  A conversation only
+   needs one quiet, scannable identity row before its messages. */
+.agent-thread-header {
+  min-height: 48px;
+  padding: 0 clamp(18px, 3vw, 42px);
+  align-items: center;
+}
+.agent-thread-header > div:first-child {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.agent-thread-header h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-session-provider {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--purple);
+  font: 700 9px var(--mono);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.agent-session-provider::after {
+  width: 1px;
+  height: 13px;
+  background: var(--line-strong);
+  content: '';
+}
+.agent-thread-context {
+  flex: 0 1 auto;
+  gap: 7px;
+  min-width: 0;
+}
+.agent-thread-context strong {
+  max-width: min(28vw, 250px);
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-turn-state {
+  padding: 3px 6px;
+  border-radius: 999px;
+  font-size: 8px;
+}
+@media (max-width: 760px) {
+  .agent-thread-header { padding: 0 14px; }
+  .agent-thread-context strong { display: none; }
+}

@@ -1451,11 +1451,9 @@ function resetAgentWorkspaceForProject() {
   renderModelSelection();
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
-  const location = document.getElementById('agent-session-location');
   const context = document.getElementById('agent-session-context');
   if (providerLabel) providerLabel.textContent = 'New conversation';
   if (title) title.textContent = 'Start a conversation';
-  if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
   if (context) context.textContent = agentTaskName(activeAgentTaskId);
 }
 
@@ -1490,11 +1488,9 @@ function selectAgentSession(sessionId) {
   renderModelSelection(selectedAgentModel);
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
-  const location = document.getElementById('agent-session-location');
   const context = document.getElementById('agent-session-context');
   if (providerLabel) providerLabel.textContent = session.provider;
   if (title) title.textContent = agentSessionTitle(session);
-  if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
   if (context) context.textContent = agentTaskName(activeAgentTaskId);
   renderAgentSessions(agentSessions);
   requestAgentMessages(session.id);
@@ -1564,11 +1560,9 @@ function startNewAgentSession() {
   renderAgentMessages([]);
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
-  const location = document.getElementById('agent-session-location');
   const context = document.getElementById('agent-session-context');
   if (providerLabel) providerLabel.textContent = 'New conversation';
   if (title) title.textContent = 'Start a conversation';
-  if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
   if (context) context.textContent = agentTaskName(activeAgentTaskId);
   renderModelSelection();
   renderAgentSessions(agentSessions);
@@ -2116,11 +2110,9 @@ async function connectSidecar(snapshot) {
         activeAgentTaskId = response.taskId ?? null;
         const providerLabel = document.getElementById('agent-session-provider');
         const title = document.getElementById('agent-session-title');
-        const location = document.getElementById('agent-session-location');
         const context = document.getElementById('agent-session-context');
         if (providerLabel) providerLabel.textContent = response.provider;
         if (title) title.textContent = response.title || `Conversation ${response.sessionId.slice(0, 12)}`;
-        if (location) location.textContent = `${activeProject.name} · ${workspaceRootPath}`;
         if (context) context.textContent = agentTaskName(activeAgentTaskId);
         renderAgentTaskSelection();
         const turnState = document.getElementById('agent-turn-state');
