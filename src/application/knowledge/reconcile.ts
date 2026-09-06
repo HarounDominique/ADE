@@ -1,8 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { execFile as execFileCallback } from "node:child_process";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
-import { buildKnowledgeGraph } from "./knowledge-graph.js";
+import { buildKnowledgeGraph, relative } from "./knowledge-graph.js";
 
 const execFile = promisify(execFileCallback);
 

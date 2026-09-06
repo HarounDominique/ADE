@@ -60,11 +60,13 @@ jobs:
       - name: Test TypeScript
         run: npm test
 
-      - name: Test Rust
-        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml
-
+      # tauri::generate_context! reads frontendDist at compile time, so the
+      # bundle has to exist before anything compiles the shell.
       - name: Build shell bundle
         run: npm --prefix desktop run build
+
+      - name: Test Rust
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml
 
       - name: Compile shell
         run: cargo build --manifest-path desktop/src-tauri/Cargo.toml

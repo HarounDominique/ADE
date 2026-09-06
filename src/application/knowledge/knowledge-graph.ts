@@ -1,5 +1,12 @@
 import { readdir, readFile } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative as nativeRelative, resolve, sep } from "node:path";
+
+/** Document paths are identifiers and Markdown link targets, not filesystem
+    arguments: they must read the same on every platform, so the separator is
+    always `/`. Windows accepts them for reading; a `\` would not survive a link. */
+export function relative(from: string, to: string): string {
+  return nativeRelative(from, to).split(sep).join("/");
+}
 
 export type KnowledgeGraph = { nodes: readonly string[]; edges: readonly { from: string; to: string; heading?: string }[]; mermaid: string; uml: string; brokenReferences: readonly { from: string; target: string }[] };
 
@@ -29,7 +36,7 @@ async function markdownFiles(root: string): Promise<string[]> {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
       const projectPath = relative(root, path);
-      if (entry.isDirectory() && !ignored.has(entry.name) && projectPath !== join("docu", "generated")) await visit(path);
+      if (entry.isDirectory() && !ignored.has(entry.name) && projectPath !== "docu/generated") await visit(path);
       else if (entry.name.endsWith(".md")) result.push(relative(root, path));
     }
   }
