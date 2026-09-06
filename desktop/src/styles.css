@@ -700,3 +700,115 @@ body { color: var(--text); }
   .agent-prompt-options { align-items: stretch; flex-direction: column; gap: 8px; }
   .agent-model-choice { min-width: 0; }
 }
+
+/* UI redesign lab — a quiet reading desk for agent work, not a dashboard skin. */
+:root {
+  --bg: #f6f7f9;
+  --chrome: #fafbfc;
+  --chrome-strong: #f1f3f6;
+  --panel: #ffffff;
+  --panel-raised: #ffffff;
+  --panel-soft: #f4f6f8;
+  --line: #e1e5ea;
+  --line-strong: #cbd3dc;
+  --text: #1d2633;
+  --text-soft: #3e4b5c;
+  --muted: #687588;
+  --faint: #8994a4;
+  --blue: #3569c8;
+  --cyan: #197c7a;
+  --green: #1e7b4e;
+  --amber: #986718;
+  --red: #b44753;
+  --purple: #6557c8;
+  --shadow-soft: 0 8px 24px rgba(27, 39, 54, .07);
+}
+
+:root[data-theme="dark"] {
+  --bg: #15191f;
+  --chrome: #1b2028;
+  --chrome-strong: #14181e;
+  --panel: #20262f;
+  --panel-raised: #252c36;
+  --panel-soft: #1a2028;
+  --line: #323b48;
+  --line-strong: #4a5667;
+  --text: #edf1f5;
+  --text-soft: #c6d0db;
+  --muted: #99a7b7;
+  --faint: #728094;
+  --blue: #8eb4ff;
+  --cyan: #78d4cf;
+  --green: #7dd8a6;
+  --amber: #efc979;
+  --red: #f19da6;
+  --purple: #c7b8ff;
+  --shadow-soft: 0 12px 30px rgba(0, 0, 0, .24);
+}
+
+::selection { background: color-mix(in srgb, var(--blue) 24%, transparent); }
+* { scrollbar-color: color-mix(in srgb, var(--muted) 48%, transparent) transparent; }
+
+.app-shell { background: var(--bg); }
+.sidebar { padding: 18px 12px 12px; background: var(--chrome); }
+.brand { padding: 0 8px 17px; font-size: 14px; font-weight: 680; letter-spacing: -.01em; }
+.brand-mark { width: 26px; height: 26px; border-radius: 7px; box-shadow: none; }
+.primary-nav { gap: 4px; }
+.nav-item { min-height: 36px; border-radius: 7px; font-size: 12px; }
+.nav-item.active { color: var(--text); background: color-mix(in srgb, var(--blue) 10%, var(--chrome)); box-shadow: inset 2px 0 0 var(--blue); }
+.nav-item.active .nav-icon { color: var(--blue); }
+.explorer-section { margin-top: 17px; padding-top: 15px; }
+.explorer-title h2 { letter-spacing: .04em; }
+.workspace-entry { border-radius: 5px; }
+
+.topbar { min-height: 56px; padding: 0 24px; background: color-mix(in srgb, var(--chrome) 96%, transparent); }
+.breadcrumb-root { color: var(--text-soft); background: transparent; font-family: var(--sans); font-weight: 600; }
+.git-context-bar { height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.git-context-control + .git-context-control { border-left-color: var(--line); }
+.git-context-button { padding: 4px 12px; }
+.git-context-button:hover, .git-context-button[aria-expanded="true"] { background: color-mix(in srgb, var(--blue) 6%, var(--panel)); }
+.git-context-copy small { font: 500 9px/1.2 var(--sans); letter-spacing: .035em; }
+.git-context-copy strong { font-size: 11px; font-weight: 650; }
+.theme-switch { border-radius: 7px; font-family: var(--sans); font-weight: 600; letter-spacing: .02em; text-transform: none; }
+
+.view { padding: 20px 26px 30px; }
+.button { border-radius: 7px; box-shadow: none; font-weight: 600; }
+.button.primary { box-shadow: 0 2px 6px color-mix(in srgb, var(--blue) 20%, transparent); }
+.projects-list-panel, .workspace-tree-panel, .knowledge-card, .runtime-card { border-radius: 8px; }
+
+/* Conversation uses proximity, not a stack of independent cards. */
+.main-content.agent-focus .agents-view { padding: 0 14px 14px; }
+.main-content.agent-focus .agents-workspace { border-radius: 9px; box-shadow: var(--shadow-soft); }
+.agent-session-rail { background: var(--chrome); }
+.agent-rail-heading h2 { font-weight: 680; }
+.agent-session-item { border-radius: 6px; }
+.agent-session-item.active { box-shadow: inset 2px 0 0 var(--purple); }
+.agent-thread-header { min-height: 66px; padding: 14px 22px 12px; }
+.agent-thread-header h2 { font-size: 16px; }
+.agent-thread .agent-message-list { gap: 10px; padding: 22px clamp(20px, 5vw, 64px); }
+.agent-message { max-width: min(760px, 84%); padding: 13px 15px; border-color: transparent; border-radius: 10px; background: var(--panel-soft); }
+.agent-message-user { border-color: transparent; background: color-mix(in srgb, var(--blue) 11%, var(--panel)); }
+.agent-message-content { font-size: 13px; line-height: 1.62; }
+.agent-thread .agent-prompt-form { padding: 14px clamp(18px, 4vw, 42px) 16px; }
+.agent-thread .agent-prompt-form textarea { min-height: 72px; border-radius: 8px; }
+
+/* GitHub Desktop-like reading: tabs are navigation, the diff is the surface. */
+.version-control-view { padding: 18px 26px 30px; }
+.version-control-tab-row { min-height: 38px; margin-bottom: 13px; }
+.version-control-tabs { gap: 18px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.version-control-tab { min-width: 0; padding: 9px 2px; border-radius: 0; font-family: var(--sans); font-size: 12px; font-weight: 600; text-transform: none; }
+.version-control-tab.active { background: transparent; box-shadow: inset 0 -2px 0 var(--blue); }
+.version-history-layout, .changes-workspace { border-radius: 8px; box-shadow: none; }
+.git-commit-list { background: var(--chrome); }
+.git-commit-item { min-height: 70px; padding: 12px 14px; }
+.git-commit-item.active { box-shadow: inset 2px 0 0 var(--blue); }
+.git-pending-file { min-height: 36px; }
+.git-pending-file.active { box-shadow: inset 2px 0 0 var(--blue); }
+.git-diff-output { border-radius: 6px; background: color-mix(in srgb, var(--panel-soft) 88%, var(--panel)); }
+
+.terminal-dock { background: var(--chrome); box-shadow: 0 -6px 18px color-mix(in srgb, var(--text) 5%, transparent); }
+.terminal-surface { border-radius: 6px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .nav-item, .workspace-entry, .git-context-button, .agent-session-item, .agent-message, .git-commit-item, .git-pending-file, .button { transition: color .14s ease, background-color .14s ease, border-color .14s ease, box-shadow .14s ease; }
+}

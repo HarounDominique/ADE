@@ -42,3 +42,9 @@ Una herramienta macOS clara y serena, con la jerarquía de Codex Desktop para co
 3. Rehacer `Version control` como lectura de cambios y diff, manteniendo el flujo local Commit → Push.
 4. Afinar navegación, Explorer y terminal como infraestructura tranquila.
 5. Verificar estados y capturas, corregir en una única pasada y documentar el resultado.
+
+## Primera pasada aplicada
+
+La primera prueba modifica únicamente `desktop/src/styles.css`: consolida una paleta light-first menos azulada, una noche separada pero legible, reduce el peso del chrome, convierte `Agents` en una superficie de lectura más amplia y rebaja `Version control` a pestañas de navegación con el diff como zona dominante. No altera el DOM, la semántica, los comandos ni los flujos de Project, Git o agentes.
+
+Se verificó el bundle macOS en una instancia real de ADE con conversaciones de Claude Code y cambios Git del proyecto Apache Camel. `npm test` mantiene 112 tests correctos y el build desktop completa. La validación pendiente antes de cualquier merge es una revisión humana de esta variante y, si se acepta la dirección, una segunda pasada focalizada en tipografía y densidad de `Version control`.
