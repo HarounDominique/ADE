@@ -1147,6 +1147,23 @@ body { color: var(--text); }
   #version-changes-panel .pending-diff-pane { flex: 0 0 auto; width: 100%; min-height: 360px; }
 }
 
+/* Diffs are evidence, so no line is allowed to disappear beyond a resized pane. */
+#git-commit-diff,
+#version-changes-panel .pending-diff {
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  tab-size: 2;
+}
+#git-commit-diff .git-diff-line,
+#version-changes-panel .pending-diff .git-diff-line {
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .version-control-utilities > summary::before { transition-duration: .01ms; }
   .version-history-layout, .git-commit-detail, .history-commit-pane, .history-pane-restore, .git-commit-files-heading, .git-commit-files { transition-duration: .01ms !important; }

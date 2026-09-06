@@ -77,6 +77,11 @@ test("Version control Changes gives the selected diff every byte outside the fil
   assert.match(styles, /#version-changes-panel \.pending-diff \{ grid-column: 1; grid-row: 2; width: 100%; min-width: 0; \}/);
 });
 
+test("Version control diffs wrap to the live width of their History and Changes panes", () => {
+  assert.match(styles, /#git-commit-diff,\s+#version-changes-panel \.pending-diff \{\s+overflow-x: hidden;\s+white-space: pre-wrap;\s+overflow-wrap: anywhere;/);
+  assert.match(styles, /#git-commit-diff \.git-diff-line,\s+#version-changes-panel \.pending-diff \.git-diff-line \{\s+max-width: 100%;\s+white-space: pre-wrap;/);
+});
+
 test("Agents exposes an accessible delete action for saved conversations", () => {
   assert.match(html, /id="agent-delete-dialog"/);
   assert.match(html, /data-action="confirm-delete-agent-session"/);
