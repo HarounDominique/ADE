@@ -75,6 +75,7 @@ let activeAgentTaskId = null;
 let agentProjectTasks = [];
 const maxTaskContextItems = 12;
 let pendingAgentSessionDeletion = null;
+let pendingConfirmation = null;
 let agentPromptRunning = false;
 let activeAgentRequestId = null;
 let agentStopRequested = false;
@@ -779,10 +780,17 @@ function removeProjectFromUI(project) {
     notify('Add another project before removing the active one.');
     return;
   }
-  if (!window.confirm(`Remove “${project.name}” from ADE? Its files will stay on disk.`)) return;
-  setSyncState('stale', `Removing ${project.name}…`);
-  void sendContextRequest('project.remove', { projectId: project.id }, 'remove-project').catch((error) => {
-    notify(error instanceof Error ? error.message : 'Unable to remove project.');
+  requestConfirmation({
+    eyebrow: 'REMOVE PROJECT',
+    title: `Remove “${project.name}” from ADE?`,
+    copy: 'ADE stops tracking this Project. Its files stay on disk and can be added again later.',
+    confirmLabel: 'Remove',
+    tone: 'danger',
+  }, () => {
+    setSyncState('stale', `Removing ${project.name}…`);
+    void sendContextRequest('project.remove', { projectId: project.id }, 'remove-project').catch((error) => {
+      notify(error instanceof Error ? error.message : 'Unable to remove project.');
+    });
   });
 }
 
@@ -1403,7 +1411,16 @@ async function openFileInADE(filePath) {
 }
 
 async function closeFilePreview() {
-  if (documentDirty && !window.confirm('Discard unsaved changes to this file?')) return;
+  if (documentDirty) {
+    requestConfirmation({
+      eyebrow: 'DISCARD CHANGES',
+      title: 'Discard unsaved changes to this file?',
+      copy: `Edits to ${activeDocument?.path ?? 'this file'} have not been saved. Closing it loses them.`,
+      confirmLabel: 'Discard',
+      tone: 'danger',
+    }, () => { documentDirty = false; void closeFilePreview(); });
+    return;
+  }
   const viewer = document.getElementById('document-viewer');
   if (viewer) viewer.hidden = false;
   const status = document.getElementById('document-viewer-status');
@@ -1684,6 +1701,49 @@ function resumeAgentConversation(sessionId, provider) {
   showView('agents');
   requestAgentSessions(workspaceRootPath);
   requestAgentMessages(sessionId);
+}
+
+/** The webview never answers the browser-native confirm and prompt calls, so
+    every guarded action routes through this in-app dialog instead. */
+function requestConfirmation({ eyebrow = 'CONFIRM', title, copy, confirmLabel = 'Confirm', tone = 'primary' }, onConfirm) {
+  const dialog = document.getElementById('confirm-dialog');
+  const accept = document.getElementById('confirm-dialog-accept');
+  if (!dialog?.showModal || !accept) { notify('This action needs a confirmation dialog that is unavailable.'); return; }
+  pendingConfirmation = onConfirm;
+  const eyebrowLabel = document.getElementById('confirm-dialog-eyebrow');
+  const titleLabel = document.getElementById('confirm-dialog-title');
+  const copyLabel = document.getElementById('confirm-dialog-copy');
+  if (eyebrowLabel) eyebrowLabel.textContent = eyebrow;
+  if (titleLabel) titleLabel.textContent = title;
+  if (copyLabel) copyLabel.textContent = copy;
+  accept.className = `button ${tone}`;
+  accept.textContent = confirmLabel;
+  dialog.showModal();
+  requestAnimationFrame(() => accept.focus());
+}
+
+function closeConfirmation() {
+  pendingConfirmation = null;
+  document.getElementById('confirm-dialog')?.close();
+}
+
+function acceptConfirmation() {
+  const confirmed = pendingConfirmation;
+  pendingConfirmation = null;
+  document.getElementById('confirm-dialog')?.close();
+  if (confirmed) void confirmed();
+}
+
+function openWorktreeDialog() {
+  const repositoryPath = document.getElementById('project-path')?.textContent ?? '';
+  const taskSuffix = selectedTaskId ? selectedTaskId.toLowerCase().replace(/[^a-z0-9-]/g, '-') : 'ade-next';
+  const branch = document.getElementById('worktree-branch');
+  const path = document.getElementById('worktree-path');
+  if (branch) branch.value = `feature/${taskSuffix}`;
+  if (path) path.value = `${repositoryPath}-worktree-${taskSuffix}`;
+  const dialog = document.getElementById('worktree-dialog');
+  if (dialog?.showModal) dialog.showModal();
+  requestAnimationFrame(() => branch?.focus());
 }
 
 function openDeleteAgentSessionDialog(sessionId) {
@@ -2802,13 +2862,19 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'create-worktree') {
     if (!nativeInvoke) { notify('Git operations require the sidecar.'); return; }
-    const taskSuffix = selectedTaskId ? selectedTaskId.toLowerCase().replace(/[^a-z0-9-]/g, '-') : 'ade-next';
-    const branch = window.prompt('Branch for the new worktree:', `feature/${taskSuffix}`)?.trim();
-    if (!branch) return;
-    const path = window.prompt('Absolute path for the new worktree:', `${document.getElementById('project-path')?.textContent}-worktree-${taskSuffix}`)?.trim();
-    if (!path) return;
-    if (!window.confirm(`Create worktree ${path} on ${branch}?`)) return;
-    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-worktree-${Date.now()}`, method: 'git.worktree.create', params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, branch, worktreePath: path, actor: 'human', reason: 'Confirmed in ADE Git workspace', confirmed: true } }) }).catch((error) => { notify('Worktree creation failed.'); console.warn(error); });
+    openWorktreeDialog();
+    return;
+  }
+  if (item.dataset.action === 'close-worktree-dialog') {
+    document.getElementById('worktree-dialog')?.close();
+    return;
+  }
+  if (item.dataset.action === 'cancel-confirm') {
+    closeConfirmation();
+    return;
+  }
+  if (item.dataset.action === 'accept-confirm') {
+    acceptConfirmation();
     return;
   }
   if (['create-branch', 'create-commit', 'push-branch', 'create-pr'].includes(item.dataset.action)) {
@@ -2816,12 +2882,18 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     const taskSuffix = selectedTaskId ? selectedTaskId.toLowerCase().replace(/[^a-z0-9-]/g, '-') : 'ade-next';
     const labels = { 'create-branch': ['git.branch.create', `feature/${taskSuffix}`], 'create-commit': ['git.commit.create', selectedTaskId ? `chore: record ${selectedTaskId}` : 'chore: record ADE changes'], 'push-branch': ['git.push', ''], 'create-pr': [gitWorkflow === 'direct' ? 'git.push' : 'github.pr.create', gitWorkflow === 'direct' ? '' : selectedTaskIntent || 'ADE change'] };
     const [method, intent] = labels[item.dataset.action];
-    if (!window.confirm(`Confirm ${method}: ${intent}?`)) return;
-    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => {
-      notify(`${method} completed.`);
-      const taskId = selectedTaskId;
-      if (taskId) nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-ops-${Date.now()}`, method: 'task.git.operations', params: { taskId } }) });
-    }).catch((error) => { notify('Git operation failed.'); console.warn(error); });
+    requestConfirmation({
+      eyebrow: 'GIT OPERATION',
+      title: `Run ${method}?`,
+      copy: intent ? `ADE runs it on the active Project as “${intent}”.` : 'ADE runs it on the active Project and its current branch.',
+      confirmLabel: 'Run',
+    }, () => {
+      nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => {
+        notify(`${method} completed.`);
+        const taskId = selectedTaskId;
+        if (taskId) nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-ops-${Date.now()}`, method: 'task.git.operations', params: { taskId } }) });
+      }).catch((error) => { notify('Git operation failed.'); console.warn(error); });
+    });
     return;
   }
   if (item.dataset.action === 'github-status') {
@@ -2884,6 +2956,16 @@ document.getElementById('git-commit-form')?.addEventListener('submit', (event) =
   setSyncState('stale', 'Creating local commit…');
   void sendContextRequest('git.commit.create', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), reason: 'Local commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-local').catch((error) => notify(error instanceof Error ? error.message : 'Commit failed.'));
 });
+document.getElementById('worktree-form')?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (!nativeInvoke) { notify('Git operations require the sidecar.'); return; }
+  const branch = document.getElementById('worktree-branch')?.value.trim();
+  const path = document.getElementById('worktree-path')?.value.trim();
+  if (!branch || !path) { notify('Enter a branch and an absolute path for the worktree.'); return; }
+  document.getElementById('worktree-dialog')?.close();
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-worktree-${Date.now()}`, method: 'git.worktree.create', params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, branch, worktreePath: path, actor: 'human', reason: 'Confirmed in ADE Git workspace', confirmed: true } }) }).catch((error) => { notify('Worktree creation failed.'); console.warn(error); });
+});
+document.getElementById('confirm-dialog')?.addEventListener('close', () => { pendingConfirmation = null; });
 document.addEventListener('click', (event) => {
   const historyPaneToggle = event.target.closest('[data-history-pane-toggle]');
   if (historyPaneToggle) {

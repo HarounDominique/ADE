@@ -110,6 +110,21 @@ test("Agents exposes an accessible delete action for saved conversations", () =>
   assert.match(styles, /\.agent-session-delete:focus-visible/);
 });
 
+test("guarded actions confirm in-app because the webview has no window prompts", () => {
+  assert.doesNotMatch(main, /window\.confirm/);
+  assert.doesNotMatch(main, /window\.prompt/);
+  assert.match(html, /id="confirm-dialog"/);
+  assert.match(html, /data-action="accept-confirm"/);
+  assert.match(html, /data-action="cancel-confirm"/);
+  assert.match(html, /id="worktree-dialog"/);
+  for (const id of ["confirm-dialog-title", "confirm-dialog-copy", "confirm-dialog-accept", "worktree-branch", "worktree-path"]) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(main, /function requestConfirmation/);
+  assert.match(main, /pendingConfirmation = onConfirm/);
+  const removal = main.slice(main.indexOf("function removeProjectFromUI"), main.indexOf("function renderChanges"));
+  assert.match(removal, /requestConfirmation\(/);
+  assert.match(main, /worktree-form'\)\?\.addEventListener\('submit'/);
+});
+
 test("switching Project refreshes and isolates the Agent session history", () => {
   const switcher = main.slice(main.indexOf("async function switchProjectFromContext"), main.indexOf("async function switchBranchFromContext"));
   assert.match(switcher, /resetAgentWorkspaceForProject\(\)/);
