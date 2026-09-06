@@ -916,8 +916,8 @@ body { color: var(--text); }
 .version-control-actions { justify-content: flex-end; }
 .version-control-toolbar { min-height: 40px; margin: 0; padding: 0 30px; border-bottom: 1px solid var(--line); background: var(--panel-soft); }
 .pending-changes-layout { height: calc(100vh - var(--terminal-height, 138px) - 142px); min-height: 420px; }
-.changes-workspace { height: 100%; border: 0; border-radius: 0; box-shadow: none; grid-template-columns: minmax(310px, .73fr) minmax(0, 1.7fr); }
-.pending-files-pane { display: flex; min-width: 0; flex-direction: column; border-right: 1px solid var(--line); background: var(--chrome); }
+.changes-workspace { height: 100%; border: 0; border-radius: 0; box-shadow: none; grid-template-columns: minmax(280px, .58fr) minmax(0, 1fr) minmax(0, 1fr); }
+.pending-files-pane { display: flex; grid-column: 1; min-width: 0; flex-direction: column; border-right: 1px solid var(--line); background: var(--chrome); }
 .changes-section-heading { display: grid; align-content: center; min-height: 84px; padding: 15px 20px; border-bottom: 1px solid var(--line); }
 .changes-section-heading h2 { margin: 4px 0 3px; color: var(--text); font-size: 15px; letter-spacing: -.01em; }
 .changes-hint { font-size: 10px; }
@@ -925,7 +925,7 @@ body { color: var(--text); }
 .git-pending-file { min-height: 46px; padding: 10px 12px; border-radius: 8px; background: transparent; font-size: 12px; }
 .git-pending-file:hover { background: color-mix(in srgb, var(--blue) 7%, var(--panel)); }
 .git-pending-file.active { border: 1px solid color-mix(in srgb, var(--blue) 23%, var(--line)); background: color-mix(in srgb, var(--blue) 10%, var(--panel)); box-shadow: inset 3px 0 0 var(--blue); }
-.pending-diff-pane { display: grid; min-width: 0; grid-template-rows: 84px minmax(0, 1fr); background: var(--panel); }
+.pending-diff-pane { display: grid; grid-column: 2 / -1; min-width: 0; grid-template-rows: 84px minmax(0, 1fr); background: var(--panel); }
 .pending-diff-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 26px; border-bottom: 1px solid var(--line); }
 .pending-diff-heading div { display: grid; gap: 4px; min-width: 0; }
 .pending-diff-heading strong { overflow: hidden; color: var(--text); font: 650 13px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
@@ -943,5 +943,5 @@ body { color: var(--text); }
   .agents-workbench { grid-template-columns: 228px minmax(0, 1fr); }
   .version-control-tab-row { grid-template-columns: 180px auto 1fr; padding: 0 20px; }
   .version-control-toolbar { padding: 0 20px; }
-  .changes-workspace { grid-template-columns: minmax(250px, .85fr) minmax(0, 1.45fr); }
+  .changes-workspace { grid-template-columns: minmax(240px, .75fr) minmax(0, 1fr) minmax(0, 1fr); }
 }
