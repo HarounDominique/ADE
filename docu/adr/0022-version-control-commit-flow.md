@@ -12,6 +12,10 @@ Accepted
 
 [ADR-0020](0020-version-control-surface.md)
 
+## Amended by
+
+[ADR-0030](0030-in-app-confirmation-surface.md) retira la confirmación adicional de `Push origin`: la separación commit local → publicación posterior sigue vigente, pero publicar no añade un diálogo. La habilitación de `Push origin` tampoco depende ya de que el commit se creara en la sesión en curso, sino de los commits que el remoto no ha visto, según [SPEC-git-collaboration](../specs/SPEC-git-collaboration.md#version-control-read-model).
+
 ## Context
 
 La primera versión de `Version control` agrupaba commit y publicación en una única acción. Ese flujo ocultaba un punto de decisión importante: el usuario puede querer inspeccionar el commit local, continuar trabajando o publicarlo más tarde. Además, el panel persistente de commit reducía el espacio disponible para leer el diff, que es la actividad principal de la pestaña `Changes`.
