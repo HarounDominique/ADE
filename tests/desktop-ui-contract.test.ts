@@ -29,7 +29,9 @@ test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(html, /class="agents-workbench"/);
   assert.match(html, /id="agent-session-list"/);
   assert.doesNotMatch(html, /agent-session-location/);
-  assert.match(styles, /\.agent-thread-header \{\n  min-height: 48px/);
+  assert.match(styles, /\.agent-thread-header \{\n  min-height: 62px/);
+  assert.match(html, /class="agent-thread-settings"[\s\S]*id="agent-provider"[\s\S]*id="agent-model"[\s\S]*id="agent-task"/);
+  assert.match(styles, /max-height: clamp\(96px, 24vh, 220px\)/);
   assert.match(html, /id="agent-task"/);
   assert.match(html, /id="agent-provider"/);
   assert.match(main, /data-agent-group-toggle/);

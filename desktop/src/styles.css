@@ -1255,3 +1255,69 @@ body { color: var(--text); }
   .agent-thread-header { padding: 0 14px; }
   .agent-thread-context strong { display: none; }
 }
+
+/* Conversation parameters are stable context, not part of writing a prompt. */
+.agent-thread-header {
+  min-height: 62px;
+  gap: 16px;
+}
+.agent-thread-header > .agent-thread-identity {
+  display: flex;
+  flex: 1 1 190px;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.agent-thread-settings {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.agent-thread-settings .agent-provider-choice,
+.agent-thread-settings .agent-model-choice,
+.agent-thread-settings .agent-task-choice {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  color: var(--muted);
+  font: 8px var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.agent-thread-settings .agent-provider-choice { width: 104px; }
+.agent-thread-settings .agent-model-choice { width: 132px; }
+.agent-thread-settings .agent-task-choice { width: min(168px, 16vw); }
+.agent-thread-settings select {
+  width: 100%;
+  min-height: 27px;
+  padding: 3px 22px 3px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  color: var(--text-soft);
+  background: var(--panel-soft);
+  font: 10px var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.agent-thread-settings select:focus-visible {
+  border-color: var(--blue);
+  outline: 2px solid color-mix(in srgb, var(--blue) 28%, transparent);
+  outline-offset: 1px;
+}
+.agent-thread .agent-prompt-form textarea {
+  max-height: clamp(96px, 24vh, 220px);
+  resize: vertical;
+}
+.agent-thread .agent-prompt-options { min-height: 27px; }
+@media (max-width: 1120px) {
+  .agent-thread-header { flex-wrap: wrap; align-content: center; gap: 6px 12px; padding-top: 7px; padding-bottom: 7px; }
+  .agent-thread-settings { order: 3; width: 100%; }
+  .agent-thread-context { margin-left: auto; }
+}
+@media (max-width: 760px) {
+  .agent-thread-settings .agent-provider-choice { width: 92px; }
+  .agent-thread-settings .agent-model-choice { width: 116px; }
+  .agent-thread-settings .agent-task-choice { width: min(150px, 40vw); }
+}
