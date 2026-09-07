@@ -158,6 +158,20 @@ test("only a real snapshot repaints project state", () => {
   assert.match(main, /taskDetailMarkup\.get\(task\.id\) \?\?/);
 });
 
+test("a turn in flight is visible in the conversation", () => {
+  // The prompt belongs in the transcript on send, not when the turn ends.
+  assert.match(main, /pendingAgentTurn = \{ prompt, provider, startedAt: Date\.now\(\), activity: \[\], sessionId: null \}/);
+  assert.match(main, /function pendingTurnMarkup/);
+  assert.match(main, /list\.innerHTML \+= pendingTurnMarkup\(\)/);
+  // State owns the pending turn, so a re-render rebuilds it instead of losing it.
+  assert.match(main, /let pendingAgentTurn = null/);
+  assert.match(main, /function clearPendingAgentTurn/);
+  assert.match(main, /response\.type === 'agent\.activity'/);
+  assert.match(main, /function startAgentElapsedTimer/);
+  assert.match(styles, /@keyframes agent-thinking-pulse/);
+  assert.match(styles, /\.agent-thinking-dot \{ animation: none/);
+});
+
 test("guarded actions confirm in-app because the webview has no window prompts", () => {
   assert.doesNotMatch(main, /window\.confirm/);
   assert.doesNotMatch(main, /window\.prompt/);

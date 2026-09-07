@@ -1481,3 +1481,22 @@ body { color: var(--text); }
 @media (prefers-reduced-motion: reduce) {
   .task-row-chevron { transition-duration: .01ms !important; }
 }
+
+/* A turn in flight is part of the conversation, not a status line somewhere
+   else: the prompt appears on send, and the agent's own reported steps appear
+   as it takes them. */
+.agent-message-pending { opacity: 1; }
+.agent-thinking { display: inline-flex; align-items: center; gap: 6px; color: var(--purple); font-weight: 650; }
+.agent-thinking-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: agent-thinking-pulse 1.4s ease-in-out infinite; }
+@keyframes agent-thinking-pulse {
+  0%, 100% { opacity: .28; transform: scale(.82); }
+  50% { opacity: 1; transform: scale(1); }
+}
+.agent-activity-trace { display: grid; gap: 5px; margin: 10px 0 0; padding: 0; list-style: none; }
+.agent-activity-item { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 6px 9px; border-left: 1px solid var(--line-strong); color: var(--text-soft); font-size: 11px; }
+.agent-activity-item code { color: var(--muted); font: 10px var(--mono); overflow-wrap: anywhere; }
+.agent-activity-tool { border-left-color: color-mix(in srgb, var(--purple) 55%, var(--line)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-thinking-dot { animation: none; opacity: .8; }
+}

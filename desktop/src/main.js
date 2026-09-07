@@ -77,6 +77,11 @@ const maxTaskContextItems = 12;
 let pendingAgentSessionDeletion = null;
 let pendingConfirmation = null;
 let agentPromptRunning = false;
+/** The turn in flight, owned by state rather than by the DOM: any re-render of
+    the transcript has to be able to rebuild it, or it vanishes mid-turn. */
+let pendingAgentTurn = null;
+let agentRenderedMessages = [];
+let agentElapsedTimer = null;
 let activeAgentRequestId = null;
 let agentStopRequested = false;
 let agentPromptHistoryIndex = -1;
@@ -1662,15 +1667,47 @@ function resetAgentWorkspaceForProject() {
   if (context) context.textContent = agentTaskName(activeAgentTaskId);
 }
 
+function agentActivityMarkup() {
+  if (!pendingAgentTurn?.activity.length) return '';
+  return `<ol class="agent-activity-trace">${pendingAgentTurn.activity.map((item) => `<li class="agent-activity-item agent-activity-${escapeHTML(item.kind)}"><span>${escapeHTML(item.label)}</span>${item.detail ? `<code>${escapeHTML(item.detail)}</code>` : ''}</li>`).join('')}</ol>`;
+}
+
+function pendingTurnMarkup() {
+  if (!pendingAgentTurn) return '';
+  const provider = escapeHTML(pendingAgentTurn.provider);
+  // Only OpenCode reports what it is doing; for one-shot CLI runtimes the honest
+  // signal is that the turn is running and for how long, not invented steps.
+  const waiting = pendingAgentTurn.activity.length ? 'Working' : pendingAgentTurn.sessionId ? 'Thinking' : 'Sending';
+  return `<li class="agent-message agent-message-user"><div class="agent-message-meta"><strong>You</strong><time>${escapeHTML(new Date(pendingAgentTurn.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time></div><div class="agent-message-content">${escapeHTML(pendingAgentTurn.prompt)}</div></li>
+    <li class="agent-message agent-message-assistant agent-message-pending" aria-live="polite"><div class="agent-message-meta"><strong>${provider}</strong><span class="agent-thinking"><span class="agent-thinking-dot" aria-hidden="true"></span>${waiting}</span><time id="agent-turn-elapsed">0s</time></div>${agentActivityMarkup()}</li>`;
+}
+
 function renderAgentMessages(messages) {
   const list = document.getElementById('agent-message-list');
   if (!list) return;
-  if (!messages.length) {
+  agentRenderedMessages = messages;
+  if (!messages.length && !pendingAgentTurn) {
     list.innerHTML = '<li class="agent-empty-state">Send a prompt to begin.</li>';
     return;
   }
   list.innerHTML = messages.map((message) => `<li class="agent-message agent-message-${escapeHTML(message.role)}"><div class="agent-message-meta"><strong>${escapeHTML(message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Agent' : 'Assay')}</strong><time>${escapeHTML(new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time></div><div class="agent-message-content">${escapeHTML(message.content)}</div></li>`).join('');
+  list.innerHTML += pendingTurnMarkup();
   list.scrollTop = list.scrollHeight;
+}
+
+function startAgentElapsedTimer() {
+  window.clearInterval(agentElapsedTimer);
+  agentElapsedTimer = window.setInterval(() => {
+    if (!pendingAgentTurn) return;
+    const label = document.getElementById('agent-turn-elapsed');
+    if (label) label.textContent = `${Math.round((Date.now() - pendingAgentTurn.startedAt) / 1000)}s`;
+  }, 1000);
+}
+
+function clearPendingAgentTurn() {
+  pendingAgentTurn = null;
+  window.clearInterval(agentElapsedTimer);
+  agentElapsedTimer = null;
 }
 
 function toggleAgentSessionGroup(groupId) {
@@ -1925,6 +1962,12 @@ function sendAgentPrompt(event) {
   const turnState = document.getElementById('agent-turn-state');
   if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
   if (feedback) feedback.textContent = `Sending prompt to ${provider}…`;
+  // The prompt belongs in the conversation the moment it is sent. Waiting for
+  // the turn to finish leaves the user staring at an unchanged transcript with
+  // no evidence their message went anywhere.
+  pendingAgentTurn = { prompt, provider, startedAt: Date.now(), activity: [], sessionId: null };
+  renderAgentMessages(agentRenderedMessages);
+  startAgentElapsedTimer();
   const requestId = `agent-prompt-${Date.now()}`;
   activeAgentRequestId = requestId;
   pendingAgentPromptProjects.set(requestId, activeProjectId);
@@ -1933,6 +1976,8 @@ function sendAgentPrompt(event) {
     agentPromptRunning = false;
     activeAgentRequestId = null;
     agentStopRequested = false;
+    clearPendingAgentTurn();
+    renderAgentMessages(agentRenderedMessages);
     if (button) button.disabled = false;
     if (turnState) { turnState.textContent = 'ERROR'; turnState.dataset.state = 'error'; }
     if (feedback) feedback.textContent = `Agent failed: ${error}`;
@@ -2308,6 +2353,7 @@ async function connectSidecar(snapshot) {
         if (String(response.id).startsWith('agent-prompt-')) {
           pendingAgentPromptProjects.delete(String(response.id));
           agentPromptRunning = false;
+          clearPendingAgentTurn();
           activeAgentRequestId = null;
           agentStopRequested = false;
           const sendButton = document.getElementById('agent-send-button');
@@ -2469,6 +2515,11 @@ async function connectSidecar(snapshot) {
         renderRuntimeEvent(selectedTaskId ?? 'skill', response.event);
         return;
       }
+      if (response.type === 'agent.activity' && pendingAgentTurn) {
+        pendingAgentTurn.activity.push(response.item);
+        renderAgentMessages(agentRenderedMessages);
+        return;
+      }
       if (response.type === 'agent.started') {
         activeAgentSessionId = response.sessionId;
         activeAgentTaskId = response.taskId ?? null;
@@ -2479,6 +2530,10 @@ async function connectSidecar(snapshot) {
         if (title) title.textContent = response.title || `Conversation ${response.sessionId.slice(0, 12)}`;
         if (context) context.textContent = agentTaskName(activeAgentTaskId);
         renderAgentTaskSelection();
+        if (pendingAgentTurn) {
+          pendingAgentTurn.sessionId = response.sessionId;
+          renderAgentMessages(agentRenderedMessages);
+        }
         const turnState = document.getElementById('agent-turn-state');
         if (turnState) { turnState.textContent = 'WORKING'; turnState.dataset.state = 'working'; }
         return;
@@ -2486,6 +2541,7 @@ async function connectSidecar(snapshot) {
       if (response.type === 'agent.stopped') {
         pendingAgentPromptProjects.delete(String(response.id));
         agentPromptRunning = false;
+        clearPendingAgentTurn();
         activeAgentRequestId = null;
         agentStopRequested = false;
         const button = document.getElementById('agent-send-button');
@@ -2511,6 +2567,7 @@ async function connectSidecar(snapshot) {
         activeAgentSessionId = response.result.sessionId;
         agentSessionModels.set(activeAgentSessionId, selectedAgentModel);
         agentPromptRunning = false;
+        clearPendingAgentTurn();
         activeAgentRequestId = null;
         agentStopRequested = false;
         const button = document.getElementById('agent-send-button');

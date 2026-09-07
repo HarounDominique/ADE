@@ -517,8 +517,13 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     const activity: Array<{ label: string; detail?: string; kind: "status" | "tool" }> = [];
     const eventAbortController = new AbortController();
     active.eventAbortController = eventAbortController;
+    // Activity is streamed as it happens, not only handed over with the result:
+    // a turn that reports nothing until it finishes is indistinguishable from a
+    // stalled one. Providers without an event stream simply emit nothing here.
     const eventPromise = provider === "opencode"
-      ? collectAgentEvents(runtime, eventTexts, activity, eventAbortController)
+      ? collectAgentEvents(runtime, eventTexts, activity, eventAbortController, (item) => {
+          process.stdout.write(`${JSON.stringify({ type: "agent.activity", id: request.id, sessionId: session.id, item })}\n`);
+        })
       : Promise.resolve();
     if (active.aborted) throw new Error("AGENT_TURN_ABORTED");
     const rawOutput = await runtime.prompt(session, { text: params.prompt!, ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), grantedPermissions: params.grantedPermissions ?? [] });
@@ -561,13 +566,17 @@ async function collectAgentEvents(
   texts: string[],
   activity: Array<{ label: string; detail?: string; kind: "status" | "tool" }>,
   controller = new AbortController(),
+  onActivity?: (item: { label: string; detail?: string; kind: "status" | "tool" }) => void,
 ): Promise<void> {
   const collect = (async () => {
     for await (const event of runtime.events(controller.signal)) {
       const text = extractAgentEventText(event.payload);
       if (text && !texts.includes(text)) texts.push(text);
       const item = summarizeAgentActivity(event);
-      if (item && !activity.some((candidate) => candidate.label === item.label && candidate.detail === item.detail)) activity.push(item);
+      if (item && !activity.some((candidate) => candidate.label === item.label && candidate.detail === item.detail)) {
+        activity.push(item);
+        onActivity?.(item);
+      }
       const payload = event.payload as { type?: string };
       if (payload.type === "session.idle") break;
     }
