@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -11,20 +11,31 @@ import { createInterface } from "node:readline";
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 // Every platform lays its bundle out differently, and only macOS nests the
 // executable inside the bundle directory.
+// Tauri names the binary after the Cargo package, not after productName, so
+// the bundle holds `Assay.app/Contents/MacOS/desktop`. Read the name rather
+// than restate it: spelling the product here is what silently stopped this
+// check from finding anything when the product was renamed.
+const binaryName = readFileSync(join(root, "desktop/src-tauri/Cargo.toml"), "utf8")
+  .split(/\[[^\]]+\]/)[1]
+  ?.match(/^\s*name\s*=\s*"([^"]+)"/m)?.[1];
+if (!binaryName) {
+  console.error("Unable to read the binary name from desktop/src-tauri/Cargo.toml");
+  process.exit(1);
+}
 const bundleLayout = {
   darwin: {
     app: "desktop/src-tauri/target/release/bundle/macos/Assay.app",
-    executable: "Contents/MacOS/Assay",
+    executable: `Contents/MacOS/${binaryName}`,
     sidecar: "Contents/Resources/sidecar-dist/ade-sidecar",
   },
   win32: {
     app: "desktop/src-tauri/target/release",
-    executable: "Assay.exe",
+    executable: `${binaryName}.exe`,
     sidecar: "sidecar-dist/ade-sidecar.exe",
   },
 }[process.platform] ?? {
   app: "desktop/src-tauri/target/release",
-  executable: "assay",
+  executable: binaryName,
   sidecar: "sidecar-dist/ade-sidecar",
 };
 const app = resolve(process.env.ADE_APP_PATH ?? join(root, bundleLayout.app));
