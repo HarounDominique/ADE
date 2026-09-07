@@ -717,7 +717,7 @@ async function switchProjectFromContext(project) {
     gitUnpushedCommitCount = 0;
     resetAgentWorkspaceForProject();
     renderCommitControls();
-    if (selectedFilePath && !selectedFilePath.startsWith(`${workspaceRootPath}/`)) {
+    if (selectedFilePath && !pathInsideRoot(selectedFilePath)) {
       selectedFilePath = null;
       activeDocument = null;
       document.getElementById('document-viewer')?.removeAttribute('hidden');
@@ -755,7 +755,7 @@ async function switchBranchFromContext(branch) {
 }
 
 function projectIdForPath(path) {
-  const base = path.split('/').filter(Boolean).at(-1) ?? 'project';
+  const base = pathBaseName(path) || 'project';
   const slug = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
   if (!registeredProjects.some((project) => project.id === slug)) return slug;
   return `${slug}-${Date.now().toString(36)}`;
@@ -766,7 +766,7 @@ async function addProjectFromUI() {
   try {
     const selectedPath = await nativeInvoke('select_project_directory');
     if (!selectedPath) return;
-    const name = selectedPath.split('/').filter(Boolean).at(-1) ?? 'Project';
+    const name = pathBaseName(selectedPath) || 'Project';
     setSyncState('stale', `Adding ${name}…`);
     await sendContextRequest('project.register', { projectId: projectIdForPath(selectedPath), name, repositoryPath: selectedPath }, 'register-project');
   } catch (error) {
@@ -1134,8 +1134,21 @@ function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 }
 
+/** Paths arrive from Tauri spelled the way the platform spells them, so Windows
+    sends `\`. Nothing in the shell may assume a separator: every split and every
+    prefix test goes through these, which accept either. */
+const pathSegments = (value) => String(value ?? '').split(/[\\/]+/).filter(Boolean);
+const pathBaseName = (value) => pathSegments(value).at(-1) ?? '';
+
+function pathInsideRoot(filePath, root = workspaceRootPath) {
+  if (!filePath || !root) return false;
+  const separatorAgnostic = (value) => String(value).replaceAll('\\', '/');
+  return separatorAgnostic(filePath).startsWith(`${separatorAgnostic(root).replace(/\/+$/, '')}/`);
+}
+
 function documentRelativePath(filePath) {
-  return filePath.startsWith(`${workspaceRootPath}/`) ? filePath.slice(workspaceRootPath.length + 1) : filePath;
+  // Normalizing preserves length, so the original string can still be sliced.
+  return pathInsideRoot(filePath) ? String(filePath).slice(workspaceRootPath.length + 1) : filePath;
 }
 
 function updateWorkspaceFileSelection(filePath) {
@@ -1205,12 +1218,12 @@ const formatterParsers = {
 };
 
 function fileExtension(filePath = '') {
-  return String(filePath).split('/').at(-1)?.toLowerCase().split('.').at(-1) ?? '';
+  return pathBaseName(filePath).toLowerCase().split('.').at(-1) ?? '';
 }
 
 function definitionMatchesPath(definition, filePath) {
   const extension = fileExtension(filePath);
-  const fileName = String(filePath).split('/').at(-1)?.toLowerCase() ?? '';
+  const fileName = pathBaseName(filePath).toLowerCase();
   return definition.extensions?.includes(extension) || definition.fileNames?.some((name) => name.toLowerCase() === fileName);
 }
 
@@ -1346,7 +1359,7 @@ async function renderDocumentLoading(filePath) {
   const content = document.getElementById('document-content');
   if (!viewer || !status || !content) return;
   viewer.hidden = false;
-  setDocumentHeader({ title: filePath.split('/').at(-1) ?? 'File', path: documentRelativePath(filePath), kind: 'LOADING' });
+  setDocumentHeader({ title: pathBaseName(filePath) || 'File', path: documentRelativePath(filePath), kind: 'LOADING' });
   status.hidden = false;
   status.textContent = 'Reading file…';
   content.hidden = true;
@@ -1382,7 +1395,7 @@ async function renderDocumentError(filePath, error) {
   if (!viewer || !status || !content) return;
   viewer.hidden = false;
   activeDocument = { path: filePath };
-  setDocumentHeader({ title: filePath.split('/').at(-1) ?? 'File', path: documentRelativePath(filePath), kind: 'FAILED', externalDisabled: false });
+  setDocumentHeader({ title: pathBaseName(filePath) || 'File', path: documentRelativePath(filePath), kind: 'FAILED', externalDisabled: false });
   status.hidden = false;
   status.textContent = `Unable to read file: ${String(error)}`;
   content.hidden = true;
@@ -2028,8 +2041,8 @@ function renderWorkspaceEntry(entry, childMarkup = '', { showPathHint = false } 
   }
   const selected = entry.path === selectedFilePath;
   const relativePath = documentRelativePath(entry.path);
-  const pathSegments = relativePath.split('/').filter(Boolean);
-  const parentPath = pathSegments.slice(0, -1).join(' / ') || 'Project root';
+  const segments = pathSegments(relativePath);
+  const parentPath = segments.slice(0, -1).join(' / ') || 'Project root';
   const pathHint = showPathHint ? `<span class="workspace-path-hint" title="${escapeHTML(relativePath)}">${escapeHTML(parentPath)}</span>` : '';
   const resultClass = showPathHint ? ' search-result' : '';
   const fileLabel = showPathHint ? `<span class="workspace-result-copy"><span class="workspace-name">${name}</span>${pathHint}</span>` : `<span class="workspace-name">${name}</span>`;
@@ -2103,8 +2116,8 @@ function scheduleWorkspaceFileSearch(query) {
 }
 
 async function renderCompactWorkspacePath(rootEntries, filePath, invoke) {
-  if (!filePath || !filePath.startsWith(`${workspaceRootPath}/`)) return renderWorkspaceEntries(rootEntries);
-  const segments = filePath.slice(workspaceRootPath.length + 1).split('/').filter(Boolean);
+  if (!pathInsideRoot(filePath)) return renderWorkspaceEntries(rootEntries);
+  const segments = pathSegments(documentRelativePath(filePath));
   if (!segments.length) return renderWorkspaceEntries(rootEntries);
   const chain = [];
   let entries = rootEntries;
@@ -2177,8 +2190,8 @@ async function expandExplorerFrom(button) {
   updateExplorerMode(true);
   await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
   const targetPath = button.dataset.directoryPath;
-  if (!targetPath?.startsWith(`${workspaceRootPath}/`)) return;
-  const segments = targetPath.slice(workspaceRootPath.length + 1).split('/').filter(Boolean);
+  if (!pathInsideRoot(targetPath)) return;
+  const segments = pathSegments(documentRelativePath(targetPath));
   let currentPath = workspaceRootPath;
   for (const segment of segments) {
     currentPath = `${currentPath}/${segment}`;
@@ -2190,8 +2203,8 @@ async function expandExplorerFrom(button) {
 }
 
 async function revealSelectedFileBranch() {
-  if (!explorerExpanded || !selectedFilePath?.startsWith(`${workspaceRootPath}/`)) return;
-  const segments = selectedFilePath.slice(workspaceRootPath.length + 1).split('/').filter(Boolean);
+  if (!explorerExpanded || !pathInsideRoot(selectedFilePath)) return;
+  const segments = pathSegments(documentRelativePath(selectedFilePath));
   let currentPath = workspaceRootPath;
   for (const segment of segments.slice(0, -1)) {
     currentPath = `${currentPath}/${segment}`;

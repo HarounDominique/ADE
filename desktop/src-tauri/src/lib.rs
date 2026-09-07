@@ -636,22 +636,50 @@ fn project_context_for(
     })
 }
 
+/// Each desktop has its own folder picker and no portable command to reach it.
+/// Cancelling must be indistinguishable from choosing nothing, so a picker that
+/// reports cancellation through a non-zero exit is read as an empty selection
+/// rather than as a failure.
 #[tauri::command]
 fn select_project_directory() -> Result<Option<String>, String> {
-    let script = r#"try
-        set selectedFolder to choose folder with prompt "Add project to ADE"
+    #[cfg(target_os = "macos")]
+    let output = {
+        let script = r#"try
+        set selectedFolder to choose folder with prompt "Add project to Assay"
         return POSIX path of selectedFolder
     on error number -128
         return ""
     end try"#;
-    let output = Command::new("osascript")
-        .args(["-e", script])
-        .output()
-        .map_err(|error| format!("Unable to open folder picker: {error}"))?;
+        Command::new("osascript").args(["-e", script]).output()
+    };
+    #[cfg(target_os = "windows")]
+    let output = {
+        // Windows Forms dialogs require a single-threaded apartment.
+        let script = "Add-Type -AssemblyName System.Windows.Forms; \
+             $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; \
+             $dialog.Description = 'Add project to Assay'; \
+             if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dialog.SelectedPath }";
+        Command::new("powershell")
+            .args(["-NoProfile", "-STA", "-Command", script])
+            .output()
+    };
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    let output = Command::new("zenity")
+        .args([
+            "--file-selection",
+            "--directory",
+            "--title=Add project to Assay",
+        ])
+        .output();
+    let output = output.map_err(|error| format!("Unable to open folder picker: {error}"))?;
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if !output.status.success() {
+        // zenity exits non-zero when the user cancels, with nothing on stdout.
+        if path.is_empty() && output.stderr.is_empty() {
+            return Ok(None);
+        }
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
     }
-    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
     Ok((!path.is_empty()).then_some(path))
 }
 

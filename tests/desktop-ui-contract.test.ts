@@ -6,6 +6,8 @@ const html = readFileSync(new URL("../desktop/src/index.html", import.meta.url),
 const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../desktop/src/styles.css", import.meta.url), "utf8");
 const desktopBuild = readFileSync(new URL("../desktop/build.mjs", import.meta.url), "utf8");
+const sidecarBuild = readFileSync(new URL("../scripts/build-desktop-sidecar.mjs", import.meta.url), "utf8");
+const smokeBundle = readFileSync(new URL("../scripts/smoke-desktop-bundle.mjs", import.meta.url), "utf8");
 
 test("desktop shell keeps the project workbench areas and critical actions", () => {
   for (const view of ["projects", "editor", "agents", "work", "knowledge", "changes"]) {
@@ -108,6 +110,19 @@ test("Agents exposes an accessible delete action for saved conversations", () =>
   assert.match(deletion, /showModal/);
   assert.doesNotMatch(deletion, /window\.confirm/);
   assert.match(styles, /\.agent-session-delete:focus-visible/);
+});
+
+test("the shell never assumes a path separator", () => {
+  // Tauri hands back native paths, so on Windows these arrive spelled with a
+  // backslash and every hardcoded "/" silently fails a comparison.
+  assert.doesNotMatch(main, /split\('\/'\)/);
+  assert.doesNotMatch(main, /startsWith\(`\$\{workspaceRootPath\}\//);
+  assert.match(main, /const pathSegments = \(value\) =>/);
+  assert.match(main, /function pathInsideRoot/);
+  for (const script of [sidecarBuild, smokeBundle]) {
+    assert.match(script, /fileURLToPath/);
+    assert.doesNotMatch(script, /\/private\/tmp/);
+  }
 });
 
 test("guarded actions confirm in-app because the webview has no window prompts", () => {

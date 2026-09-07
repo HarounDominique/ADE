@@ -1,14 +1,36 @@
 import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { createInterface } from "node:readline";
 
-const root = resolve(new URL("..", import.meta.url).pathname);
-const app = resolve(process.env.ADE_APP_PATH ?? join(root, "desktop/src-tauri/target/release/bundle/macos/desktop.app"));
-const appExecutable = join(app, "Contents/MacOS/desktop");
-const sidecar = join(app, "Contents/Resources/sidecar-dist/ade-sidecar");
-const smokeDirectory = mkdtempSync("/private/tmp/ade-desktop-smoke-");
+// A file URL's pathname keeps a leading slash before a drive letter, which
+// resolve() then prefixes with the current drive: C:\C:\...
+const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
+// Every platform lays its bundle out differently, and only macOS nests the
+// executable inside the bundle directory.
+const bundleLayout = {
+  darwin: {
+    app: "desktop/src-tauri/target/release/bundle/macos/Assay.app",
+    executable: "Contents/MacOS/Assay",
+    sidecar: "Contents/Resources/sidecar-dist/ade-sidecar",
+  },
+  win32: {
+    app: "desktop/src-tauri/target/release",
+    executable: "Assay.exe",
+    sidecar: "sidecar-dist/ade-sidecar.exe",
+  },
+}[process.platform] ?? {
+  app: "desktop/src-tauri/target/release",
+  executable: "assay",
+  sidecar: "sidecar-dist/ade-sidecar",
+};
+const app = resolve(process.env.ADE_APP_PATH ?? join(root, bundleLayout.app));
+const appExecutable = join(app, bundleLayout.executable);
+const sidecar = join(app, bundleLayout.sidecar);
+const smokeDirectory = mkdtempSync(join(tmpdir(), "ade-desktop-smoke-"));
 const database = join(smokeDirectory, "ade.db");
 const repository = join(smokeDirectory, "repository");
 
@@ -56,7 +78,7 @@ function createProtocol(process) {
 
 function spawnPackagedSidecar() {
   return spawn(sidecar, [], {
-    cwd: "/private/tmp",
+    cwd: tmpdir(),
     env: { ...process.env, ADE_DB_PATH: database },
     stdio: ["pipe", "pipe", "ignore"],
   });
@@ -109,7 +131,7 @@ try {
   await waitForExit(sidecarProcess, 2000);
 
   const appProcess = spawn(appExecutable, [], {
-    cwd: "/private/tmp",
+    cwd: tmpdir(),
     env: { ...process.env, ADE_DB_PATH: database, ADE_PROJECT_ID: "ade" },
     stdio: "ignore",
   });
