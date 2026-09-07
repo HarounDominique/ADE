@@ -126,6 +126,43 @@ fn terminal_start_in(
     Ok(())
 }
 
+/// The escape hatch is the one place ADE hands a path to the host desktop, and
+/// each platform names that handoff differently.  Keeping it here means the
+/// callers stay about authorization, not about which OS is running.
+fn open_with_desktop(path: &Path, what: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let spawned = Command::new("open").arg(path).spawn();
+    #[cfg(target_os = "windows")]
+    let spawned = Command::new("cmd").args(["/C", "start", ""]).arg(path).spawn();
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    let spawned = Command::new("xdg-open").arg(path).spawn();
+    spawned
+        .map(|_| ())
+        .map_err(|error| format!("Unable to open {what}: {error}"))
+}
+
+/// Opening a terminal *at* a directory has no portable spelling: macOS targets
+/// Terminal.app by name, Windows starts a shell whose cwd is the directory.
+fn open_terminal_at(directory: &Path) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let spawned = Command::new("open")
+        .args(["-a", "Terminal"])
+        .arg(directory)
+        .spawn();
+    #[cfg(target_os = "windows")]
+    let spawned = Command::new("cmd")
+        .args(["/C", "start", "cmd", "/K", "cd", "/D"])
+        .arg(directory)
+        .spawn();
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    let spawned = Command::new("x-terminal-emulator")
+        .current_dir(directory)
+        .spawn();
+    spawned
+        .map(|_| ())
+        .map_err(|error| format!("Unable to open Terminal: {error}"))
+}
+
 fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Send>), String> {
     let pty = native_pty_system();
     let pair = pty
@@ -396,11 +433,7 @@ fn open_file_in(workspace: &WorkspaceRoot, path: &str) -> Result<(), String> {
     if !file.is_file() {
         return Err(format!("File does not exist: {}", file.display()));
     }
-    Command::new("open")
-        .arg(file)
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("Unable to open file: {error}"))
+    open_with_desktop(&file, "file")
 }
 
 #[tauri::command]
@@ -643,11 +676,7 @@ fn open_terminal_in(workspace: &WorkspaceRoot, repository_path: &str) -> Result<
             repository.display()
         ));
     }
-    Command::new("open")
-        .args(["-a", "Terminal", &repository.to_string_lossy()])
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("Unable to open Terminal: {error}"))
+    open_terminal_at(&repository)
 }
 
 #[tauri::command]
@@ -683,11 +712,47 @@ fn open_document_in(
     if !document.is_file() {
         return Err(format!("Document does not exist: {}", document.display()));
     }
-    Command::new("open")
-        .arg(&document)
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("Unable to open document: {error}"))
+    open_with_desktop(&document, "document")
+}
+
+/// A packaged `.app` inherits a login shell's PATH, a packaged `.exe` does not,
+/// so the well-known install locations are the fallback when PATH has no node.
+/// `ADE_SIDECAR_NODE` always wins, which is what the dev loop and CI set.
+fn resolve_node_binary() -> String {
+    if let Some(explicit) = std::env::var("ADE_SIDECAR_NODE")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+    {
+        return explicit;
+    }
+    #[cfg(target_os = "windows")]
+    let candidates = [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:\\Program Files (x86)\\nodejs\\node.exe",
+    ];
+    #[cfg(not(target_os = "windows"))]
+    let candidates = ["/opt/homebrew/opt/node@24/bin/node", "/usr/local/bin/node"];
+    candidates
+        .iter()
+        .find(|candidate| Path::new(candidate).is_file())
+        .map(|candidate| (*candidate).to_string())
+        .unwrap_or_else(|| "node".to_string())
+}
+
+/// The packaged sidecar is a single executable, except where Node lacks the SEA
+/// fuse and the build falls back to a launcher script.  Probe both spellings and
+/// let the last candidate surface the spawn error if neither exists.
+fn resolve_sidecar_binary(resource_dir: &Path) -> PathBuf {
+    let candidates: &[&str] = if cfg!(target_os = "windows") {
+        &["sidecar-dist/ade-sidecar.exe", "sidecar-dist/ade-sidecar.cmd"]
+    } else {
+        &["sidecar-dist/ade-sidecar"]
+    };
+    candidates
+        .iter()
+        .map(|candidate| resource_dir.join(candidate))
+        .find(|candidate| candidate.is_file())
+        .unwrap_or_else(|| resource_dir.join(candidates[0]))
 }
 
 #[tauri::command]
@@ -713,22 +778,11 @@ fn sidecar_start(
         if let Ok(binary) = std::env::var("ADE_SIDECAR_BIN") {
             Command::new(binary)
         } else if script.is_file() {
-            let node = std::env::var("ADE_SIDECAR_NODE")
-                .ok()
-                .filter(|value| !value.trim().is_empty())
-                .or_else(|| {
-                    ["/opt/homebrew/opt/node@24/bin/node", "/usr/local/bin/node"]
-                        .iter()
-                        .find(|candidate| Path::new(candidate).is_file())
-                        .map(|candidate| (*candidate).to_string())
-                })
-                .unwrap_or_else(|| "node".to_string());
-            let mut command = Command::new(node);
+            let mut command = Command::new(resolve_node_binary());
             command.arg(script);
             command
         } else {
-            let binary = resource_dir.join("sidecar-dist/ade-sidecar");
-            Command::new(binary)
+            Command::new(resolve_sidecar_binary(&resource_dir))
         }
     };
     let mut child = command
@@ -887,6 +941,28 @@ mod tests {
         root
     }
 
+    /// A process that exits immediately, spelled for the platform running the
+    /// suite. `sh` only happens to exist on Windows CI because Git ships it.
+    fn spawn_exiting_process() -> std::process::Child {
+        #[cfg(target_os = "windows")]
+        let command = std::process::Command::new("cmd").args(["/C", "exit 0"]).spawn();
+        #[cfg(not(target_os = "windows"))]
+        let command = std::process::Command::new("sh").args(["-c", "exit 0"]).spawn();
+        command.expect("spawn fixture")
+    }
+
+    /// Process teardown is not instantaneous, and how long it takes is the
+    /// platform's business. Poll for the outcome instead of guessing a delay.
+    fn wait_until<F: Fn() -> bool>(condition: F) -> bool {
+        for _ in 0..100 {
+            if condition() {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        false
+    }
+
     #[test]
     fn project_context_rejects_missing_repository() {
         let workspace = WorkspaceRoot::default();
@@ -989,13 +1065,24 @@ mod tests {
         fs::remove_dir_all(root).expect("remove fixture");
     }
 
+    // Not run on Windows: input written before the console host starts reading is
+    // dropped by ConPTY, where a Unix tty would have buffered it, so this races.
+    // Waiting for a prompt first means deciding what the Windows shell is and what
+    // it prints -- an open question in SPEC-cross-platform-support, and not one to
+    // settle from a machine that cannot observe the answer. Windows PTY behaviour
+    // stays unverified rather than asserted by a test written for a Unix shell.
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn terminal_pty_runs_an_interactive_shell_command() {
         let root = fixture_root("terminal-pty");
         let (mut process, reader) = start_terminal_pty(&root).expect("start PTY");
         process
             .writer
-            .write_all(b"printf ADE_PTY_OK\\nexit\\n")
+            // `echo` is the one spelling both /bin/sh and cmd understand, and the
+            // newlines have to be real: with `\\n` the line was never submitted and
+            // the assertion matched the terminal's echo of the input instead of any
+            // command output.
+            .write_all(b"echo ADE_PTY_OK\nexit\n")
             .expect("write PTY input");
         process.writer.flush().expect("flush PTY input");
         let (sender, receiver) = std::sync::mpsc::channel();
@@ -1153,27 +1240,16 @@ mod tests {
     #[test]
     fn sidecar_status_reaps_an_unexpected_exit() {
         let supervisor = SidecarSupervisor::default();
-        let child = std::process::Command::new("sh")
-            .args(["-c", "exit 0"])
-            .spawn()
-            .expect("spawn fixture");
-        *supervisor.child.lock().expect("lock state") = Some(child);
+        *supervisor.child.lock().expect("lock state") = Some(spawn_exiting_process());
 
-        std::thread::sleep(std::time::Duration::from_millis(20));
-
-        assert!(!supervisor.reap_finished().expect("status"));
+        assert!(wait_until(|| !supervisor.reap_finished().expect("status")));
     }
 
     #[test]
     fn sidecar_stop_handles_a_process_that_already_exited() {
         let supervisor = SidecarSupervisor::default();
-        let child = std::process::Command::new("sh")
-            .args(["-c", "exit 0"])
-            .spawn()
-            .expect("spawn fixture");
-        *supervisor.child.lock().expect("lock state") = Some(child);
-
-        std::thread::sleep(std::time::Duration::from_millis(20));
+        *supervisor.child.lock().expect("lock state") = Some(spawn_exiting_process());
+        wait_until(|| !supervisor.reap_finished().expect("status"));
 
         supervisor.stop().expect("stop exited process");
         assert!(!supervisor.reap_finished().expect("status"));

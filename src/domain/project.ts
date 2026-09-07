@@ -1,3 +1,5 @@
+import { isAbsolute } from "node:path";
+
 export type Repository = {
   path: string;
   gitRoot?: string;
@@ -24,7 +26,8 @@ export class Project {
     if (!input.id.trim()) throw new Error("Project id cannot be empty");
     if (!input.name.trim()) throw new Error("Project name cannot be empty");
     if (!input.repositoryPath.trim()) throw new Error("Project repository path cannot be empty");
-    if (!input.repositoryPath.startsWith("/")) {
+    // `C:\repo` is absolute too; a leading-slash test rejects every Windows path.
+    if (!isAbsolute(input.repositoryPath)) {
       throw new Error("Project repository path must be absolute");
     }
     return new Project(

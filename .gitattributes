@@ -1,0 +1,9 @@
+# Source is LF everywhere. Without this, a Windows checkout rewrites files to
+# CRLF and every assertion that matches a literal newline against a source file
+# fails on that platform alone.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.icns binary
+*.ttf binary

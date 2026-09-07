@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join } from "node:path";
+import { relative } from "./knowledge-graph.js";
 
 export type ReferenceImpact = {
   target: string;
