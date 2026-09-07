@@ -510,7 +510,7 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     const isPendingCli = isPendingCliSession(provider, session.id);
     const createdAt = new Date().toISOString();
     if (!isPendingCli) {
-      store.saveAgentSession({ id: session.id, ...(projectId ? { projectId } : {}), ...(taskId ? { taskId } : {}), provider, directory: params.repositoryPath!, title, status: "RUNNING", createdAt });
+      store.saveAgentSession({ id: session.id, ...(projectId ? { projectId } : {}), ...(taskId ? { taskId } : {}), provider, directory: params.repositoryPath!, title, ...(typeof params.model === "string" ? { model: params.model } : {}), status: "RUNNING", createdAt });
     }
     process.stdout.write(`${JSON.stringify({ type: "agent.started", id: request.id, sessionId: session.id, provider, taskId: taskId ?? null, title })}\n`);
     const eventTexts: string[] = [];
@@ -530,7 +530,7 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     await eventPromise;
     if (active.aborted) throw new Error("AGENT_TURN_ABORTED");
     if (isPendingCli && session.id.startsWith(`${provider}-pending-`)) throw new Error(`${provider} completed without reporting a resumable session id`);
-    store.saveAgentSession({ id: session.id, ...(projectId ? { projectId } : {}), ...(taskId ? { taskId } : {}), provider, directory: params.repositoryPath!, title, status: "COMPLETED", createdAt });
+    store.saveAgentSession({ id: session.id, ...(projectId ? { projectId } : {}), ...(taskId ? { taskId } : {}), provider, directory: params.repositoryPath!, title, ...(typeof params.model === "string" ? { model: params.model } : {}), status: "COMPLETED", createdAt });
     store.saveAgentMessage({ id: `agent-${request.id}-user`, sessionId: session.id, role: "user", content: params.prompt!, createdAt });
     const output = provider === "codex" ? extractCodexText(rawOutput) : provider === "claude" ? extractClaudeText(rawOutput) : eventTexts.join("\n\n").trim();
     if (output) store.saveAgentMessage({ id: `agent-${request.id}-assistant`, sessionId: session.id, role: "assistant", content: output, createdAt: new Date().toISOString() });

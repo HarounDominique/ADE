@@ -90,6 +90,26 @@ test("SQLite persists resumable agent sessions per Task", () => {
   store.close();
 });
 
+test("a conversation keeps its model until it is deleted", () => {
+  const store = new AdeStore();
+  store.saveAgentSession({ id: "session-model", provider: "claude", directory: "/tmp/p", model: "haiku", status: "COMPLETED", createdAt: "2026-09-07T00:00:00.000Z" });
+  assert.equal(store.getAgentSession("session-model")?.model, "haiku");
+
+  // A later turn that says nothing about the model must not silently reset the
+  // choice the operator made for this conversation.
+  store.saveAgentSession({ id: "session-model", provider: "claude", directory: "/tmp/p", status: "RUNNING", createdAt: "2026-09-07T00:00:00.000Z" });
+  assert.equal(store.getAgentSession("session-model")?.model, "haiku");
+
+  // Going back to the provider default is an explicit empty choice, not silence.
+  store.saveAgentSession({ id: "session-model", provider: "claude", directory: "/tmp/p", model: "", status: "COMPLETED", createdAt: "2026-09-07T00:00:00.000Z" });
+  assert.equal(store.getAgentSession("session-model")?.model, "");
+
+  assert.equal(store.listAgentSessionsForProject(undefined, "/tmp/p")[0]?.model, "");
+  store.deleteAgentSession("session-model");
+  assert.equal(store.getAgentSession("session-model"), undefined);
+  store.close();
+});
+
 test("SQLite isolates agent sessions by Project while keeping legacy directory sessions readable", () => {
   const store = new AdeStore();
   store.saveAgentSession({ id: "session-project-a", projectId: "project-a", provider: "codex", directory: "/tmp/shared", title: "Inspect login flow", status: "COMPLETED", createdAt: "2026-09-06T00:00:00.000Z" });

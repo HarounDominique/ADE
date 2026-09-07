@@ -53,7 +53,7 @@ export type PersistedReview = {
 
 export type PersistedRuntimeEvidence = RuntimeEvidence;
 export type GitOperation = { id: string; taskId: string; operation: string; reference?: string; actor: string; reason: string; at: string; metadata?: string };
-export type AgentSession = { id: string; projectId?: string; taskId?: string; provider: string; directory: string; title?: string; status: string; createdAt: string; updatedAt: string };
+export type AgentSession = { id: string; projectId?: string; taskId?: string; provider: string; directory: string; title?: string; model?: string; status: string; createdAt: string; updatedAt: string };
 export type AgentMessage = { id: string; sessionId: string; role: "user" | "assistant" | "system"; content: string; createdAt: string };
 
 export class AdeStore {
@@ -144,6 +144,7 @@ export class AdeStore {
         provider TEXT NOT NULL,
         directory TEXT NOT NULL,
         title TEXT,
+        model TEXT,
         status TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
@@ -172,6 +173,7 @@ export class AdeStore {
     const columns = this.db.prepare("PRAGMA table_info(agent_sessions)").all() as Array<{ name: string }>;
     if (!columns.some((column) => column.name === "project_id")) this.db.exec("ALTER TABLE agent_sessions ADD COLUMN project_id TEXT");
     if (!columns.some((column) => column.name === "title")) this.db.exec("ALTER TABLE agent_sessions ADD COLUMN title TEXT");
+    if (!columns.some((column) => column.name === "model")) this.db.exec("ALTER TABLE agent_sessions ADD COLUMN model TEXT");
   }
 
   private migrateChangeSets(): void {
@@ -376,25 +378,25 @@ export class AdeStore {
 
   saveAgentSession(input: Omit<AgentSession, "updatedAt"> & { updatedAt?: string }): void {
     const updatedAt = input.updatedAt ?? new Date().toISOString();
-    this.db.prepare(`INSERT INTO agent_sessions (id, project_id, task_id, provider, directory, title, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET project_id = COALESCE(excluded.project_id, agent_sessions.project_id), task_id = COALESCE(excluded.task_id, agent_sessions.task_id), provider = excluded.provider, directory = excluded.directory, title = COALESCE(excluded.title, agent_sessions.title), status = excluded.status, updated_at = excluded.updated_at`).run(input.id, input.projectId ?? null, input.taskId ?? null, input.provider, input.directory, input.title ?? null, input.status, input.createdAt, updatedAt);
+    this.db.prepare(`INSERT INTO agent_sessions (id, project_id, task_id, provider, directory, title, model, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET project_id = COALESCE(excluded.project_id, agent_sessions.project_id), task_id = COALESCE(excluded.task_id, agent_sessions.task_id), provider = excluded.provider, directory = excluded.directory, title = COALESCE(excluded.title, agent_sessions.title), model = COALESCE(excluded.model, agent_sessions.model), status = excluded.status, updated_at = excluded.updated_at`).run(input.id, input.projectId ?? null, input.taskId ?? null, input.provider, input.directory, input.title ?? null, input.model ?? null, input.status, input.createdAt, updatedAt);
   }
 
   listAgentSessions(taskId?: string): AgentSession[] {
-    const query = taskId ? `SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE task_id = ? ORDER BY updated_at DESC` : `SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions ORDER BY updated_at DESC`;
+    const query = taskId ? `SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, model, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE task_id = ? ORDER BY updated_at DESC` : `SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, model, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions ORDER BY updated_at DESC`;
     return (taskId ? this.db.prepare(query).all(taskId) : this.db.prepare(query).all()) as AgentSession[];
   }
 
   getAgentSession(sessionId: string): AgentSession | undefined {
-    return this.db.prepare(`SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE id = ?`).get(sessionId) as AgentSession | undefined;
+    return this.db.prepare(`SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, model, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE id = ?`).get(sessionId) as AgentSession | undefined;
   }
 
   listAgentSessionsForProject(projectId: string | undefined, directory: string | undefined): AgentSession[] {
     if (!projectId && !directory) return [];
     const query = projectId && directory
-      ? `SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE project_id = ? OR (project_id IS NULL AND directory = ?) ORDER BY updated_at DESC`
+      ? `SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, model, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE project_id = ? OR (project_id IS NULL AND directory = ?) ORDER BY updated_at DESC`
       : projectId
-        ? `SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE project_id = ? ORDER BY updated_at DESC`
-        : `SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE directory = ? ORDER BY updated_at DESC`;
+        ? `SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, model, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE project_id = ? ORDER BY updated_at DESC`
+        : `SELECT id, project_id AS projectId, task_id AS taskId, provider, directory, title, model, status, created_at AS createdAt, updated_at AS updatedAt FROM agent_sessions WHERE directory = ? ORDER BY updated_at DESC`;
     const params = projectId && directory ? [projectId, directory] : [projectId ?? directory ?? ""];
     return this.db.prepare(query).all(...params) as AgentSession[];
   }

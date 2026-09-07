@@ -267,7 +267,11 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   assert.match(html, /Claude Code/);
   assert.match(html, /id="agent-model"/);
   assert.match(main, /renderModelSelection/);
-  assert.match(main, /model \? \{ model \}/);
+  // The model is always sent, empty included: omitting it let a conversation
+  // keep its previous model when the operator went back to the provider default.
+  assert.match(main, /prompt,\n?\s*model,|prompt, model,/);
+  assert.match(main, /selectedAgentModel = session\.model \?\? ''/);
+  assert.doesNotMatch(main, /agentSessionModels/);
   assert.match(main, /method: 'service\.list'/);
   assert.match(main, /renderServices/);
   assert.match(html, /id="document-viewer"/);

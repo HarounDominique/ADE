@@ -35,7 +35,6 @@ let activeTerminalId = null;
 let terminalTabSequence = 0;
 let selectedProvider = 'opencode';
 let selectedAgentModel = '';
-const agentSessionModels = new Map();
 let activeProjectId = projectSnapshot.project.id;
 let activeProject = mergeActiveProject({}, projectSnapshot.project);
 let workspaceRootPath = projectSnapshot.project.repositoryPath;
@@ -1652,7 +1651,6 @@ function resetAgentWorkspaceForProject() {
   agentStopRequested = false;
   agentPromptHistoryIndex = -1;
   agentPromptHistoryDraft = '';
-  agentSessionModels.clear();
   agentGroupExpansion.clear();
   agentSessions = [];
   selectedAgentModel = '';
@@ -1736,7 +1734,7 @@ function selectAgentSession(sessionId) {
   activeAgentSessionId = session.id;
   activeAgentTaskId = session.taskId ?? null;
   selectedProvider = session.provider;
-  selectedAgentModel = agentSessionModels.get(session.id) ?? '';
+  selectedAgentModel = session.model ?? '';
   const provider = document.getElementById('agent-provider');
   if (provider) provider.value = selectedProvider;
   renderModelSelection(selectedAgentModel);
@@ -1952,7 +1950,6 @@ function sendAgentPrompt(event) {
   selectedProvider = provider;
   selectedAgentModel = model;
   activeAgentTaskId = taskId;
-  if (activeAgentSessionId) agentSessionModels.set(activeAgentSessionId, model);
   rememberAgentPrompt(prompt);
   agentPromptRunning = true;
   agentStopRequested = false;
@@ -1971,7 +1968,7 @@ function sendAgentPrompt(event) {
   const requestId = `agent-prompt-${Date.now()}`;
   activeAgentRequestId = requestId;
   pendingAgentPromptProjects.set(requestId, activeProjectId);
-  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: requestId, method: 'agent.prompt', params: { projectId: activeProjectId, provider, repositoryPath: workspaceRootPath, prompt, ...(model ? { model } : {}), ...(activeAgentSessionId ? { sessionId: activeAgentSessionId } : {}), ...(taskId ? { taskId } : {}), grantedPermissions: permissions } }) }).catch((error) => {
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: requestId, method: 'agent.prompt', params: { projectId: activeProjectId, provider, repositoryPath: workspaceRootPath, prompt, model, ...(activeAgentSessionId ? { sessionId: activeAgentSessionId } : {}), ...(taskId ? { taskId } : {}), grantedPermissions: permissions } }) }).catch((error) => {
     pendingAgentPromptProjects.delete(requestId);
     agentPromptRunning = false;
     activeAgentRequestId = null;
@@ -2565,7 +2562,6 @@ async function connectSidecar(snapshot) {
       if (response.result?.sessionId && response.result?.provider && response.result?.status === 'COMPLETED') {
         pendingAgentPromptProjects.delete(String(response.id));
         activeAgentSessionId = response.result.sessionId;
-        agentSessionModels.set(activeAgentSessionId, selectedAgentModel);
         agentPromptRunning = false;
         clearPendingAgentTurn();
         activeAgentRequestId = null;
@@ -3263,7 +3259,8 @@ document.addEventListener('keydown', (event) => {
 });
 document.getElementById('agent-model')?.addEventListener('change', (event) => {
   selectedAgentModel = event.target.value;
-  if (activeAgentSessionId) agentSessionModels.set(activeAgentSessionId, selectedAgentModel);
+  const session = agentSessions.find((candidate) => candidate.id === activeAgentSessionId);
+  if (session) session.model = selectedAgentModel;
 });
 document.querySelector('[data-action="new-agent-session"]')?.addEventListener('click', startNewAgentSession);
 initializeCodeEditor();
