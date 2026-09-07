@@ -145,6 +145,19 @@ test("Projects owns both the catalog and the Tasks of the active Project", () =>
   assert.match(html, /class="project-metrics"/);
 });
 
+test("only a real snapshot repaints project state", () => {
+  // task.create and task.advance answer with the Task, and the generic fallback
+  // used to treat any unrecognized result as a snapshot -- rebuilding the view
+  // from the startup fixture and emptying the Task list on every mutation.
+  assert.match(main, /if \(response\.result\?\.project && Array\.isArray\(response\.result\?\.tasks\)\)/);
+  assert.doesNotMatch(main, /\n      if \(response\.result\) \{\n        const nextProject/);
+  assert.match(main, /response\.result\?\.id && response\.result\?\.intent && response\.result\?\.status && !response\.result\.tasks/);
+  // Evidence already fetched survives a refresh instead of resetting to a
+  // loading line nobody re-requests.
+  assert.match(main, /taskDetailMarkup\.set\(task\.id, markup\)/);
+  assert.match(main, /taskDetailMarkup\.get\(task\.id\) \?\?/);
+});
+
 test("guarded actions confirm in-app because the webview has no window prompts", () => {
   assert.doesNotMatch(main, /window\.confirm/);
   assert.doesNotMatch(main, /window\.prompt/);

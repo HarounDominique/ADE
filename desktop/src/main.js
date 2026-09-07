@@ -115,6 +115,7 @@ const pendingAgentMessageSessions = new Map();
 const pendingAgentSessionDeletes = new Map();
 const pendingAgentPromptProjects = new Map();
 const pendingSnapshotProjects = new Map();
+const taskDetailMarkup = new Map();
 const pendingProjectRemovals = new Map();
 
 function configureMonacoThemes() {
@@ -1969,7 +1970,7 @@ function renderProjectTasks(tasks) {
         <svg class="task-row-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
       </button>
       <div class="task-row-detail" id="task-detail-${escapeHTML(task.id)}"${isCurrent ? '' : ' hidden'}>
-        ${isCurrent ? '<p class="task-trace-empty">Loading task evidence…</p>' : ''}
+        ${isCurrent ? (taskDetailMarkup.get(task.id) ?? '<p class="task-trace-empty">Loading task evidence…</p>') : ''}
       </div>
       ${actionMarkup}
     </article>`;
@@ -1993,7 +1994,9 @@ function renderTaskDetail(detail) {
   const evidence = detail.runtimeEvidence.length
     ? `<ul class="task-trace-list">${detail.runtimeEvidence.slice(0, 12).map((item) => `<li><strong>${escapeHTML(item.type)}</strong> · ${escapeHTML(item.summary)}<small>${escapeHTML(new Date(item.at).toLocaleString())}${item.sessionId ? ` · ${escapeHTML(item.sessionId)}` : ''}</small></li>`).join('')}</ul>`
     : '<p class="task-trace-empty">No persisted runtime activity for this Task.</p>';
-  panel.innerHTML = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p><h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
+  const markup = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p><h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
+  taskDetailMarkup.set(task.id, markup);
+  panel.innerHTML = markup;
 }
 
 async function refreshProjectContext(snapshot) {
@@ -2606,7 +2609,17 @@ async function connectSidecar(snapshot) {
         notify(response.result.healthy ? `OpenCode connected${response.result.version ? ` (${response.result.version})` : ''}.` : 'OpenCode is unhealthy.');
         return;
       }
-      if (response.result) {
+      // task.create and task.advance answer with the Task itself, not with a
+      // snapshot. Both already ask for a fresh snapshot straight after, so the
+      // mutation reply is acknowledged and dropped -- letting it fall through
+      // to the snapshot branch below rebuilt the view from the startup fixture
+      // and emptied the Task list.
+      if (response.result?.id && response.result?.intent && response.result?.status && !response.result.tasks) {
+        return;
+      }
+      // Only an actual snapshot renders as one. Anything else the shell does not
+      // recognize is ignored rather than mistaken for project state.
+      if (response.result?.project && Array.isArray(response.result?.tasks)) {
         const nextProject = mergeActiveProject(activeProject, response.result.project);
         renderSnapshot({
           ...snapshot,
