@@ -1,4 +1,6 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type {
   ProcessDefinition,
   ProcessEvidence,
@@ -13,7 +15,7 @@ export class LocalProcess implements ProcessPort {
   async start(definition: ProcessDefinition): Promise<ProcessHandle> {
     const child = spawn(definition.command, [...(definition.args ?? [])], {
       cwd: definition.cwd,
-      env: definition.env ? { ...process.env, ...definition.env } : process.env,
+      env: runtimeEnvironment(definition.env),
       stdio: "pipe",
       // npm and many Windows CLIs are .cmd shims rather than PE executables.
       shell: windowsCommandNeedsShell(definition.command),
@@ -56,6 +58,22 @@ export class LocalProcess implements ProcessPort {
 
 function windowsCommandNeedsShell(command: string): boolean {
   return process.platform === "win32" && (!/\.[^\\/]+$/.test(command) || /\.(?:cmd|bat)$/i.test(command));
+}
+
+/** A packaged desktop app can be launched by Explorer before its process PATH
+    sees a Node installation made during the same session. npm is a .cmd shim,
+    so give child commands the standard Node location when it exists. */
+function runtimeEnvironment(overrides: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
+  const env = { ...process.env, ...overrides };
+  if (process.platform !== "win32") return env;
+  const nodeDirectory = join(env.ProgramFiles ?? "C:\\Program Files", "nodejs");
+  if (!existsSync(join(nodeDirectory, "npm.cmd"))) return env;
+  const pathKey = Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "Path";
+  const current = env[pathKey] ?? "";
+  if (!current.split(";").some((entry) => entry.toLowerCase() === nodeDirectory.toLowerCase())) {
+    env[pathKey] = current ? `${nodeDirectory};${current}` : nodeDirectory;
+  }
+  return env;
 }
 
 async function killGroup(child: ChildProcessWithoutNullStreams, signal: NodeJS.Signals): Promise<void> {

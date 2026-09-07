@@ -40,15 +40,15 @@ test("a fullstack Project is proposed as its two halves and the compound that st
 test("the wrapper is preferred when the repository ships one", async () => {
   const root = await fixture();
   await writeFile(join(root, "pom.xml"), "<project>spring-boot-maven-plugin</project>", "utf8");
-  await writeFile(join(root, "mvnw"), "#!/bin/sh\n", "utf8");
+  await writeFile(join(root, process.platform === "win32" ? "mvnw.cmd" : "mvnw"), "#!/bin/sh\n", "utf8");
   const [draft] = await detectRunConfigurations(root);
-  assert.equal(draft?.command, "./mvnw");
+  assert.equal(draft?.command, process.platform === "win32" ? "mvnw.cmd" : "./mvnw");
 
   const gradleRoot = await fixture();
   await writeFile(join(gradleRoot, "build.gradle"), "plugins { id 'org.springframework.boot' }", "utf8");
-  await writeFile(join(gradleRoot, "gradlew"), "#!/bin/sh\n", "utf8");
+  await writeFile(join(gradleRoot, process.platform === "win32" ? "gradlew.bat" : "gradlew"), "#!/bin/sh\n", "utf8");
   const [gradleDraft] = await detectRunConfigurations(gradleRoot);
-  assert.equal(gradleDraft?.command, "./gradlew");
+  assert.equal(gradleDraft?.command, process.platform === "win32" ? "gradlew.bat" : "./gradlew");
   assert.deepEqual(gradleDraft?.args, ["bootRun"]);
 });
 

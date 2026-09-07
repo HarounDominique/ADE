@@ -103,13 +103,16 @@ async function detectNode(projectRoot: string, directory: string): Promise<reado
 async function detectMaven(projectRoot: string, directory: string): Promise<readonly RunConfigurationDraft[]> {
   const pom = await readFile(join(directory, "pom.xml"), "utf8").catch(() => undefined);
   if (!pom || !pom.includes("spring-boot")) return [];
-  const wrapper = await exists(join(directory, "mvnw"));
+  const wrapper = await exists(join(directory, process.platform === "win32" ? "mvnw.cmd" : "mvnw"));
   const prefix = relativeLabel(projectRoot, directory);
   return [{
     id: identifier(prefix, "spring-boot"),
     label: [prefix, "Spring Boot"].filter(Boolean).join(" · "),
     kind: "command",
-    command: wrapper ? "./mvnw" : "mvn",
+    // cmd.exe does not understand the POSIX `./mvnw` spelling. Maven projects
+    // ship a dedicated batch wrapper on Windows, which also avoids requiring a
+    // machine-wide Maven installation.
+    command: wrapper ? (process.platform === "win32" ? "mvnw.cmd" : "./mvnw") : "mvn",
     args: ["spring-boot:run"],
     cwd: cwdToken(projectRoot, directory),
     ports: [{ name: "api", port: 8080, protocol: "http", bind: "loopback" }],
@@ -126,13 +129,13 @@ async function detectMaven(projectRoot: string, directory: string): Promise<read
 async function detectGradle(projectRoot: string, directory: string): Promise<readonly RunConfigurationDraft[]> {
   const build = await readFile(join(directory, "build.gradle"), "utf8").catch(() => readFile(join(directory, "build.gradle.kts"), "utf8").catch(() => undefined));
   if (!build || !build.includes("org.springframework.boot")) return [];
-  const wrapper = await exists(join(directory, "gradlew"));
+  const wrapper = await exists(join(directory, process.platform === "win32" ? "gradlew.bat" : "gradlew"));
   const prefix = relativeLabel(projectRoot, directory);
   return [{
     id: identifier(prefix, "boot-run"),
     label: [prefix, "Spring Boot"].filter(Boolean).join(" · "),
     kind: "command",
-    command: wrapper ? "./gradlew" : "gradle",
+    command: wrapper ? (process.platform === "win32" ? "gradlew.bat" : "./gradlew") : "gradle",
     args: ["bootRun"],
     cwd: cwdToken(projectRoot, directory),
     ports: [{ name: "api", port: 8080, protocol: "http", bind: "loopback" }],
