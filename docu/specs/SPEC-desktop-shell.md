@@ -24,7 +24,7 @@ La shell no puede presentar controles decorativos o estados inventados. Indicado
 
 ## Information architecture
 
-Las áreas visibles son `PROJECTS`, `EDITOR`, `AGENTS`, `KNOWLEDGE` y `VERSION CONTROL`. `Projects` administra el catálogo local, el Project activo y sus Tasks; `Editor` es la superficie de ficheros; `Agents` es la superficie conversacional para runtimes locales. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y evidencia de runtime se consume desde sus superficies respectivas sin exponer un menú Runtime independiente.
+Las áreas visibles, en ese orden, son `PROJECTS`, `AGENTS`, `VERSION CONTROL`, `CONTEXT` y `EDITOR`: el orden recorre desde donde empieza el trabajo hasta donde se juzga, y deja el editor como salida. El orden es contrato, no un accidente del marcado. `Projects` administra el catálogo local, el Project activo y sus Tasks; `Editor` es la superficie de ficheros; `Agents` es la superficie conversacional para runtimes locales. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y evidencia de runtime se consume desde sus superficies respectivas sin exponer un menú Runtime independiente.
 
 ### Projects
 
@@ -36,7 +36,7 @@ La entrada `Projects` es una pantalla de gestión deliberadamente mínima. Muest
 
 ### Git context bar
 
-La topbar no duplica el buscador del Explorer. En su lugar presenta tres selectores persistentes y navegables, inspirados en los gestores Git de escritorio:
+La topbar no duplica el buscador del Explorer ni repite la vista activa: no lleva breadcrumb, porque el lateral ya marca la selección y el propio selector nombra el Project. Presenta tres selectores persistentes y navegables, inspirados en los gestores Git de escritorio:
 
 - `Current project` muestra el Project activo —Git o No Git— y abre los Projects locales previamente registrados, con nombre, ruta y tipo de control de versiones.
 - `Current task` aparece entre Project y branch y representa la Task activa de todo ADE. Muestra como máximo 12 Tasks del Project activo, ordenadas por creación descendente; si la Task seleccionada ya no está entre esas 12, permanece disponible y visible para no perder contexto. Cada opción identifica intención, id y estado.
@@ -52,7 +52,7 @@ El resumen operativo dentro de `Projects` no es una entrada separada ni un segun
 
 ### Sidebar and Explorer
 
-El lateral combina una navegación etiquetada para `Projects`, `Editor`, `Work`, `Knowledge` y `Changes` con el Explorer del Project. No se muestran simultáneamente dos menús que representen las mismas vistas. Un divisor vertical visible permite redimensionar el lateral por pointer o teclado, con límites de 190–720 px (acotados responsivamente para reservar al menos 580 px al workbench) y ancho persistido por Project. El Explorer tiene dos estados:
+El lateral combina esa navegación etiquetada con el Explorer del Project. No se muestran simultáneamente dos menús que representen las mismas vistas. Un divisor vertical visible permite redimensionar el lateral por pointer o teclado, con límites de 190–720 px (acotados responsivamente para reservar al menos 580 px al workbench) y ancho persistido por Project. El Explorer tiene dos estados:
 
 - **Compacto:** cuando existe un archivo activo, muestra su rama de carpetas desde la raíz del Project hasta el archivo, ocultando hermanos no relevantes y manteniendo el contexto como un breadcrumb en formato árbol. Si todavía no hay archivo activo, muestra los hijos directos de la raíz.
 - **Expandido:** al pulsar el control de expansión o una carpeta de la rama compacta, oculta las opciones de navegación no activas y convierte el árbol en la superficie principal del lateral. La entrada de la vista activa permanece visible y seleccionada como ancla de contexto (`Agents`, `Version control`, etc.). Los hijos se cargan perezosamente y la rama seleccionada permanece resaltada.
@@ -144,7 +144,7 @@ npm run desktop:test
 npm run desktop:package:app
 ```
 
-La shell actual se verifica con `npm run build`, `npm test` (120 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente. Esa misma secuencia se ejecuta por matriz en macOS, Windows y Linux según [SPEC-cross-platform-support](SPEC-cross-platform-support.md#verification-strategy); macOS es hoy la única plataforma verificada.
+La shell actual se verifica con `npm run build`, `npm test` (128 tests TypeScript), `cargo test --manifest-path desktop/src-tauri/Cargo.toml` (18 tests Rust), `npm run desktop:package:app` y smoke macOS; el smoke gráfico automatizado continúa pendiente. Esa misma secuencia se ejecuta por matriz en macOS, Windows y Linux según [SPEC-cross-platform-support](SPEC-cross-platform-support.md#verification-strategy); macOS es hoy la única plataforma verificada.
 
 El shell visual vive en `desktop/src/`. `project-snapshot.js` define el boundary de arranque y `project-context.js` conserva la fusión del Project activo. El comando Tauri `project_context` aporta contexto local y selecciona la raíz canónica. La UI no accede directamente a SQLite, Git ni procesos: Projects y ramas se obtienen mediante el sidecar y el cambio de raíz pasa por Tauri.
 

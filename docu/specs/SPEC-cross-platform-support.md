@@ -12,7 +12,7 @@ macOS es hoy la plataforma verificada. Windows es objetivo de primer orden. Linu
 
 Assay toca el sistema operativo en siete sitios, y sólo en esos siete. Cualquier código nuevo que necesite un octavo es una señal de que la frontera se está filtrando.
 
-1. **Escape hatch al escritorio.** Abrir un fichero, un documento o una terminal en la aplicación del sistema. `open` en macOS, `cmd /C start` en Windows, `xdg-open` en Linux.
+1. **Escape hatch al escritorio.** Abrir un fichero, un documento o una terminal en la aplicación del sistema, y elegir una carpeta con el selector nativo. `open` y `osascript` en macOS, `cmd /C start` y un `FolderBrowserDialog` de PowerShell en Windows, `xdg-open` y `zenity` en Linux. Cancelar debe ser indistinguible de no elegir nada, aunque el selector de la plataforma lo comunique con un código de salida distinto de cero.
 2. **Shell interactiva del PTY.** `/bin/sh` con `TERM` y prompt mínimo fuera de Windows; `cmd` en Windows. El PTY en sí es `portable_pty`, ya multiplataforma.
 3. **Ejecución de comandos declarados.** `/bin/sh -lc` frente a `cmd /C`.
 4. **Localización del runtime Node del sidecar.** `ADE_SIDECAR_NODE` manda siempre; en su ausencia se prueban ubicaciones conocidas por plataforma y finalmente `PATH`.
@@ -20,7 +20,9 @@ Assay toca el sistema operativo en siete sitios, y sólo en esos siete. Cualquie
 
 6. **Detección de proveedores agénticos.** Codex se localiza hoy mediante el binario incluido en ChatGPT para macOS o `ADE_CODEX_COMMAND`, según [SPEC-agent-providers](SPEC-agent-providers.md#availability-and-selection). La variable de entorno es ya el camino portable; la ruta por defecto no lo es y necesita su equivalente por plataforma.
 
-Un séptimo punto queda identificado pero sin resolver: la canonización de rutas del workspace. `WorkspaceRoot::resolve` compara con `starts_with` sobre rutas canónicas, y en Windows la canonización produce prefijos UNC (`\\?\C:\…`). Está descrito en Open Questions porque no puede decidirse sin ejecutar en Windows.
+7. **Grafía de rutas en la shell.** Tauri devuelve rutas con el separador de la plataforma, así que ninguna comparación ni troceo puede asumir `/`. La shell las trata con helpers que aceptan ambos separadores; un `split('/')` o un prefijo con barra fija es un defecto, y un test de contrato lo impide.
+
+Queda además sin resolver la canonización de rutas del workspace en el lado nativo. `WorkspaceRoot::resolve` compara con `starts_with` sobre rutas canónicas, y en Windows la canonización produce prefijos UNC (`\\?\C:\…`). Está descrito en Open Questions porque no puede decidirse sin ejecutar en Windows.
 
 ## Verification strategy
 
@@ -40,7 +42,7 @@ Tampoco entra abstraer Git: Assay seguirá invocando el `git` del sistema y exig
 
 ## Acceptance criteria
 
-1. ⏳ Las siete fronteras de plataforma están detrás de `cfg(target_os)` o de una comprobación explícita, sin rutas ni comandos de un sistema concreto en el camino común. Cinco lo están; la detección de proveedores y la canonización de rutas siguen abiertas.
+1. ⏳ Las siete fronteras de plataforma están detrás de `cfg(target_os)` o de una comprobación explícita, sin rutas ni comandos de un sistema concreto en el camino común. Seis lo están, incluidos el selector de carpetas y la grafía de rutas en la shell; la detección de proveedores sigue asumiendo la ruta de macOS y la canonización nativa sigue abierta.
 2. ✅ CI ejecuta la matriz en cada push y su resultado es visible; macOS se verifica en local por la decisión de coste registrada arriba.
 3. ✅ `windows-latest` compila el shell, construye el sidecar y pasa los tests Rust y TypeScript, con el test del PTY excluido en esa plataforma.
 4. ✅ `ubuntu-latest` hace lo mismo, sin exclusiones.
