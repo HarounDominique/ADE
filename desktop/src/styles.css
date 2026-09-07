@@ -1530,3 +1530,9 @@ body { color: var(--text); }
 @media (prefers-reduced-motion: reduce) {
   .agent-message-copy { transition-duration: .01ms !important; }
 }
+
+/* The breadcrumb repeated the sidebar's selection and the topbar's own Project
+   selector. With it gone the context bar leads the row instead of floating in
+   a centre column held open by an empty one. */
+.topbar { grid-template-columns: auto minmax(0, 1fr); }
+.git-context-bar { justify-self: start; }

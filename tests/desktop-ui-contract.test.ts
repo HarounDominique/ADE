@@ -240,7 +240,7 @@ test("desktop shell exposes the Git context bar and Explorer search affordance",
   assert.match(main, /project\.register/);
   assert.match(main, /mergeActiveProject\(activeProject, response\.result\.project\)/);
   assert.match(main, /repositoryName\.textContent = activeProject\.name/);
-  assert.match(main, /breadcrumbRoot\.textContent = activeProject\.name/);
+  assert.doesNotMatch(html, /class="breadcrumb"/);
   assert.match(main, /showView\('editor'\)/);
   assert.match(html, /data-action="add-project"/);
   assert.match(html, /id="projects-list"/);

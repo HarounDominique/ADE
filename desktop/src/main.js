@@ -546,8 +546,6 @@ function renderSnapshot(snapshot) {
   if (statusBranch) statusBranch.textContent = currentBranch;
   const repositoryName = document.getElementById('current-repository-name');
   if (repositoryName) repositoryName.textContent = activeProject.name;
-  const breadcrumbRoot = document.querySelector('.breadcrumb-root');
-  if (breadcrumbRoot) breadcrumbRoot.textContent = activeProject.name;
   const branchName = document.getElementById('current-branch-name');
   if (branchName) branchName.textContent = currentBranch;
   const branchButton = document.getElementById('branch-context-button');
@@ -2852,9 +2850,6 @@ function showView(view) {
   mainContent?.classList.toggle('agent-focus', view === 'agents');
   mainContent?.classList.toggle('version-control-focus', view === 'changes');
   if (mainContent) mainContent.scrollTop = 0;
-  const labels = { projects: 'Projects', editor: 'Editor', agents: 'Agents', work: 'Tasks', knowledge: 'Project context', changes: 'Version control' };
-  const crumb = document.getElementById('breadcrumb-current');
-  if (crumb) crumb.textContent = labels[view] ?? view;
   if (view === 'changes') requestVersionControlData(workspaceRootPath);
   if (view === 'agents') requestAgentSessions(workspaceRootPath);
 }
