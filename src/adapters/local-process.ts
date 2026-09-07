@@ -19,6 +19,9 @@ export class LocalProcess implements ProcessPort {
       stdio: "pipe",
       // npm and many Windows CLIs are .cmd shims rather than PE executables.
       shell: windowsCommandNeedsShell(definition.command),
+      // cmd.exe is an implementation detail for .cmd shims. Keep its output
+      // on Assay's run stream instead of flashing a second terminal window.
+      windowsHide: process.platform === "win32",
       detached: true,
     });
     const output = { stdout: "", stderr: "" };
