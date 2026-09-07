@@ -221,8 +221,12 @@ async function probeOnce(type: "http" | "command", target: string, configuration
   if (type === "http") {
     return fetch(target, { signal: AbortSignal.timeout(1_000) }).then((response) => response.ok).catch(() => false);
   }
-  const [command, ...args] = target.split(" ");
-  if (!command) return false;
+  if (!target.trim()) return false;
+  // `target` is a command line, not an argv array. Keeping it intact lets the
+  // platform shell handle quoted arguments and executable paths containing
+  // spaces (a common Windows layout under Program Files).
+  const command = process.platform === "win32" ? "cmd.exe" : "/bin/sh";
+  const args = process.platform === "win32" ? ["/d", "/s", "/c", target] : ["-lc", target];
   return new Promise((resolve) => {
     const child = spawn(command, args, { cwd: configuration.cwd, env: { ...process.env, ...configuration.env }, stdio: "ignore", shell: false });
     child.once("error", () => resolve(false));

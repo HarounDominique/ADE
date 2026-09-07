@@ -1,4 +1,4 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type {
   ProcessDefinition,
   ProcessEvidence,
@@ -15,7 +15,8 @@ export class LocalProcess implements ProcessPort {
       cwd: definition.cwd,
       env: definition.env ? { ...process.env, ...definition.env } : process.env,
       stdio: "pipe",
-      shell: false,
+      // npm and many Windows CLIs are .cmd shims rather than PE executables.
+      shell: windowsCommandNeedsShell(definition.command),
       detached: true,
     });
     const output = { stdout: "", stderr: "" };
@@ -40,24 +41,42 @@ export class LocalProcess implements ProcessPort {
     if (!child) return { id: handle.id, state: "STOPPED", exitCode: null, signal: null, ...output };
     const result = await new Promise<{ exitCode: number | null; signal: NodeJS.Signals | null }>((resolve) => {
       const timer = setTimeout(() => {
-        killGroup(child, "SIGKILL");
+        void killGroup(child, "SIGKILL");
       }, timeoutMs);
       child.once("close", (exitCode, signal) => {
         clearTimeout(timer);
         setTimeout(() => resolve({ exitCode, signal }), 10);
       });
-      killGroup(child, "SIGTERM");
+      void killGroup(child, "SIGTERM");
     });
     this.output.delete(handle.id);
     return { id: handle.id, state: "STOPPED", ...result, ...output };
   }
 }
 
-function killGroup(child: ChildProcessWithoutNullStreams, signal: NodeJS.Signals): void {
+function windowsCommandNeedsShell(command: string): boolean {
+  return process.platform === "win32" && (!/\.[^\\/]+$/.test(command) || /\.(?:cmd|bat)$/i.test(command));
+}
+
+async function killGroup(child: ChildProcessWithoutNullStreams, signal: NodeJS.Signals): Promise<void> {
   if (child.pid === undefined) return;
+  if (process.platform === "win32") {
+    // Negative PIDs are Unix process-group syntax and do not terminate a
+    // Windows process tree. taskkill /T is the equivalent for npm/dev-server
+    // children that outlive their direct parent.
+    await new Promise<void>((resolve) => {
+      execFile("taskkill", ["/PID", String(child.pid), "/T", "/F"], (error) => {
+        if (error) {
+          try { child.kill(signal); } catch { /* the process may have exited */ }
+        }
+        resolve();
+      });
+    });
+    return;
+  }
   try {
     process.kill(-child.pid, signal);
   } catch {
-    child.kill(signal);
+    try { child.kill(signal); } catch { /* the process may have exited */ }
   }
 }

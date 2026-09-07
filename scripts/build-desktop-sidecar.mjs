@@ -1,4 +1,4 @@
-import { chmodSync, copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -74,4 +74,5 @@ if (injected.status !== 0) {
 }
 rmSync(seaConfig, { force: true });
 rmSync(seaBlob, { force: true });
-console.log(`Desktop sidecar executable built at ${seaExecutable}`);
+const publishedExecutable = windows && !existsSync(seaExecutable) ? seaExecutable.replace(/\.exe$/, '.cmd') : seaExecutable;
+console.log(`Desktop sidecar executable built at ${publishedExecutable}`);

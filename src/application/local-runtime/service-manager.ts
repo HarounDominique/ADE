@@ -47,9 +47,13 @@ async function runHealthcheck(definition: ServiceDefinition): Promise<boolean> {
   const healthcheck = definition.healthcheck;
   if (!healthcheck) return true;
   return new Promise((resolve) => {
-    const child = spawn(healthcheck.command, [...(healthcheck.args ?? [])], { cwd: definition.cwd, env: { ...process.env, ...definition.env }, stdio: "ignore", shell: false });
+    const child = spawn(healthcheck.command, [...(healthcheck.args ?? [])], { cwd: definition.cwd, env: { ...process.env, ...definition.env }, stdio: "ignore", shell: windowsCommandNeedsShell(healthcheck.command) });
     const timer = setTimeout(() => { child.kill("SIGKILL"); resolve(false); }, healthcheck.timeoutMs ?? 2_000);
     child.once("error", () => { clearTimeout(timer); resolve(false); });
     child.once("close", (code) => { clearTimeout(timer); resolve(code === 0); });
   });
+}
+
+function windowsCommandNeedsShell(command: string): boolean {
+  return process.platform === "win32" && (!/\.[^\\/]+$/.test(command) || /\.(?:cmd|bat)$/i.test(command));
 }

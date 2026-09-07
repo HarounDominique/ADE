@@ -29,7 +29,11 @@ const bundleLayout = {
 };
 const app = resolve(process.env.ADE_APP_PATH ?? join(root, bundleLayout.app));
 const appExecutable = join(app, bundleLayout.executable);
-const sidecar = join(app, bundleLayout.sidecar);
+const windows = process.platform === "win32";
+const sidecarBase = join(app, bundleLayout.sidecar);
+const sidecar = windows && !existsSync(sidecarBase)
+  ? sidecarBase.replace(/\.exe$/, ".cmd")
+  : sidecarBase;
 const smokeDirectory = mkdtempSync(join(tmpdir(), "ade-desktop-smoke-"));
 const database = join(smokeDirectory, "ade.db");
 const repository = join(smokeDirectory, "repository");
@@ -81,6 +85,9 @@ function spawnPackagedSidecar() {
     cwd: tmpdir(),
     env: { ...process.env, ADE_DB_PATH: database },
     stdio: ["pipe", "pipe", "ignore"],
+    // The SEA fallback is a .cmd shim because Windows cannot execute a shell
+    // script directly. Node needs shell mode to launch that shim.
+    shell: windows,
   });
 }
 

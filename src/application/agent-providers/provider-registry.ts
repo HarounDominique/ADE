@@ -14,8 +14,12 @@ export async function inspectProviders(input: { opencodeUrl?: string; codexComma
   const claudeCommand = input.claudeCommand ?? defaultClaudeCommand;
   const [opencode, codex, claude] = await Promise.all([
     fetch(`${opencodeUrl}/global/health`).then(async (response) => ({ available: response.ok, detail: response.ok ? `reachable at ${opencodeUrl}` : `HTTP ${response.status}` })).catch(() => ({ available: false, detail: `unreachable at ${opencodeUrl}` })),
-    exec(codexCommand, ["--version"]).then(({ stdout }) => ({ available: true, detail: stdout.trim() || `${codexCommand} available` })).catch(() => ({ available: false, detail: `${codexCommand} not found` })),
-    exec(claudeCommand, ["--version"]).then(({ stdout }) => ({ available: true, detail: stdout.trim() || `${claudeCommand} available` })).catch(() => ({ available: false, detail: `${claudeCommand} not found` })),
+    exec(codexCommand, ["--version"], { shell: windowsCommandNeedsShell(codexCommand) }).then(({ stdout }) => ({ available: true, detail: stdout.trim() || `${codexCommand} available` })).catch(() => ({ available: false, detail: `${codexCommand} not found` })),
+    exec(claudeCommand, ["--version"], { shell: windowsCommandNeedsShell(claudeCommand) }).then(({ stdout }) => ({ available: true, detail: stdout.trim() || `${claudeCommand} available` })).catch(() => ({ available: false, detail: `${claudeCommand} not found` })),
   ]);
   return nativeProviders.map((provider) => ({ ...provider, ...(provider.id === "opencode" ? opencode : provider.id === "codex" ? codex : claude) }));
+}
+
+function windowsCommandNeedsShell(command: string): boolean {
+  return process.platform === "win32" && (!/\.[^\\/]+$/.test(command) || /\.(?:cmd|bat)$/i.test(command));
 }

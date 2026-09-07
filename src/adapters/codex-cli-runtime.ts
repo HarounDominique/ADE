@@ -4,12 +4,18 @@ import { promisify } from "node:util";
 import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt } from "../ports/agent-runtime.js";
 
 const execFile = promisify(execFileCallback);
-export const defaultCodexCommand = process.env.ADE_CODEX_COMMAND ?? "/Applications/ChatGPT.app/Contents/Resources/codex";
+// ChatGPT's bundled Codex binary has a stable location on macOS only. On
+// Windows and Linux the portable contract is an executable on PATH, with an
+// explicit ADE_CODEX_COMMAND override for custom installations.
+const platformCodexCommand = process.platform === "darwin"
+  ? "/Applications/ChatGPT.app/Contents/Resources/codex"
+  : "codex";
+export const defaultCodexCommand = process.env.ADE_CODEX_COMMAND ?? platformCodexCommand;
 
-type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number }) => Promise<{ stdout: string }>;
+type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number; shell?: boolean }) => Promise<{ stdout: string }>;
 
 const execute: CommandRunner = (command, args, options) => new Promise((resolve, reject) => {
-  const child = execFileCallback(command, args, options, (error, stdout) => {
+  const child = execFileCallback(command, args, { ...options, shell: windowsCommandNeedsShell(command) }, (error, stdout) => {
     if (error) reject(error);
     else resolve({ stdout: stdout.toString() });
   });
@@ -81,7 +87,7 @@ export class CodexCliRuntime implements AgentRuntimePort {
   private runPromptCommand(args: string[], cwd: string): Promise<{ stdout: string }> {
     if (this.runner !== execute) return this.runner(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 });
     return new Promise((resolve, reject) => {
-      const child = execFileCallback(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 }, (error, stdout) => {
+      const child = execFileCallback(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024, shell: windowsCommandNeedsShell(this.command) }, (error, stdout) => {
         if (this.activeChild === child) this.activeChild = undefined;
         if (error) reject(error);
         else resolve({ stdout: stdout.toString() });
@@ -90,6 +96,10 @@ export class CodexCliRuntime implements AgentRuntimePort {
       child.stdin?.end();
     });
   }
+}
+
+function windowsCommandNeedsShell(command: string): boolean {
+  return process.platform === "win32" && (!/\.[^\\/]+$/.test(command) || /\.(?:cmd|bat)$/i.test(command));
 }
 
 export function extractCodexSessionId(jsonl: string): string | undefined {

@@ -40,9 +40,9 @@ impl WorkspaceRoot {
         if !repository.is_dir() {
             return Err(format!("Repository does not exist: {repository_path}"));
         }
-        let canonical = repository
+        let canonical = normalize_windows_path(repository
             .canonicalize()
-            .map_err(|error| format!("Unable to resolve Project root: {error}"))?;
+            .map_err(|error| format!("Unable to resolve Project root: {error}"))?);
         *self
             .root
             .lock()
@@ -57,14 +57,32 @@ impl WorkspaceRoot {
             .map_err(|_| "Workspace root state is poisoned".to_string())?
             .clone()
             .ok_or_else(|| "Select a Project before accessing its workspace".to_string())?;
-        let candidate = Path::new(requested_path)
+        let candidate = normalize_windows_path(Path::new(requested_path)
             .canonicalize()
-            .map_err(|error| format!("Unable to resolve workspace path: {error}"))?;
+            .map_err(|error| format!("Unable to resolve workspace path: {error}"))?);
         if !candidate.starts_with(&root) {
             return Err("Workspace path is outside the selected Project".to_string());
         }
         Ok(candidate)
     }
+}
+
+/// Windows APIs may return the extended-length `\\?\` spelling from
+/// canonicalize(), while a path supplied by the frontend uses the regular
+/// drive spelling. Strip only that transparent prefix before comparing paths;
+/// UNC paths retain their `\\server\share` identity.
+fn normalize_windows_path(path: PathBuf) -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        let value = path.to_string_lossy();
+        if let Some(rest) = value.strip_prefix(r"\\?\UNC\") {
+            return PathBuf::from(format!(r"\\{}", rest));
+        }
+        if let Some(rest) = value.strip_prefix(r"\\?\") {
+            return PathBuf::from(rest);
+        }
+    }
+    path
 }
 
 #[tauri::command]
@@ -133,7 +151,10 @@ fn open_with_desktop(path: &Path, what: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let spawned = Command::new("open").arg(path).spawn();
     #[cfg(target_os = "windows")]
-    let spawned = Command::new("cmd").args(["/C", "start", ""]).arg(path).spawn();
+    let spawned = Command::new(std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()))
+        .args(["/C", "start", ""])
+        .arg(path)
+        .spawn();
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     let spawned = Command::new("xdg-open").arg(path).spawn();
     spawned
@@ -157,7 +178,10 @@ fn open_local_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let spawned = Command::new("open").arg(url).spawn();
     #[cfg(target_os = "windows")]
-    let spawned = Command::new("cmd").args(["/C", "start", ""]).arg(url).spawn();
+    let spawned = Command::new(std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()))
+        .args(["/C", "start", ""])
+        .arg(url)
+        .spawn();
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     let spawned = Command::new("xdg-open").arg(url).spawn();
     spawned
@@ -179,8 +203,8 @@ fn open_terminal_at(directory: &Path) -> Result<(), String> {
         .arg(directory)
         .spawn();
     #[cfg(target_os = "windows")]
-    let spawned = Command::new("cmd")
-        .args(["/C", "start", "cmd", "/K", "cd", "/D"])
+    let spawned = Command::new(std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()))
+        .args(["/C", "start", "", "cmd", "/K", "cd", "/D"])
         .arg(directory)
         .spawn();
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
@@ -203,7 +227,7 @@ fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Sen
         })
         .map_err(|error| format!("Unable to allocate terminal PTY: {error}"))?;
     let mut shell = if cfg!(target_os = "windows") {
-        CommandBuilder::new("cmd")
+        CommandBuilder::new(std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()))
     } else {
         // The operator's own shell, as a login and interactive session, so their
         // prompt, aliases and colours are the ones they already know. A minimal
@@ -619,7 +643,7 @@ fn terminal_exec_in(
         return Err("Terminal command cannot be empty".to_string());
     }
     #[cfg(target_os = "windows")]
-    let output = Command::new("cmd")
+    let output = Command::new(std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()))
         .args(["/C", &command])
         .current_dir(&directory)
         .output();
@@ -701,7 +725,7 @@ fn select_project_directory() -> Result<Option<String>, String> {
              $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; \
              $dialog.Description = 'Add project to Assay'; \
              if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dialog.SelectedPath }";
-        Command::new("powershell")
+        Command::new(std::env::var("ADE_POWERSHELL_COMMAND").unwrap_or_else(|_| "powershell.exe".to_string()))
             .args(["-NoProfile", "-STA", "-Command", script])
             .output()
     };
@@ -765,7 +789,11 @@ fn open_document_in(
 ) -> Result<(), String> {
     let repository = workspace.resolve(repository_path)?;
     let relative = Path::new(relative_path);
-    if relative.is_absolute() || !relative_path.starts_with("docu/specs/") {
+    // The frontend normally sends `/`, but read_file returns native paths and
+    // callers can come from a Windows shell. Validate both spellings before
+    // joining the path with the authorized repository root.
+    let normalized_relative = relative_path.replace('\\', "/");
+    if relative.is_absolute() || !normalized_relative.starts_with("docu/specs/") {
         return Err("Only documents under docu/specs can be opened".to_string());
     }
     let documents_root = repository
@@ -847,12 +875,15 @@ fn sidecar_start(
         let script = resource_dir.join("sidecar-dist/desktop-sidecar.cjs");
         if let Ok(binary) = std::env::var("ADE_SIDECAR_BIN") {
             Command::new(binary)
-        } else if script.is_file() {
-            let mut command = Command::new(resolve_node_binary());
-            command.arg(script);
-            command
         } else {
-            Command::new(resolve_sidecar_binary(&resource_dir))
+            let packaged = resolve_sidecar_binary(&resource_dir);
+            if packaged.is_file() {
+                command_for_sidecar(&packaged)
+            } else {
+                let mut command = Command::new(resolve_node_binary());
+                command.arg(script);
+                command
+            }
         }
     };
     let mut child = command
@@ -886,6 +917,16 @@ fn sidecar_start(
         .map_err(|_| "Sidecar state is poisoned".to_string())?;
     *current = Some(child);
     Ok(())
+}
+
+fn command_for_sidecar(path: &Path) -> Command {
+    #[cfg(target_os = "windows")]
+    if path.extension().and_then(|value| value.to_str()) == Some("cmd") {
+        let mut command = Command::new(std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()));
+        command.args(["/D", "/S", "/C"]).arg(path);
+        return command;
+    }
+    Command::new(path)
 }
 
 fn resolve_sidecar_database_path(app: &tauri::AppHandle) -> Result<String, String> {

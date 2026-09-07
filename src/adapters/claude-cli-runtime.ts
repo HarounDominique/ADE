@@ -6,10 +6,10 @@ import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, Session
 const execFile = promisify(execFileCallback);
 export const defaultClaudeCommand = process.env.ADE_CLAUDE_COMMAND ?? "claude";
 
-type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number }) => Promise<{ stdout: string }>;
+type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number; shell?: boolean }) => Promise<{ stdout: string }>;
 
 const execute: CommandRunner = (command, args, options) => new Promise((resolve, reject) => {
-  const child = execFileCallback(command, args, options, (error, stdout) => {
+  const child = execFileCallback(command, args, { ...options, shell: windowsCommandNeedsShell(command) }, (error, stdout) => {
     if (error) reject(error);
     else resolve({ stdout: stdout.toString() });
   });
@@ -103,7 +103,7 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
   private runPromptCommand(args: string[], cwd: string): Promise<{ stdout: string }> {
     if (this.runner !== execute) return this.runner(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 });
     return new Promise((resolve, reject) => {
-      const child = execFileCallback(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 }, (error, stdout) => {
+      const child = execFileCallback(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024, shell: windowsCommandNeedsShell(this.command) }, (error, stdout) => {
         if (this.activeChild === child) this.activeChild = undefined;
         if (error) reject(error);
         else resolve({ stdout: stdout.toString() });
@@ -112,6 +112,10 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
       child.stdin?.end();
     });
   }
+}
+
+function windowsCommandNeedsShell(command: string): boolean {
+  return process.platform === "win32" && (!/\.[^\\/]+$/.test(command) || /\.(?:cmd|bat)$/i.test(command));
 }
 
 export function extractClaudeSessionId(json: string): string | undefined {
