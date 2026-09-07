@@ -5,11 +5,12 @@ import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, Session
 
 const execFile = promisify(execFileCallback);
 // ChatGPT's bundled Codex binary has a stable location on macOS only. On
-// Windows and Linux the portable contract is an executable on PATH, with an
-// explicit ADE_CODEX_COMMAND override for custom installations.
+// Windows uses the .exe explicitly: calling the extensionless `codex` makes
+// Node route through cmd.exe, which splits a natural-language prompt into
+// separate command arguments. Linux keeps the PATH command spelling.
 const platformCodexCommand = process.platform === "darwin"
   ? "/Applications/ChatGPT.app/Contents/Resources/codex"
-  : "codex";
+  : process.platform === "win32" ? "codex.exe" : "codex";
 export const defaultCodexCommand = process.env.ADE_CODEX_COMMAND ?? platformCodexCommand;
 
 type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number; shell?: boolean }) => Promise<{ stdout: string }>;
