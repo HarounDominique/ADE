@@ -746,6 +746,24 @@ test("open files are reachable by keyboard and survive a restart", () => {
   assert.match(html, /id="document-empty-state"/);
 });
 
+test("the topbar's menus open over the terminal dock, however tall it is", () => {
+  // The topbar carries a backdrop filter, which makes it a stacking context
+  // whatever its own menus ask for: a menu at z-index 8 inside a topbar below
+  // the dock still renders under the dock. Expanded to its full height the
+  // dock reaches the topbar, so the two orders have to be right relative to
+  // each other, not merely set.
+  // Anchored, so a descendant rule elsewhere is not mistaken for the surface's
+  // own; the sidebar's collapse animation carries one for the dock.
+  const zIndexOf = (selector: string) => {
+    const rule = styles.match(new RegExp(`^\\${selector} \\{[^}]*\\}`, 'm'))?.[0] ?? '';
+    return Number(rule.match(/z-index: (\d+)/)?.[1] ?? NaN);
+  };
+  const topbar = zIndexOf('.topbar');
+  const dock = zIndexOf('.terminal-dock');
+  assert.ok(Number.isFinite(topbar) && Number.isFinite(dock), 'both surfaces state a stacking order');
+  assert.ok(topbar > dock, `the topbar (${topbar}) must stack above the terminal dock (${dock})`);
+});
+
 test("the sidebar collapses to a rail that still navigates", () => {
   assert.match(html, /data-action="toggle-sidebar"[^>]*aria-expanded="true"[^>]*aria-controls="sidebar"/);
   assert.match(html, /<aside class="sidebar" id="sidebar">/);
