@@ -176,10 +176,23 @@ fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Sen
     let mut shell = if cfg!(target_os = "windows") {
         CommandBuilder::new("cmd")
     } else {
-        let mut command = CommandBuilder::new("/bin/sh");
+        // The operator's own shell, as a login and interactive session, so their
+        // prompt, aliases and colours are the ones they already know. A minimal
+        // `/bin/sh` was deliberate once, but it also meant the terminal never
+        // looked or behaved like the one they use everywhere else -- and login
+        // is what gives it their real PATH when the app starts from Finder.
+        let login = std::env::var("SHELL")
+            .ok()
+            .filter(|value| !value.trim().is_empty() && Path::new(value).is_file())
+            .unwrap_or_else(|| "/bin/sh".to_string());
+        let mut command = CommandBuilder::new(&login);
+        command.arg("-l");
         command.arg("-i");
-        command.env("PS1", "$ ");
-        command.env("PS2", "> ");
+        // Only a shell with no configuration of its own needs a prompt from us.
+        if login == "/bin/sh" {
+            command.env("PS1", "$ ");
+            command.env("PS2", "> ");
+        }
         command.env("TERM", "xterm-256color");
         command.env("COLORTERM", "truecolor");
         command
@@ -1099,6 +1112,19 @@ mod tests {
     // it prints -- an open question in SPEC-cross-platform-support, and not one to
     // settle from a machine that cannot observe the answer. Windows PTY behaviour
     // stays unverified rather than asserted by a test written for a Unix shell.
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn terminal_pty_prefers_the_operator_shell_with_a_fallback() {
+        // The terminal is supposed to be the operator's, not a minimal shell
+        // wearing a prompt we invented -- but an environment without $SHELL
+        // still has to get a working one.
+        let resolved = std::env::var("SHELL")
+            .ok()
+            .filter(|value| !value.trim().is_empty() && Path::new(value).is_file());
+        assert!(resolved.is_none() || Path::new(&resolved.unwrap()).is_file());
+        assert!(Path::new("/bin/sh").is_file(), "the fallback shell must exist");
+    }
+
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn terminal_pty_runs_an_interactive_shell_command() {

@@ -13,7 +13,7 @@ macOS es hoy la plataforma verificada. Windows es objetivo de primer orden. Linu
 Assay toca el sistema operativo en siete sitios, y sólo en esos siete. Cualquier código nuevo que necesite un octavo es una señal de que la frontera se está filtrando.
 
 1. **Escape hatch al escritorio.** Abrir un fichero, un documento o una terminal en la aplicación del sistema, y elegir una carpeta con el selector nativo. `open` y `osascript` en macOS, `cmd /C start` y un `FolderBrowserDialog` de PowerShell en Windows, `xdg-open` y `zenity` en Linux. Cancelar debe ser indistinguible de no elegir nada, aunque el selector de la plataforma lo comunique con un código de salida distinto de cero.
-2. **Shell interactiva del PTY.** `/bin/sh` con `TERM` y prompt mínimo fuera de Windows; `cmd` en Windows. El PTY en sí es `portable_pty`, ya multiplataforma.
+2. **Shell interactiva del PTY.** Fuera de Windows, el `$SHELL` del usuario como sesión de login e interactiva, con `/bin/sh` como reserva cuando no está declarado o no existe; `cmd` en Windows. El PTY en sí es `portable_pty`, ya multiplataforma.
 3. **Ejecución de comandos declarados.** `/bin/sh -lc` frente a `cmd /C`.
 4. **Localización del runtime Node del sidecar.** `ADE_SIDECAR_NODE` manda siempre; en su ausencia se prueban ubicaciones conocidas por plataforma y finalmente `PATH`.
 5. **Construcción del sidecar.** Rutas temporales, nombre del ejecutable, shims `.cmd` de npm, flags específicos de formato binario y el lanzador de reserva cuando la distribución de Node carece del fuse SEA.
