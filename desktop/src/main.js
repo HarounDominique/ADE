@@ -2982,9 +2982,9 @@ async function connectSidecar(snapshot) {
           return;
         }
         const feedback = document.getElementById('agent-feedback');
-        if (feedback) feedback.textContent = `${response.error.code}: ${response.error.message}`;
+        if (feedback) feedback.textContent = 'The operation needs attention.';
         if (contextPurpose === 'git-pending' && pendingGitRequestPath !== workspaceRootPath) requestPendingGitChanges(workspaceRootPath, { showLoading: true });
-        notify(response.error.message);
+        showOperationError(response.error, contextPurpose);
         return;
       }
       if (contextPurpose === 'run-list' && response.result?.configurations) {
@@ -3459,6 +3459,41 @@ function notify(message) {
   toast.textContent = message;
   toast.classList.add('visible');
   window.setTimeout(() => toast.classList.remove('visible'), 2600);
+}
+
+/** Every asynchronous sidecar failure uses this dialog. Toasts remain for
+    short-lived confirmations; an error needs a stable explanation and a
+    collapsible diagnostic instead of leaking an opaque JSON payload. */
+function showOperationError(error, purpose = '') {
+  const technical = typeof error?.message === 'string' ? error.message : String(error ?? 'Unknown error');
+  const { title, copy } = operationErrorCopy(technical, purpose);
+  const dialog = document.getElementById('operation-error-dialog');
+  const titleNode = document.getElementById('operation-error-title');
+  const copyNode = document.getElementById('operation-error-copy');
+  const technicalNode = document.getElementById('operation-error-technical');
+  if (!dialog?.showModal || !titleNode || !copyNode || !technicalNode) { notify(copy); return; }
+  titleNode.textContent = title;
+  copyNode.textContent = copy;
+  technicalNode.textContent = technical;
+  if (!dialog.open) dialog.showModal();
+}
+
+function operationErrorCopy(technical, purpose) {
+  if (/Permission to .+ denied|HTTP 403|returned error: 403/i.test(technical)) {
+    return { title: 'Push requires write access', copy: 'This remote does not allow your account to push changes. Use a fork or a repository where you have write access.' };
+  }
+  if (/failed to index|index\.lock|\.mv\.db/i.test(technical)) {
+    return { title: 'Commit blocked by a file in use', copy: 'A runtime file is locked by a running service. Stop that service or add the generated file to your local Git exclusions, then try again.' };
+  }
+  const operation = {
+    'git-commit-local': 'commit',
+    'git-push-origin': 'push',
+    'git-fetch': 'fetch',
+    'run-start': 'start the run',
+    'run-stop': 'stop the run',
+    'agent-prompt': 'send the agent message',
+  }[purpose] ?? 'complete the operation';
+  return { title: 'Operation could not be completed', copy: `Assay could not ${operation}. Review the technical details below and try again.` };
 }
 
 navItems.forEach((item) => item.addEventListener('click', () => showView(item.dataset.view)));

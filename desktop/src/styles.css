@@ -385,6 +385,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .agent-delete-actions .button { min-width: 88px; }
 .agent-delete-actions .button.danger { border-color: var(--red); color: #fff; background: var(--red); }
 .agent-delete-actions .button.danger:hover { border-color: color-mix(in srgb, var(--red) 85%, #000); background: color-mix(in srgb, var(--red) 85%, #000); }
+.operation-error-dialog { width: min(500px, calc(100vw - 32px)); padding: 0; border: 1px solid color-mix(in srgb, var(--red) 52%, var(--line-strong)); border-radius: 12px; color: var(--text); background: var(--panel); box-shadow: 0 24px 70px rgba(39, 54, 70, .28); }
+.operation-error-dialog::backdrop { background: rgba(35, 47, 60, .38); backdrop-filter: blur(4px); }
+.operation-error-form { display: grid; gap: 11px; padding: 24px; }
+.operation-error-eyebrow { color: var(--red); }
+.operation-error-form h2 { margin: 0; color: var(--text); font-size: 18px; }
+.operation-error-form > p { margin: 0; color: var(--text-soft); font-size: 12px; line-height: 1.55; }
+.operation-error-details { border: 1px solid var(--line); border-radius: 6px; color: var(--muted); background: var(--panel-soft); font-size: 11px; }
+.operation-error-details summary { padding: 9px 10px; cursor: pointer; }
+.operation-error-details pre { max-height: 160px; margin: 0; padding: 0 10px 10px; overflow: auto; color: var(--text-soft); font: 10px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; }
+.operation-error-actions { display: flex; justify-content: flex-end; margin-top: 3px; }
+.operation-error-actions .button { min-width: 88px; }
+:root[data-theme="light"] .operation-error-dialog { box-shadow: 0 24px 70px #15324d38; }
 
 :root[data-theme="light"] .git-pending-file.active { background: #e3eef9; }
 :root[data-theme="light"] .commit-dialog { box-shadow: 0 24px 70px #15324d38; }
