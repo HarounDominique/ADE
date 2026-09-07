@@ -789,6 +789,9 @@ async function switchProjectFromContext(project) {
       activeDocument = null;
       document.getElementById('document-viewer')?.removeAttribute('hidden');
     }
+    // The open document does not survive a Project change, so neither does the
+    // control that points at it.
+    updateRevealOpenFileButton();
     renderSnapshot({ ...projectSnapshot, project: activeProject, metrics: { ...projectSnapshot.metrics, activeTasks: 0, inReview: 0 } });
     window.clearTimeout(workspaceSearchTimer);
     workspaceSearchToken += 1;
@@ -1419,6 +1422,7 @@ function updateDocumentEditState() {
     const language = languageLabelForPath(activeDocument.path);
     kindElement.textContent = documentDirty ? `${language} · UNSAVED` : language;
   }
+  updateRevealOpenFileButton();
 }
 
 async function renderDocumentLoading(filePath) {
@@ -2871,9 +2875,9 @@ async function expandExplorerFrom(button) {
   }
 }
 
-async function revealSelectedFileBranch() {
-  if (!explorerExpanded || !pathInsideRoot(selectedFilePath)) return;
-  const segments = pathSegments(documentRelativePath(selectedFilePath));
+async function revealSelectedFileBranch(filePath = selectedFilePath) {
+  if (!explorerExpanded || !pathInsideRoot(filePath)) return;
+  const segments = pathSegments(documentRelativePath(filePath));
   let currentPath = workspaceRootPath;
   for (const segment of segments.slice(0, -1)) {
     currentPath = `${currentPath}/${segment}`;
@@ -2882,7 +2886,52 @@ async function revealSelectedFileBranch() {
     if (!directoryButton) return;
     if (directoryButton.getAttribute('aria-expanded') !== 'true') await toggleWorkspaceDirectory(directoryButton);
   }
-  updateWorkspaceFileSelection(selectedFilePath);
+  updateWorkspaceFileSelection(filePath);
+}
+
+/** Walk the tree down to the file the editor is showing, opening every
+    directory on the way, and bring it into view. The explorer has to be opened
+    and unfiltered first: collapsed it renders only the current file's own
+    branch, and filtered it lists matches instead of the hierarchy, so in
+    neither case is there a branch to walk down. */
+async function revealOpenFileInExplorer() {
+  const filePath = activeDocument?.path;
+  if (!filePath) { notify('No file is open.'); return; }
+  if (!pathInsideRoot(filePath)) { notify('The open file is outside this Project.'); return; }
+  const filter = document.getElementById('workspace-filter');
+  const filtered = Boolean(filter?.value.trim());
+  if (filtered) {
+    filter.value = '';
+    window.clearTimeout(workspaceSearchTimer);
+    workspaceSearchToken += 1;
+    setWorkspaceSearchLoading(false);
+    workspaceSearchEntries = null;
+    workspaceSearchIndex = null;
+  }
+  if (!explorerExpanded || filtered) {
+    updateExplorerMode(true);
+    await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
+  }
+  await revealSelectedFileBranch(filePath);
+  const entry = [...document.querySelectorAll('[data-file-path]')].find((candidate) => candidate.dataset.filePath === filePath);
+  if (!entry) { notify('The open file is no longer in the workspace tree.'); return; }
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  entry.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+  // Restarting the highlight is what makes a second press read as an answer
+  // rather than as nothing happening when the file is already in view.
+  entry.classList.remove('just-revealed');
+  void entry.offsetWidth;
+  entry.classList.add('just-revealed');
+}
+
+function updateRevealOpenFileButton() {
+  const button = document.querySelector('[data-action="reveal-open-file"]');
+  if (!button) return;
+  const available = Boolean(activeDocument?.path) && pathInsideRoot(activeDocument.path);
+  const label = available ? 'Select the open file in the tree' : 'No file is open';
+  button.disabled = !available;
+  button.title = label;
+  button.setAttribute('aria-label', label);
 }
 
 async function expandExplorer() {
@@ -3583,6 +3632,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     workspaceSearchEntries = null;
     workspaceSearchIndex = null;
     loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
+    return;
+  }
+  if (item.dataset.action === 'reveal-open-file') {
+    void revealOpenFileInExplorer();
     return;
   }
   if (item.dataset.action === 'toggle-explorer') {

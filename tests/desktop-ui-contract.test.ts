@@ -667,6 +667,22 @@ test("the brand mark is the product's logo, and it wears the tile's colour", () 
   assert.match(styles, /\.brand-mark::before \{[^}]*mask: var\(--brand-glyph\) center \/ contain no-repeat;/);
 });
 
+test("the explorer can point at the file the editor is showing", () => {
+  assert.match(html, /data-action="reveal-open-file"/);
+  // Disabled in the markup: at first paint no document is open yet.
+  assert.match(html, /data-action="reveal-open-file"[^>]*disabled/);
+  assert.match(main, /if \(item\.dataset\.action === 'reveal-open-file'\)/);
+  // It reads the editor's document, not the tree's own selection, which lags
+  // behind it once a file is closed.
+  assert.match(main, /async function revealOpenFileInExplorer\(\)[\s\S]*?const filePath = activeDocument\?\.path;/);
+  // A collapsed or filtered tree has no branch to walk down.
+  assert.match(main, /async function revealOpenFileInExplorer\(\)[\s\S]*?if \(!explorerExpanded \|\| filtered\)/);
+  assert.match(main, /async function revealOpenFileInExplorer\(\)[\s\S]*?scrollIntoView/);
+  assert.match(main, /function updateRevealOpenFileButton\(\)[\s\S]*?button\.disabled = !available;/);
+  assert.match(styles, /\.workspace-entry\.just-revealed \{ animation: workspace-reveal/);
+  assert.match(styles, /\.icon-button:disabled \{/);
+});
+
 test("the terminal dock's tab strip spends its width on the working directory", () => {
   // The mode caption said what the dock already is. It cost a row of space and
   // its second line climbed into the size toggle once run consoles added tabs.

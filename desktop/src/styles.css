@@ -213,6 +213,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* Explorer focus mode keeps the selected file's path visible without losing context. */
 .explorer-actions { display: flex; align-items: center; gap: 2px; }
 .explorer-actions .icon-button svg { transition: transform .16s ease; }
+/* Nothing to point at until a file is open, and the control says so rather
+   than acting and failing. */
+.icon-button:disabled { opacity: .34; cursor: default; }
+.icon-button:disabled:hover { color: var(--muted); }
+/* The tree may already be showing the file, so the reveal has to be visible on
+   its own -- scrolling alone looks like nothing happened. */
+@keyframes workspace-reveal { from { background: color-mix(in srgb, var(--cyan) 40%, transparent); } }
+.workspace-entry.just-revealed { animation: workspace-reveal .9s ease-out; }
+@media (prefers-reduced-motion: reduce) { .workspace-entry.just-revealed { animation: none; } }
 .sidebar.explorer-expanded .primary-nav { max-height: 58px; margin-bottom: 10px; padding-bottom: 10px; border-bottom-color: var(--line); opacity: 1; pointer-events: auto; visibility: visible; transform: none; }
 .sidebar.explorer-expanded .primary-nav .nav-item:not(.active) { display: none; }
 .sidebar.explorer-expanded .explorer-section { margin-top: 0; }
