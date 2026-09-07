@@ -14,7 +14,7 @@ La vista `Agents` permite alternar entre OpenCode, Codex y Claude Code. Un selec
 
 ## Decision
 
-`AgentProvider` declara un catálogo de modelos para su selector. Todos incluyen `Provider default`, que no envía override y deja la configuración al runtime. Codex expone los aliases `gpt-5.5`, `gpt-5.4` y `gpt-5.4-mini`; Claude Code expone `opus`, `sonnet` y `haiku`; OpenCode ofrece inicialmente sólo el default porque su descubrimiento de modelos queda pendiente de un contrato estable del endpoint.
+`AgentProvider` declara un catálogo de modelos para su selector. Todos incluyen `Provider default`, que no envía override y deja la configuración al runtime. Codex expone los aliases `gpt-5.5`, `gpt-5.4` y `gpt-5.4-mini`; Claude Code expone `fable`, `opus`, `sonnet` y `haiku` (`fable` añadido el 2026-09-07, cuando el CLI ya lo documentaba en `--model`); OpenCode ofrece inicialmente sólo el default porque su descubrimiento de modelos queda pendiente de un contrato estable del endpoint.
 
 El selector vive junto a los permisos en el footer del composer. Al cambiar provider o conversación se reconstruye inmediatamente y se descarta cualquier alias que no pertenezca al nuevo catálogo. El valor no-default se incluye en `AgentPromptInput` y el sidecar lo traduce a `--model` para CLIs o `model` para HTTP. La elección se mantiene en memoria por conversación durante la sesión de ADE, sin añadir credenciales ni configuración privada a SQLite.
 

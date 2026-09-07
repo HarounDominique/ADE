@@ -1559,14 +1559,142 @@ function providerIsAvailable(providerId) {
   return !provider || provider.available;
 }
 
+/** An agent's default model seeds a new conversation and nothing else: once a
+    conversation has a model of its own, that choice stays with it and outranks
+    a default set or changed later. */
+const agentDefaultModelStorageKey = 'ade-agent-default-model';
+let agentDefaultModels = {};
+try { agentDefaultModels = JSON.parse(localStorage.getItem(agentDefaultModelStorageKey) ?? '{}') ?? {}; } catch { agentDefaultModels = {}; }
+
+function defaultModelForProvider(providerId) {
+  const stored = agentDefaultModels[providerId];
+  if (typeof stored !== 'string' || !stored) return '';
+  const provider = providerStatuses.find((item) => item.id === providerId);
+  if (provider?.models?.length && !provider.models.some((model) => model.id === stored)) return '';
+  return stored;
+}
+
+function setDefaultModelForProvider(providerId, modelId) {
+  if (modelId) agentDefaultModels[providerId] = modelId;
+  else delete agentDefaultModels[providerId];
+  try { localStorage.setItem(agentDefaultModelStorageKey, JSON.stringify(agentDefaultModels)); } catch { /* Persistence is optional. */ }
+}
+
+/** Marking a default never rewrites the open conversation: it is the starting
+    point for the next one, so the operator's current turn cannot change model
+    under them. */
+function toggleDefaultModel(modelId) {
+  const provider = providerStatuses.find((item) => item.id === selectedProvider);
+  const wasDefault = defaultModelForProvider(selectedProvider) === modelId;
+  const label = provider?.models?.find((model) => model.id === modelId)?.label ?? modelId;
+  setDefaultModelForProvider(selectedProvider, wasDefault ? '' : modelId);
+  renderAgentPicker('model');
+  document.querySelector(`.agent-picker-default[data-default-model="${CSS.escape(modelId)}"]`)?.focus();
+  notify(wasDefault
+    ? `${provider?.label ?? 'This agent'} has no default model.`
+    : `New ${provider?.label ?? 'agent'} conversations start on ${label}.`);
+}
+
+/** The provider and model menus mirror the hidden selects that still hold the
+    conversation's value, so every existing read of `agent-provider` and
+    `agent-model` keeps working while the header renders the app's own menu. */
+function agentPickerDetail(kind, value) {
+  if (kind !== 'provider') return value;
+  const provider = providerStatuses.find((item) => item.id === value);
+  if (!provider) return '';
+  return provider.available ? `${provider.auth} auth` : 'unavailable locally';
+}
+
+function agentPickerLabel(option) {
+  return option.textContent.replace(' — unavailable', '');
+}
+
+function renderAgentPicker(kind) {
+  const select = document.getElementById(`agent-${kind}`);
+  const button = document.getElementById(`agent-${kind}-button`);
+  const value = document.getElementById(`agent-${kind}-value`);
+  const menu = document.getElementById(`agent-${kind}-menu`);
+  if (!select || !button || !value || !menu) return;
+  const options = [...select.options];
+  const current = options.find((option) => option.value === select.value) ?? options[0];
+  value.textContent = current ? agentPickerLabel(current) : '—';
+  button.disabled = select.disabled || options.length === 0;
+  if (button.disabled) {
+    menu.hidden = true;
+    button.setAttribute('aria-expanded', 'false');
+  }
+  const rows = options.map((option) => {
+    const selected = option.value === current?.value;
+    const detail = agentPickerDetail(kind, option.value);
+    const choose = `<button class="agent-picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-picker-kind="${kind}" data-picker-value="${escapeHTML(option.value)}"${option.disabled ? ' disabled' : ''}><span class="git-option-mark" aria-hidden="true">${selected ? '✓' : ''}</span><span><strong>${escapeHTML(agentPickerLabel(option))}</strong>${detail ? `<small>${escapeHTML(detail)}</small>` : ''}</span></button>`;
+    return `<div class="agent-picker-row${selected ? ' selected' : ''}" role="none">${choose}${agentDefaultToggle(kind, option)}</div>`;
+  }).join('');
+  const note = kind === 'model' && options.some((option) => option.value)
+    ? '<p class="agent-picker-note">A starred model starts every new conversation with this agent.</p>'
+    : '';
+  menu.innerHTML = options.length
+    ? `${rows}${note}`
+    : `<p class="agent-picker-empty">No ${kind === 'provider' ? 'provider' : 'model'} available.</p>`;
+}
+
+/** `Provider default` is the absence of a model override, so it is the one row
+    that cannot itself be starred. */
+function agentDefaultToggle(kind, option) {
+  if (kind !== 'model' || !option.value) return '';
+  const providerLabel = providerStatuses.find((item) => item.id === selectedProvider)?.label ?? 'this agent';
+  const isDefault = defaultModelForProvider(selectedProvider) === option.value;
+  const label = isDefault
+    ? `${agentPickerLabel(option)} is the default model for ${providerLabel}. Clear it.`
+    : `Make ${agentPickerLabel(option)} the default model for ${providerLabel}`;
+  return `<button class="agent-picker-default${isDefault ? ' is-default' : ''}" type="button" data-default-model="${escapeHTML(option.value)}" aria-pressed="${isDefault}" aria-label="${escapeHTML(label)}" title="${escapeHTML(label)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.7 2.5 5.1 5.6.8-4.1 4 1 5.6-5-2.7-5 2.7 1-5.6-4.1-4 5.6-.8z"/></svg></button>`;
+}
+
+function renderAgentPickers() {
+  renderAgentPicker('provider');
+  renderAgentPicker('model');
+}
+
+function closeAgentPickers() {
+  document.querySelectorAll('.agent-picker-menu').forEach((menu) => { menu.hidden = true; });
+  document.querySelectorAll('.agent-picker-button').forEach((button) => button.setAttribute('aria-expanded', 'false'));
+}
+
+function agentPickerIsOpen() {
+  return Boolean(document.querySelector('.agent-picker-menu:not([hidden])'));
+}
+
+function toggleAgentPicker(kind) {
+  const menu = document.getElementById(`agent-${kind}-menu`);
+  const button = document.getElementById(`agent-${kind}-button`);
+  if (!menu || !button || button.disabled) return;
+  const wasOpen = !menu.hidden;
+  closeAgentPickers();
+  if (wasOpen) return;
+  renderAgentPicker(kind);
+  menu.hidden = false;
+  button.setAttribute('aria-expanded', 'true');
+  (menu.querySelector('.agent-picker-option.selected') ?? menu.querySelector('.agent-picker-option:not(:disabled)'))?.focus();
+}
+
+function chooseAgentPickerOption(kind, value) {
+  const select = document.getElementById(`agent-${kind}`);
+  closeAgentPickers();
+  document.getElementById(`agent-${kind}-button`)?.focus();
+  if (!select || select.value === value) return;
+  select.value = value;
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+  renderAgentPickers();
+}
+
 function renderModelSelection(modelId = selectedAgentModel) {
   const select = document.getElementById('agent-model');
   if (!select) return;
   const provider = providerStatuses.find((item) => item.id === selectedProvider);
   const models = provider?.models?.length ? provider.models : [{ id: '', label: 'Provider default' }];
-  selectedAgentModel = models.some((model) => model.id === modelId) ? modelId : '';
+  selectedAgentModel = models.some((model) => model.id === modelId) ? modelId : defaultModelForProvider(selectedProvider);
   select.innerHTML = models.map((model) => `<option value="${escapeHTML(model.id)}"${model.id === selectedAgentModel ? ' selected' : ''}>${escapeHTML(model.label)}</option>`).join('');
   select.disabled = !providerIsAvailable(selectedProvider);
+  renderAgentPickers();
 }
 
 function renderProviderSelection() {
@@ -1814,7 +1942,10 @@ function selectAgentSession(sessionId) {
   activeAgentSessionId = session.id;
   activeAgentTaskId = session.taskId ?? null;
   selectedProvider = session.provider;
-  selectedAgentModel = session.model ?? '';
+  /** A stored model -- an empty string included -- is the conversation's own
+      choice and outranks the agent default; only a session that never made one
+      falls back to it. */
+  selectedAgentModel = session.model ?? defaultModelForProvider(session.provider);
   const provider = document.getElementById('agent-provider');
   if (provider) provider.value = selectedProvider;
   renderModelSelection(selectedAgentModel);
@@ -1931,7 +2062,7 @@ function confirmDeleteAgentSession() {
 function startNewAgentSession() {
   activeAgentSessionId = null;
   activeAgentTaskId = selectedTaskId ?? null;
-  selectedAgentModel = '';
+  selectedAgentModel = defaultModelForProvider(selectedProvider);
   renderAgentMessages([]);
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
@@ -3229,6 +3360,23 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeGitContextMenus();
 });
 document.addEventListener('click', (event) => {
+  const trigger = event.target.closest('.agent-picker-button');
+  if (trigger) { toggleAgentPicker(trigger.dataset.pickerKind); return; }
+  const defaultToggle = event.target.closest('.agent-picker-default');
+  if (defaultToggle) { toggleDefaultModel(defaultToggle.dataset.defaultModel); return; }
+  const option = event.target.closest('.agent-picker-option');
+  if (option) { chooseAgentPickerOption(option.dataset.pickerKind, option.dataset.pickerValue); return; }
+  if (!event.target.closest('.agent-picker')) closeAgentPickers();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || !agentPickerIsOpen()) return;
+  const kind = document.querySelector('.agent-picker-menu:not([hidden])')?.id.replace('agent-', '').replace('-menu', '');
+  closeAgentPickers();
+  document.getElementById(`agent-${kind}-button`)?.focus();
+  /** Escape closed the menu; it must not also stop the running turn. */
+  event.preventDefault();
+});
+document.addEventListener('click', (event) => {
   const serviceButton = event.target.closest('[data-service-action][data-service-id]');
   if (serviceButton) {
     if (!nativeInvoke) { notify('Local services require the sidecar.'); return; }
@@ -3324,7 +3472,7 @@ restoreHistoryPaneLayout();
 restoreChangesPaneLayout();
 document.getElementById('agent-provider')?.addEventListener('change', (event) => {
   selectedProvider = event.target.value;
-  selectedAgentModel = '';
+  selectedAgentModel = defaultModelForProvider(selectedProvider);
   if (activeAgentSessionId && agentSessions.some((session) => session.id === activeAgentSessionId && session.provider !== selectedProvider)) startNewAgentSession();
   renderProviderSelection();
   renderModelSelection();
@@ -3335,7 +3483,7 @@ document.getElementById('agent-delete-dialog')?.addEventListener('cancel', () =>
 document.getElementById('agent-prompt-form')?.addEventListener('submit', sendAgentPrompt);
 document.getElementById('agent-prompt-input')?.addEventListener('keydown', handleAgentComposerKeydown);
 document.addEventListener('keydown', (event) => {
-  if (event.key !== 'Escape' || activeView !== 'agents' || !agentPromptRunning || document.querySelector('dialog[open]')) return;
+  if (event.key !== 'Escape' || event.defaultPrevented || activeView !== 'agents' || !agentPromptRunning || document.querySelector('dialog[open]')) return;
   event.preventDefault();
   stopAgentPrompt();
 });
@@ -3345,6 +3493,7 @@ document.getElementById('agent-model')?.addEventListener('change', (event) => {
   if (session) session.model = selectedAgentModel;
 });
 document.querySelector('[data-action="new-agent-session"]')?.addEventListener('click', startNewAgentSession);
+renderAgentPickers();
 initializeCodeEditor();
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });
 window.addEventListener('beforeunload', () => {

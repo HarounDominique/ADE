@@ -309,7 +309,7 @@ test("desktop shell wires critical actions to Tauri commands", () => {
   // The model is always sent, empty included: omitting it let a conversation
   // keep its previous model when the operator went back to the provider default.
   assert.match(main, /prompt,\n?\s*model,|prompt, model,/);
-  assert.match(main, /selectedAgentModel = session\.model \?\? ''/);
+  assert.match(main, /selectedAgentModel = session\.model \?\? defaultModelForProvider\(session\.provider\)/);
   assert.doesNotMatch(main, /agentSessionModels/);
   assert.match(main, /method: 'service\.list'/);
   assert.match(main, /renderServices/);
@@ -544,4 +544,36 @@ test("light theme keeps Explorer hover surfaces light", () => {
   assert.match(styles, /:root\[data-theme="light"\] \.workspace-entry\.directory:hover/);
   assert.match(styles, /:root\[data-theme="light"\] \.workspace-entry\.file:hover/);
   assert.doesNotMatch(styles, /:root\[data-theme="light"\][^\n]*workspace-entry[^\n]*background: #1b2935/);
+});
+
+test("Agent and model are chosen with the app's own menu, not a native select", () => {
+  assert.match(html, /id="agent-provider-button"[\s\S]*aria-haspopup="menu"/);
+  assert.match(html, /id="agent-provider-menu" role="menu"/);
+  assert.match(html, /id="agent-model-button"[\s\S]*aria-haspopup="menu"/);
+  assert.match(html, /id="agent-model-menu" role="menu"/);
+  assert.match(html, /class="agent-picker-native" id="agent-provider"/);
+  assert.match(html, /class="agent-picker-native" id="agent-model"/);
+  assert.match(styles, /\.agent-picker-native \{ display: none; \}/);
+  assert.match(main, /function renderAgentPicker\(kind\)/);
+  assert.match(main, /function chooseAgentPickerOption\(kind, value\)/);
+  // The hidden select stays the value every other reader already uses, so the
+  // menu changes the control and not the conversation's state.
+  assert.match(main, /select\.dispatchEvent\(new Event\('change', \{ bubbles: true \}\)\)/);
+  assert.match(main, /role="menuitemradio" aria-checked="\$\{selected\}"/);
+});
+
+test("a starred model becomes the agent default without overriding a conversation", () => {
+  assert.match(main, /const agentDefaultModelStorageKey = 'ade-agent-default-model'/);
+  assert.match(main, /function defaultModelForProvider\(providerId\)/);
+  assert.match(main, /function toggleDefaultModel\(modelId\)/);
+  assert.match(main, /data-default-model="\$\{escapeHTML\(option\.value\)\}" aria-pressed="\$\{isDefault\}"/);
+  // `Provider default` is the absence of an override, so it cannot be starred.
+  assert.match(main, /if \(kind !== 'model' \|\| !option\.value\) return ''/);
+  // A new conversation and a provider switch start on the default; a session
+  // that already carries a model keeps it.
+  assert.match(main, /selectedAgentModel = defaultModelForProvider\(selectedProvider\)/);
+  assert.match(main, /selectedAgentModel = session\.model \?\? defaultModelForProvider\(session\.provider\)/);
+  assert.doesNotMatch(main, /setDefaultModelForProvider\([^)]*\);\n\s*selectedAgentModel/);
+  assert.match(styles, /\.agent-picker-default\.is-default \{ color: var\(--amber\)/);
+  assert.match(html, /id="agent-model-menu"/);
 });
