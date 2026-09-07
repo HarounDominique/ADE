@@ -1098,10 +1098,12 @@ mod tests {
         assert_eq!(context.branch, "feature/ui");
         assert_eq!(context.version_control, "git");
         assert_eq!(context.working_tree, "detected");
-        assert_eq!(
-            context.repository_path,
-            root.canonicalize().unwrap().to_string_lossy()
-        );
+        let authorized_path = workspace
+            .resolve(&root.to_string_lossy())
+            .expect("resolve selected root")
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(context.repository_path, authorized_path);
         fs::remove_dir_all(root).expect("remove fixture");
     }
 
