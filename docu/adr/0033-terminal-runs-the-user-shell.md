@@ -48,6 +48,8 @@ Rechazado: en macOS es precisamente `.zprofile` quien construye el `PATH`, y sin
 - Assay deja de garantizar un prompt concreto. Cualquier prueba que dependiese de una cadena de prompt fija sería frágil por diseño.
 - El entorno heredado deja de ser mínimo, de modo que el comportamiento puede variar entre máquinas. Es el precio explícito de que la herramienta se parezca a la del usuario.
 - La reserva conserva el contrato anterior para un entorno sin `$SHELL`.
+- **Windows queda por detrás, y es una desigualdad nueva.** Esta decisión sólo alcanza a la rama no-Windows, así que macOS y Linux entregan la terminal del usuario mientras Windows sigue entregando `cmd` pelado, sin `TERM` ni `COLORTERM`. Antes ambas ramas eran igual de mínimas y no había diferencia que explicar; ahora la hay. Se documenta en lugar de dejarla implícita, y cerrarla depende de la pregunta abierta sobre el intérprete por defecto de Windows en [SPEC-cross-platform-support](../specs/SPEC-cross-platform-support.md#open-questions).
+- No hay implicación de licencia: Assay ejecuta el shell que ya está instalado en la máquina, no lo empaqueta ni lo redistribuye, igual que cualquier emulador de terminal. Las paletas se derivan de los tokens del propio producto, sin copiar ningún esquema de terceros.
 
 ## Implementation evidence
 
