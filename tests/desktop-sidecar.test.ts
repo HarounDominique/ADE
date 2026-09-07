@@ -364,3 +364,43 @@ test("a Project without .ade/run.json lists nothing instead of failing", async (
   rmSync(directory, { recursive: true, force: true });
   rmSync(projectRoot, { recursive: true, force: true });
 });
+
+test("desktop sidecar proposes configurations and writes the ones that are accepted", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-detect-"));
+  const projectRoot = mkdtempSync(join(tmpdir(), "ade-detect-project-"));
+  mkdirSync(join(projectRoot, "client"), { recursive: true });
+  writeFileSync(join(projectRoot, "client", "package.json"), JSON.stringify({ scripts: { start: "ng serve" }, dependencies: { "@angular/core": "^17" } }), "utf8");
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: join(directory, "ade.db") },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const lines = readSidecarLines(child.stdout);
+
+  child.stdin.write(`${JSON.stringify({ id: "detect-1", method: "run.detect", params: { repositoryPath: projectRoot } })}\n`);
+  const detected = await lines.waitFor((message) => message.id === "detect-1") as { result: Array<{ id: string; source: string; ports?: Array<{ port: number }> }> };
+  const draft = detected.result.find((candidate) => candidate.id === "client-start");
+  assert.equal(draft?.source, "client/package.json");
+  assert.equal(draft?.ports?.[0]?.port, 4200);
+
+  const { source, ...accepted } = draft as Record<string, unknown>;
+  child.stdin.write(`${JSON.stringify({ id: "save-1", method: "run.save", params: { repositoryPath: projectRoot, configurations: [accepted] } })}\n`);
+  const saved = await lines.waitFor((message) => message.id === "save-1") as { result: { configurations: Array<{ id: string }> } };
+  assert.deepEqual(saved.result.configurations.map((configuration) => configuration.id), ["client-start"]);
+
+  // The write is the file the next session reads, not only an answer.
+  child.stdin.write(`${JSON.stringify({ id: "list-after-save", method: "run.list", params: { repositoryPath: projectRoot } })}\n`);
+  const listed = await lines.waitFor((message) => message.id === "list-after-save") as { result: { configurations: Array<{ id: string }> } };
+  assert.deepEqual(listed.result.configurations.map((configuration) => configuration.id), ["client-start"]);
+
+  child.stdin.write(`${JSON.stringify({ id: "save-invalid", method: "run.save", params: { repositoryPath: projectRoot, configurations: [{ id: "broken", label: "Broken", kind: "command" }] } })}\n`);
+  const refused = await lines.waitFor((message) => message.id === "save-invalid") as { error: { code: string; message: string } };
+  assert.equal(refused.error.code, "RUN_CONFIG_INVALID");
+  assert.match(refused.error.message, /requires a command/);
+
+  child.kill();
+  await once(child, "close");
+  rmSync(directory, { recursive: true, force: true });
+  rmSync(projectRoot, { recursive: true, force: true });
+});

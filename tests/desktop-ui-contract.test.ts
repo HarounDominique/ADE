@@ -614,3 +614,27 @@ test("the agent header and the run control share one dropdown component", () => 
   assert.match(html, /class="picker"/);
   assert.match(main, /trigger\?\.dataset\.pickerKind === 'run'/);
 });
+
+test("run configurations are authored in a dialog, not by hand-editing JSON", () => {
+  assert.match(html, /id="run-config-dialog"/);
+  for (const id of ["run-config-label", "run-config-kind", "run-config-command", "run-config-args", "run-config-cwd", "run-config-ports", "run-config-bind", "run-config-debug-args", "run-config-debug-port", "run-config-members", "run-config-error", "run-config-delete"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(main, /function openRunConfigDialog/);
+  assert.match(main, /function readRunConfigForm/);
+  assert.match(main, /sendContextRequest\('run\.save'/);
+  assert.match(main, /data-action="new-run-config"/);
+  assert.match(main, /data-run-edit-id/);
+  // A save the sidecar refuses keeps the dialog open with the field it named.
+  assert.match(main, /contextPurpose === 'run-save'[\s\S]{0,400}setRunConfigError\(response\.error\.message\)/);
+  assert.match(styles, /\.run-dialog-error \{/);
+});
+
+test("a Project with no configurations is offered the ones its files already declare", () => {
+  assert.match(main, /sendContextRequest\('run\.detect'/);
+  assert.match(main, /if \(!runConfigurations\.length\) void sendContextRequest\('run\.detect'/);
+  assert.match(main, /data-run-suggestion-id/);
+  assert.match(main, /function addRunSuggestion/);
+  // The proposal names the file it came from so it can be checked, not trusted.
+  assert.match(main, /escapeHTML\(draft\.source\)/);
+});

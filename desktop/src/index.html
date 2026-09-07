@@ -95,6 +95,39 @@
         <div class="dialog-actions"><button class="button secondary" value="cancel">Cancel</button><button class="button primary" id="create-task-button" value="default">Create task</button></div>
       </form>
     </dialog>
+    <dialog class="task-dialog run-dialog" id="run-config-dialog" aria-labelledby="run-config-dialog-title">
+      <form method="dialog" id="run-config-form">
+        <p class="eyebrow">RUN CONFIGURATION</p>
+        <h2 id="run-config-dialog-title">New configuration</h2>
+        <p class="dialog-copy">It is written to <code>.ade/run.json</code> in this Project, next to the code it starts.</p>
+        <div class="run-dialog-grid">
+          <label for="run-config-label">Name</label>
+          <input id="run-config-label" type="text" placeholder="Angular client" required />
+          <label for="run-config-kind">Type</label>
+          <select id="run-config-kind"><option value="command">Command</option><option value="compound">Compound</option><option value="service">Declared service</option></select>
+          <label for="run-config-command" data-run-field="command">Command</label>
+          <input id="run-config-command" type="text" placeholder="npm" data-run-field="command" />
+          <label for="run-config-args" data-run-field="command">Arguments</label>
+          <input id="run-config-args" type="text" placeholder="run start" data-run-field="command" />
+          <label for="run-config-cwd" data-run-field="command">Working directory</label>
+          <input id="run-config-cwd" type="text" placeholder="${projectRoot}" data-run-field="command" />
+          <label for="run-config-service" data-run-field="service">Service id</label>
+          <input id="run-config-service" type="text" placeholder="api" data-run-field="service" />
+          <label for="run-config-ports" data-run-field="command">Ports</label>
+          <input id="run-config-ports" type="text" placeholder="4200 http, 9000 tcp" data-run-field="command" />
+          <label for="run-config-bind" data-run-field="command">Reachable from</label>
+          <select id="run-config-bind" data-run-field="command"><option value="loopback">This machine only</option><option value="all">The local network</option></select>
+          <label for="run-config-debug-args" data-run-field="command">Debug arguments</label>
+          <input id="run-config-debug-args" type="text" placeholder="--inspect-brk server.js" data-run-field="command" />
+          <label for="run-config-debug-port" data-run-field="command">Debug port</label>
+          <input id="run-config-debug-port" type="number" min="1" max="65535" placeholder="9229" data-run-field="command" />
+          <label for="run-config-members" data-run-field="compound">Members</label>
+          <div class="run-dialog-members" id="run-config-members" role="group" aria-label="Members of this compound" data-run-field="compound"></div>
+        </div>
+        <p class="run-dialog-error" id="run-config-error" role="alert" hidden></p>
+        <div class="dialog-actions"><button class="button ghost" type="button" id="run-config-delete" hidden>Delete</button><button class="button secondary" value="cancel" type="button" data-action="close-run-dialog">Cancel</button><button class="button primary" id="run-config-save" value="default">Save configuration</button></div>
+      </form>
+    </dialog>
     <div class="toast" role="status" aria-live="polite"></div>
   </body>
 </html>

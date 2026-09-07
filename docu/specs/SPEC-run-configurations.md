@@ -14,7 +14,9 @@ Este módulo es la capa de usuario sobre [local-runtime](SPEC-local-runtime.md#r
 
 ## Product contract
 
-- Un Project declara sus configuraciones en `.ade/run.json`, versionable con el repositorio. Sin fichero no hay configuraciones inventadas: la shell ofrece crear la primera.
+- Un Project declara sus configuraciones en `.ade/run.json`, versionable con el repositorio. Sin fichero no hay configuraciones inventadas: la shell ofrece crear la primera desde un diálogo propio, y editar JSON a mano no es requisito de ninguna operación.
+- La autoría vive en ese diálogo: crear, editar y borrar escriben `.ade/run.json`. La validación de un campo se muestra donde se escribe, y el sidecar vuelve a validar antes de escribir, de modo que nunca queda en disco un catálogo que la próxima apertura rechace. Un guardado rechazado conserva el diálogo abierto con el campo señalado.
+- Al abrir un Project sin configuraciones, ADE lee lo que el repositorio ya declara —`package.json`, `pom.xml`, `build.gradle`, `angular.json`— y **propone** configuraciones nombrando el fichero del que salió cada una. Proponer no es crear: nada se escribe hasta que el operador acepta. Un puerto sólo se propone cuando la dependencia que lo documenta está presente; dos mitades detectadas proponen además la compuesta que las arranca juntas.
 - La topbar expone un control de ejecución: selector de configuración, `Run`, `Debug`, `Stop` y el estado de lo que está corriendo, con su puerto o URL.
 - `Run` y `Debug` son dos modos de la misma configuración, no dos configuraciones. `Debug` añade los argumentos y el puerto de depuración que la configuración declara; si no los declara, `Debug` aparece deshabilitado y explica por qué.
 - Cada ejecución abre su propia pestaña en el dock de terminal, con la salida del proceso, el comando ejecutado y su cwd. La salida no se resume ni se oculta.
@@ -141,7 +143,9 @@ Implementado y verificado: `RunConfiguration` y `RunSession` en el dominio; carg
 
 La superficie también está implementada: el control vive en la topbar con el mismo menú que Project, Task y branch; `Debug` se deshabilita y se explica cuando la configuración no lo declara; el estado muestra `STARTING`/`RUNNING`/`FAILED` con su puerto y abre la URL local del servicio a través de un comando nativo que sólo acepta direcciones de loopback; `bind: "all"` se confirma por ejecución en el diálogo propio de la shell; y cada ejecución escribe en su propia pestaña del dock de terminal, que no acepta entrada y cuyo cierre oculta la consola sin detener el proceso.
 
-Pendiente: la persistencia de la evidencia de cada ejecución junto a la Task, y la identificación del proceso que ocupa un puerto.
+La autoría también está implementada: `run.detect` propone desde los ficheros del repositorio y `run.save` valida y escribe `.ade/run.json` conservando las claves que no le pertenecen; el diálogo de la shell crea, edita y borra, y un rechazo del sidecar se muestra en el diálogo en lugar de perder lo escrito. El healthcheck sigue siendo declarable sólo en el fichero: el diálogo cubre nombre, tipo, comando, argumentos, directorio, puertos, alcance de red, modo depuración y miembros.
+
+Pendiente: el healthcheck en el diálogo, la persistencia de la evidencia de cada ejecución junto a la Task, y la identificación del proceso que ocupa un puerto.
 
 ## Open Questions
 

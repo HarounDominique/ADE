@@ -72,6 +72,9 @@ let runConfigurations = [];
 let runSessions = [];
 let selectedRunConfigurationId = null;
 let runCatalogError = null;
+let runSuggestions = [];
+let editedRunConfigurationId = null;
+let pendingRunSaveMessage = null;
 let agentSessions = [];
 let activeAgentSessionId = null;
 let activeAgentTaskId = null;
@@ -2058,24 +2061,188 @@ function renderRunControl() {
   renderRunConfigurationMenu();
 }
 
+function runConfigurationDetail(configuration) {
+  const ports = (configuration.ports ?? []).map((port) => `:${port.port}`).join(' ');
+  return [configuration.kind === 'compound' ? `${configuration.members?.length ?? 0} members` : configuration.kind, ports].filter(Boolean).join(' · ');
+}
+
 function renderRunConfigurationMenu() {
   const menu = document.getElementById('run-configuration-menu');
   if (!menu) return;
   if (runCatalogError) {
-    menu.innerHTML = `<p class="picker-empty">${escapeHTML(runCatalogError)}</p>`;
+    menu.innerHTML = `<p class="picker-empty">${escapeHTML(runCatalogError)}</p><p class="picker-hint">Fix .ade/run.json and reopen this menu.</p>`;
     return;
   }
-  if (!runConfigurations.length) {
-    menu.innerHTML = '<p class="picker-empty">This Project declares no run configurations.</p><p class="picker-hint">Declare them in .ade/run.json</p>';
-    return;
-  }
-  menu.innerHTML = runConfigurations.map((configuration) => {
+  const rows = runConfigurations.map((configuration) => {
     const selected = configuration.id === selectedRunConfigurationId;
-    const ports = (configuration.ports ?? []).map((port) => `:${port.port}`).join(' ');
-    const detail = [configuration.kind === 'compound' ? `${configuration.members?.length ?? 0} members` : configuration.kind, ports].filter(Boolean).join(' · ');
-    return `<div class="picker-row${selected ? ' selected' : ''}" role="none"><button class="picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-run-configuration-id="${escapeHTML(configuration.id)}"><span class="git-option-mark" aria-hidden="true">${selected ? '✓' : ''}</span><span><strong>${escapeHTML(configuration.label)}</strong><small>${escapeHTML(detail)}</small></span></button></div>`;
+    return `<div class="picker-row${selected ? ' selected' : ''}" role="none"><button class="picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-run-configuration-id="${escapeHTML(configuration.id)}"><span class="git-option-mark" aria-hidden="true">${selected ? '✓' : ''}</span><span><strong>${escapeHTML(configuration.label)}</strong><small>${escapeHTML(runConfigurationDetail(configuration))}</small></span></button><button class="picker-edit" type="button" data-run-edit-id="${escapeHTML(configuration.id)}" aria-label="Edit ${escapeHTML(configuration.label)}" title="Edit ${escapeHTML(configuration.label)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="m14.5 5.5 4 4"/></svg></button></div>`;
   }).join('');
+  /** Detection proposes; it never writes. Each suggestion names the file it was
+      read from, so the operator can check the offer instead of trusting it. */
+  const suggestions = runSuggestions.filter((draft) => !runConfigurations.some((configuration) => configuration.id === draft.id));
+  const suggested = suggestions.length
+    ? `<p class="picker-note">Found in this Project — add the ones you want.</p>${suggestions.map((draft) => `<div class="picker-row" role="none"><button class="picker-option" type="button" data-run-suggestion-id="${escapeHTML(draft.id)}"><span class="git-option-mark" aria-hidden="true">+</span><span><strong>${escapeHTML(draft.label)}</strong><small>${escapeHTML(draft.source)}</small></span></button></div>`).join('')}`
+    : '';
+  const empty = runConfigurations.length ? '' : '<p class="picker-empty">This Project has no run configurations yet.</p>';
+  menu.innerHTML = `${empty}${rows}${suggested}<div class="picker-row" role="none"><button class="picker-option" type="button" data-action="new-run-config"><span class="git-option-mark" aria-hidden="true">+</span><span><strong>New configuration…</strong><small>writes .ade/run.json</small></span></button></div>`;
 }
+
+/** The dialog is the only place a configuration is authored: hand-editing JSON
+    was never the promise, and a field that fails validation has to say so where
+    it is typed rather than when something is started. */
+function openRunConfigDialog(configuration = null) {
+  const dialog = document.getElementById('run-config-dialog');
+  if (!dialog?.showModal) { notify('This action needs a dialog that is unavailable.'); return; }
+  editedRunConfigurationId = configuration?.id ?? null;
+  closeRunPicker();
+  const set = (id, value) => { const field = document.getElementById(id); if (field) field.value = value ?? ''; };
+  document.getElementById('run-config-dialog-title').textContent = configuration ? 'Edit configuration' : 'New configuration';
+  set('run-config-label', configuration?.label);
+  set('run-config-kind', configuration?.kind ?? 'command');
+  set('run-config-command', configuration?.command);
+  set('run-config-args', (configuration?.args ?? []).join(' '));
+  set('run-config-cwd', configuration?.cwd ?? '${projectRoot}');
+  set('run-config-service', configuration?.service);
+  set('run-config-ports', (configuration?.ports ?? []).map((port) => `${port.port} ${port.protocol}`).join(', '));
+  set('run-config-bind', configuration?.ports?.[0]?.bind ?? 'loopback');
+  set('run-config-debug-args', (configuration?.debug?.args ?? []).join(' '));
+  set('run-config-debug-port', configuration?.debug?.port ?? '');
+  const deleteButton = document.getElementById('run-config-delete');
+  if (deleteButton) deleteButton.hidden = !configuration;
+  renderRunConfigMembers(configuration);
+  setRunConfigError('');
+  syncRunConfigFields();
+  dialog.showModal();
+  requestAnimationFrame(() => document.getElementById('run-config-label')?.focus());
+}
+
+function renderRunConfigMembers(configuration) {
+  const container = document.getElementById('run-config-members');
+  if (!container) return;
+  const candidates = runConfigurations.filter((candidate) => candidate.id !== configuration?.id);
+  container.innerHTML = candidates.length
+    ? candidates.map((candidate) => `<label><input type="checkbox" value="${escapeHTML(candidate.id)}"${configuration?.members?.includes(candidate.id) ? ' checked' : ''}> ${escapeHTML(candidate.label)}</label>`).join('')
+    : '<p class="run-dialog-hint">Create the configurations this one should start first.</p>';
+}
+
+function syncRunConfigFields() {
+  const kind = document.getElementById('run-config-kind')?.value ?? 'command';
+  document.querySelectorAll('#run-config-form [data-run-field]').forEach((field) => {
+    field.hidden = field.dataset.runField !== kind;
+  });
+}
+
+function setRunConfigError(message) {
+  const error = document.getElementById('run-config-error');
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+function runConfigIdFor(label) {
+  const base = label.toLowerCase().replaceAll(/[^a-z0-9-]+/g, '-').replaceAll(/-+/g, '-').replace(/^-|-$/g, '') || 'configuration';
+  if (!runConfigurations.some((configuration) => configuration.id === base)) return base;
+  let suffix = 2;
+  while (runConfigurations.some((configuration) => configuration.id === `${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
+}
+
+/** The same rules the sidecar enforces, checked here so the operator sees them
+    while typing. The sidecar remains the authority: it validates again before
+    the file is written. */
+function readRunConfigForm() {
+  const value = (id) => document.getElementById(id)?.value.trim() ?? '';
+  const label = value('run-config-label');
+  const kind = value('run-config-kind');
+  if (!label) return { error: 'A configuration needs a name.' };
+
+  const bind = value('run-config-bind') === 'all' ? 'all' : 'loopback';
+  const ports = [];
+  for (const entry of value('run-config-ports').split(',').map((part) => part.trim()).filter(Boolean)) {
+    const [rawPort, rawProtocol = 'http'] = entry.split(/\s+/);
+    const port = Number(rawPort);
+    if (!Number.isInteger(port) || port < 1 || port > 65_535) return { error: `Port out of range: ${rawPort}` };
+    if (rawProtocol !== 'http' && rawProtocol !== 'tcp') return { error: `Unknown port protocol: ${rawProtocol}` };
+    ports.push({ port, protocol: rawProtocol, bind });
+  }
+
+  const configuration = { id: editedRunConfigurationId ?? runConfigIdFor(label), label, kind };
+  if (kind === 'compound') {
+    configuration.members = [...document.querySelectorAll('#run-config-members input:checked')].map((input) => input.value);
+    if (!configuration.members.length) return { error: 'A compound configuration needs at least one member.' };
+    return { configuration };
+  }
+  if (kind === 'service') {
+    configuration.service = value('run-config-service');
+    if (!configuration.service) return { error: 'Name the declared service this configuration starts.' };
+    if (ports.length) configuration.ports = ports;
+    return { configuration };
+  }
+  configuration.command = value('run-config-command');
+  configuration.cwd = value('run-config-cwd');
+  if (!configuration.command) return { error: 'A command configuration needs a command.' };
+  if (!configuration.cwd) return { error: 'A command configuration needs a working directory.' };
+  const args = value('run-config-args').split(/\s+/).filter(Boolean);
+  if (args.length) configuration.args = args;
+  if (ports.length) configuration.ports = ports;
+  const debugArgs = value('run-config-debug-args').split(/\s+/).filter(Boolean);
+  const debugPort = Number(value('run-config-debug-port'));
+  if (debugArgs.length || value('run-config-debug-port')) {
+    if (!debugArgs.length) return { error: 'Debug mode needs the arguments that make the process debuggable.' };
+    if (!Number.isInteger(debugPort) || debugPort < 1 || debugPort > 65_535) return { error: 'Debug mode needs a valid port.' };
+    configuration.debug = { args: debugArgs, port: debugPort, protocol: 'other' };
+  }
+  return { configuration };
+}
+
+function saveRunConfigurations(configurations, { message } = {}) {
+  if (!nativeInvoke) { notify('Run configurations require the sidecar.'); return; }
+  pendingRunSaveMessage = message ?? null;
+  void sendContextRequest('run.save', { repositoryPath: workspaceRootPath, configurations }, 'run-save');
+}
+
+function submitRunConfigDialog(event) {
+  event.preventDefault();
+  const { configuration, error } = readRunConfigForm();
+  if (error) { setRunConfigError(error); return; }
+  const next = editedRunConfigurationId
+    ? runConfigurations.map((candidate) => (candidate.id === editedRunConfigurationId ? configuration : stripResolved(candidate)))
+    : [...runConfigurations.map(stripResolved), configuration];
+  selectedRunConfigurationId = configuration.id;
+  saveRunConfigurations(next, { message: `${configuration.label} saved to .ade/run.json.` });
+}
+
+function deleteEditedRunConfiguration() {
+  const configuration = runConfigurations.find((candidate) => candidate.id === editedRunConfigurationId);
+  if (!configuration) return;
+  requestConfirmation({
+    eyebrow: 'DELETE CONFIGURATION',
+    title: `Delete ${configuration.label}?`,
+    copy: 'It is removed from .ade/run.json. Nothing else in the Project changes.',
+    confirmLabel: 'Delete',
+    tone: 'secondary',
+  }, () => saveRunConfigurations(runConfigurations.filter((candidate) => candidate.id !== configuration.id).map(stripResolved), { message: `${configuration.label} removed.` }));
+}
+
+function addRunSuggestion(suggestionId) {
+  const draft = runSuggestions.find((candidate) => candidate.id === suggestionId);
+  if (!draft) return;
+  const { source, ...configuration } = draft;
+  selectedRunConfigurationId = configuration.id;
+  saveRunConfigurations([...runConfigurations.map(stripResolved), configuration], { message: `${configuration.label} added from ${source}.` });
+}
+
+/** A configuration read back from the sidecar carries the fields a service
+    reference expanded into; writing those back would turn a reference into the
+    copy the catalog refuses. */
+function stripResolved(configuration) {
+  if (configuration.kind !== 'service') return configuration;
+  const { command, args, cwd, ...rest } = configuration;
+  return rest;
+}
+
+/** The webview never answers the browser-native confirm and prompt calls, so
+    every guarded action routes through this in-app dialog instead. */
 
 function toggleRunPicker() {
   const menu = document.getElementById('run-configuration-menu');
@@ -2171,6 +2338,7 @@ function openRunUrl() {
 function resetRunControlForProject() {
   runConfigurations = [];
   runSessions = [];
+  runSuggestions = [];
   runCatalogError = null;
   try { selectedRunConfigurationId = localStorage.getItem(`ade-run-configuration:${activeProjectId}`); } catch { selectedRunConfigurationId = null; }
   closeRunPicker();
@@ -2779,6 +2947,13 @@ async function connectSidecar(snapshot) {
           const menu = document.getElementById('branch-context-menu');
           if (menu && !menu.hidden) menu.innerHTML = `<p class="git-context-empty">${escapeHTML(response.error.message)}</p>`;
         }
+        if (contextPurpose === 'run-save') {
+          /** The file was not written: the dialog stays open with the field the
+              sidecar named, so the work in it is not lost to a toast. */
+          setRunConfigError(response.error.message);
+          pendingRunSaveMessage = null;
+          return;
+        }
         if (contextPurpose === 'run-list') {
           /** An invalid file is not an empty Project: the menu says which field
               is wrong instead of pretending nothing is declared. */
@@ -2801,6 +2976,24 @@ async function connectSidecar(snapshot) {
         runCatalogError = null;
         runConfigurations = response.result.configurations;
         runSessions = response.result.sessions ?? [];
+        /** Nothing declared is the moment a proposal helps; a Project that
+            already has a catalog is not asked to grow one. */
+        if (!runConfigurations.length) void sendContextRequest('run.detect', { repositoryPath: workspaceRootPath }, 'run-detect');
+        renderRunControl();
+        return;
+      }
+      if (contextPurpose === 'run-detect' && Array.isArray(response.result)) {
+        runSuggestions = response.result;
+        renderRunConfigurationMenu();
+        return;
+      }
+      if (contextPurpose === 'run-save' && response.result?.configurations) {
+        runConfigurations = response.result.configurations;
+        runSuggestions = runSuggestions.filter((draft) => !runConfigurations.some((configuration) => configuration.id === draft.id));
+        document.getElementById('run-config-dialog')?.close();
+        editedRunConfigurationId = null;
+        if (pendingRunSaveMessage) notify(pendingRunSaveMessage);
+        pendingRunSaveMessage = null;
         renderRunControl();
         return;
       }
@@ -3599,6 +3792,11 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeGitContextMenus();
 });
 document.addEventListener('click', (event) => {
+  const runEdit = event.target.closest('[data-run-edit-id]');
+  if (runEdit) { openRunConfigDialog(runConfigurations.find((configuration) => configuration.id === runEdit.dataset.runEditId)); return; }
+  const runSuggestion = event.target.closest('[data-run-suggestion-id]');
+  if (runSuggestion) { addRunSuggestion(runSuggestion.dataset.runSuggestionId); return; }
+  if (event.target.closest('[data-action="new-run-config"]')) { openRunConfigDialog(null); return; }
   const runOption = event.target.closest('[data-run-configuration-id]');
   if (runOption) { chooseRunConfiguration(runOption.dataset.runConfigurationId); return; }
   const trigger = event.target.closest('.picker-button');
@@ -3738,6 +3936,11 @@ document.getElementById('agent-model')?.addEventListener('change', (event) => {
 document.querySelector('[data-action="new-agent-session"]')?.addEventListener('click', startNewAgentSession);
 renderAgentPickers();
 resetRunControlForProject();
+document.getElementById('run-config-form')?.addEventListener('submit', submitRunConfigDialog);
+document.getElementById('run-config-kind')?.addEventListener('change', syncRunConfigFields);
+document.getElementById('run-config-delete')?.addEventListener('click', deleteEditedRunConfiguration);
+document.querySelector('[data-action="close-run-dialog"]')?.addEventListener('click', () => document.getElementById('run-config-dialog')?.close());
+document.getElementById('run-config-dialog')?.addEventListener('close', () => { editedRunConfigurationId = null; });
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape' || event.defaultPrevented || document.getElementById('run-configuration-menu')?.hidden !== false) return;
   closeRunPicker();

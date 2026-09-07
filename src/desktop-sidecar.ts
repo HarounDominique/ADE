@@ -29,10 +29,11 @@ import { commitAndPush, createBranch, createCommit, createPullRequest, createWor
 import { inspectPendingGitChanges, listGitCommits, readGitCommitDiff, readPendingGitDiff } from "./application/git/version-control.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
-import { loadRunConfigurations } from "./application/local-runtime/run-config.js";
+import { loadRunConfigurations, saveRunConfigurations } from "./application/local-runtime/run-config.js";
+import { detectRunConfigurations } from "./application/local-runtime/run-detection.js";
 import { RunManager, RunPortConflictError } from "./application/local-runtime/run-manager.js";
 import { LocalPortProbe } from "./adapters/local-port-probe.js";
-import type { ResolvedRunConfiguration } from "./domain/run-configuration.js";
+import type { ResolvedRunConfiguration, RunConfiguration } from "./domain/run-configuration.js";
 import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation, reconcileChangedDocumentation } from "./application/knowledge/reconcile.js";
 import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNetwork, updateProjectSkill } from "./application/skills/skill-install.js";
@@ -42,7 +43,7 @@ import { LocalGitRepository } from "./adapters/local-git-repository.js";
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; mode?: "run" | "debug"; runSessionId?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string };
 };
 
 export type DesktopResponse = {
@@ -410,6 +411,10 @@ export async function runDesktopSidecar(): Promise<void> {
         void startRunConfiguration(request);
       } else if (request.method === "run.stop") {
         void stopRunConfiguration(request);
+      } else if (request.method === "run.detect") {
+        void detectRunConfigurationsFor(request);
+      } else if (request.method === "run.save") {
+        void saveRunConfigurationsFor(request);
       } else {
         process.stdout.write(`${JSON.stringify(handleDesktopRequest(store, request))}\n`);
       }
@@ -454,6 +459,34 @@ async function listRunConfigurations(request: DesktopRequest): Promise<void> {
       throw error;
     });
     process.stdout.write(`${JSON.stringify({ id: request.id, result: { configurations, sessions: runManagers.get(repositoryPath)?.sessions() ?? [] } })}\n`);
+  } catch (error: unknown) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RUN_CONFIG_INVALID", message: error instanceof Error ? error.message : String(error) } })}\n`);
+  }
+}
+
+async function detectRunConfigurationsFor(request: DesktopRequest): Promise<void> {
+  const repositoryPath = request.params?.repositoryPath;
+  if (!repositoryPath) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+    return;
+  }
+  try {
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: await detectRunConfigurations(repositoryPath) })}\n`);
+  } catch (error: unknown) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RUN_DETECT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
+  }
+}
+
+async function saveRunConfigurationsFor(request: DesktopRequest): Promise<void> {
+  const { repositoryPath, configurations } = request.params ?? {};
+  if (!repositoryPath || !Array.isArray(configurations)) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and configurations are required" } })}\n`);
+    return;
+  }
+  try {
+    const services = await loadServiceDefinitions(join(repositoryPath, ".ade", "services.json")).catch(() => []);
+    const saved = await saveRunConfigurations(join(repositoryPath, ".ade", "run.json"), configurations, services);
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: { configurations: saved } })}\n`);
   } catch (error: unknown) {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RUN_CONFIG_INVALID", message: error instanceof Error ? error.message : String(error) } })}\n`);
   }

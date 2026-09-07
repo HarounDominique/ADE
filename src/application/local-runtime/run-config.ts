@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import type { ResolvedRunConfiguration, RunConfiguration, RunPort } from "../../domain/run-configuration.js";
 import type { ServiceDefinition } from "./service-manager.js";
 
@@ -17,6 +18,18 @@ export async function loadRunConfigurations(path: string, services: readonly Ser
   const value = JSON.parse(text) as { configurations?: RunConfiguration[] };
   if (!Array.isArray(value.configurations)) throw new Error("Run configuration file must contain a configurations array");
   return resolveRunConfigurations(value.configurations, services);
+}
+
+/** The file is validated before it is written, so an editor cannot leave a
+    Project with a catalog that refuses to load next time it opens. Unknown
+    top-level keys survive: this file belongs to the repository, not to the
+    editor that happens to be writing it. */
+export async function saveRunConfigurations(path: string, configurations: readonly RunConfiguration[], services: readonly ServiceDefinition[] = []): Promise<readonly ResolvedRunConfiguration[]> {
+  const resolved = resolveRunConfigurations(configurations, services);
+  const existing = await readFile(path, "utf8").then((text) => JSON.parse(text) as Record<string, unknown>).catch(() => ({}));
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify({ ...existing, configurations }, null, 2)}\n`, "utf8");
+  return resolved;
 }
 
 export function resolveRunConfigurations(configurations: readonly RunConfiguration[], services: readonly ServiceDefinition[] = []): readonly ResolvedRunConfiguration[] {
