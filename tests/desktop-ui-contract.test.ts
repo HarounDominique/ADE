@@ -746,6 +746,46 @@ test("open files are reachable by keyboard and survive a restart", () => {
   assert.match(html, /id="document-empty-state"/);
 });
 
+test("the sidebar collapses to a rail that still navigates", () => {
+  assert.match(html, /data-action="toggle-sidebar"[^>]*aria-expanded="true"[^>]*aria-controls="sidebar"/);
+  assert.match(html, /<aside class="sidebar" id="sidebar">/);
+  assert.match(main, /if \(item\.dataset\.action === 'toggle-sidebar'\)/);
+  // Collapsing narrows the shell without overwriting the chosen width, so
+  // expanding returns to it rather than to a default.
+  assert.match(main, /function applySidebarWidth\(\)[\s\S]*?sidebarCollapsed \? collapsedSidebarWidth : sidebarWidth/);
+  assert.match(main, /const sidebarCollapsedStorageKey = `ade-sidebar-collapsed:\$\{activeProjectId\}`;/);
+  // Navigation survives the collapse: labels are clipped, never removed, so
+  // each item keeps the name it is announced by, and gains a tooltip.
+  assert.match(styles, /\.sidebar-collapsed \.nav-item span \{ position: absolute;[^}]*clip: rect\(0, 0, 0, 0\)/);
+  assert.doesNotMatch(styles, /\.sidebar-collapsed \.nav-item span \{[^}]*display: none/);
+  assert.match(main, /function setSidebarCollapsed[\s\S]*?if \(collapsed && label\) item\.title = label;/);
+  assert.match(styles, /\.sidebar-collapsed \.explorer-section \{ display: none; \}/);
+  // Tree focus mode shows only the active item, which would leave one icon.
+  assert.match(styles, /\.sidebar-collapsed\.explorer-expanded \.nav-item:not\(\.active\) \{ display: flex; \}/);
+  // A hidden grip must leave the tab order rather than resize an invisible pane.
+  assert.match(main, /if \(sidebarResizer\) sidebarResizer\.hidden = collapsed;/);
+  // The shell animates only while the toggle works it, so dragging stays immediate.
+  assert.match(styles, /\.app-shell\.sidebar-animating \{ transition: grid-template-columns/);
+  // The collapse control and the resize grip are one pair on one line, so they
+  // read the same measured anchor instead of each carrying its own offset.
+  assert.match(styles, /\.sidebar-collapse \{ position: absolute; top: var\(--sidebar-control-y, 50%\);/);
+  assert.match(styles, /\.sidebar-resizer::after \{ position: absolute; top: var\(--sidebar-control-y, 50%\);/);
+  // Measured, because the navigation is taller in the light themes and much
+  // shorter in tree focus mode.
+  // The line sits in the gap between the two rules, not on either of them.
+  assert.match(main, /function syncSidebarControlAnchor\(\)[\s\S]*?\(navBottom \+ gapEnd\) \/ 2 - sidebar\.getBoundingClientRect\(\)\.top/);
+  // A hidden Explorer measures as nothing, so the rail falls back to the
+  // navigation own margin rather than to a zero.
+  assert.match(main, /explorer && explorer\.height > 0 \? explorer\.top : navBottom \+ navMargin/);
+  assert.match(main, /function applyTheme[\s\S]*?syncSidebarControlAnchor\(\);/);
+  // The navigation animates its own margin and padding on the way to the rail,
+  // so one reading taken on the click reads the layout being left behind.
+  assert.match(main, /function trackSidebarControlAnchor[\s\S]*?requestAnimationFrame\(step\);/);
+  assert.match(main, /function setSidebarCollapsed[\s\S]*?trackSidebarControlAnchor\(\);/);
+  assert.match(main, /function updateExplorerMode[\s\S]*?trackSidebarControlAnchor\(\);/);
+  assert.match(main, /function setSidebarCollapsed[\s\S]*?prefers-reduced-motion: reduce/);
+});
+
 test("the explorer can point at the file the editor is showing", () => {
   assert.match(html, /data-action="reveal-open-file"/);
   // Disabled in the markup: at first paint no document is open yet.

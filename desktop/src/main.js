@@ -64,6 +64,9 @@ const terminalDock = document.getElementById('terminal-dock-panel');
 const sidebarResizer = document.getElementById('sidebar-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
 const sidebarStorageKey = `ade-sidebar-width:${activeProjectId}`;
+const sidebarCollapsedStorageKey = `ade-sidebar-collapsed:${activeProjectId}`;
+// Wide enough for the nav icons and their focus ring, and nothing else.
+const collapsedSidebarWidth = 52;
 const historyPaneStorageKey = 'ade-history-pane-layout';
 const changesPaneStorageKey = 'ade-changes-pane-layout';
 let terminalHeight = 138;
@@ -72,6 +75,8 @@ let terminalFitFrame = null;
 let terminalSizeTransitionTimer = null;
 let sidebarWidth = 246;
 let sidebarResizeState = null;
+let sidebarCollapsed = false;
+let sidebarAnimationTimer = null;
 let activeServiceId = null;
 let gitWorkflow = 'pull-request';
 let selectedTaskId = null;
@@ -272,6 +277,9 @@ function applyTheme(theme) {
   document.documentElement.dataset.theme = nextTheme;
   try { localStorage.setItem('ade-theme', nextTheme); } catch { /* Tauri privacy settings may disable storage. */ }
   if (themeMeta) themeMeta.content = nextTheme === 'light' ? '#f5f7fa' : '#0f1724';
+  // Each theme gives the navigation its own item height, and the sidebar's
+  // controls sit on a line measured from its foot.
+  syncSidebarControlAnchor();
   applyMonacoTheme(nextTheme);
   document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
     button.setAttribute('aria-checked', String(nextTheme === 'light'));
@@ -364,11 +372,86 @@ function sidebarWidthBounds() {
 function setSidebarWidth(nextWidth, persist = true) {
   const bounds = sidebarWidthBounds();
   sidebarWidth = Math.max(bounds.min, Math.min(bounds.max, Math.round(nextWidth)));
-  document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
+  applySidebarWidth();
   sidebarResizer?.setAttribute('aria-valuemax', String(bounds.max));
   sidebarResizer?.setAttribute('aria-valuenow', String(sidebarWidth));
   if (persist) {
     try { localStorage.setItem(sidebarStorageKey, String(sidebarWidth)); } catch { /* Persistence is optional. */ }
+  }
+}
+
+/** The collapse control and the resize grip are one pair, so they share a line
+    at the foot of the navigation. Measuring it beats a per-theme constant: the
+    navigation is taller in the light themes and much shorter in tree focus
+    mode, and a guess would drift in all three. */
+function syncSidebarControlAnchor() {
+  const sidebar = document.getElementById('sidebar');
+  const nav = document.getElementById('primary-nav');
+  if (!sidebar || !nav) return;
+  // The line belongs in the gap between the navigation's rule and the
+  // Explorer's, not on either of them: sitting on a rule reads as a collision.
+  const navBottom = nav.getBoundingClientRect().bottom;
+  const explorer = document.querySelector('.explorer-section')?.getBoundingClientRect();
+  const navMargin = parseFloat(getComputedStyle(nav).marginBottom) || 0;
+  // The rail hides the Explorer, and a hidden box measures as nothing, so the
+  // gap is then the navigation's own margin.
+  const gapEnd = explorer && explorer.height > 0 ? explorer.top : navBottom + navMargin;
+  const offset = (navBottom + gapEnd) / 2 - sidebar.getBoundingClientRect().top;
+  if (offset > 0) sidebar.style.setProperty('--sidebar-control-y', `${Math.round(offset)}px`);
+}
+
+/** The navigation animates its own margin and padding on its way to and from
+    the rail, so a single reading taken on the click is a reading of the layout
+    being left behind. Follow it to rest instead, which also keeps the controls
+    travelling with the gap rather than jumping into it at the end. */
+function trackSidebarControlAnchor(durationMs = 300) {
+  syncSidebarControlAnchor();
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  const deadline = performance.now() + durationMs;
+  const step = () => {
+    syncSidebarControlAnchor();
+    if (performance.now() < deadline) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/** Collapsing narrows the shell to the rail width without touching the width
+    the operator chose, so expanding returns to it rather than to a default. */
+function applySidebarWidth() {
+  document.documentElement.style.setProperty('--sidebar-width', `${sidebarCollapsed ? collapsedSidebarWidth : sidebarWidth}px`);
+}
+
+/** The rail keeps navigation reachable while the Explorer stands down: the
+    labels are clipped rather than removed, so each item keeps the name screen
+    readers announce, and gains it as a tooltip for the pointer. */
+function setSidebarCollapsed(collapsed, { persist = true, animate = false } = {}) {
+  sidebarCollapsed = collapsed;
+  const sidebar = document.querySelector('.sidebar');
+  const shell = document.querySelector('.app-shell');
+  const toggle = document.getElementById('sidebar-collapse');
+  const action = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  if (animate && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    shell?.classList.add('sidebar-animating');
+    window.clearTimeout(sidebarAnimationTimer);
+    sidebarAnimationTimer = window.setTimeout(() => shell?.classList.remove('sidebar-animating'), 260);
+  }
+  sidebar?.classList.toggle('sidebar-collapsed', collapsed);
+  toggle?.setAttribute('aria-expanded', String(!collapsed));
+  toggle?.setAttribute('aria-label', action);
+  if (toggle) toggle.title = action;
+  for (const item of document.querySelectorAll('.primary-nav .nav-item')) {
+    const label = item.querySelector('span')?.textContent?.trim() ?? '';
+    if (collapsed && label) item.title = label;
+    else item.removeAttribute('title');
+  }
+  // A hidden resizer must not stay in the tab order, and dragging a rail to a
+  // width it does not use would be a control that lies.
+  if (sidebarResizer) sidebarResizer.hidden = collapsed;
+  applySidebarWidth();
+  trackSidebarControlAnchor();
+  scheduleTerminalFit();
+  if (persist) {
+    try { localStorage.setItem(sidebarCollapsedStorageKey, String(collapsed)); } catch { /* Persistence is optional. */ }
   }
 }
 
@@ -518,8 +601,13 @@ if (terminalSurface && typeof ResizeObserver === 'function') {
 try {
   const storedSidebarWidth = Number(localStorage.getItem(sidebarStorageKey));
   if (Number.isFinite(storedSidebarWidth)) sidebarWidth = storedSidebarWidth;
+  sidebarCollapsed = localStorage.getItem(sidebarCollapsedStorageKey) === 'true';
 } catch { /* Persistence is optional. */ }
 setSidebarWidth(sidebarWidth, false);
+// Restored without the transition, so the shell does not animate on first paint.
+setSidebarCollapsed(sidebarCollapsed, { persist: false });
+syncSidebarControlAnchor();
+window.addEventListener('resize', syncSidebarControlAnchor);
 
 terminalResizer?.addEventListener('pointerdown', (event) => {
   if (event.target.closest('#terminal-size-toggle')) return;
@@ -3168,6 +3256,7 @@ async function toggleWorkspaceDirectory(button) {
 
 function updateExplorerMode(expanded) {
   explorerExpanded = expanded;
+  trackSidebarControlAnchor();
   const sidebar = document.querySelector('.sidebar');
   const primaryNav = document.querySelector('.primary-nav');
   const toggle = document.querySelector('[data-action="toggle-explorer"]');
@@ -3954,6 +4043,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
     return;
   }
+  if (item.dataset.action === 'toggle-sidebar') {
+    setSidebarCollapsed(!sidebarCollapsed, { animate: true });
+    return;
+  }
   if (item.dataset.action === 'reveal-open-file') {
     void revealOpenFileInExplorer();
     return;
@@ -4315,6 +4408,14 @@ document.addEventListener('click', (event) => {
   const button = event.target.closest('[data-task-id][data-task-next]');
   if (!button) return;
   advanceTaskFromUI(button.dataset.taskId, button.dataset.taskNext, button);
+});
+// The binding every editor spends on this, and one the window system does not
+// already claim inside a webview.
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'b' && event.key !== 'B') return;
+  if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.defaultPrevented) return;
+  event.preventDefault();
+  setSidebarCollapsed(!sidebarCollapsed, { animate: true });
 });
 const documentTabStrip = document.getElementById('document-tabs');
 documentTabStrip?.addEventListener('click', (event) => {

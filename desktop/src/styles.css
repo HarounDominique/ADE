@@ -24,10 +24,38 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .sidebar { position: relative; display: flex; grid-column: 1; grid-row: 1; min-width: 0; flex-direction: column; padding: 15px 12px 13px; border-right: 1px solid var(--line); background: var(--chrome); }
 .sidebar-resizer { position: absolute; top: 0; right: -4px; bottom: 0; z-index: 6; width: 8px; cursor: col-resize; touch-action: none; }
-.sidebar-resizer::after { position: absolute; top: 50%; right: 3px; width: 2px; height: 38px; border-radius: 2px; background: var(--line-strong); content: ''; transform: translateY(-50%); }
+.sidebar-resizer::after { position: absolute; top: var(--sidebar-control-y, 50%); right: 3px; width: 2px; height: 38px; border-radius: 2px; background: var(--line-strong); content: ''; transform: translateY(-50%); }
 .sidebar-resizer:hover::after, .sidebar-resizer:focus-visible::after { background: var(--cyan); }
 .sidebar-resizer:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .brand { display: flex; align-items: center; gap: 8px; padding: 0 8px 15px; color: var(--text); font-size: 14px; font-weight: 700; letter-spacing: .07em; }
+.brand-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Both sidebar sizing controls sit on one line, at the foot of the navigation.
+   The line is measured rather than guessed, because the navigation's height
+   changes with the theme and again in tree focus mode. */
+.sidebar-collapse { position: absolute; top: var(--sidebar-control-y, 50%); right: 14px; z-index: 7; width: 24px; height: 24px; transform: translateY(-50%); }
+.sidebar-collapse svg { width: 15px; height: 15px; }
+/* The rail: navigation survives, the Explorer stands down, and the labels are
+   clipped rather than deleted so each item keeps the name it is announced by. */
+.sidebar-collapsed { padding-right: 6px; padding-left: 6px; overflow: hidden; }
+.sidebar-collapsed .brand { justify-content: center; padding: 0 0 13px; }
+.sidebar-collapsed .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.sidebar-collapsed .sidebar-collapse { right: auto; left: 50%; transform: translate(-50%, -50%); }
+.sidebar-collapsed .sidebar-collapse svg { transform: rotate(180deg); }
+.sidebar-collapsed .explorer-section { display: none; }
+.sidebar-collapsed .primary-nav { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+.sidebar-collapsed .nav-item { justify-content: center; gap: 0; padding: 6px 0; border-left: 0; border-radius: 5px; }
+.sidebar-collapsed .nav-item.active { border-left: 0; }
+.sidebar-collapsed .nav-item span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+/* Tree focus mode hides all but the active item, which would leave the rail
+   with one icon. The rail restores the full set and keeps that mode for the
+   moment the sidebar opens again. */
+.sidebar-collapsed.explorer-expanded .primary-nav { max-height: none; margin-bottom: 0; padding-bottom: 0; opacity: 1; visibility: visible; transform: none; }
+.sidebar-collapsed.explorer-expanded .nav-item:not(.active) { display: flex; }
+/* The shell animates only while the toggle is working it, so pointer and
+   keyboard resizing of the sidebar stays immediate. */
+.app-shell.sidebar-animating { transition: grid-template-columns .24s cubic-bezier(.16,1,.3,1); }
+.app-shell.sidebar-animating .terminal-dock { transition: left .24s cubic-bezier(.16,1,.3,1); }
+@media (prefers-reduced-motion: reduce) { .app-shell.sidebar-animating, .app-shell.sidebar-animating .terminal-dock { transition: none; } }
 /* The mark is drawn as a mask so the molecule takes the tile's own foreground
    colour, the way the letter it replaced did: dark on cyan here, white on blue
    in the light themes. */
