@@ -1500,3 +1500,33 @@ body { color: var(--text); }
 @media (prefers-reduced-motion: reduce) {
   .agent-thinking-dot { animation: none; opacity: .8; }
 }
+
+/* Copy stays out of the way while reading and appears on approach -- but it is
+   a real control, so the keyboard reaches it without a pointer ever hovering. */
+.agent-message-meta { position: relative; }
+.agent-message-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  font: 10px var(--sans);
+  opacity: 0;
+  transition: opacity 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out;
+}
+.agent-message:hover .agent-message-copy,
+.agent-message-copy:focus-visible,
+.agent-message-copy[data-copied] { opacity: 1; }
+.agent-message-copy:hover { border-color: color-mix(in srgb, var(--blue) 26%, var(--line)); color: var(--blue); }
+.agent-message-copy:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.agent-message-copy[data-copied] { color: var(--green); border-color: color-mix(in srgb, var(--green) 34%, var(--line)); }
+.agent-message-copy svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.agent-message-copy[data-copied] svg { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-message-copy { transition-duration: .01ms !important; }
+}

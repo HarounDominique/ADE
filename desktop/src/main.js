@@ -1688,7 +1688,7 @@ function renderAgentMessages(messages) {
     list.innerHTML = '<li class="agent-empty-state">Send a prompt to begin.</li>';
     return;
   }
-  list.innerHTML = messages.map((message) => `<li class="agent-message agent-message-${escapeHTML(message.role)}"><div class="agent-message-meta"><strong>${escapeHTML(message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Agent' : 'Assay')}</strong><time>${escapeHTML(new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time></div><div class="agent-message-content">${escapeHTML(message.content)}</div></li>`).join('');
+  list.innerHTML = messages.map((message) => `<li class="agent-message agent-message-${escapeHTML(message.role)}"><div class="agent-message-meta"><strong>${escapeHTML(message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Agent' : 'Assay')}</strong><time>${escapeHTML(new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time></div><button class="agent-message-copy" type="button" data-copy-message="${escapeHTML(message.id)}" aria-label="Copy this message" title="Copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="agent-copy-label">Copy</span></button></div><div class="agent-message-content">${escapeHTML(message.content)}</div></li>`).join('');
   list.innerHTML += pendingTurnMarkup();
   list.scrollTop = list.scrollHeight;
 }
@@ -1706,6 +1706,53 @@ function clearPendingAgentTurn() {
   pendingAgentTurn = null;
   window.clearInterval(agentElapsedTimer);
   agentElapsedTimer = null;
+}
+
+/** The clipboard API needs a secure context and a permission this webview does
+    not always grant -- the same class of silent no-op as the native dialogs. The
+    textarea fallback works where it does not, and failure is reported rather
+    than swallowed. */
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      // Observed: without a granted permission this call can hang instead of
+      // rejecting, so an unbounded await would never reach the fallback.
+      const written = await Promise.race([
+        navigator.clipboard.writeText(text).then(() => true),
+        new Promise((resolve) => setTimeout(() => resolve(false), 400)),
+      ]);
+      if (written) return true;
+    }
+  } catch { /* Fall through to the selection-based copy. */ }
+  const staging = document.createElement('textarea');
+  staging.value = text;
+  staging.setAttribute('readonly', '');
+  staging.style.position = 'fixed';
+  staging.style.opacity = '0';
+  document.body.append(staging);
+  staging.select();
+  let copied = false;
+  try { copied = document.execCommand('copy'); } catch { copied = false; }
+  staging.remove();
+  return copied;
+}
+
+async function copyAgentMessage(messageId, button) {
+  const message = agentRenderedMessages.find((candidate) => candidate.id === messageId);
+  if (!message) return;
+  const label = button.querySelector('.agent-copy-label');
+  const copied = await copyTextToClipboard(message.content);
+  if (!copied) {
+    notify('Unable to copy this message.');
+    return;
+  }
+  button.dataset.copied = 'true';
+  if (label) label.textContent = 'Copied';
+  window.clearTimeout(button.dataset.resetTimer);
+  button.dataset.resetTimer = String(window.setTimeout(() => {
+    delete button.dataset.copied;
+    if (label) label.textContent = 'Copy';
+  }, 1600));
 }
 
 function toggleAgentSessionGroup(groupId) {
@@ -3195,6 +3242,11 @@ document.addEventListener('click', (event) => {
       setWorkspaceSearchLoading(false);
       void collapseExplorer();
     });
+    return;
+  }
+  const copyButton = event.target.closest('[data-copy-message]');
+  if (copyButton) {
+    void copyAgentMessage(copyButton.dataset.copyMessage, copyButton);
     return;
   }
   const taskRow = event.target.closest('[data-task-select]');

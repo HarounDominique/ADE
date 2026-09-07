@@ -172,6 +172,20 @@ test("a turn in flight is visible in the conversation", () => {
   assert.match(styles, /\.agent-thinking-dot \{ animation: none/);
 });
 
+test("every message can be copied, whatever the clipboard does", () => {
+  assert.match(main, /data-copy-message=/);
+  assert.match(main, /function copyAgentMessage/);
+  // The clipboard API can hang instead of rejecting here, so the attempt is
+  // bounded and falls back to a selection copy rather than waiting forever.
+  assert.match(main, /Promise\.race\(\[\s*navigator\.clipboard\.writeText/);
+  assert.match(main, /document\.execCommand\('copy'\)/);
+  // A copy that did not happen says so instead of pretending it did.
+  assert.match(main, /notify\('Unable to copy this message\.'\)/);
+  // Reachable without a pointer.
+  assert.match(styles, /\.agent-message-copy:focus-visible/);
+  assert.match(styles, /\.agent-message:hover \.agent-message-copy/);
+});
+
 test("guarded actions confirm in-app because the webview has no window prompts", () => {
   assert.doesNotMatch(main, /window\.confirm/);
   assert.doesNotMatch(main, /window\.prompt/);
