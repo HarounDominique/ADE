@@ -227,7 +227,16 @@ fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Sen
         })
         .map_err(|error| format!("Unable to allocate terminal PTY: {error}"))?;
     let mut shell = if cfg!(target_os = "windows") {
-        CommandBuilder::new(std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()))
+        // The terminal UI and project commands use common Unix spellings such
+        // as `pwd` and `ls`. PowerShell provides them as built-in aliases,
+        // whereas cmd.exe rejects both and makes the integrated terminal look
+        // broken on a fresh Windows machine.
+        let mut command = CommandBuilder::new(
+            std::env::var("ADE_POWERSHELL_COMMAND")
+                .unwrap_or_else(|_| "powershell.exe".to_string()),
+        );
+        command.arg("-NoLogo");
+        command
     } else {
         // The operator's own shell, as a login and interactive session, so their
         // prompt, aliases and colours are the ones they already know. A minimal
