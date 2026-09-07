@@ -664,6 +664,16 @@ function renderTaskContext() {
   renderTaskContextMenu();
 }
 
+/** The current Task stays current when its evidence is collapsed; only the
+    disclosure changes, so the topbar and the list never drift apart. */
+function toggleTaskDetail(row) {
+  const detail = document.getElementById(row.getAttribute('aria-controls'));
+  if (!detail) return;
+  const expanded = row.getAttribute('aria-expanded') === 'true';
+  row.setAttribute('aria-expanded', String(!expanded));
+  detail.hidden = expanded;
+}
+
 function selectTaskContext(taskId) {
   const task = agentProjectTasks.find((item) => item.id === taskId);
   if (!task) return;
@@ -801,7 +811,7 @@ function renderChanges(tasks) {
   const values = {
     'changes-task-id': task?.id ?? '—',
     'changes-task-title': task?.intent ?? 'No Task selected',
-    'changes-task-detail': task ? `Current persisted state: ${task.status.replaceAll('_', ' ')}.` : 'Create a Task from Work to populate the review queue.',
+    'changes-task-detail': task ? `Current persisted state: ${task.status.replaceAll('_', ' ')}.` : 'Create a Task from Projects to populate the review queue.',
     'changes-task-status': task?.status?.replaceAll('_', ' ') ?? 'EMPTY',
   };
   Object.entries(values).forEach(([id, value]) => {
@@ -1929,31 +1939,47 @@ function sendAgentPrompt(event) {
   if (input) input.value = '';
 }
 
+function taskStatusTone(status) {
+  return ['UNDER_REVIEW', 'READY_FOR_HUMAN', 'BLOCKED'].includes(status) ? 'review' : 'building';
+}
+
 function renderProjectTasks(tasks) {
-  const lists = [...document.querySelectorAll('#project-task-list, #work-task-list')];
-  if (lists.length === 0) return;
+  const list = document.getElementById('project-task-list');
+  if (!list) return;
   if (tasks.length === 0) {
-    lists.forEach((list) => { list.innerHTML = '<p class="task-empty-state">No tasks yet. Create one when you are ready to delegate work.</p>'; });
+    list.innerHTML = '<p class="task-empty-state">No tasks yet. Create one when you are ready to delegate work.</p>';
     return;
   }
-  const cards = tasks.map((task, index) => {
+  const current = selectedTaskId ?? tasks[0]?.id;
+  list.innerHTML = tasks.map((task) => {
     const status = escapeHTML(task.status.replaceAll('_', ' '));
-    const tone = ['UNDER_REVIEW', 'READY_FOR_HUMAN', 'BLOCKED'].includes(task.status) ? 'review' : 'building';
-    const phase = task.status === 'UNDER_REVIEW' ? 'Reviewer active' : task.status === 'READY_FOR_HUMAN' ? 'Awaiting approval' : 'Task state confirmed';
     const transitions = { DRAFT: ['READY', 'Mark ready'], READY: ['RUN', 'Start task'], CHANGES_REQUESTED: ['RUN', 'Resume task'], BLOCKED: ['RUN', 'Re-enter task'] };
     const action = transitions[task.status];
     const actionMarkup = action ? action[0] === 'RUN'
       ? `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-run="true">${action[1]}</button>`
       : `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-next="${action[0]}">${action[1]}</button>` : '';
-    return `<article class="task-card${task.id === selectedTaskId || (!selectedTaskId && index === 0) ? ' selected-task' : ''}"><button class="task-card-select" type="button" data-task-select="${escapeHTML(task.id)}" aria-label="Open task ${escapeHTML(task.id)}: ${escapeHTML(task.intent)}" aria-current="${task.id === selectedTaskId || (!selectedTaskId && index === 0) ? 'true' : 'false'}"><div class="task-top"><span class="task-id">${escapeHTML(task.id)}</span><span class="task-status ${tone}">${status}</span></div><h3>${escapeHTML(task.intent)}</h3><p>Project Task · state from Assay metadata</p><div class="task-bottom"><span class="phase"><span class="phase-dot${tone === 'building' ? ' blue' : ''}"></span>${phase}</span><span class="task-time">${escapeHTML(task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}</span><span class="task-arrow">→</span></div></button>${actionMarkup}</article>`;
+    const isCurrent = task.id === current;
+    const updated = task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+    return `<article class="task-row${isCurrent ? ' current-task' : ''}">
+      <button class="task-row-select" type="button" data-task-select="${escapeHTML(task.id)}" aria-current="${isCurrent ? 'true' : 'false'}" aria-expanded="${isCurrent ? 'true' : 'false'}" aria-controls="task-detail-${escapeHTML(task.id)}">
+        <span class="task-id">${escapeHTML(task.id)}</span>
+        <span class="task-row-intent">${escapeHTML(task.intent)}</span>
+        <span class="task-row-time">${escapeHTML(updated)}</span>
+        <span class="task-status ${taskStatusTone(task.status)}">${status}</span>
+        <svg class="task-row-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+      </button>
+      <div class="task-row-detail" id="task-detail-${escapeHTML(task.id)}"${isCurrent ? '' : ' hidden'}>
+        ${isCurrent ? '<p class="task-trace-empty">Loading task evidence…</p>' : ''}
+      </div>
+      ${actionMarkup}
+    </article>`;
   }).join('');
-  lists.forEach((list) => { list.innerHTML = cards; });
 }
 
 function renderTaskDetail(detail) {
-  const panel = document.getElementById('task-detail-panel');
-  if (!panel) return;
   const task = detail.task;
+  const panel = document.getElementById(`task-detail-${task.id}`);
+  if (!panel) return;
   selectedTaskId = task.id;
   selectedTaskIntent = task.intent;
   const gates = detail.gates.map((gate) => `${gate.id}: ${gate.status}`).join(' · ') || 'No gates';
@@ -1967,7 +1993,7 @@ function renderTaskDetail(detail) {
   const evidence = detail.runtimeEvidence.length
     ? `<ul class="task-trace-list">${detail.runtimeEvidence.slice(0, 12).map((item) => `<li><strong>${escapeHTML(item.type)}</strong> · ${escapeHTML(item.summary)}<small>${escapeHTML(new Date(item.at).toLocaleString())}${item.sessionId ? ` · ${escapeHTML(item.sessionId)}` : ''}</small></li>`).join('')}</ul>`
     : '<p class="task-trace-empty">No persisted runtime activity for this Task.</p>';
-  panel.innerHTML = `<p class="eyebrow">TASK DETAIL</p><div class="task-detail-heading"><div><span class="task-id">${escapeHTML(task.id)}</span><h2>${escapeHTML(task.intent)}</h2></div><span class="task-status building">${escapeHTML(task.status.replaceAll('_', ' '))}</span></div><p>${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p><h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
+  panel.innerHTML = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p><h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
 }
 
 async function refreshProjectContext(snapshot) {
@@ -3105,11 +3131,13 @@ document.addEventListener('click', (event) => {
     });
     return;
   }
-  const taskCard = event.target.closest('[data-task-select]');
-  if (taskCard) {
-    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `detail-${taskCard.dataset.taskSelect}-${Date.now()}`, method: 'task.detail', params: { taskId: taskCard.dataset.taskSelect } }) });
-    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `git-ops-${taskCard.dataset.taskSelect}-${Date.now()}`, method: 'task.git.operations', params: { taskId: taskCard.dataset.taskSelect } }) });
-    nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `review-${taskCard.dataset.taskSelect}-${Date.now()}`, method: 'change.review', params: { taskId: taskCard.dataset.taskSelect } }) });
+  const taskRow = event.target.closest('[data-task-select]');
+  if (taskRow) {
+    const taskId = taskRow.dataset.taskSelect;
+    // Selecting a Task here *is* setting the shell's active Task, the same one the
+    // topbar shows. One path, so the view can never disagree with the topbar.
+    if (taskId !== selectedTaskId) selectTaskContext(taskId);
+    else toggleTaskDetail(taskRow);
     return;
   }
   const runButton = event.target.closest('[data-task-id][data-task-run]');

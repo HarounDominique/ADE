@@ -10,7 +10,7 @@ const sidecarBuild = readFileSync(new URL("../scripts/build-desktop-sidecar.mjs"
 const smokeBundle = readFileSync(new URL("../scripts/smoke-desktop-bundle.mjs", import.meta.url), "utf8");
 
 test("desktop shell keeps the project workbench areas and critical actions", () => {
-  for (const view of ["projects", "editor", "agents", "work", "knowledge", "changes"]) {
+  for (const view of ["projects", "editor", "agents", "knowledge", "changes"]) {
     assert.match(html, new RegExp(`data-view=\"${view}\"`));
     assert.match(html, new RegExp(`data-panel=\"${view}\"`));
   }
@@ -123,6 +123,26 @@ test("the shell never assumes a path separator", () => {
     assert.match(script, /fileURLToPath/);
     assert.doesNotMatch(script, /\/private\/tmp/);
   }
+});
+
+test("Projects owns both the catalog and the Tasks of the active Project", () => {
+  // A Task cannot exist outside a Project, so the two never belonged in
+  // separate menus.
+  assert.doesNotMatch(html, /data-view="work"/);
+  assert.doesNotMatch(html, /data-panel="work"/);
+  assert.doesNotMatch(main, /work-task-list/);
+  assert.match(html, /id="project-task-list"/);
+  assert.match(html, /class="projects-catalog"/);
+  assert.match(html, /data-action="new-task"/);
+  assert.match(html, /data-action="add-project"/);
+  // The list and the topbar are one selection, not two.
+  assert.match(main, /if \(taskId !== selectedTaskId\) selectTaskContext\(taskId\);/);
+  assert.match(main, /function toggleTaskDetail/);
+  assert.match(main, /aria-controls="task-detail-/);
+  // Counts are real; the fabricated deltas beside them are gone.
+  assert.doesNotMatch(html, /metric-card/);
+  assert.doesNotMatch(html, /this week|Awaiting decision|Not shipped yet/);
+  assert.match(html, /class="project-metrics"/);
 });
 
 test("guarded actions confirm in-app because the webview has no window prompts", () => {
@@ -413,10 +433,10 @@ test("desktop shell removes simulated chrome and keeps Task selection accessible
   assert.doesNotMatch(html, /Local workspace|All systems nominal|Local operator|Human in command|brand-beta/);
   assert.doesNotMatch(html, /data-action="show-notifications"|data-action="show-help"/);
   assert.doesNotMatch(html, /TASK-042|TASK-041/);
-  assert.match(html, /id="work-task-list" aria-live="polite"/);
-  assert.match(main, /class="task-card-select" type="button" data-task-select=/);
+  assert.match(html, /id="project-task-list" aria-live="polite"/);
+  assert.match(main, /class="task-row-select" type="button" data-task-select=/);
   assert.match(main, /No tasks yet\. Create one when you are ready to delegate work/);
-  assert.match(styles, /\.task-card-select:focus-visible/);
+  assert.match(styles, /\.task-row-select:focus-visible/);
   assert.match(html, /OpenCode · Codex · Claude Code/);
 });
 

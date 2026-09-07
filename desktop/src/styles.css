@@ -1387,3 +1387,97 @@ body { color: var(--text); }
 @media (prefers-reduced-motion: reduce) {
   .agents-workbench, .agent-rail-toggle svg, #agent-session-rail-content { transition-duration: .01ms !important; }
 }
+
+/* Projects owns the Project and its Tasks: the catalog is navigation, the
+   workspace is the work.  Width goes to the Tasks, not to switching between
+   repositories -- the topbar already does that. */
+.view-project.active-view {
+  display: grid;
+  grid-template-columns: minmax(200px, 236px) minmax(0, 1fr);
+  align-items: start;
+  gap: 26px;
+  height: 100%;
+  min-height: 0;
+}
+.projects-catalog {
+  display: grid;
+  /* The status belongs under the list it describes, not pinned to the bottom of
+     a full-height column with empty space between them. */
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  padding-right: 22px;
+  background: transparent;
+}
+.projects-catalog-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; }
+.projects-catalog-heading h2 { margin: 0; color: var(--muted); font: 650 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+.view-project .projects-list { min-height: 0; margin: 0; overflow: auto; align-content: start; }
+.view-project .project-list-item { min-height: 44px; }
+.view-project .project-list-select { padding: 7px 10px; gap: 8px; }
+.view-project .project-list-copy small { font-size: 8px; }
+.view-project .project-list-arrow { display: none; }
+.view-project .projects-list-status { margin: 0; }
+
+.project-workspace { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 18px; min-width: 0; height: 100%; min-height: 0; }
+.project-workspace-heading { display: grid; gap: 5px; }
+.project-workspace-heading h2 { margin: 0; color: var(--text); font-size: 22px; font-weight: 650; letter-spacing: -.03em; }
+.project-workspace-path { margin: 0; overflow: hidden; color: var(--muted); font: 10px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+/* Context, not content: one quiet line instead of a metric wall competing with
+   the Tasks, and no invented deltas next to real counts. */
+.project-metrics { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+.project-metrics span { display: inline-flex; align-items: baseline; gap: 4px; }
+.project-metrics strong { color: var(--text); font-weight: 600; }
+
+.project-tasks { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 10px; min-height: 0; }
+.project-tasks-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.project-tasks-heading h3 { margin: 0; color: var(--muted); font: 650 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+#project-task-list {
+  display: grid;
+  /* .task-list is a two-column card grid; here the Tasks are rows. */
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
+  background: transparent;
+}
+.task-row { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); overflow: hidden; }
+.task-row.current-task { border-color: color-mix(in srgb, var(--blue) 45%, var(--line)); background: color-mix(in srgb, var(--blue) 5%, var(--panel)); }
+.task-row-select {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 13px;
+  border: 0;
+  color: var(--text-soft);
+  background: transparent;
+  text-align: left;
+}
+.task-row-select:hover { background: color-mix(in srgb, var(--blue) 5%, var(--panel-raised)); }
+.task-row-select:focus-visible { outline: 2px solid var(--blue); outline-offset: -3px; }
+.task-row-intent { overflow: hidden; color: var(--text); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.task-row-time { color: var(--faint); font: 9px var(--mono); }
+.task-row-chevron { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; color: var(--muted); transition: transform 160ms cubic-bezier(.2, .8, .2, 1); }
+.task-row-select[aria-expanded="true"] .task-row-chevron { transform: rotate(90deg); }
+.task-row-detail { padding: 0 13px 13px; border-top: 1px solid var(--line); margin-top: -1px; }
+.task-row-detail[hidden] { display: none; }
+.task-detail-summary { margin: 12px 0 8px; color: var(--muted); font-size: 10px; }
+.task-row .task-action { margin: 0 13px 13px; }
+/* The empty state is the whole list, not a card floating inside it. */
+#project-task-list .task-empty-state { padding: 22px 13px; border: 1px dashed var(--line-strong); border-radius: 8px; background: transparent; font-size: 12px; }
+
+@media (max-width: 1080px) {
+  .view-project.active-view { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .projects-catalog { height: auto; padding-right: 0; border-right: 0; border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+  .view-project .projects-list { max-height: 220px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-row-chevron { transition-duration: .01ms !important; }
+}

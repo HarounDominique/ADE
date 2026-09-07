@@ -24,7 +24,7 @@ La shell no puede presentar controles decorativos o estados inventados. Indicado
 
 ## Information architecture
 
-Las áreas visibles son `PROJECTS`, `EDITOR`, `AGENTS`, `WORK`, `KNOWLEDGE` y `VERSION CONTROL`. `Projects` administra el catálogo local y el Project activo; `Editor` es la superficie de ficheros; `Agents` es la superficie conversacional para runtimes locales. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y evidencia de runtime se consume desde sus superficies respectivas sin exponer un menú Runtime independiente.
+Las áreas visibles son `PROJECTS`, `EDITOR`, `AGENTS`, `KNOWLEDGE` y `VERSION CONTROL`. `Projects` administra el catálogo local, el Project activo y sus Tasks; `Editor` es la superficie de ficheros; `Agents` es la superficie conversacional para runtimes locales. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y evidencia de runtime se consume desde sus superficies respectivas sin exponer un menú Runtime independiente.
 
 ### Projects
 
@@ -75,9 +75,15 @@ Cada tab presenta una única superficie de consola familiar, renderizada por `xt
 
 El shell real conserva `Enter`, `↑`/`↓`, `Tab`, el completado, el historial y el resto de su comportamiento habitual; ADE no implementa una segunda capa de interpretación. El foco se recupera pulsando la superficie del terminal y cambiar de tab nunca reinicia ni mezcla sesiones. El completado de rutas lo proporciona el shell real, no ADE, y no se intenta sustituir un shell completo ni un language server.
 
-### Work
+### Tasks dentro de Projects
 
-Permite crear, reanudar y observar Tasks y sus conversaciones. La creación y las transiciones seguras atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor, y refrescan el resumen de `Projects`. Una Task en `READY`, `CHANGES_REQUESTED` o `BLOCKED` puede iniciar `task.run`; la shell recibe aceptación inmediata y eventos de Implementer, mientras el sidecar persiste la transición, diff y ChangeSet. La conversación es una vista auxiliar: la identidad, estado y resultado se leen del agregado Task y sus registros relacionados. Mientras se cargan no se sustituyen por fixtures; cuando no hay Tasks se muestra un estado vacío y cada Task real se abre mediante un botón nativo, con foco visible y etiqueta accesible.
+Una Task no existe fuera de un Project, así que ambos viven en la misma vista y `Tasks` no ocupa una entrada de navegación propia. `Projects` es un maestro-detalle: a la izquierda el catálogo —estrecho, sin métricas por fila, con `Add project` en su cabecera— y a la derecha el Project activo con su ruta, una línea de contexto con recuentos reales y la lista de sus Tasks, que es el foco de la pantalla.
+
+El catálogo es navegación, no contenido: la topbar ya ofrece el mismo cambio de Project, de modo que la columna no compite en ancho con el trabajo. Seleccionar un Project en la lista es cambiar el Project activo del shell, y seleccionar una Task es fijar `Current task`; ninguna de las dos introduce una selección paralela a la de la topbar, que seguiría siendo una segunda fuente de verdad.
+
+Cada Task se presenta como una fila con id, intención, estado y su transición primaria, y despliega su evidencia en el sitio —gates, ChangeSet, traza Git, sesiones de agente y actividad persistida— con `aria-expanded` y `aria-controls`, empujando las filas siguientes. La Task activa permanece activa aunque se colapse su evidencia. La creación y las transiciones seguras atraviesan `task.create`/`task.advance` por el sidecar, exigen transición válida, razón y actor.
+
+Los recuentos del Project se muestran como una línea de contexto, no como una rejilla de tarjetas con variaciones inventadas: el contrato de la shell prohíbe estados sin fuente real, y las Tasks son el contenido que debe dominar la superficie.
 
 ### Agents
 
