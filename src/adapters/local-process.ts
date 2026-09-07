@@ -1,5 +1,5 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type {
   ProcessDefinition,
@@ -61,19 +61,42 @@ function windowsCommandNeedsShell(command: string): boolean {
 }
 
 /** A packaged desktop app can be launched by Explorer before its process PATH
-    sees a Node installation made during the same session. npm is a .cmd shim,
-    so give child commands the standard Node location when it exists. */
+    sees runtimes installed during the same session. npm is a .cmd shim and
+    Maven's wrapper requires JAVA_HOME, so surface their standard locations. */
 function runtimeEnvironment(overrides: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
   const env = { ...process.env, ...overrides };
   if (process.platform !== "win32") return env;
-  const nodeDirectory = join(env.ProgramFiles ?? "C:\\Program Files", "nodejs");
-  if (!existsSync(join(nodeDirectory, "npm.cmd"))) return env;
-  const pathKey = Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "Path";
-  const current = env[pathKey] ?? "";
-  if (!current.split(";").some((entry) => entry.toLowerCase() === nodeDirectory.toLowerCase())) {
-    env[pathKey] = current ? `${nodeDirectory};${current}` : nodeDirectory;
+  const programFiles = env.ProgramFiles ?? "C:\\Program Files";
+  addPathEntry(env, join(programFiles, "nodejs"), "npm.cmd");
+  const javaHome = env.JAVA_HOME && existsSync(join(env.JAVA_HOME, "bin", "java.exe"))
+    ? env.JAVA_HOME
+    : findWindowsJavaHome(programFiles);
+  if (javaHome) {
+    env.JAVA_HOME = javaHome;
+    addPathEntry(env, join(javaHome, "bin"), "java.exe");
   }
   return env;
+}
+
+function addPathEntry(env: NodeJS.ProcessEnv, directory: string, executable: string): void {
+  if (!existsSync(join(directory, executable))) return;
+  const pathKey = Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "Path";
+  const current = env[pathKey] ?? "";
+  if (!current.split(";").some((entry) => entry.toLowerCase() === directory.toLowerCase())) {
+    env[pathKey] = current ? `${directory};${current}` : directory;
+  }
+}
+
+function findWindowsJavaHome(programFiles: string): string | undefined {
+  const microsoftDirectory = join(programFiles, "Microsoft");
+  try {
+    return readdirSync(microsoftDirectory, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && entry.name.startsWith("jdk-"))
+      .map((entry) => join(microsoftDirectory, entry.name))
+      .find((directory) => existsSync(join(directory, "bin", "java.exe")));
+  } catch {
+    return undefined;
+  }
 }
 
 async function killGroup(child: ChildProcessWithoutNullStreams, signal: NodeJS.Signals): Promise<void> {
