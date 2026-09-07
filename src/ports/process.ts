@@ -4,6 +4,9 @@ export type ProcessDefinition = {
   args?: readonly string[];
   cwd: string;
   env?: Record<string, string>;
+  /** Output as it happens. `stop` still returns the whole capture; a console
+      that only fills in when the process dies is not a console. */
+  onOutput?: (chunk: { stream: "stdout" | "stderr"; text: string }) => void;
 };
 
 export type ProcessState = "STARTING" | "RUNNING" | "STOPPING" | "STOPPED" | "FAILED";

@@ -19,8 +19,8 @@ export class LocalProcess implements ProcessPort {
       detached: true,
     });
     const output = { stdout: "", stderr: "" };
-    child.stdout.on("data", (chunk: Buffer) => { output.stdout += chunk.toString(); });
-    child.stderr.on("data", (chunk: Buffer) => { output.stderr += chunk.toString(); });
+    child.stdout.on("data", (chunk: Buffer) => { const text = chunk.toString(); output.stdout += text; definition.onOutput?.({ stream: "stdout", text }); });
+    child.stderr.on("data", (chunk: Buffer) => { const text = chunk.toString(); output.stderr += text; definition.onOutput?.({ stream: "stderr", text }); });
     await new Promise<void>((resolve, reject) => {
       child.once("spawn", () => resolve());
       child.once("error", reject);

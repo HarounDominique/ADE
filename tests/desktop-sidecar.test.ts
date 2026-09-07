@@ -2,13 +2,48 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Project } from "../src/domain/project.js";
 import { Task } from "../src/domain/task.js";
 import { handleDesktopRequest } from "../src/desktop-sidecar.js";
+import type { Readable } from "node:stream";
+
+type SidecarMessage = { id?: string; type?: string; [key: string]: unknown };
+
+/** The sidecar interleaves answers and push events on one stream, and a run
+    emits both, so a test that reads a single chunk reads whatever arrived
+    first. This buffers every line and waits for the one it asked for. */
+function readSidecarLines(stream: Readable, timeoutMs = 8_000): { waitFor(predicate: (message: SidecarMessage) => boolean): Promise<SidecarMessage> } {
+  const received: SidecarMessage[] = [];
+  const waiting: Array<{ predicate: (message: SidecarMessage) => boolean; resolve: (message: SidecarMessage) => void }> = [];
+  let buffer = "";
+  stream.on("data", (chunk: Buffer) => {
+    buffer += chunk.toString();
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let message: SidecarMessage;
+      try { message = JSON.parse(line) as SidecarMessage; } catch { continue; }
+      received.push(message);
+      const index = waiting.findIndex((entry) => entry.predicate(message));
+      if (index >= 0) waiting.splice(index, 1)[0]?.resolve(message);
+    }
+  });
+  return {
+    waitFor(predicate) {
+      const already = received.find((message) => predicate(message));
+      if (already) return Promise.resolve(already);
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("sidecar did not send a matching message")), timeoutMs);
+        waiting.push({ predicate, resolve: (message) => { clearTimeout(timer); resolve(message); } });
+      });
+    },
+  };
+}
 
 test("desktop sidecar answers project.snapshot with a structured result", () => {
   const store = new AdeStore();
@@ -237,4 +272,95 @@ test("desktop sidecar process fails fast without an explicit database", async ()
 
   assert.notEqual(code, 0);
   assert.match(errorOutput, /ADE_DB_PATH must point/);
+});
+
+test("desktop sidecar lists, starts and stops a run configuration", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-run-"));
+  const projectRoot = mkdtempSync(join(tmpdir(), "ade-run-project-"));
+  mkdirSync(join(projectRoot, ".ade"), { recursive: true });
+  writeFileSync(join(projectRoot, ".ade", "run.json"), JSON.stringify({
+    configurations: [{
+      id: "client",
+      label: "Client",
+      kind: "command",
+      command: process.execPath,
+      args: ["-e", "process.stdout.write('client up'); setTimeout(() => {}, 10000);"],
+      cwd: projectRoot,
+    }],
+  }), "utf8");
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: join(directory, "ade.db") },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const lines = readSidecarLines(child.stdout);
+
+  child.stdin.write(`${JSON.stringify({ id: "run-list-1", method: "run.list", params: { repositoryPath: projectRoot } })}\n`);
+  const listed = await lines.waitFor((message) => message.id === "run-list-1") as { result: { configurations: Array<{ id: string; label: string }> } };
+  assert.deepEqual(listed.result.configurations.map((configuration) => configuration.id), ["client"]);
+
+  child.stdin.write(`${JSON.stringify({ id: "run-start-1", method: "run.start", params: { repositoryPath: projectRoot, configurationId: "client", mode: "run" } })}\n`);
+  const started = await lines.waitFor((message) => message.id === "run-start-1") as { result: { id: string; state: string } };
+  assert.equal(started.result.state, "RUNNING");
+
+  // The console has to fill while the process lives, so output arrives as its
+  // own event rather than with the answer to a later request.
+  const output = await lines.waitFor((message) => message.type === "run.output") as { text: string };
+  assert.match(output.text, /client up/);
+
+  child.stdin.write(`${JSON.stringify({ id: "run-stop-1", method: "run.stop", params: { repositoryPath: projectRoot, runSessionId: started.result.id } })}\n`);
+  const stopped = await lines.waitFor((message) => message.id === "run-stop-1") as { result: { state: string; stoppedByUser: boolean } };
+  assert.equal(stopped.result.state, "STOPPED");
+  assert.equal(stopped.result.stoppedByUser, true);
+
+  child.kill();
+  await once(child, "close");
+  rmSync(directory, { recursive: true, force: true });
+  rmSync(projectRoot, { recursive: true, force: true });
+});
+
+test("desktop sidecar reports an invalid run configuration by field", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-run-bad-"));
+  const projectRoot = mkdtempSync(join(tmpdir(), "ade-run-project-bad-"));
+  mkdirSync(join(projectRoot, ".ade"), { recursive: true });
+  writeFileSync(join(projectRoot, ".ade", "run.json"), JSON.stringify({ configurations: [{ id: "client", label: "Client", kind: "command" }] }), "utf8");
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: join(directory, "ade.db") },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const lines = readSidecarLines(child.stdout);
+
+  child.stdin.write(`${JSON.stringify({ id: "run-list-2", method: "run.list", params: { repositoryPath: projectRoot } })}\n`);
+  const listed = await lines.waitFor((message) => message.id === "run-list-2") as { error: { code: string; message: string } };
+  assert.equal(listed.error.code, "RUN_CONFIG_INVALID");
+  assert.match(listed.error.message, /client: a command configuration requires a command/);
+
+  child.kill();
+  await once(child, "close");
+  rmSync(directory, { recursive: true, force: true });
+  rmSync(projectRoot, { recursive: true, force: true });
+});
+
+test("a Project without .ade/run.json lists nothing instead of failing", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-run-none-"));
+  const projectRoot = mkdtempSync(join(tmpdir(), "ade-run-project-none-"));
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: join(directory, "ade.db") },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const lines = readSidecarLines(child.stdout);
+
+  child.stdin.write(`${JSON.stringify({ id: "run-list-3", method: "run.list", params: { repositoryPath: projectRoot } })}\n`);
+  const listed = await lines.waitFor((message) => message.id === "run-list-3") as { result: { configurations: unknown[] } };
+  assert.deepEqual(listed.result.configurations, []);
+
+  child.kill();
+  await once(child, "close");
+  rmSync(directory, { recursive: true, force: true });
+  rmSync(projectRoot, { recursive: true, force: true });
 });

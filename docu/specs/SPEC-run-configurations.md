@@ -2,7 +2,7 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Module id: run-configurations -->
 
-**Estado:** planned — spec aprobada, sin implementación.
+**Estado:** in-progress — dominio, catálogo, supervisor de ejecuciones, sondeo de puertos y métodos `run.list` / `run.start` / `run.stop` del sidecar implementados y verificados; la superficie de la shell —control en topbar y consola por ejecución— sigue pendiente.
 
 ## Objective
 
@@ -37,7 +37,7 @@ type RunPort = {
 };
 
 type RunDebug = {
-  args: readonly string[];             // sustituye o extiende args en modo debug
+  args: readonly string[];             // sustituye a args en modo debug: el flag suele preceder al entry point
   port: number;
   protocol: "inspector" | "jdwp" | "dap" | "other";
   attachHint?: string;                 // cómo enganchar un depurador externo
@@ -134,6 +134,12 @@ Tests de parseo y validación de `.ade/run.json`, incluidas referencias rotas y 
 - Las configuraciones viven en `.ade/run.json` y no dentro de `.ade/services.json`: un servicio es una declaración de infraestructura del Project, una configuración es cómo el usuario la arranca. La referencia `kind: "service"` conecta ambas sin duplicarlas.
 - La consola de cada ejecución reutiliza el dock de terminal en lugar de abrir un panel nuevo: la salida de procesos ya tiene un sitio en la shell y multiplicarlo fragmentaría la lectura.
 - El control vive en la topbar, junto al contexto de Project, Task y branch, porque arrancar la aplicación es contexto transversal y no pertenece a una sola vista.
+
+## Implementation status
+
+Implementado y verificado: `RunConfiguration` y `RunSession` en el dominio; carga y validación de `.ade/run.json` con herencia desde `.ade/services.json`, ciclos de `members` y campos señalados uno a uno; `RunManager` con sondeo previo de todos los puertos del árbol, arranque ordenado de compuestas, parada en orden inverso, healthcheck con deadline y limpieza de los miembros ya arrancados cuando uno falla; `LocalPortProbe` por bind, sin depender de binarios externos; salida en vivo a través de `ProcessDefinition.onOutput`; y los métodos `run.list`, `run.start` y `run.stop` del sidecar, con `RUN_PORT_CONFLICT` y `RUN_CONFIG_INVALID` como errores propios y `run.output` / `run.session` como eventos.
+
+Pendiente: la superficie de la shell —control de topbar, pestaña de consola por ejecución, estados de interacción, apertura de URL y confirmación de `bind: "all"`— y la persistencia de la evidencia de cada ejecución junto a la Task.
 
 ## Open Questions
 

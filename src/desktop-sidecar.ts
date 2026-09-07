@@ -29,6 +29,10 @@ import { commitAndPush, createBranch, createCommit, createPullRequest, createWor
 import { inspectPendingGitChanges, listGitCommits, readGitCommitDiff, readPendingGitDiff } from "./application/git/version-control.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
+import { loadRunConfigurations } from "./application/local-runtime/run-config.js";
+import { RunManager, RunPortConflictError } from "./application/local-runtime/run-manager.js";
+import { LocalPortProbe } from "./adapters/local-port-probe.js";
+import type { ResolvedRunConfiguration } from "./domain/run-configuration.js";
 import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation, reconcileChangedDocumentation } from "./application/knowledge/reconcile.js";
 import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNetwork, updateProjectSkill } from "./application/skills/skill-install.js";
@@ -38,7 +42,7 @@ import { LocalGitRepository } from "./adapters/local-git-repository.js";
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; mode?: "run" | "debug"; runSessionId?: string };
 };
 
 export type DesktopResponse = {
@@ -65,6 +69,9 @@ const runtimeStatus: RuntimeStatus = {
 let runtimeEvidenceSequence = 0;
 let serviceManager: ServiceManager | undefined;
 let declaredServices: readonly ServiceDefinition[] = [];
+/** One supervisor per Project: a run belongs to the repository it was started
+    from, and switching Project must not inherit another one's processes. */
+const runManagers = new Map<string, RunManager>();
 type ActiveAgentPrompt = {
   projectId?: string;
   runtime?: import("./ports/agent-runtime.js").AgentRuntimePort;
@@ -397,13 +404,89 @@ export async function runDesktopSidecar(): Promise<void> {
         void startLocalService(request);
       } else if (request.method === "service.stop") {
         stopLocalService(request);
+      } else if (request.method === "run.list") {
+        void listRunConfigurations(request);
+      } else if (request.method === "run.start") {
+        void startRunConfiguration(request);
+      } else if (request.method === "run.stop") {
+        void stopRunConfiguration(request);
       } else {
         process.stdout.write(`${JSON.stringify(handleDesktopRequest(store, request))}\n`);
       }
     }
   } finally {
     input.close();
+    /** The shell is going away; its runs go with it. A detached process that
+        outlives the application is an orphan nobody can see or stop. */
+    for (const manager of runManagers.values()) await manager.stopAll().catch(() => undefined);
     store.close();
+  }
+}
+
+async function runCatalog(repositoryPath: string): Promise<readonly ResolvedRunConfiguration[]> {
+  const services = await loadServiceDefinitions(join(repositoryPath, ".ade", "services.json")).catch(() => []);
+  return loadRunConfigurations(join(repositoryPath, ".ade", "run.json"), services);
+}
+
+function runManagerFor(repositoryPath: string): RunManager {
+  const existing = runManagers.get(repositoryPath);
+  if (existing) return existing;
+  const manager = new RunManager(new LocalProcess(), new LocalPortProbe(), {
+    projectRoot: repositoryPath,
+    onOutput: (chunk) => process.stdout.write(`${JSON.stringify({ type: "run.output", repositoryPath, ...chunk })}\n`),
+    onSession: (session) => process.stdout.write(`${JSON.stringify({ type: "run.session", repositoryPath, session })}\n`),
+  });
+  runManagers.set(repositoryPath, manager);
+  return manager;
+}
+
+async function listRunConfigurations(request: DesktopRequest): Promise<void> {
+  const repositoryPath = request.params?.repositoryPath;
+  if (!repositoryPath) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+    return;
+  }
+  try {
+    const configurations = await runCatalog(repositoryPath).catch((error: unknown) => {
+      /** A Project without the file is the normal case, not a failure; an
+          invalid file is a failure and must say which field. */
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw error;
+    });
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: { configurations, sessions: runManagers.get(repositoryPath)?.sessions() ?? [] } })}\n`);
+  } catch (error: unknown) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RUN_CONFIG_INVALID", message: error instanceof Error ? error.message : String(error) } })}\n`);
+  }
+}
+
+async function startRunConfiguration(request: DesktopRequest): Promise<void> {
+  const { repositoryPath, configurationId, mode } = request.params ?? {};
+  if (!repositoryPath || !configurationId) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and configurationId are required" } })}\n`);
+    return;
+  }
+  try {
+    const catalog = await runCatalog(repositoryPath);
+    const session = await runManagerFor(repositoryPath).start(catalog, configurationId, mode ?? "run");
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: session })}\n`);
+  } catch (error: unknown) {
+    const code = error instanceof RunPortConflictError ? "RUN_PORT_CONFLICT" : "RUN_FAILED";
+    const port = error instanceof RunPortConflictError ? { port: error.port } : {};
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code, message: error instanceof Error ? error.message : String(error), ...port } })}\n`);
+  }
+}
+
+async function stopRunConfiguration(request: DesktopRequest): Promise<void> {
+  const { repositoryPath, runSessionId } = request.params ?? {};
+  const manager = repositoryPath ? runManagers.get(repositoryPath) : undefined;
+  if (!manager || !runSessionId) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and runSessionId are required" } })}\n`);
+    return;
+  }
+  try {
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: await manager.stop(runSessionId) })}\n`);
+  } catch (error: unknown) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RUN_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
   }
 }
 
