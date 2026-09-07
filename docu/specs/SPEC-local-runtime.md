@@ -32,6 +32,10 @@ El ciclo normal es `DECLARED → STARTING → RUNNING → STOPPING → STOPPED`.
 
 Cada operación devuelve o persiste evidencia con comando, cwd, actor, timestamps, código de salida, stdout/stderr limitado y resultado del healthcheck. Los límites de salida deben evitar memoria ilimitada sin ocultar que hubo truncamiento.
 
+## Run configurations boundary
+
+Este módulo posee el supervisor: procesos, estados, señales, puertos, healthchecks y evidencia. Cómo el usuario elige y arranca una aplicación —configuraciones seleccionables, modo depuración, control en la topbar y consola por ejecución— pertenece a [run-configurations](SPEC-run-configurations.md#objective), que reutiliza este contrato sin ampliarlo: no añade estados al ciclo de vida ni un segundo supervisor. Una configuración puede referenciar un `ServiceDefinition` de `.ade/services.json` por `id` en lugar de recopiar su comando.
+
 ## Safety contract
 
 ADE ejecuta comandos declarados por el Project con permisos del usuario actual. Antes de arrancar o detener un servicio muestra comando, directorio y puertos. Comandos destructivos, elevación de permisos, acceso fuera del Project y variables secretas requieren confirmación humana. El supervisor debe enviar una señal de terminación, esperar el timeout y escalar a una señal forzada sólo según policy explícita.
