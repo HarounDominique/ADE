@@ -20,7 +20,7 @@ El arranque debe:
 
 El shell debe funcionar sin cloud y conservar la capacidad de abrir el repositorio en un IDE o terminal externo. La navegación principal debe ser una única superficie lateral etiquetada, sin duplicar una barra de iconos con otro menú de texto.
 
-La shell no puede presentar controles decorativos o estados inventados. Indicadores de salud, notificaciones, identidad de operador, tareas de ejemplo o selectores aparentes sólo se muestran si tienen una fuente y una acción reales. El panel documental vive únicamente en `Project context`; `Git workspace` vive únicamente en `Version control`.
+La shell no puede presentar controles decorativos o estados inventados. Indicadores de salud, notificaciones, identidad de operador, tareas de ejemplo o selectores aparentes sólo se muestran si tienen una fuente y una acción reales. El panel documental vive únicamente en `Context`; `Git workspace` vive únicamente en `Version control`.
 
 ## Information architecture
 

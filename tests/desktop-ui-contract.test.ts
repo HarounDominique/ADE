@@ -186,6 +186,15 @@ test("every message can be copied, whatever the clipboard does", () => {
   assert.match(styles, /\.agent-message:hover \.agent-message-copy/);
 });
 
+test("navigation runs from the work outward", () => {
+  // Order is part of the contract: Projects and Agents are where work starts,
+  // Version control is where it is judged, and Editor is the escape hatch.
+  const order = [...html.matchAll(/<button class="nav-item[^"]*" data-view="([a-z]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(order, ["projects", "agents", "changes", "knowledge", "editor"]);
+  assert.match(html, /data-view="knowledge"[\s\S]*?<span>Context<\/span>/);
+  assert.doesNotMatch(html, /<span>Project context<\/span>/);
+});
+
 test("guarded actions confirm in-app because the webview has no window prompts", () => {
   assert.doesNotMatch(main, /window\.confirm/);
   assert.doesNotMatch(main, /window\.prompt/);
