@@ -638,3 +638,11 @@ test("a Project with no configurations is offered the ones its files already dec
   // The proposal names the file it came from so it can be checked, not trusted.
   assert.match(main, /escapeHTML\(draft\.source\)/);
 });
+
+test("the run menu opens even when the Project declares nothing", () => {
+  // An empty catalog is exactly when the menu matters: creating the first
+  // configuration and the detected proposals are both inside it.
+  assert.match(main, /removeAttribute\('disabled'\)/);
+  assert.doesNotMatch(main, /run-configuration-button'\)\?\.toggleAttribute\('disabled'/);
+  assert.match(main, /'Add configuration'/);
+});

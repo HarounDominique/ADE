@@ -2035,8 +2035,10 @@ function renderRunControl() {
   const session = configuration ? activeRunSession(configuration.id) : null;
   const busy = Boolean(session);
 
-  value.textContent = runCatalogError ? 'Invalid run.json' : configuration?.label ?? 'No configurations';
-  document.getElementById('run-configuration-button')?.toggleAttribute('disabled', !runConfigurations.length && !runCatalogError);
+  value.textContent = runCatalogError ? 'Invalid run.json' : configuration?.label ?? 'Add configuration';
+  /** Never disabled: an empty catalog is exactly when the menu matters, because
+      creating the first configuration and the proposals both live inside it. */
+  document.getElementById('run-configuration-button')?.removeAttribute('disabled');
   startButton.disabled = !configuration || busy;
   debugButton.disabled = !configuration || busy || !configuration.debug;
   debugButton.title = configuration && !configuration.debug
