@@ -1778,3 +1778,18 @@ body { color: var(--text); }
 .picker-row-action .picker-option strong { color: var(--blue); }
 .picker-row-action .git-option-mark { color: var(--blue); }
 .git-option-mark svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.9; }
+
+/* The dock's size toggle owns the horizontal centre of the divider, so the
+   status text is kept out of it: pinned to the right beside the path, capped,
+   and never wrapped -- a second line was what climbed into the chevron once the
+   run consoles added tabs. */
+.terminal-mode {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 22%;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.terminal-cwd { margin-left: 0; max-width: 34%; }

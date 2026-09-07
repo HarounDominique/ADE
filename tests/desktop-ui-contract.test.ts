@@ -658,3 +658,11 @@ test("the run menu separates what the repository offers from what the operator d
   assert.match(main, /draft\.kind === 'compound' \? `\$\{draft\.members\?\.length \?\? 0\} members`/);
   assert.match(main, /title="\$\{escapeHTML\(draft\.source\)\}"/);
 });
+
+test("the terminal dock's size toggle keeps the centre of its divider to itself", () => {
+  // Its status text wrapped to a second line once run consoles added tabs, and
+  // that line climbed into the chevron.
+  assert.match(styles, /\.terminal-mode \{[\s\S]*?white-space: nowrap;/);
+  assert.match(styles, /\.terminal-mode \{[\s\S]*?margin-left: auto;/);
+  assert.match(styles, /\.terminal-cwd \{ margin-left: 0;/);
+});
