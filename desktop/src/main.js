@@ -41,6 +41,15 @@ let workspaceRootPath = projectSnapshot.project.repositoryPath;
 let activeGitBranch = null;
 let activeVersionControl = 'git';
 let selectedFilePath = null;
+/** One editor instance serves every open file, so each tab owns its own buffer:
+    the text as last seen, the text as last saved, and where the caret was. The
+    live editor is authoritative only for the tab currently on screen, which is
+    why switching captures the outgoing buffer before painting the incoming one.
+    `activeDocument` stays a reference into this list rather than a copy, so the
+    save, format and discard paths keep writing to the tab they belong to. */
+let openDocuments = [];
+let activeDocumentId = null;
+let documentTabSequence = 0;
 let activeDocument = null;
 let documentOriginalContent = '';
 let documentDirty = false;
@@ -710,6 +719,7 @@ function renderTaskContext() {
   const selected = tasks.find((task) => task.id === selectedTaskId) ?? tasks[0] ?? null;
   selectedTaskId = selected?.id ?? null;
   selectedTaskIntent = selected?.intent ?? '';
+  void syncDocumentScope();
   const name = document.getElementById('current-task-name');
   if (name) name.textContent = selected?.intent ?? 'No task';
   const button = document.getElementById('task-context-button');
@@ -736,6 +746,7 @@ function selectTaskContext(taskId) {
   if (!task) return;
   selectedTaskId = task.id;
   selectedTaskIntent = task.intent;
+  void syncDocumentScope();
   if (!activeAgentSessionId) activeAgentTaskId = task.id;
   renderChanges(agentProjectTasks);
   renderProjectTasks(agentProjectTasks);
@@ -784,13 +795,11 @@ async function switchProjectFromContext(project) {
     gitUnpushedCommitCount = 0;
     resetAgentWorkspaceForProject();
     renderCommitControls();
-    if (selectedFilePath && !pathInsideRoot(selectedFilePath)) {
-      selectedFilePath = null;
-      activeDocument = null;
-      document.getElementById('document-viewer')?.removeAttribute('hidden');
-    }
-    // The open document does not survive a Project change, so neither does the
-    // control that points at it.
+    // Tabs belong to their Project. The outgoing set was persisted as it was
+    // opened and closed, so switching only has to reopen the incoming one.
+    document.getElementById('document-viewer')?.removeAttribute('hidden');
+    selectedFilePath = null;
+    await syncDocumentScope();
     updateRevealOpenFileButton();
     renderSnapshot({ ...projectSnapshot, project: activeProject, metrics: { ...projectSnapshot.metrics, activeTasks: 0, inReview: 0 } });
     window.clearTimeout(workspaceSearchTimer);
@@ -869,6 +878,7 @@ function renderChanges(tasks) {
   const task = tasks.find((item) => item.id === selectedTaskId) ?? [...tasks].sort((left, right) => taskCreatedAt(right) - taskCreatedAt(left))[0];
   selectedTaskId = task?.id ?? null;
   selectedTaskIntent = task?.intent ?? '';
+  void syncDocumentScope();
   const values = {
     'changes-task-id': task?.id ?? '—',
     'changes-task-title': task?.intent ?? 'No Task selected',
@@ -1423,58 +1433,156 @@ function updateDocumentEditState() {
     kindElement.textContent = documentDirty ? `${language} · UNSAVED` : language;
   }
   updateRevealOpenFileButton();
+  syncActiveDocumentTabState();
 }
 
-async function renderDocumentLoading(filePath) {
+/** Called on every keystroke, so it touches the one tab that changed instead
+    of repainting the strip and throwing away its focus. */
+function syncActiveDocumentTabState() {
+  const record = documentTabById(activeDocumentId);
+  if (!record) return;
+  record.dirty = documentDirty;
+  record.buffer = documentDirty ? codeEditorValue() : record.original;
+  const button = document.querySelector(`[data-document-tab-id="${CSS.escape(record.id)}"]`);
+  const tab = button?.parentElement;
+  if (!tab) return;
+  tab.classList.toggle('dirty', documentDirty);
+  const location = record.relativePath ?? record.path;
+  button.title = documentDirty ? `${location} — unsaved changes` : location;
+  const close = tab.querySelector('.document-tab-close');
+  close?.setAttribute('aria-label', `Close ${record.name}${documentDirty ? ', discarding unsaved changes' : ''}`);
+}
+
+function documentTabById(id) {
+  return openDocuments.find((entry) => entry.id === id) ?? null;
+}
+
+function documentTabByPath(filePath) {
+  return openDocuments.find((entry) => entry.path === filePath) ?? null;
+}
+
+/** The live editor holds the active tab's text until the moment it is swapped
+    out, so its value and caret are folded back into the record first. Without
+    this, the unsaved work of every tab but the last would be the editor's to
+    lose. */
+function captureActiveDocumentBuffer() {
+  const record = documentTabById(activeDocumentId);
+  if (!record || record.state !== 'ready' || record.kind !== 'text') return;
+  record.buffer = codeEditorValue();
+  record.dirty = record.buffer !== record.original;
+  if (activeEditorEngine === 'monaco') {
+    record.caret = monacoEditor?.getPosition() ?? null;
+    record.scrollTop = monacoEditor?.getScrollTop() ?? 0;
+  } else if (codeEditorView) {
+    record.caret = codeEditorView.state.selection.main.head;
+    record.scrollTop = codeEditorView.scrollDOM.scrollTop;
+  }
+}
+
+function restoreDocumentCaret(record) {
+  if (record.caret === null || record.caret === undefined) return;
+  try {
+    if (activeEditorEngine === 'monaco' && monacoEditor) {
+      if (typeof record.caret === 'object') monacoEditor.setPosition(record.caret);
+      monacoEditor.setScrollTop(record.scrollTop ?? 0);
+      return;
+    }
+    if (!codeEditorView || typeof record.caret !== 'number') return;
+    const anchor = Math.min(record.caret, codeEditorView.state.doc.length);
+    codeEditorView.dispatch({ selection: { anchor } });
+    codeEditorView.scrollDOM.scrollTop = record.scrollTop ?? 0;
+  } catch { /* The file may have been shortened outside Assay since. */ }
+}
+
+/** Every path through the editor ends here, so loading, ready, unreadable and
+    "nothing open" all resolve to one account of what the panel should show. */
+async function renderActiveDocument({ focus = false } = {}) {
   const viewer = document.getElementById('document-viewer');
   const status = document.getElementById('document-viewer-status');
   const content = document.getElementById('document-content');
-  if (!viewer || !status || !content) return;
+  const empty = document.getElementById('document-empty-state');
+  if (!viewer || !status || !content || !empty) return;
   viewer.hidden = false;
-  setDocumentHeader({ title: pathBaseName(filePath) || 'File', path: documentRelativePath(filePath), kind: 'LOADING' });
-  status.hidden = false;
-  status.textContent = 'Reading file…';
-  content.hidden = true;
-  await setCodeEditorContent('', filePath);
-  documentOriginalContent = '';
-  documentDirty = false;
-  updateDocumentEditState();
-}
-
-async function renderDocumentResult(result) {
-  const viewer = document.getElementById('document-viewer');
-  const status = document.getElementById('document-viewer-status');
-  const content = document.getElementById('document-content');
-  if (!viewer || !status || !content) return;
-  viewer.hidden = false;
-  activeDocument = result;
-  setDocumentHeader({ title: result.name, path: result.relativePath, kind: result.kind === 'text' ? 'TEXT' : result.kind.toUpperCase(), externalDisabled: false });
-  const isText = result.kind === 'text';
+  const record = documentTabById(activeDocumentId);
+  activeDocument = record;
+  renderDocumentTabs();
+  if (!record) {
+    empty.hidden = false;
+    status.hidden = true;
+    content.hidden = true;
+    setDocumentHeader({ title: 'No file selected', path: 'Select a file from Explorer to open it.', kind: '—', externalDisabled: true });
+    await setCodeEditorContent('');
+    documentOriginalContent = '';
+    documentDirty = false;
+    updateDocumentEditState();
+    return;
+  }
+  empty.hidden = true;
+  const kindLabel = record.state === 'loading' ? 'LOADING'
+    : record.state === 'error' ? 'FAILED'
+    : record.kind === 'text' ? 'TEXT' : String(record.kind ?? '').toUpperCase();
+  setDocumentHeader({
+    title: record.name,
+    path: record.relativePath ?? documentRelativePath(record.path),
+    kind: kindLabel,
+    externalDisabled: record.state === 'loading',
+  });
+  const isText = record.state === 'ready' && record.kind === 'text';
   status.hidden = isText;
-  status.textContent = isText ? '' : (result.message ?? 'This file cannot be previewed inside Assay.');
+  status.textContent = record.state === 'loading' ? 'Reading file…'
+    : record.state === 'error' ? `Unable to read file: ${record.message}`
+    : isText ? '' : (record.message ?? 'This file cannot be previewed inside Assay.');
   content.hidden = !isText;
-  await setCodeEditorContent(isText ? (result.content ?? '') : '', result.path ?? result.name, isText);
-  documentOriginalContent = isText ? (result.content ?? '') : '';
+  await setCodeEditorContent(isText ? (record.buffer ?? '') : '', record.path, isText && focus);
+  documentOriginalContent = isText ? (record.original ?? '') : '';
   documentDirty = false;
+  if (isText) restoreDocumentCaret(record);
   updateDocumentEditState();
-  if (isText) (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
+  if (isText && focus) (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
 }
 
-async function renderDocumentError(filePath, error) {
-  const viewer = document.getElementById('document-viewer');
-  const status = document.getElementById('document-viewer-status');
-  const content = document.getElementById('document-content');
-  if (!viewer || !status || !content) return;
-  viewer.hidden = false;
-  activeDocument = { path: filePath };
-  setDocumentHeader({ title: pathBaseName(filePath) || 'File', path: documentRelativePath(filePath), kind: 'FAILED', externalDisabled: false });
-  status.hidden = false;
-  status.textContent = `Unable to read file: ${String(error)}`;
-  content.hidden = true;
-  await setCodeEditorContent('', filePath);
-  documentOriginalContent = '';
-  documentDirty = false;
-  updateDocumentEditState();
+async function loadDocumentRecord(record) {
+  if (!nativeInvoke) return;
+  record.state = 'loading';
+  if (record.id === activeDocumentId) await renderActiveDocument();
+  else renderDocumentTabs();
+  try {
+    const result = await nativeInvoke('read_file', { path: record.path });
+    Object.assign(record, {
+      state: 'ready',
+      kind: result.kind,
+      name: result.name ?? record.name,
+      relativePath: result.relativePath ?? record.relativePath,
+      message: result.message ?? '',
+      size: result.size,
+      original: result.kind === 'text' ? (result.content ?? '') : '',
+      buffer: result.kind === 'text' ? (result.content ?? '') : '',
+      dirty: false,
+    });
+  } catch (error) {
+    Object.assign(record, { state: 'error', message: String(error), original: '', buffer: '', dirty: false });
+    notify('Unable to read file inside Assay.');
+    console.warn('File preview unavailable:', error);
+  }
+  if (record.id === activeDocumentId) await renderActiveDocument({ focus: true });
+  else renderDocumentTabs();
+}
+
+async function activateDocumentTab(id, { focus = true } = {}) {
+  if (!documentTabById(id)) return;
+  if (id !== activeDocumentId) captureActiveDocumentBuffer();
+  activeDocumentId = id;
+  const record = documentTabById(id);
+  // Moving between tabs deliberately leaves the tree where it is. A tree that
+  // re-expands and scrolls on every switch loses the place you put it in, so
+  // locating the open file stays an action you ask for, on the Explorer's own
+  // crosshair.
+  // A restored tab carries no text until it is looked at, so a session with
+  // many files reopens in one read rather than in as many reads as it had tabs.
+  if (record.state === 'pending') await loadDocumentRecord(record);
+  else await renderActiveDocument({ focus });
+  persistOpenDocuments();
+  scrollDocumentTabIntoView(id);
 }
 
 async function openFileInADE(filePath) {
@@ -1483,41 +1591,249 @@ async function openFileInADE(filePath) {
     return;
   }
   showView('editor');
-  updateWorkspaceFileSelection(filePath);
-  await renderDocumentLoading(filePath);
-  try {
-    const result = await nativeInvoke('read_file', { path: filePath });
-    await renderDocumentResult(result);
-  } catch (error) {
-    await renderDocumentError(filePath, error);
-    notify('Unable to read file inside Assay.');
-    console.warn('File preview unavailable:', error);
+  const existing = documentTabByPath(filePath);
+  if (existing) {
+    await activateDocumentTab(existing.id);
+    return;
   }
+  captureActiveDocumentBuffer();
+  const record = {
+    id: `document-${++documentTabSequence}`,
+    path: filePath,
+    name: pathBaseName(filePath) || 'File',
+    relativePath: documentRelativePath(filePath),
+    kind: 'text',
+    state: 'pending',
+    original: '',
+    buffer: '',
+    dirty: false,
+    message: '',
+    caret: null,
+    scrollTop: 0,
+  };
+  openDocuments.push(record);
+  activeDocumentId = record.id;
+  updateWorkspaceFileSelection(filePath);
+  await loadDocumentRecord(record);
+  persistOpenDocuments();
+  scrollDocumentTabIntoView(record.id);
+}
+
+function closeDocumentTab(id) {
+  const record = documentTabById(id);
+  if (!record) return;
+  const dirty = id === activeDocumentId ? (documentDirty || record.dirty) : record.dirty;
+  if (dirty) {
+    requestConfirmation({
+      eyebrow: 'DISCARD CHANGES',
+      title: `Discard unsaved changes to ${record.name}?`,
+      copy: `Edits to ${record.relativePath ?? record.path} have not been saved. Closing this tab loses them.`,
+      confirmLabel: 'Discard',
+      tone: 'danger',
+    }, () => { void closeDocumentTabNow(id); });
+    return;
+  }
+  void closeDocumentTabNow(id);
+}
+
+async function closeDocumentTabNow(id) {
+  const index = openDocuments.findIndex((entry) => entry.id === id);
+  if (index === -1) return;
+  const wasActive = id === activeDocumentId;
+  openDocuments.splice(index, 1);
+  if (!wasActive) {
+    renderDocumentTabs();
+    persistOpenDocuments();
+    return;
+  }
+  // Closing the tab in front of you hands the panel to its right-hand
+  // neighbour, and to its left when it was the last one.
+  const next = openDocuments[index] ?? openDocuments[index - 1] ?? null;
+  activeDocumentId = next?.id ?? null;
+  // Closing a tab is not a statement about the tree either, so the Explorer
+  // keeps whatever it was showing.
+  if (next && next.state === 'pending') await loadDocumentRecord(next);
+  else await renderActiveDocument({ focus: Boolean(next) });
+  persistOpenDocuments();
 }
 
 async function closeFilePreview() {
-  if (documentDirty) {
-    requestConfirmation({
-      eyebrow: 'DISCARD CHANGES',
-      title: 'Discard unsaved changes to this file?',
-      copy: `Edits to ${activeDocument?.path ?? 'this file'} have not been saved. Closing it loses them.`,
-      confirmLabel: 'Discard',
-      tone: 'danger',
-    }, () => { documentDirty = false; void closeFilePreview(); });
-    return;
+  if (activeDocumentId) closeDocumentTab(activeDocumentId);
+}
+
+/** Two files called `index.ts` are two different files, so a tab that shows
+    only the basename is a tab you cannot trust. Only the ambiguous ones pay
+    for the extra parent segment. */
+function documentTabLabels() {
+  const counts = new Map();
+  for (const record of openDocuments) counts.set(record.name, (counts.get(record.name) ?? 0) + 1);
+  return new Map(openDocuments.map((record) => {
+    if ((counts.get(record.name) ?? 0) < 2) return [record.id, ''];
+    const segments = pathSegments(record.relativePath ?? record.path);
+    return [record.id, segments.slice(-2, -1)[0] ?? ''];
+  }));
+}
+
+function renderDocumentTabs() {
+  const strip = document.getElementById('document-tabs');
+  const row = document.querySelector('.document-tabs-row');
+  if (!strip) return;
+  row?.classList.toggle('is-empty', openDocuments.length === 0);
+  const labels = documentTabLabels();
+  strip.innerHTML = openDocuments.map((record) => {
+    const active = record.id === activeDocumentId;
+    const dirty = active ? (documentDirty || record.dirty) : record.dirty;
+    const name = escapeHTML(record.name);
+    const where = labels.get(record.id);
+    const location = escapeHTML(record.relativePath ?? record.path);
+    const classes = ['document-tab', active ? 'active' : '', dirty ? 'dirty' : '', record.state === 'error' ? 'failed' : ''].filter(Boolean).join(' ');
+    // Delete closes the focused tab, which is how the close control stays
+    // reachable without adding a second stop to the roving tab order.
+    const hint = dirty ? `${location} — unsaved changes` : location;
+    return `<div class="${classes}" role="presentation"><button class="document-tab-button" type="button" role="tab" id="document-tab-${escapeHTML(record.id)}" aria-selected="${active}" aria-controls="document-viewer-body" tabindex="${active ? '0' : '-1'}" data-document-tab-id="${escapeHTML(record.id)}" title="${hint}"><span class="document-tab-name">${name}</span>${where ? `<span class="document-tab-where">${escapeHTML(where)}</span>` : ''}</button><button class="document-tab-close" type="button" tabindex="-1" data-document-close-id="${escapeHTML(record.id)}" aria-label="Close ${name}${dirty ? ', discarding unsaved changes' : ''}" title="Close ${name}"><span class="document-tab-dot" aria-hidden="true"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>`;
+  }).join('');
+  updateDocumentTabsOverflow();
+}
+
+function scrollDocumentTabIntoView(id) {
+  const tab = document.querySelector(`[data-document-tab-id="${CSS.escape(id)}"]`);
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  tab?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
+}
+
+/** The strip scrolls, but a scrolled-away tab is a tab you cannot find. The
+    menu appears only once the strip actually overflows. */
+function updateDocumentTabsOverflow() {
+  const strip = document.getElementById('document-tabs');
+  const more = document.getElementById('document-tabs-more');
+  if (!strip || !more) return;
+  const overflowing = strip.scrollWidth - strip.clientWidth > 1;
+  more.hidden = !overflowing;
+  if (!overflowing) closeDocumentTabsMenu();
+}
+
+function closeDocumentTabsMenu() {
+  const menu = document.getElementById('document-tabs-menu');
+  const more = document.getElementById('document-tabs-more');
+  if (menu) menu.hidden = true;
+  more?.setAttribute('aria-expanded', 'false');
+}
+
+function toggleDocumentTabsMenu() {
+  const menu = document.getElementById('document-tabs-menu');
+  const more = document.getElementById('document-tabs-more');
+  if (!menu || !more) return;
+  if (!menu.hidden) { closeDocumentTabsMenu(); more.focus(); return; }
+  const labels = documentTabLabels();
+  menu.innerHTML = openDocuments.map((record) => {
+    const active = record.id === activeDocumentId;
+    const dirty = active ? (documentDirty || record.dirty) : record.dirty;
+    const where = labels.get(record.id) || pathSegments(record.relativePath ?? record.path).slice(0, -1).join(' / ');
+    return `<button class="document-tabs-menu-item${active ? ' active' : ''}" type="button" role="menuitem" data-document-tab-id="${escapeHTML(record.id)}"><span class="document-tabs-menu-name">${escapeHTML(record.name)}</span><span class="document-tabs-menu-where">${escapeHTML(where || 'Project root')}</span>${dirty ? '<span class="document-tabs-menu-dirty" aria-label="Unsaved changes">unsaved</span>' : ''}</button>`;
+  }).join('');
+  menu.hidden = false;
+  more.setAttribute('aria-expanded', 'true');
+  menu.querySelector('.document-tabs-menu-item.active, .document-tabs-menu-item')?.focus();
+}
+
+const openDocumentsStorageKey = 'ade-open-documents';
+/** Files opened while no Task is selected are still worth remembering, so the
+    Project keeps a slot of its own alongside its Tasks. */
+const noTaskDocumentScope = '__no-task__';
+let documentScopeKey = null;
+let documentScopeTransition = Promise.resolve();
+
+function documentSessionScope() {
+  return { project: workspaceRootPath ?? '', task: selectedTaskId ?? noTaskDocumentScope };
+}
+
+/** The store began as one set per Project. Fold that shape into the Project's
+    no-Task slot instead of dropping the files it holds. */
+function readOpenDocumentSessions() {
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem(openDocumentsStorageKey) ?? '{}') ?? {}; } catch { return {}; }
+  for (const [project, entry] of Object.entries(stored)) {
+    if (entry && Array.isArray(entry.paths)) stored[project] = { [noTaskDocumentScope]: entry };
   }
-  const viewer = document.getElementById('document-viewer');
-  if (viewer) viewer.hidden = false;
-  const status = document.getElementById('document-viewer-status');
-  const content = document.getElementById('document-content');
-  if (status) status.hidden = true;
-  if (content) content.hidden = false;
-  await setCodeEditorContent('');
-  setDocumentHeader({ title: 'No file selected', path: 'Select a file from Explorer to open its code.', kind: '—', externalDisabled: true });
+  return stored;
+}
+
+function persistOpenDocuments() {
+  const { project, task } = documentSessionScope();
+  if (!project) return;
+  try {
+    const stored = readOpenDocumentSessions();
+    stored[project] = {
+      ...(stored[project] ?? {}),
+      [task]: {
+        paths: openDocuments.map((record) => record.path),
+        active: documentTabById(activeDocumentId)?.path ?? null,
+      },
+    };
+    localStorage.setItem(openDocumentsStorageKey, JSON.stringify(stored));
+  } catch { /* Persistence is optional. */ }
+}
+
+/** Tabs belong to a Project and a Task together, so changing either swaps the
+    working set. Every mutation persists as it happens, which is why the
+    outgoing set needs no saving here. */
+async function syncDocumentScope() {
+  const { project, task } = documentSessionScope();
+  const scope = `${project}\n${task}`;
+  if (scope === documentScopeKey) return documentScopeTransition;
+  // Claimed before the first await, because the render paths that fire this
+  // run in bursts and a second restore would clear the list the first one is
+  // still reading a file into.
+  documentScopeKey = scope;
+  documentScopeTransition = documentScopeTransition
+    .then(() => restoreOpenDocuments(project, task))
+    .catch((error) => { console.warn('Open files could not be restored:', error); });
+  return documentScopeTransition;
+}
+
+/** Reopen the tabs this Project and Task were left with. Only the one that gets
+    focus is read from disk; the rest stay pending until they are looked at. */
+async function restoreOpenDocuments(project, task) {
+  openDocuments = [];
+  activeDocumentId = null;
   activeDocument = null;
-  documentOriginalContent = '';
-  documentDirty = false;
-  updateDocumentEditState();
+  // A Task seen for the first time has nothing remembered, and opens empty.
+  const session = readOpenDocumentSessions()[project]?.[task] ?? null;
+  const paths = Array.isArray(session?.paths) ? session.paths.filter((path) => typeof path === 'string' && pathInsideRoot(path)) : [];
+  for (const path of paths) {
+    openDocuments.push({
+      id: `document-${++documentTabSequence}`,
+      path,
+      name: pathBaseName(path) || 'File',
+      relativePath: documentRelativePath(path),
+      kind: 'text',
+      state: 'pending',
+      original: '',
+      buffer: '',
+      dirty: false,
+      message: '',
+      caret: null,
+      scrollTop: 0,
+    });
+  }
+  const active = documentTabByPath(session?.active) ?? openDocuments[0] ?? null;
+  if (!active) { await renderActiveDocument(); return; }
+  activeDocumentId = active.id;
+  await loadDocumentRecord(active);
+}
+
+function focusDocumentTabAt(index) {
+  const record = openDocuments[index];
+  if (!record) return;
+  void activateDocumentTab(record.id);
+  requestAnimationFrame(() => document.querySelector(`[data-document-tab-id="${CSS.escape(record.id)}"]`)?.focus());
+}
+
+function stepDocumentTab(offset) {
+  if (openDocuments.length < 2) return;
+  const current = openDocuments.findIndex((record) => record.id === activeDocumentId);
+  const next = (current + offset + openDocuments.length) % openDocuments.length;
+  focusDocumentTabAt(next);
 }
 
 async function saveActiveDocument() {
@@ -1527,7 +1843,9 @@ async function saveActiveDocument() {
   try {
     await nativeInvoke('write_file', { path: activeDocument.path, content });
     documentOriginalContent = content;
-    activeDocument = { ...activeDocument, content, size: new TextEncoder().encode(content).length };
+    // The record is the tab, so saving writes through it rather than replacing
+    // the object the strip and the close path are holding on to.
+    Object.assign(activeDocument, { content, original: content, buffer: content, size: new TextEncoder().encode(content).length });
     updateDocumentEditState();
     notify('File saved in Assay.');
   } catch (error) {
@@ -2627,6 +2945,7 @@ function renderTaskDetail(detail) {
   if (!panel) return;
   selectedTaskId = task.id;
   selectedTaskIntent = task.intent;
+  void syncDocumentScope();
   const gates = detail.gates.map((gate) => `${gate.id}: ${gate.status}`).join(' · ') || 'No gates';
   const changeset = detail.changeSets[0] ? `${detail.changeSets[0].id} (${detail.changeSets[0].gitStatus || 'clean'})` : 'No ChangeSet';
   const operations = detail.gitOperations.length
@@ -2657,6 +2976,7 @@ async function refreshProjectContext(snapshot) {
     workspaceSearchEntries = null;
     workspaceSearchIndex = null;
     await loadWorkspaceTree(context.repositoryPath, invoke);
+    await syncDocumentScope();
     await refreshGitWorkspace(context.repositoryPath, invoke);
     notify('Project context loaded from the local repository.');
   } catch (error) {
@@ -3995,6 +4315,72 @@ document.addEventListener('click', (event) => {
   const button = event.target.closest('[data-task-id][data-task-next]');
   if (!button) return;
   advanceTaskFromUI(button.dataset.taskId, button.dataset.taskNext, button);
+});
+const documentTabStrip = document.getElementById('document-tabs');
+documentTabStrip?.addEventListener('click', (event) => {
+  const close = event.target.closest('[data-document-close-id]');
+  if (close) { closeDocumentTab(close.dataset.documentCloseId); return; }
+  const tab = event.target.closest('[data-document-tab-id]');
+  if (tab) void activateDocumentTab(tab.dataset.documentTabId);
+});
+// Middle click closes a tab, as it does in the editors this strip borrows from.
+documentTabStrip?.addEventListener('auxclick', (event) => {
+  const tab = event.button === 1 && event.target.closest('[data-document-tab-id]');
+  if (!tab) return;
+  event.preventDefault();
+  closeDocumentTab(tab.dataset.documentTabId);
+});
+documentTabStrip?.addEventListener('keydown', (event) => {
+  const tabs = [...documentTabStrip.querySelectorAll('[data-document-tab-id]')];
+  const currentIndex = tabs.indexOf(event.target);
+  if (currentIndex < 0) return;
+  // Delete on the focused tab is how its close control stays reachable without
+  // adding a second stop to the roving tab order.
+  if (event.key === 'Delete' || event.key === 'Backspace') {
+    event.preventDefault();
+    closeDocumentTab(event.target.dataset.documentTabId);
+    return;
+  }
+  let nextIndex = currentIndex;
+  if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length;
+  else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+  else if (event.key === 'Home') nextIndex = 0;
+  else if (event.key === 'End') nextIndex = tabs.length - 1;
+  else return;
+  event.preventDefault();
+  focusDocumentTabAt(nextIndex);
+});
+// A strip that has overflowed is scrolled with the wheel, not only by dragging
+// a scrollbar that most pointing devices never show.
+documentTabStrip?.addEventListener('wheel', (event) => {
+  if (event.deltaX !== 0 || documentTabStrip.scrollWidth <= documentTabStrip.clientWidth) return;
+  documentTabStrip.scrollLeft += event.deltaY;
+}, { passive: true });
+if (documentTabStrip && window.ResizeObserver) new ResizeObserver(() => updateDocumentTabsOverflow()).observe(documentTabStrip);
+document.getElementById('document-tabs-more')?.addEventListener('click', toggleDocumentTabsMenu);
+document.getElementById('document-tabs-menu')?.addEventListener('click', (event) => {
+  const item = event.target.closest('[data-document-tab-id]');
+  if (!item) return;
+  closeDocumentTabsMenu();
+  void activateDocumentTab(item.dataset.documentTabId);
+});
+document.addEventListener('click', (event) => {
+  if (document.getElementById('document-tabs-menu')?.hidden !== false) return;
+  if (event.target.closest('.document-tabs-overflow')) return;
+  closeDocumentTabsMenu();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && document.getElementById('document-tabs-menu')?.hidden === false) {
+    event.preventDefault();
+    closeDocumentTabsMenu();
+    document.getElementById('document-tabs-more')?.focus();
+    return;
+  }
+  // Ctrl+Tab cycles the open files, the one binding every editor agrees on and
+  // the one macOS does not already spend on the window.
+  if (event.key !== 'Tab' || !event.ctrlKey || activeView !== 'editor' || openDocuments.length < 2) return;
+  event.preventDefault();
+  stepDocumentTab(event.shiftKey ? -1 : 1);
 });
 document.querySelector('.version-control-tabs')?.addEventListener('keydown', (event) => {
   const tabs = [...document.querySelectorAll('[data-version-control-tab]')];

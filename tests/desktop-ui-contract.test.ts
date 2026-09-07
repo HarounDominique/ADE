@@ -658,13 +658,92 @@ test("the run menu separates what the repository offers from what the operator d
   assert.match(main, /title="\$\{escapeHTML\(draft\.source\)\}"/);
 });
 
-test("the brand mark is the product's logo, and it wears the tile's colour", () => {
-  assert.match(html, /<span class="brand-mark" aria-hidden="true"><\/span>/);
-  assert.doesNotMatch(html, /class="brand-mark">A</);
-  assert.match(styles, /--brand-glyph: url\("data:image\/png;base64,[A-Za-z0-9+/=]+"\);/);
-  // Masked rather than painted, so a single asset serves every theme's tile.
-  assert.match(styles, /\.brand-mark::before \{[^}]*background: currentColor;/);
-  assert.match(styles, /\.brand-mark::before \{[^}]*mask: var\(--brand-glyph\) center \/ contain no-repeat;/);
+test("the editor holds more than one file at a time", () => {
+  assert.match(html, /id="document-tabs" role="tablist" aria-label="Open files"/);
+  assert.match(main, /let openDocuments = \[\];/);
+  // One editor instance serves every tab, so the outgoing buffer is folded back
+  // into its record before the incoming one is painted.
+  assert.match(main, /async function activateDocumentTab[\s\S]*?captureActiveDocumentBuffer\(\);/);
+  assert.match(main, /function captureActiveDocumentBuffer\(\)[\s\S]*?record\.buffer = codeEditorValue\(\);/);
+  // Opening a file that is already open moves to its tab instead of duplicating it.
+  assert.match(main, /async function openFileInADE[\s\S]*?const existing = documentTabByPath\(filePath\);/);
+  // Closing a tab with unsaved work asks first, naming the file it would lose.
+  assert.match(main, /function closeDocumentTab\(id\)[\s\S]*?requestConfirmation\(/);
+  assert.match(main, /Discard unsaved changes to \$\{record\.name\}\?/);
+});
+
+test("open files are remembered per Project and per Task", () => {
+  // A Task carries its own working set, and files opened with no Task selected
+  // are still worth keeping, so the Project holds a slot of its own for them.
+  assert.match(main, /const noTaskDocumentScope = '__no-task__';/);
+  assert.match(main, /function documentSessionScope\(\)[\s\S]*?task: selectedTaskId \?\? noTaskDocumentScope/);
+  assert.match(main, /function persistOpenDocuments\(\)[\s\S]*?stored\[project\] = \{[\s\S]*?\[task\]: \{/);
+  // The earlier store held one set per Project; its files are folded in rather
+  // than dropped.
+  assert.match(main, /function readOpenDocumentSessions\(\)[\s\S]*?Array\.isArray\(entry\.paths\)\) stored\[project\] = \{ \[noTaskDocumentScope\]: entry \}/);
+  // One entry point decides when a restore is due, and it claims the scope
+  // before its first await so overlapping calls cannot interleave.
+  const sync = main.match(/async function syncDocumentScope\(\)[^]*?\n\}/)?.[0] ?? '';
+  assert.ok(sync, 'the scope sync must be findable');
+  assert.ok(sync.indexOf('documentScopeKey = scope;') < sync.indexOf('documentScopeTransition = documentScopeTransition'), 'the scope is claimed before the restore is queued');
+  assert.match(sync, /documentScopeTransition\s*\n?\s*\.then\(\(\) => restoreOpenDocuments\(project, task\)\)/);
+  // Restoring is the only caller, so nothing else can load a set out of scope.
+  assert.equal((main.match(/restoreOpenDocuments\(/g) ?? []).length, 2, 'restoreOpenDocuments is defined once and called once');
+});
+
+test("everything the editor panel toggles with hidden can actually hide", () => {
+  // An author `display` outranks the user agent's `[hidden]`, so a rule that
+  // sets one without the other leaves the element on screen for good: the
+  // empty state stayed up over an open file, and the open-files menu could be
+  // opened but never closed.
+  for (const selector of ['.document-empty-state', '.document-tabs-menu', '.document-viewer-status', '.document-content', '.icon-button']) {
+    const declaresDisplay = new RegExp(`\\${selector} \\{[^}]*display:`).test(styles);
+    const guarded = styles.includes(`${selector}[hidden]`) || new RegExp(`\\${selector}\\[hidden\\][^{]*\\{`).test(styles);
+    assert.ok(!declaresDisplay || guarded, `${selector} sets display but never says what [hidden] means`);
+  }
+});
+
+test("moving between tabs leaves the Explorer where the operator put it", () => {
+  // The tree follows the editor only when asked to: opening a file, or the
+  // Explorer's own crosshair. Switching and closing tabs do neither, so a tree
+  // scrolled and expanded for one job survives reading a second file.
+  const activate = main.match(/async function activateDocumentTab\(id[^]*?\n\}/)?.[0] ?? '';
+  const closeNow = main.match(/async function closeDocumentTabNow\(id\)[^]*?\n\}/)?.[0] ?? '';
+  assert.ok(activate && closeNow, 'the tab activation and close paths must be findable');
+  assert.doesNotMatch(activate, /updateWorkspaceFileSelection/);
+  assert.doesNotMatch(closeNow, /updateWorkspaceFileSelection/);
+  // Exactly two callers move the tree, and this is which.
+  const callers = main.match(/^ {2}updateWorkspaceFileSelection\(/gm) ?? [];
+  assert.equal(callers.length, 2, 'only opening a file and revealing it may select in the tree');
+  assert.match(main, /async function openFileInADE[^]*?updateWorkspaceFileSelection\(filePath\);/);
+  assert.match(main, /async function revealSelectedFileBranch[^]*?updateWorkspaceFileSelection\(filePath\);/);
+});
+
+test("an editor tab states its file, its location and its unsaved work", () => {
+  // Ambiguous basenames earn a parent segment; the rest stay short.
+  assert.match(main, /function documentTabLabels\(\)[\s\S]*?counts\.get\(record\.name\) \?\? 0\) < 2/);
+  // Unsaved work is a dot that becomes the close cross, so the state is a shape
+  // and not only a colour.
+  assert.match(styles, /\.document-tab\.dirty \.document-tab-close \.document-tab-dot \{ display: block; \}/);
+  assert.match(styles, /\.document-tab\.dirty:hover \.document-tab-close svg[\s\S]*?\{ display: block; \}/);
+  assert.match(main, /aria-label="Close \$\{name\}\$\{dirty \? ', discarding unsaved changes' : ''\}"/);
+  assert.match(styles, /\.document-tab\.active \{ border-bottom-color: var\(--cyan\);/);
+  // Filenames keep the case they have on disk.
+  assert.doesNotMatch(styles, /\.document-tab-button \{[^}]*text-transform: uppercase/);
+});
+
+test("open files are reachable by keyboard and survive a restart", () => {
+  // The strip is a roving tab stop, matching the pattern History and Changes use.
+  assert.match(main, /tabindex="\$\{active \? '0' : '-1'\}"/);
+  assert.match(main, /documentTabStrip\?\.addEventListener\('keydown'[\s\S]*?event\.key === 'Delete' \|\| event\.key === 'Backspace'/);
+  assert.match(main, /documentTabStrip\?\.addEventListener\('keydown'[\s\S]*?event\.key === 'ArrowRight'/);
+  assert.match(main, /event\.key !== 'Tab' \|\| !event\.ctrlKey/);
+  // A strip that overflows gets a menu; it stays hidden while it does not.
+  assert.match(main, /function updateDocumentTabsOverflow\(\)[\s\S]*?more\.hidden = !overflowing;/);
+  assert.match(main, /const openDocumentsStorageKey = 'ade-open-documents';/);
+  // Restored tabs are read from disk only when they are looked at.
+  assert.match(main, /async function restoreOpenDocuments\(project, task\)[\s\S]*?state: 'pending'/);
+  assert.match(html, /id="document-empty-state"/);
 });
 
 test("the explorer can point at the file the editor is showing", () => {
@@ -681,6 +760,15 @@ test("the explorer can point at the file the editor is showing", () => {
   assert.match(main, /function updateRevealOpenFileButton\(\)[\s\S]*?button\.disabled = !available;/);
   assert.match(styles, /\.workspace-entry\.just-revealed \{ animation: workspace-reveal/);
   assert.match(styles, /\.icon-button:disabled \{/);
+});
+
+test("the brand mark is the product's logo, and it wears the tile's colour", () => {
+  assert.match(html, /<span class="brand-mark" aria-hidden="true"><\/span>/);
+  assert.doesNotMatch(html, /class="brand-mark">A</);
+  assert.match(styles, /--brand-glyph: url\("data:image\/png;base64,[A-Za-z0-9+/=]+"\);/);
+  // Masked rather than painted, so a single asset serves every theme's tile.
+  assert.match(styles, /\.brand-mark::before \{[^}]*background: currentColor;/);
+  assert.match(styles, /\.brand-mark::before \{[^}]*mask: var\(--brand-glyph\) center \/ contain no-repeat;/);
 });
 
 test("the terminal dock's tab strip spends its width on the working directory", () => {
