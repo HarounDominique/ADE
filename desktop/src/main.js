@@ -214,6 +214,43 @@ function applyMonacoTheme(theme) {
   if (monaco) monaco.editor.setTheme(theme === 'light' ? 'ade-light' : 'ade-dark');
 }
 
+/** Terminal palettes.  Only four colours were defined before, so the sixteen
+    ANSI colours fell back to xterm's own -- tuned for a dark background and
+    close to invisible on a light one, which is what made light mode unreadable.
+    Both palettes are built from the product's tokens and verified for contrast
+    against their own background: every colour clears 4.5:1, the threshold the
+    terminal literature settles on, rather than copying a scheme like Solarized
+    Light whose low contrast is a documented complaint.
+
+    ANSI black is the deliberate exception: it is the dim colour programs use to
+    de-emphasise, so it stays close to the background by convention. Bright
+    black is not -- prompts and logs use it for real text, so it stays legible.
+
+    On a light background "bright" cannot mean lighter without disappearing, so
+    the bright half is the more emphatic one: darker and more saturated. */
+const terminalPalettes = {
+  dark: {
+    background: '#141a22', foreground: '#d7e3ea', cursor: '#69d5c8', cursorAccent: '#141a22', selectionBackground: '#2f4a5e',
+    black: '#3d4a5c', red: '#f1959d', green: '#7cd9a5', yellow: '#f0c477',
+    blue: '#7fb0ff', magenta: '#c3a7ff', cyan: '#69d5c8', white: '#c4d2dc',
+    brightBlack: '#7d93a8', brightRed: '#ffb3ba', brightGreen: '#9de8bd', brightYellow: '#ffd89b',
+    brightBlue: '#a8c9ff', brightMagenta: '#d6c1ff', brightCyan: '#8fe6db', brightWhite: '#edf4f7',
+  },
+  light: {
+    background: '#f7f6f3', foreground: '#20211f', cursor: '#1d7775', cursorAccent: '#f7f6f3', selectionBackground: '#cfe0dd',
+    black: '#3b3a37', red: '#a32b2b', green: '#1a7f4b', yellow: '#8a5d11',
+    blue: '#245ec4', magenta: '#7057b8', cyan: '#1d7775', white: '#6f6e69',
+    brightBlack: '#575652', brightRed: '#c0392b', brightGreen: '#15693e', brightYellow: '#725012',
+    brightBlue: '#1d4fa8', brightMagenta: '#5c46a0', brightCyan: '#166462', brightWhite: '#3b3a37',
+  },
+};
+
+/** The active theme, readable before any terminal exists: a terminal created
+    later must open in the theme already on screen instead of a hardcoded one. */
+function activeTerminalPalette() {
+  return terminalPalettes[document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'];
+}
+
 function applyTheme(theme) {
   const nextTheme = theme === 'light' ? 'light' : 'dark';
   document.documentElement.dataset.theme = nextTheme;
@@ -228,9 +265,7 @@ function applyTheme(theme) {
     const label = button.querySelector('.theme-switch-label');
     if (label) label.textContent = nextTheme === 'light' ? 'Dark' : 'Light';
   });
-  const terminalTheme = nextTheme === 'light'
-    ? { background: '#e8f2ef', foreground: '#195c4c', cursor: '#0e827b', selectionBackground: '#b9ddd2' }
-    : { background: '#142333', foreground: '#d7eee9', cursor: '#69d5c8', selectionBackground: '#315a54' };
+  const terminalTheme = terminalPalettes[nextTheme === 'light' ? 'light' : 'dark'];
   terminalTabs?.forEach((tab) => {
     if (tab.terminal) tab.terminal.options.theme = terminalTheme;
   });
@@ -376,7 +411,7 @@ function createTerminalTab({ focus = true } = {}) {
     scrollback: 5000,
     fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, monospace',
     fontSize: 12,
-    theme: { background: '#0d1416', foreground: '#b7e9d0', cursor: '#1aa889' },
+    theme: activeTerminalPalette(),
   });
   tab.fitAddon = new FitAddon();
   tab.terminal.loadAddon(tab.fitAddon);

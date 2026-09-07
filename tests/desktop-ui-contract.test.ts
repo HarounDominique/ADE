@@ -195,6 +195,22 @@ test("navigation runs from the work outward", () => {
   assert.doesNotMatch(html, /<span>Project context<\/span>/);
 });
 
+test("the terminal opens in the theme already on screen, in full colour", () => {
+  // A hardcoded theme at construction meant every terminal opened black
+  // whatever the shell was wearing.
+  assert.match(main, /theme: activeTerminalPalette\(\)/);
+  assert.match(main, /function activeTerminalPalette/);
+  assert.doesNotMatch(main, /theme: \{ background: '#0d1416'/);
+  // Four colours left the sixteen ANSI ones on xterm's dark-tuned defaults,
+  // which is what made light mode unreadable.
+  for (const colour of ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "brightBlack", "brightWhite"]) {
+    assert.match(main, new RegExp(`${colour}: '#`));
+  }
+  // The frame and the canvas must agree on one colour per theme.
+  assert.match(styles, /\[data-theme="light"\] \.terminal-surface[\s\S]*?background: #f7f6f3/);
+  assert.match(styles, /not\(\[data-theme="light"\]\) \.terminal-surface[\s\S]*?background: #141a22/);
+});
+
 test("guarded actions confirm in-app because the webview has no window prompts", () => {
   assert.doesNotMatch(main, /window\.confirm/);
   assert.doesNotMatch(main, /window\.prompt/);
@@ -480,7 +496,8 @@ test("dark theme keeps a dedicated night-evidence palette", () => {
   assert.match(darkTheme, /--panel: #1a2a3b/);
   assert.match(darkTheme, /--cyan: #69d5c8/);
   assert.match(main, /editor\.background': '#142333'/);
-  assert.match(main, /background: '#142333', foreground: '#d7eee9'/);
+  assert.match(main, /const terminalPalettes = \{/);
+  assert.match(main, /dark: \{\s*background: '#141a22'/);
 });
 
 test("desktop shell removes simulated chrome and keeps Task selection accessible", () => {

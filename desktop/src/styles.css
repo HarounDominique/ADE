@@ -1536,3 +1536,13 @@ body { color: var(--text); }
    a centre column held open by an empty one. */
 .topbar { grid-template-columns: auto minmax(0, 1fr); }
 .git-context-bar { justify-self: start; }
+
+/* The terminal surface follows the palette xterm is painting inside it, so the
+   frame and the canvas cannot disagree -- they used to sit on separate colours
+   set in separate passes. */
+:root[data-theme="light"] .terminal-surface,
+:root[data-theme="light"] .ide-terminal,
+:root[data-theme="light"] .terminal-host .xterm-viewport { background: #f7f6f3; }
+:root:not([data-theme="light"]) .terminal-surface,
+:root:not([data-theme="light"]) .ide-terminal,
+:root:not([data-theme="light"]) .terminal-host .xterm-viewport { background: #141a22; }
