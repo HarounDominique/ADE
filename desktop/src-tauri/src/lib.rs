@@ -1167,13 +1167,17 @@ mod tests {
         let root = fixture_root("terminal");
         let workspace = WorkspaceRoot::default();
         project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+        #[cfg(target_os = "windows")]
+        let command = "echo ade";
+        #[cfg(not(target_os = "windows"))]
+        let command = "printf ade";
         let result = terminal_exec_in(
             &workspace,
             &root.to_string_lossy(),
-            "printf ade".to_string(),
+            command.to_string(),
         )
         .expect("run terminal");
-        assert_eq!(result.stdout, "ade");
+        assert_eq!(result.stdout.trim(), "ade");
         assert_eq!(result.exit_code, Some(0));
         fs::remove_dir_all(root).expect("remove fixture");
     }
