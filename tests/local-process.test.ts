@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LocalProcess, runtimeEnvironment } from "../src/adapters/local-process.js";
+import { LocalProcess, runtimeEnvironment, windowsJavaRoots, windowsNodeDirectories } from "../src/adapters/local-process.js";
 
 // Node itself is the one interpreter guaranteed on every platform the suite runs on.
 const node = process.execPath;
@@ -24,6 +24,45 @@ test("LocalProcess starts, captures output and stops a process", async () => {
   const evidence = await processPort.stop(handle);
   assert.equal(evidence.state, "STOPPED");
   assert.match(evidence.stdout, /ready/);
+});
+
+// Windows discovery is pure given an environment block, so it is testable from
+// any machine -- which matters, because the suite that would catch it in place
+// only ever runs on the platform it is running on.
+const windowsEnv = {
+  ProgramFiles: "C:\\Program Files",
+  "ProgramFiles(x86)": "C:\\Program Files (x86)",
+  ProgramData: "C:\\ProgramData",
+  USERPROFILE: "C:\\Users\\dev",
+} satisfies NodeJS.ProcessEnv;
+
+test("Windows looks for Node where Windows actually installs it", () => {
+  const directories = windowsNodeDirectories(windowsEnv);
+  for (const expected of [
+    "C:\\Program Files\\nodejs",
+    "C:\\Program Files (x86)\\nodejs",
+    "C:\\ProgramData\\chocolatey\\bin",
+    "C:\\Users\\dev\\scoop\\shims",
+    "C:\\Users\\dev\\.volta\\bin",
+  ]) {
+    assert.ok(directories.includes(expected), `${expected} is not looked for`);
+  }
+  // Entries are prepended, so a version manager has to come after the
+  // machine-wide install to end up ahead of it on PATH.
+  assert.ok(
+    directories.indexOf("C:\\Users\\dev\\.volta\\bin") > directories.indexOf("C:\\Program Files\\nodejs"),
+    "a version manager must outrank a machine-wide install",
+  );
+});
+
+test("Windows looks for a JDK under every vendor that ships one", () => {
+  const roots = windowsJavaRoots(windowsEnv);
+  // No vendor owns Windows, so naming only one is naming the wrong one on most
+  // machines. These are the directories their installers create.
+  for (const vendor of ["Microsoft", "Eclipse Adoptium", "Amazon Corretto", "Zulu", "Java"]) {
+    assert.ok(roots.includes(`C:\\Program Files\\${vendor}`), `${vendor} is not looked for`);
+  }
+  assert.ok(roots.some((root) => root.startsWith("C:\\Program Files (x86)")), "the 32-bit root is not looked for");
 });
 
 // The discoverable locations belong to the developer's machine, so the suite

@@ -1,7 +1,7 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
 import type {
   ProcessDefinition,
   ProcessEvidence,
@@ -79,16 +79,46 @@ export function runtimeEnvironment(overrides: NodeJS.ProcessEnv | undefined): No
 }
 
 function windowsRuntimeEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const programFiles = env.ProgramFiles ?? "C:\\Program Files";
-  addPathEntry(env, join(programFiles, "nodejs"), "npm.cmd");
+  for (const directory of windowsNodeDirectories(env)) addPathEntry(env, directory, "npm.cmd");
   const javaHome = env.JAVA_HOME && existsSync(join(env.JAVA_HOME, "bin", "java.exe"))
     ? env.JAVA_HOME
-    : findWindowsJavaHome(programFiles);
+    : javaHomeAmong(windowsJavaCandidates(env), "java.exe", "javac.exe");
   if (javaHome) {
     env.JAVA_HOME = javaHome;
     addPathEntry(env, join(javaHome, "bin"), "java.exe");
   }
   return env;
+}
+
+export function windowsNodeDirectories(env: NodeJS.ProcessEnv): readonly string[] {
+  const programFiles = env.ProgramFiles ?? "C:\\Program Files";
+  const programFilesX86 = env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)";
+  const programData = env.ProgramData ?? "C:\\ProgramData";
+  const home = env.USERPROFILE ?? homedir();
+  // Weakest to strongest, as on POSIX: entries are prepended, so a version
+  // manager's shims end up ahead of a machine-wide install.
+  return [
+    win32.join(programFilesX86, "nodejs"),
+    win32.join(programFiles, "nodejs"),
+    win32.join(programData, "chocolatey", "bin"),
+    win32.join(home, "scoop", "shims"),
+    win32.join(home, ".volta", "bin"),
+  ];
+}
+
+/** No JDK vendor owns Windows the way a package manager owns macOS, so each
+    ships into its own directory under Program Files and naming one is naming
+    the wrong one on most machines. These are the directories their installers
+    create; what is inside them is the machine's business. */
+export function windowsJavaRoots(env: NodeJS.ProcessEnv): readonly string[] {
+  const roots = [env.ProgramFiles ?? "C:\\Program Files", env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)"];
+  const vendors = ["Microsoft", "Eclipse Adoptium", "Amazon Corretto", "Zulu", "Java", "AdoptOpenJDK", "BellSoft", "Semeru"];
+  return roots.flatMap((root) => vendors.map((vendor) => win32.join(root, vendor)));
+}
+
+/** Newest first within a vendor, so a machine holding 17 and 21 runs 21. */
+function windowsJavaCandidates(env: NodeJS.ProcessEnv): readonly string[] {
+  return windowsJavaRoots(env).flatMap((root) => newestFirst(root));
 }
 
 function posixRuntimeEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -99,7 +129,7 @@ function posixRuntimeEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   for (const directory of posixNodeDirectories(home)) addPathEntry(env, directory, "npm");
   const javaHome = env.JAVA_HOME && existsSync(join(env.JAVA_HOME, "bin", "java"))
     ? env.JAVA_HOME
-    : findPosixJavaHome(home);
+    : javaHomeAmong(posixJavaCandidates(home), "java", "javac");
   if (javaHome) {
     env.JAVA_HOME = javaHome;
     addPathEntry(env, join(javaHome, "bin"), "java");
@@ -122,14 +152,24 @@ function posixNodeDirectories(home: string): readonly string[] {
   ];
 }
 
-function findPosixJavaHome(home: string): string | undefined {
+function posixJavaCandidates(home: string): readonly string[] {
   return [
     join(home, ".sdkman/candidates/java/current"),
     ...newestFirst("/Library/Java/JavaVirtualMachines").map((directory) => join(directory, "Contents/Home")),
     "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home",
     "/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home",
     ...newestFirst("/usr/lib/jvm"),
-  ].find((directory) => existsSync(join(directory, "bin", "java")));
+  ];
+}
+
+/** A runtime carries `java` too, and both platforms keep JREs beside JDKs --
+    `Program Files\\Java` holds `jre1.8` next to `jdk-21`, and a Linux
+    `/usr/lib/jvm` holds `java-17-openjdk` next to its headless runtime. Maven's
+    wrapper needs something that compiles, so prefer a directory that can, and
+    settle for one that merely runs only when nothing else is installed. */
+function javaHomeAmong(candidates: readonly string[], runtime: string, compiler: string): string | undefined {
+  return candidates.find((directory) => existsSync(join(directory, "bin", compiler)))
+    ?? candidates.find((directory) => existsSync(join(directory, "bin", runtime)));
 }
 
 /** Version directories sort by name, which for `jdk-21` or `v24.3.0` puts the
@@ -158,18 +198,6 @@ function addPathEntry(env: NodeJS.ProcessEnv, directory: string, executable: str
     ? entry.toLowerCase() === directory.toLowerCase()
     : entry === directory);
   if (!present) env[pathKey] = current ? `${directory}${separator}${current}` : directory;
-}
-
-function findWindowsJavaHome(programFiles: string): string | undefined {
-  const microsoftDirectory = join(programFiles, "Microsoft");
-  try {
-    return readdirSync(microsoftDirectory, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name.startsWith("jdk-"))
-      .map((entry) => join(microsoftDirectory, entry.name))
-      .find((directory) => existsSync(join(directory, "bin", "java.exe")));
-  } catch {
-    return undefined;
-  }
 }
 
 async function killGroup(child: ChildProcessWithoutNullStreams, signal: NodeJS.Signals): Promise<void> {
