@@ -70,7 +70,10 @@ export class CodexCliRuntime implements AgentRuntimePort {
     const sandbox = grantedPermissions.some((permission) => ["write_code", "write_docs"].includes(permission)) ? "workspace-write" : "read-only";
     const args = [
       ...(grantedPermissions.includes("network") ? ["--search"] : []),
-      ...(model ? ["--model", model] : []),
+      // A resumed Codex session owns its model. Repeating a model from the UI
+      // can silently switch it (or, for retired ids, make the CLI fall back)
+      // and then fail the turn with a model-mismatch warning.
+      ...(isNew && model ? ["--model", normalizeCodexModel(model)] : []),
       "exec",
       "--sandbox",
       sandbox,
@@ -97,6 +100,15 @@ export class CodexCliRuntime implements AgentRuntimePort {
       child.stdin?.end();
     });
   }
+}
+
+function normalizeCodexModel(model: string): string {
+  // ChatGPT-authenticated Codex retired these aliases on 2026-08-31. Keep
+  // existing UI settings usable while directing new sessions to their current
+  // replacements. API-key based custom commands can still use an override.
+  if (model === "gpt-5.4") return "gpt-5.6-terra";
+  if (model === "gpt-5.4-mini") return "gpt-5.6-luna";
+  return model;
 }
 
 function windowsCommandNeedsShell(command: string): boolean {

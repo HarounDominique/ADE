@@ -22,7 +22,10 @@ export class LocalProcess implements ProcessPort {
       // cmd.exe is an implementation detail for .cmd shims. Keep its output
       // on Assay's run stream instead of flashing a second terminal window.
       windowsHide: process.platform === "win32",
-      detached: true,
+      // A detached Windows child gets its own console host even when its
+      // stdio is piped. Keep it attached to the sidecar so the terminal dock
+      // owns both its lifecycle and output.
+      detached: process.platform !== "win32",
     });
     const output = { stdout: "", stderr: "" };
     child.stdout.on("data", (chunk: Buffer) => { const text = chunk.toString(); output.stdout += text; definition.onOutput?.({ stream: "stdout", text }); });

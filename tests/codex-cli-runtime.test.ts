@@ -41,7 +41,22 @@ test("Codex CLI forwards a selected model to the execution", async () => {
   });
   const session = await runtime.createSession({ directory: "/tmp/project" });
   await runtime.prompt(session, { text: "Use the selected model", model: "gpt-5.4" });
-  assert.deepEqual(calls[0], ["--model", "gpt-5.4", "exec", "--sandbox", "read-only", "--cd", "/tmp/project", "--json", "Use the selected model"]);
+  assert.deepEqual(calls[0], ["--model", "gpt-5.6-terra", "exec", "--sandbox", "read-only", "--cd", "/tmp/project", "--json", "Use the selected model"]);
+});
+
+test("Codex CLI migrates retired models for a new session and preserves the resumed model", async () => {
+  const calls: string[][] = [];
+  const runtime = new CodexCliRuntime("codex", async (_command, args) => {
+    calls.push(args);
+    return { stdout: args.includes("resume") ? '{"type":"turn.completed"}\n' : '{"type":"thread.started","thread_id":"current-model-session"}\n' };
+  });
+  const session = await runtime.createSession({ directory: "/tmp/project" });
+  await runtime.prompt(session, { text: "First", model: "gpt-5.4" });
+  await runtime.prompt(session, { text: "Second", model: "gpt-5.4" });
+  assert.deepEqual(calls, [
+    ["--model", "gpt-5.6-terra", "exec", "--sandbox", "read-only", "--cd", "/tmp/project", "--json", "First"],
+    ["exec", "--sandbox", "read-only", "resume", "current-model-session", "Second"],
+  ]);
 });
 
 test("Codex CLI accepts common structured session event shapes", () => {
