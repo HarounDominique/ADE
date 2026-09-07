@@ -203,7 +203,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .terminal-tab-status.running { background: var(--green); box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 20%, transparent); }
 .terminal-new-tab { width: 28px; height: 24px; flex: 0 0 auto; margin: 4px 6px 0 2px; color: var(--text-soft); cursor: pointer; font-size: 16px; line-height: 1; }
 .terminal-new-tab:hover { color: var(--cyan); background: var(--panel-raised); }
-@media (max-width: 760px) { .terminal-mode { display: none; } .terminal-cwd { max-width: 45%; } .terminal-tab { min-width: 96px; } }
+@media (max-width: 760px) { .terminal-cwd { max-width: 45%; } .terminal-tab { min-width: 96px; } }
 
 /* Explorer focus mode keeps the selected file's path visible without losing context. */
 .explorer-actions { display: flex; align-items: center; gap: 2px; }
@@ -1792,17 +1792,6 @@ body { color: var(--text); }
 .picker-row-action .git-option-mark { color: var(--blue); }
 .git-option-mark svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.9; }
 
-/* The dock's size toggle owns the horizontal centre of the divider, so the
-   status text is kept out of it: pinned to the right beside the path, capped,
-   and never wrapped -- a second line was what climbed into the chevron once the
-   run consoles added tabs. */
-.terminal-mode {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 22%;
-  margin-left: auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.terminal-cwd { margin-left: 0; max-width: 34%; }
+/* The tab strip carries the working directory alone, so the path takes the
+   room the old mode caption held and the size toggle keeps the centre of the
+   divider to itself. */

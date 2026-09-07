@@ -371,7 +371,6 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(main, /setPointerCapture/);
   assert.match(html, /class="terminal-surface" tabindex="0"/);
   assert.match(html, /id="terminal-hosts"/);
-  assert.match(html, /keyboard passthrough/);
   assert.match(main, /from '@xterm\/xterm'/);
   assert.match(main, /from '@xterm\/addon-fit'/);
   assert.match(main, /terminalTabs/);
@@ -659,10 +658,19 @@ test("the run menu separates what the repository offers from what the operator d
   assert.match(main, /title="\$\{escapeHTML\(draft\.source\)\}"/);
 });
 
-test("the terminal dock's size toggle keeps the centre of its divider to itself", () => {
-  // Its status text wrapped to a second line once run consoles added tabs, and
-  // that line climbed into the chevron.
-  assert.match(styles, /\.terminal-mode \{[\s\S]*?white-space: nowrap;/);
-  assert.match(styles, /\.terminal-mode \{[\s\S]*?margin-left: auto;/);
-  assert.match(styles, /\.terminal-cwd \{ margin-left: 0;/);
+test("the terminal dock's tab strip spends its width on the working directory", () => {
+  // The mode caption said what the dock already is. It cost a row of space and
+  // its second line climbed into the size toggle once run consoles added tabs.
+  assert.doesNotMatch(html, /terminal-mode/);
+  assert.doesNotMatch(styles, /\.terminal-mode/);
+  assert.match(styles, /\.terminal-cwd \{ margin-left: auto;/);
+});
+
+test("the expanded terminal stops at the topbar instead of a fixed fraction", () => {
+  // Measured, because the topbar's height changes with the theme and the dock
+  // is pinned above the status bar.
+  assert.doesNotMatch(main, /window\.innerHeight \* 0\.72/);
+  assert.match(main, /function terminalHeightBounds\(\)[\s\S]*?\.topbar'\)\?\.getBoundingClientRect\(\)\.bottom/);
+  assert.match(main, /function terminalHeightBounds\(\)[\s\S]*?getComputedStyle\(terminalDock\)\.bottom/);
+  assert.match(main, /window\.innerHeight - headerBottom - statusBarInset/);
 });

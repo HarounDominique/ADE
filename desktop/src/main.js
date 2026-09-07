@@ -283,8 +283,15 @@ const requestedTheme = new URLSearchParams(window.location.search).get('theme');
 try { initialTheme = requestedTheme ?? localStorage.getItem('ade-theme') ?? 'light'; } catch { initialTheme = requestedTheme ?? 'light'; }
 applyTheme(initialTheme);
 
+/** Fully expanded, the dock stops exactly where the topbar ends: the Project,
+    Task, Branch and Run controls stay readable and everything below them is
+    the terminal's. Both edges are measured rather than assumed, because the
+    topbar grows with the theme and the dock sits on top of the status bar. */
 function terminalHeightBounds() {
-  return { min: 110, max: Math.max(260, Math.round(window.innerHeight * 0.72)) };
+  const min = 110;
+  const headerBottom = document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 48;
+  const statusBarInset = terminalDock ? parseFloat(getComputedStyle(terminalDock).bottom) || 0 : 0;
+  return { min, max: Math.max(min, Math.round(window.innerHeight - headerBottom - statusBarInset)) };
 }
 
 function updateTerminalSizeToggle() {
