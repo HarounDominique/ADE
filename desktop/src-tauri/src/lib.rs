@@ -1120,9 +1120,12 @@ mod tests {
         // still has to get a working one.
         let resolved = std::env::var("SHELL")
             .ok()
-            .filter(|value| !value.trim().is_empty() && Path::new(value).is_file());
-        assert!(resolved.is_none() || Path::new(&resolved.unwrap()).is_file());
-        assert!(Path::new("/bin/sh").is_file(), "the fallback shell must exist");
+            .filter(|value| !value.trim().is_empty() && std::path::Path::new(value).is_file());
+        assert!(resolved.is_none() || std::path::Path::new(&resolved.unwrap()).is_file());
+        assert!(
+            std::path::Path::new("/bin/sh").is_file(),
+            "the fallback shell must exist"
+        );
     }
 
     #[cfg(not(target_os = "windows"))]
