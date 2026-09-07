@@ -79,10 +79,15 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
     if (writable) allowedTools.push("Edit", "Write");
     if (grantedPermissions.includes("run_commands")) allowedTools.push("Bash");
     if (grantedPermissions.includes("network")) allowedTools.push("WebFetch", "WebSearch");
+    // A read-only turn is not a planning turn. `plan` enforces a minimum model
+    // tier and silently substitutes its own when the requested one is below it,
+    // so a caller asking for Haiku got Sonnet. The allowed-tools list is what
+    // actually keeps the turn read-only: an unlisted Write is denied outright
+    // because non-interactive runs cannot prompt for permission.
     const args = [
       "--print",
       "--output-format", "json",
-      "--permission-mode", writable ? "acceptEdits" : "plan",
+      "--permission-mode", writable ? "acceptEdits" : "default",
       "--permission-prompts", "none",
       "--allowed-tools", allowedTools.join(","),
       ...(model ? ["--model", model] : []),

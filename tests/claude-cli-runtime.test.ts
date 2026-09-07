@@ -2,6 +2,22 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { ClaudeCliRuntime, executeClaudeCommand, extractClaudeSessionId, extractClaudeText } from "../src/adapters/claude-cli-runtime.js";
 
+test("a read-only turn does not plan, so the requested model survives", async () => {
+  // `--permission-mode plan` enforces a minimum model tier and substitutes its
+  // own below it: asking for Haiku ran Sonnet. Read-only is enforced by the
+  // allowed-tools list, not by plan mode.
+  const calls: string[][] = [];
+  const runtime = new ClaudeCliRuntime("claude", async (_command, args) => {
+    calls.push(args);
+    return { stdout: JSON.stringify({ result: "ok", session_id: "11111111-2222-3333-4444-555555555555" }) };
+  });
+  await runtime.prompt({ id: "claude-pending-11111111-2222-3333-4444-555555555555", directory: "/tmp" }, { text: "hi", model: "haiku" });
+  const args = calls[0] ?? [];
+  assert.ok(!args.includes("plan"), "a read-only turn must not run in plan mode");
+  assert.equal(args[args.indexOf("--model") + 1], "haiku");
+  assert.ok(args.includes("--allowed-tools"));
+});
+
 test("Claude Code CLI creates a resumable session and maps permissions", async () => {
   const calls: string[][] = [];
   const runtime = new ClaudeCliRuntime("claude", async (_command, args) => {
@@ -14,7 +30,7 @@ test("Claude Code CLI creates a resumable session and maps permissions", async (
   assert.equal(session.id, "claude-session");
   await runtime.prompt(session, { text: "Update the project", model: "sonnet", grantedPermissions: ["write_code", "run_commands", "network"] });
   assert.deepEqual(calls, [
-    ["--print", "--output-format", "json", "--permission-mode", "plan", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep", "--session-id", firstSessionId, "Read the project"],
+    ["--print", "--output-format", "json", "--permission-mode", "default", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep", "--session-id", firstSessionId, "Read the project"],
     ["--print", "--output-format", "json", "--permission-mode", "acceptEdits", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep,Edit,Write,Bash,WebFetch,WebSearch", "--model", "sonnet", "--resume", "claude-session", "Update the project"],
   ]);
 });
