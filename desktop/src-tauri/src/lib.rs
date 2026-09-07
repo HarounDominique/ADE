@@ -141,6 +141,35 @@ fn open_with_desktop(path: &Path, what: &str) -> Result<(), String> {
         .map_err(|error| format!("Unable to open {what}: {error}"))
 }
 
+/// A run's own address is the only thing this opens. The URL is composed by the
+/// shell from a port the Project declared, so anything that is not loopback http
+/// is a bug or an injection and is refused rather than handed to the desktop.
+fn open_local_url(url: &str) -> Result<(), String> {
+    let rest = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))
+        .ok_or_else(|| "Only http and https addresses can be opened".to_string())?;
+    let authority = rest.split('/').next().unwrap_or_default();
+    let host = authority.rsplit_once(':').map_or(authority, |(host, _)| host);
+    if !matches!(host, "localhost" | "127.0.0.1" | "[::1]") {
+        return Err(format!("Only a local address can be opened: {host}"));
+    }
+    #[cfg(target_os = "macos")]
+    let spawned = Command::new("open").arg(url).spawn();
+    #[cfg(target_os = "windows")]
+    let spawned = Command::new("cmd").args(["/C", "start", ""]).arg(url).spawn();
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    let spawned = Command::new("xdg-open").arg(url).spawn();
+    spawned
+        .map(|_| ())
+        .map_err(|error| format!("Unable to open the running application: {error}"))
+}
+
+#[tauri::command]
+fn open_run_url(url: String) -> Result<(), String> {
+    open_local_url(&url)
+}
+
 /// Opening a terminal *at* a directory has no portable spelling: macOS targets
 /// Terminal.app by name, Windows starts a shell whose cwd is the directory.
 fn open_terminal_at(directory: &Path) -> Result<(), String> {
@@ -944,6 +973,7 @@ pub fn run() {
             project_context,
             list_directory,
             open_file,
+            open_run_url,
             read_file,
             write_file,
             terminal_exec,
@@ -969,7 +999,8 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        list_directory_in, open_document_in, open_file_in, open_terminal_in, project_context_for,
+        list_directory_in, open_document_in, open_file_in, open_local_url, open_terminal_in,
+        project_context_for,
         read_file_in, start_terminal_pty, terminal_exec_in, write_file_in, SidecarSupervisor,
         WorkspaceRoot, MAX_FILE_PREVIEW_BYTES,
     };
@@ -1310,5 +1341,15 @@ mod tests {
 
         supervisor.stop().expect("stop exited process");
         assert!(!supervisor.reap_finished().expect("status"));
+    }
+
+    /// The only URL the shell ever asks to open is the loopback address of a
+    /// run it started. Anything else is refused before it reaches the desktop.
+    #[test]
+    fn open_run_url_refuses_anything_but_a_local_http_address() {
+        assert!(open_local_url("file:///etc/passwd").is_err());
+        assert!(open_local_url("http://example.com/").is_err());
+        assert!(open_local_url("http://127.0.0.1.example.com/").is_err());
+        assert!(open_local_url("javascript:alert(1)").is_err());
     }
 }

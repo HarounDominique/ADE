@@ -551,9 +551,9 @@ test("Agent and model are chosen with the app's own menu, not a native select", 
   assert.match(html, /id="agent-provider-menu" role="menu"/);
   assert.match(html, /id="agent-model-button"[\s\S]*aria-haspopup="menu"/);
   assert.match(html, /id="agent-model-menu" role="menu"/);
-  assert.match(html, /class="agent-picker-native" id="agent-provider"/);
-  assert.match(html, /class="agent-picker-native" id="agent-model"/);
-  assert.match(styles, /\.agent-picker-native \{ display: none; \}/);
+  assert.match(html, /class="picker-native" id="agent-provider"/);
+  assert.match(html, /class="picker-native" id="agent-model"/);
+  assert.match(styles, /\.picker-native \{ display: none; \}/);
   assert.match(main, /function renderAgentPicker\(kind\)/);
   assert.match(main, /function chooseAgentPickerOption\(kind, value\)/);
   // The hidden select stays the value every other reader already uses, so the
@@ -574,6 +574,43 @@ test("a starred model becomes the agent default without overriding a conversatio
   assert.match(main, /selectedAgentModel = defaultModelForProvider\(selectedProvider\)/);
   assert.match(main, /selectedAgentModel = session\.model \?\? defaultModelForProvider\(session\.provider\)/);
   assert.doesNotMatch(main, /setDefaultModelForProvider\([^)]*\);\n\s*selectedAgentModel/);
-  assert.match(styles, /\.agent-picker-default\.is-default \{ color: var\(--amber\)/);
+  assert.match(styles, /\.picker-default\.is-default \{ color: var\(--amber\)/);
   assert.match(html, /id="agent-model-menu"/);
+});
+
+test("the topbar starts, debugs and stops the Project's run configurations", () => {
+  for (const id of ["run-control", "run-configuration-button", "run-configuration-menu", "run-start", "run-debug", "run-stop", "run-status"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  // The control lives in the topbar, not inside a view, because starting the
+  // application is context the operator carries between views.
+  assert.match(html, /class="top-actions"><div class="run-control"/);
+  assert.match(main, /function requestRunConfigurations/);
+  assert.match(main, /sendContextRequest\('run\.list'/);
+  assert.match(main, /method: 'run\.start'/);
+  assert.match(main, /method: 'run\.stop'/);
+  assert.match(main, /response\.type === 'run\.session'/);
+  assert.match(main, /response\.type === 'run\.output'/);
+  // A port bound outside loopback is confirmed per run, not once in the file.
+  assert.match(main, /port\.bind === 'all'/);
+  assert.match(main, /eyebrow: 'EXPOSED PORT'/);
+  assert.match(main, /RUN_PORT_CONFLICT/);
+  assert.match(styles, /\.run-status\[data-state="RUNNING"\]/);
+  assert.match(styles, /\.run-action:disabled \{ cursor: not-allowed/);
+});
+
+test("a run's console is a dock tab that does not take the terminal's input or its stop", () => {
+  assert.match(main, /kind = 'pty'/);
+  assert.match(main, /createTerminalTab\(\{ focus: false, kind: 'run', id, label \}\)/);
+  assert.match(main, /if \(tab\.kind === 'pty'\) void sendTerminalInput\(tab, data\)/);
+  // Closing the console hides output; the run stays stoppable from the topbar.
+  assert.match(main, /if \(tab\.kind === 'pty' && tab\.started\) nativeInvoke\?\.\('terminal_stop'/);
+});
+
+test("the agent header and the run control share one dropdown component", () => {
+  assert.doesNotMatch(styles, /agent-picker/);
+  assert.doesNotMatch(html, /agent-picker/);
+  assert.match(html, /class="picker run-picker"/);
+  assert.match(html, /class="picker"/);
+  assert.match(main, /trigger\?\.dataset\.pickerKind === 'run'/);
 });

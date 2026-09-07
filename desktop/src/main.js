@@ -68,6 +68,10 @@ let gitWorkflow = 'pull-request';
 let selectedTaskId = null;
 let selectedTaskIntent = '';
 let providerStatuses = [];
+let runConfigurations = [];
+let runSessions = [];
+let selectedRunConfigurationId = null;
+let runCatalogError = null;
 let agentSessions = [];
 let activeAgentSessionId = null;
 let activeAgentTaskId = null;
@@ -392,12 +396,13 @@ function selectTerminalTab(sessionId, focus = true) {
   syncActiveTerminalInput(focus);
 }
 
-function createTerminalTab({ focus = true } = {}) {
+function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null, label: requestedLabel = null } = {}) {
   terminalTabSequence += 1;
-  const id = `terminal-${Date.now()}-${terminalTabSequence}`;
+  const id = requestedId ?? `terminal-${Date.now()}-${terminalTabSequence}`;
   const tab = {
     id,
-    label: `Terminal ${terminalTabSequence}`,
+    kind,
+    label: requestedLabel ?? `Terminal ${terminalTabSequence}`,
     started: false,
     completionCwd: workspaceRootPath,
     terminal: null,
@@ -416,10 +421,12 @@ function createTerminalTab({ focus = true } = {}) {
   tab.fitAddon = new FitAddon();
   tab.terminal.loadAddon(tab.fitAddon);
   tab.terminal.onData((data) => {
-    void sendTerminalInput(tab, data);
+    /** A run's console shows what the process wrote; there is no PTY behind it
+        to accept what the operator types. */
+    if (tab.kind === 'pty') void sendTerminalInput(tab, data);
   });
   tab.terminal.onResize(({ cols, rows }) => {
-    if (tab.started && nativeInvoke) void nativeInvoke('terminal_resize', { sessionId: tab.id, cols, rows }).catch(() => {});
+    if (tab.kind === 'pty' && tab.started && nativeInvoke) void nativeInvoke('terminal_resize', { sessionId: tab.id, cols, rows }).catch(() => {});
   });
   const hosts = document.getElementById('terminal-hosts');
   const host = document.createElement('div');
@@ -440,7 +447,9 @@ function closeTerminalTab(sessionId) {
   const index = terminalTabs.findIndex((tab) => tab.id === sessionId);
   if (index < 0) return;
   const [tab] = terminalTabs.splice(index, 1);
-  if (tab.started) nativeInvoke?.('terminal_stop', { sessionId: tab.id }).catch(() => {});
+  /** Closing a run's console hides its output; it does not stop the run, which
+      stays visible and stoppable in the topbar. */
+  if (tab.kind === 'pty' && tab.started) nativeInvoke?.('terminal_stop', { sessionId: tab.id }).catch(() => {});
   tab.terminal?.dispose();
   document.querySelector(`[data-terminal-host="${CSS.escape(tab.id)}"]`)?.remove();
   if (!terminalTabs.length) createTerminalTab({ focus: false });
@@ -779,6 +788,7 @@ async function switchProjectFromContext(project) {
     await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
     await refreshGitWorkspace(workspaceRootPath, nativeInvoke);
     requestAgentSessions(workspaceRootPath);
+    resetRunControlForProject();
     await sendContextRequest('project.snapshot', { projectId: activeProjectId }, 'snapshot');
     await sendContextRequest('service.list', { repositoryPath: workspaceRootPath }, 'services');
     notify(`Project switched to ${project.name}.`);
@@ -1589,7 +1599,7 @@ function toggleDefaultModel(modelId) {
   const label = provider?.models?.find((model) => model.id === modelId)?.label ?? modelId;
   setDefaultModelForProvider(selectedProvider, wasDefault ? '' : modelId);
   renderAgentPicker('model');
-  document.querySelector(`.agent-picker-default[data-default-model="${CSS.escape(modelId)}"]`)?.focus();
+  document.querySelector(`.picker-default[data-default-model="${CSS.escape(modelId)}"]`)?.focus();
   notify(wasDefault
     ? `${provider?.label ?? 'This agent'} has no default model.`
     : `New ${provider?.label ?? 'agent'} conversations start on ${label}.`);
@@ -1626,15 +1636,15 @@ function renderAgentPicker(kind) {
   const rows = options.map((option) => {
     const selected = option.value === current?.value;
     const detail = agentPickerDetail(kind, option.value);
-    const choose = `<button class="agent-picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-picker-kind="${kind}" data-picker-value="${escapeHTML(option.value)}"${option.disabled ? ' disabled' : ''}><span class="git-option-mark" aria-hidden="true">${selected ? '✓' : ''}</span><span><strong>${escapeHTML(agentPickerLabel(option))}</strong>${detail ? `<small>${escapeHTML(detail)}</small>` : ''}</span></button>`;
-    return `<div class="agent-picker-row${selected ? ' selected' : ''}" role="none">${choose}${agentDefaultToggle(kind, option)}</div>`;
+    const choose = `<button class="picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-picker-kind="${kind}" data-picker-value="${escapeHTML(option.value)}"${option.disabled ? ' disabled' : ''}><span class="git-option-mark" aria-hidden="true">${selected ? '✓' : ''}</span><span><strong>${escapeHTML(agentPickerLabel(option))}</strong>${detail ? `<small>${escapeHTML(detail)}</small>` : ''}</span></button>`;
+    return `<div class="picker-row${selected ? ' selected' : ''}" role="none">${choose}${agentDefaultToggle(kind, option)}</div>`;
   }).join('');
   const note = kind === 'model' && options.some((option) => option.value)
-    ? '<p class="agent-picker-note">A starred model starts every new conversation with this agent.</p>'
+    ? '<p class="picker-note">A starred model starts every new conversation with this agent.</p>'
     : '';
   menu.innerHTML = options.length
     ? `${rows}${note}`
-    : `<p class="agent-picker-empty">No ${kind === 'provider' ? 'provider' : 'model'} available.</p>`;
+    : `<p class="picker-empty">No ${kind === 'provider' ? 'provider' : 'model'} available.</p>`;
 }
 
 /** `Provider default` is the absence of a model override, so it is the one row
@@ -1646,7 +1656,7 @@ function agentDefaultToggle(kind, option) {
   const label = isDefault
     ? `${agentPickerLabel(option)} is the default model for ${providerLabel}. Clear it.`
     : `Make ${agentPickerLabel(option)} the default model for ${providerLabel}`;
-  return `<button class="agent-picker-default${isDefault ? ' is-default' : ''}" type="button" data-default-model="${escapeHTML(option.value)}" aria-pressed="${isDefault}" aria-label="${escapeHTML(label)}" title="${escapeHTML(label)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.7 2.5 5.1 5.6.8-4.1 4 1 5.6-5-2.7-5 2.7 1-5.6-4.1-4 5.6-.8z"/></svg></button>`;
+  return `<button class="picker-default${isDefault ? ' is-default' : ''}" type="button" data-default-model="${escapeHTML(option.value)}" aria-pressed="${isDefault}" aria-label="${escapeHTML(label)}" title="${escapeHTML(label)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.7 2.5 5.1 5.6.8-4.1 4 1 5.6-5-2.7-5 2.7 1-5.6-4.1-4 5.6-.8z"/></svg></button>`;
 }
 
 function renderAgentPickers() {
@@ -1655,12 +1665,12 @@ function renderAgentPickers() {
 }
 
 function closeAgentPickers() {
-  document.querySelectorAll('.agent-picker-menu').forEach((menu) => { menu.hidden = true; });
-  document.querySelectorAll('.agent-picker-button').forEach((button) => button.setAttribute('aria-expanded', 'false'));
+  document.querySelectorAll('.picker-menu').forEach((menu) => { menu.hidden = true; });
+  document.querySelectorAll('.picker-button').forEach((button) => button.setAttribute('aria-expanded', 'false'));
 }
 
 function agentPickerIsOpen() {
-  return Boolean(document.querySelector('.agent-picker-menu:not([hidden])'));
+  return Boolean(document.querySelector('.picker-menu:not([hidden])'));
 }
 
 function toggleAgentPicker(kind) {
@@ -1673,7 +1683,7 @@ function toggleAgentPicker(kind) {
   renderAgentPicker(kind);
   menu.hidden = false;
   button.setAttribute('aria-expanded', 'true');
-  (menu.querySelector('.agent-picker-option.selected') ?? menu.querySelector('.agent-picker-option:not(:disabled)'))?.focus();
+  (menu.querySelector('.picker-option.selected') ?? menu.querySelector('.picker-option:not(:disabled)'))?.focus();
 }
 
 function chooseAgentPickerOption(kind, value) {
@@ -1979,6 +1989,193 @@ function resumeAgentConversation(sessionId, provider) {
   showView('agents');
   requestAgentSessions(workspaceRootPath);
   requestAgentMessages(sessionId);
+}
+
+/** Starting the Project's applications belongs to the topbar for the same
+    reason Project, Task and branch do: it is context the operator carries
+    between views, not a feature of one of them. */
+function requestRunConfigurations(path = workspaceRootPath) {
+  if (!nativeInvoke || !path) return;
+  void sendContextRequest('run.list', { repositoryPath: path }, 'run-list');
+}
+
+function selectedRunConfiguration() {
+  return runConfigurations.find((configuration) => configuration.id === selectedRunConfigurationId) ?? runConfigurations[0];
+}
+
+/** A configuration is busy while its own session or the compound that owns it
+    is still alive: stopping the stack from the member would be a half stop. */
+function activeRunSession(configurationId) {
+  return runSessions.find((session) => session.configurationId === configurationId && !session.parentId && (session.state === 'STARTING' || session.state === 'RUNNING' || session.state === 'STOPPING'));
+}
+
+function runConfigurationPorts(configuration) {
+  const session = configuration ? activeRunSession(configuration.id) : null;
+  return session?.ports?.length ? session.ports : configuration?.ports ?? [];
+}
+
+function runConfigurationUrl(configuration) {
+  const port = runConfigurationPorts(configuration).find((candidate) => candidate.protocol === 'http');
+  return port ? `http://localhost:${port.port}${port.path ?? ''}` : null;
+}
+
+function renderRunControl() {
+  const control = document.getElementById('run-control');
+  const value = document.getElementById('run-configuration-value');
+  const startButton = document.getElementById('run-start');
+  const debugButton = document.getElementById('run-debug');
+  const stopButton = document.getElementById('run-stop');
+  const status = document.getElementById('run-status');
+  if (!control || !value || !startButton || !debugButton || !stopButton || !status) return;
+  const configuration = selectedRunConfiguration();
+  selectedRunConfigurationId = configuration?.id ?? null;
+  const session = configuration ? activeRunSession(configuration.id) : null;
+  const busy = Boolean(session);
+
+  value.textContent = runCatalogError ? 'Invalid run.json' : configuration?.label ?? 'No configurations';
+  document.getElementById('run-configuration-button')?.toggleAttribute('disabled', !runConfigurations.length && !runCatalogError);
+  startButton.disabled = !configuration || busy;
+  debugButton.disabled = !configuration || busy || !configuration.debug;
+  debugButton.title = configuration && !configuration.debug
+    ? `${configuration.label} declares no debug mode`
+    : 'Start in debug mode';
+  startButton.hidden = busy;
+  debugButton.hidden = busy;
+  stopButton.hidden = !busy;
+
+  const url = runConfigurationUrl(configuration);
+  const failed = configuration ? runSessions.find((candidate) => candidate.configurationId === configuration.id && candidate.state === 'FAILED' && !candidate.parentId) : null;
+  const shown = session ?? failed;
+  status.hidden = !shown;
+  if (shown) {
+    status.dataset.state = shown.state;
+    const port = runConfigurationPorts(configuration).find((candidate) => candidate.protocol === 'http');
+    status.textContent = shown.state === 'RUNNING' && port ? `${shown.mode === 'debug' ? 'DEBUG' : 'RUNNING'} · :${port.port}` : shown.state;
+    const openable = Boolean(url) && shown.state === 'RUNNING';
+    status.dataset.openable = String(openable);
+    status.title = openable ? `Open ${url}` : shown.failure ?? shown.state;
+  }
+  renderRunConfigurationMenu();
+}
+
+function renderRunConfigurationMenu() {
+  const menu = document.getElementById('run-configuration-menu');
+  if (!menu) return;
+  if (runCatalogError) {
+    menu.innerHTML = `<p class="picker-empty">${escapeHTML(runCatalogError)}</p>`;
+    return;
+  }
+  if (!runConfigurations.length) {
+    menu.innerHTML = '<p class="picker-empty">This Project declares no run configurations.</p><p class="picker-hint">Declare them in .ade/run.json</p>';
+    return;
+  }
+  menu.innerHTML = runConfigurations.map((configuration) => {
+    const selected = configuration.id === selectedRunConfigurationId;
+    const ports = (configuration.ports ?? []).map((port) => `:${port.port}`).join(' ');
+    const detail = [configuration.kind === 'compound' ? `${configuration.members?.length ?? 0} members` : configuration.kind, ports].filter(Boolean).join(' · ');
+    return `<div class="picker-row${selected ? ' selected' : ''}" role="none"><button class="picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-run-configuration-id="${escapeHTML(configuration.id)}"><span class="git-option-mark" aria-hidden="true">${selected ? '✓' : ''}</span><span><strong>${escapeHTML(configuration.label)}</strong><small>${escapeHTML(detail)}</small></span></button></div>`;
+  }).join('');
+}
+
+function toggleRunPicker() {
+  const menu = document.getElementById('run-configuration-menu');
+  const button = document.getElementById('run-configuration-button');
+  if (!menu || !button || button.disabled) return;
+  const wasOpen = !menu.hidden;
+  closeRunPicker();
+  if (wasOpen) return;
+  renderRunConfigurationMenu();
+  menu.hidden = false;
+  button.setAttribute('aria-expanded', 'true');
+  (menu.querySelector('.picker-option.selected') ?? menu.querySelector('.picker-option'))?.focus();
+}
+
+function closeRunPicker() {
+  const menu = document.getElementById('run-configuration-menu');
+  if (menu) menu.hidden = true;
+  document.getElementById('run-configuration-button')?.setAttribute('aria-expanded', 'false');
+}
+
+function chooseRunConfiguration(configurationId) {
+  selectedRunConfigurationId = configurationId;
+  try { localStorage.setItem(`ade-run-configuration:${activeProjectId}`, configurationId); } catch { /* Persistence is optional. */ }
+  closeRunPicker();
+  document.getElementById('run-configuration-button')?.focus();
+  renderRunControl();
+}
+
+function startRun(mode) {
+  const configuration = selectedRunConfiguration();
+  if (!nativeInvoke || !configuration) { notify('Run configurations require the sidecar.'); return; }
+  if (mode === 'debug' && !configuration.debug) { notify(`${configuration.label} declares no debug mode.`); return; }
+  /** A port bound outside loopback is reachable from the local network, so it
+      is confirmed per run rather than once in the file. */
+  const exposed = (configuration.ports ?? []).filter((port) => port.bind === 'all');
+  const send = () => {
+    void nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `run-start-${Date.now()}`, method: 'run.start', params: { repositoryPath: workspaceRootPath, configurationId: configuration.id, mode } }) })
+      .catch((error) => { notify('Run failed to start.'); console.warn(error); });
+  };
+  if (!exposed.length) { send(); return; }
+  requestConfirmation({
+    eyebrow: 'EXPOSED PORT',
+    title: `Start ${configuration.label} on the local network?`,
+    copy: `${exposed.map((port) => `Port ${port.port}`).join(', ')} will accept connections from other machines on this network, not only from this one.`,
+    confirmLabel: 'Start anyway',
+    tone: 'secondary',
+  }, send);
+}
+
+function stopRun() {
+  const configuration = selectedRunConfiguration();
+  const session = configuration ? activeRunSession(configuration.id) : null;
+  if (!nativeInvoke || !session) return;
+  void nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `run-stop-${Date.now()}`, method: 'run.stop', params: { repositoryPath: workspaceRootPath, runSessionId: session.id } }) })
+    .catch((error) => { notify('Stopping the run failed.'); console.warn(error); });
+}
+
+/** Each run writes to its own console tab in the dock the shell already has:
+    process output has a place, and a second panel would only split reading. */
+function runConsoleTab(sessionId, { create = true } = {}) {
+  const id = `run:${sessionId}`;
+  const existing = terminalTabs.find((tab) => tab.id === id);
+  if (existing || !create) return existing;
+  const session = runSessions.find((candidate) => candidate.id === sessionId);
+  const label = `${runLabelFor(session?.configurationId ?? sessionId)}${session?.mode === 'debug' ? ' · debug' : ''}`;
+  const tab = createTerminalTab({ focus: false, kind: 'run', id, label });
+  tab.started = true;
+  renderTerminalTabs();
+  return tab;
+}
+
+function appendRunOutput(sessionId, text) {
+  const tab = runConsoleTab(sessionId);
+  tab?.terminal?.write(text.replaceAll('\n', '\r\n'));
+}
+
+function applyRunSession(session) {
+  runSessions = [...runSessions.filter((candidate) => candidate.id !== session.id), session];
+  if (session.state === 'FAILED' && session.failure) notify(`${runLabelFor(session.configurationId)}: ${session.failure}`);
+  renderRunControl();
+}
+
+function runLabelFor(configurationId) {
+  return runConfigurations.find((configuration) => configuration.id === configurationId)?.label ?? configurationId;
+}
+
+function openRunUrl() {
+  const url = runConfigurationUrl(selectedRunConfiguration());
+  if (!url || !nativeInvoke) return;
+  void nativeInvoke('open_run_url', { url }).catch((error) => { notify('Could not open the running application.'); console.warn(error); });
+}
+
+function resetRunControlForProject() {
+  runConfigurations = [];
+  runSessions = [];
+  runCatalogError = null;
+  try { selectedRunConfigurationId = localStorage.getItem(`ade-run-configuration:${activeProjectId}`); } catch { selectedRunConfigurationId = null; }
+  closeRunPicker();
+  renderRunControl();
+  requestRunConfigurations(workspaceRootPath);
 }
 
 /** The webview never answers the browser-native confirm and prompt calls, so
@@ -2534,6 +2731,9 @@ async function connectSidecar(snapshot) {
     await invoke('sidecar_request', { request: JSON.stringify({ id: `providers-${Date.now()}`, method: 'providers.inspect' }) });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `services-${Date.now()}`, method: 'service.list', params: { repositoryPath: activeProject.repositoryPath } }) });
     requestAgentSessions(activeProject.repositoryPath);
+    /** The catalog can only be asked for once the sidecar exists, so the first
+        read happens here rather than when the module loads. */
+    requestRunConfigurations(activeProject.repositoryPath);
   };
   try {
     await listen('sidecar:response', async (event) => {
@@ -2579,10 +2779,29 @@ async function connectSidecar(snapshot) {
           const menu = document.getElementById('branch-context-menu');
           if (menu && !menu.hidden) menu.innerHTML = `<p class="git-context-empty">${escapeHTML(response.error.message)}</p>`;
         }
+        if (contextPurpose === 'run-list') {
+          /** An invalid file is not an empty Project: the menu says which field
+              is wrong instead of pretending nothing is declared. */
+          runCatalogError = response.error.message;
+          runConfigurations = [];
+          renderRunControl();
+        }
+        if (String(response.id).startsWith('run-start-') || String(response.id).startsWith('run-stop-')) {
+          notify(response.error.code === 'RUN_PORT_CONFLICT' ? `${response.error.message}. Free it or change the declared port.` : response.error.message);
+          requestRunConfigurations(workspaceRootPath);
+          return;
+        }
         const feedback = document.getElementById('agent-feedback');
         if (feedback) feedback.textContent = `${response.error.code}: ${response.error.message}`;
         if (contextPurpose === 'git-pending' && pendingGitRequestPath !== workspaceRootPath) requestPendingGitChanges(workspaceRootPath, { showLoading: true });
         notify(response.error.message);
+        return;
+      }
+      if (contextPurpose === 'run-list' && response.result?.configurations) {
+        runCatalogError = null;
+        runConfigurations = response.result.configurations;
+        runSessions = response.result.sessions ?? [];
+        renderRunControl();
         return;
       }
       if (contextPurpose === 'projects' && Array.isArray(response.result)) {
@@ -2721,6 +2940,14 @@ async function connectSidecar(snapshot) {
         const payload = response.event?.payload;
         if (feedback) feedback.textContent = `${response.skillId}: ${payload?.type ?? response.event?.type ?? 'event'}`;
         renderRuntimeEvent(selectedTaskId ?? 'skill', response.event);
+        return;
+      }
+      if (response.type === 'run.session' && response.session) {
+        applyRunSession(response.session);
+        return;
+      }
+      if (response.type === 'run.output' && response.sessionId) {
+        appendRunOutput(response.sessionId, response.text ?? '');
         return;
       }
       if (response.type === 'agent.activity' && pendingAgentTurn) {
@@ -3071,6 +3298,18 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     restartSidecarFromUI();
     return;
   }
+  if (item.dataset.action === 'run-start' || item.dataset.action === 'run-debug') {
+    startRun(item.dataset.action === 'run-debug' ? 'debug' : 'run');
+    return;
+  }
+  if (item.dataset.action === 'run-stop') {
+    stopRun();
+    return;
+  }
+  if (item.dataset.action === 'open-run-url') {
+    openRunUrl();
+    return;
+  }
   if (item.dataset.action === 'start-service' || item.dataset.action === 'stop-service') {
     if (!nativeInvoke) { notify('Local services require the sidecar.'); return; }
     const method = item.dataset.action === 'start-service' ? 'service.start' : 'service.stop';
@@ -3360,17 +3599,21 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeGitContextMenus();
 });
 document.addEventListener('click', (event) => {
-  const trigger = event.target.closest('.agent-picker-button');
+  const runOption = event.target.closest('[data-run-configuration-id]');
+  if (runOption) { chooseRunConfiguration(runOption.dataset.runConfigurationId); return; }
+  const trigger = event.target.closest('.picker-button');
+  if (trigger?.dataset.pickerKind === 'run') { toggleRunPicker(); return; }
+  if (!event.target.closest('.run-picker')) closeRunPicker();
   if (trigger) { toggleAgentPicker(trigger.dataset.pickerKind); return; }
-  const defaultToggle = event.target.closest('.agent-picker-default');
+  const defaultToggle = event.target.closest('.picker-default');
   if (defaultToggle) { toggleDefaultModel(defaultToggle.dataset.defaultModel); return; }
-  const option = event.target.closest('.agent-picker-option');
+  const option = event.target.closest('.picker-option');
   if (option) { chooseAgentPickerOption(option.dataset.pickerKind, option.dataset.pickerValue); return; }
-  if (!event.target.closest('.agent-picker')) closeAgentPickers();
+  if (!event.target.closest('.picker')) closeAgentPickers();
 });
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape' || !agentPickerIsOpen()) return;
-  const kind = document.querySelector('.agent-picker-menu:not([hidden])')?.id.replace('agent-', '').replace('-menu', '');
+  const kind = document.querySelector('.picker-menu:not([hidden])')?.id.replace('agent-', '').replace('-menu', '');
   closeAgentPickers();
   document.getElementById(`agent-${kind}-button`)?.focus();
   /** Escape closed the menu; it must not also stop the running turn. */
@@ -3494,6 +3737,13 @@ document.getElementById('agent-model')?.addEventListener('change', (event) => {
 });
 document.querySelector('[data-action="new-agent-session"]')?.addEventListener('click', startNewAgentSession);
 renderAgentPickers();
+resetRunControlForProject();
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || event.defaultPrevented || document.getElementById('run-configuration-menu')?.hidden !== false) return;
+  closeRunPicker();
+  document.getElementById('run-configuration-button')?.focus();
+  event.preventDefault();
+});
 initializeCodeEditor();
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });
 window.addEventListener('beforeunload', () => {

@@ -2,7 +2,7 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Module id: run-configurations -->
 
-**Estado:** in-progress — dominio, catálogo, supervisor de ejecuciones, sondeo de puertos y métodos `run.list` / `run.start` / `run.stop` del sidecar implementados y verificados; la superficie de la shell —control en topbar y consola por ejecución— sigue pendiente.
+**Estado:** in-progress — dominio, catálogo, supervisor, sondeo de puertos, métodos del sidecar y superficie de la shell implementados y verificados; queda la persistencia de la evidencia de cada ejecución junto a la Task.
 
 ## Objective
 
@@ -139,7 +139,9 @@ Tests de parseo y validación de `.ade/run.json`, incluidas referencias rotas y 
 
 Implementado y verificado: `RunConfiguration` y `RunSession` en el dominio; carga y validación de `.ade/run.json` con herencia desde `.ade/services.json`, ciclos de `members` y campos señalados uno a uno; `RunManager` con sondeo previo de todos los puertos del árbol, arranque ordenado de compuestas, parada en orden inverso, healthcheck con deadline y limpieza de los miembros ya arrancados cuando uno falla; `LocalPortProbe` por bind, sin depender de binarios externos; salida en vivo a través de `ProcessDefinition.onOutput`; y los métodos `run.list`, `run.start` y `run.stop` del sidecar, con `RUN_PORT_CONFLICT` y `RUN_CONFIG_INVALID` como errores propios y `run.output` / `run.session` como eventos.
 
-Pendiente: la superficie de la shell —control de topbar, pestaña de consola por ejecución, estados de interacción, apertura de URL y confirmación de `bind: "all"`— y la persistencia de la evidencia de cada ejecución junto a la Task.
+La superficie también está implementada: el control vive en la topbar con el mismo menú que Project, Task y branch; `Debug` se deshabilita y se explica cuando la configuración no lo declara; el estado muestra `STARTING`/`RUNNING`/`FAILED` con su puerto y abre la URL local del servicio a través de un comando nativo que sólo acepta direcciones de loopback; `bind: "all"` se confirma por ejecución en el diálogo propio de la shell; y cada ejecución escribe en su propia pestaña del dock de terminal, que no acepta entrada y cuyo cierre oculta la consola sin detener el proceso.
+
+Pendiente: la persistencia de la evidencia de cada ejecución junto a la Task, y la identificación del proceso que ocupa un puerto.
 
 ## Open Questions
 
