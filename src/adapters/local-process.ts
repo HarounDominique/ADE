@@ -1,5 +1,6 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import type {
   ProcessDefinition,
@@ -66,12 +67,18 @@ function windowsCommandNeedsShell(command: string): boolean {
   return process.platform === "win32" && (!/\.[^\\/]+$/.test(command) || /\.(?:cmd|bat)$/i.test(command));
 }
 
-/** A packaged desktop app can be launched by Explorer before its process PATH
-    sees runtimes installed during the same session. npm is a .cmd shim and
-    Maven's wrapper requires JAVA_HOME, so surface their standard locations. */
-function runtimeEnvironment(overrides: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
+/** A packaged desktop app is opened by the operating system's own shell --
+    Explorer, Finder, a .desktop entry -- which hands it a PATH that no login
+    profile ever touched. On Windows that PATH can predate a runtime installed
+    in the same session; on macOS and Linux it never carries Homebrew, a Node
+    version manager or an SDK at all. Surface the standard locations so `npm`
+    and Maven's wrapper resolve however the app was started. */
+export function runtimeEnvironment(overrides: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
   const env = { ...process.env, ...overrides };
-  if (process.platform !== "win32") return env;
+  return process.platform === "win32" ? windowsRuntimeEnvironment(env) : posixRuntimeEnvironment(env);
+}
+
+function windowsRuntimeEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const programFiles = env.ProgramFiles ?? "C:\\Program Files";
   addPathEntry(env, join(programFiles, "nodejs"), "npm.cmd");
   const javaHome = env.JAVA_HOME && existsSync(join(env.JAVA_HOME, "bin", "java.exe"))
@@ -84,13 +91,73 @@ function runtimeEnvironment(overrides: NodeJS.ProcessEnv | undefined): NodeJS.Pr
   return env;
 }
 
+function posixRuntimeEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const home = env.HOME ?? homedir();
+  // Entries are prepended, so the list runs from weakest to strongest: a
+  // version manager's shims must win over a system-wide install, the way the
+  // operator's own shell would resolve them.
+  for (const directory of posixNodeDirectories(home)) addPathEntry(env, directory, "npm");
+  const javaHome = env.JAVA_HOME && existsSync(join(env.JAVA_HOME, "bin", "java"))
+    ? env.JAVA_HOME
+    : findPosixJavaHome(home);
+  if (javaHome) {
+    env.JAVA_HOME = javaHome;
+    addPathEntry(env, join(javaHome, "bin"), "java");
+  }
+  return env;
+}
+
+function posixNodeDirectories(home: string): readonly string[] {
+  return [
+    "/usr/local/bin",
+    "/opt/homebrew/bin",
+    join(home, ".local/bin"),
+    // nvm keeps one directory per installed release and no stable `current`
+    // symlink. Only the newest stands in for the version manager's default:
+    // putting every installed release on PATH would let an older one win.
+    ...newestFirst(join(home, ".nvm/versions/node")).slice(0, 1).map((directory) => join(directory, "bin")),
+    join(home, ".asdf/shims"),
+    join(home, ".local/share/mise/shims"),
+    join(home, ".volta/bin"),
+  ];
+}
+
+function findPosixJavaHome(home: string): string | undefined {
+  return [
+    join(home, ".sdkman/candidates/java/current"),
+    ...newestFirst("/Library/Java/JavaVirtualMachines").map((directory) => join(directory, "Contents/Home")),
+    "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home",
+    "/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home",
+    ...newestFirst("/usr/lib/jvm"),
+  ].find((directory) => existsSync(join(directory, "bin", "java")));
+}
+
+/** Version directories sort by name, which for `jdk-21` or `v24.3.0` puts the
+    newest release first without parsing a version scheme per vendor. */
+function newestFirst(parent: string): readonly string[] {
+  try {
+    return readdirSync(parent, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
+      .map((entry) => entry.name)
+      .sort((left, right) => right.localeCompare(left, "en", { numeric: true }))
+      .map((name) => join(parent, name));
+  } catch {
+    return [];
+  }
+}
+
 function addPathEntry(env: NodeJS.ProcessEnv, directory: string, executable: string): void {
   if (!existsSync(join(directory, executable))) return;
-  const pathKey = Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "Path";
+  const windows = process.platform === "win32";
+  const separator = windows ? ";" : ":";
+  // Windows environment blocks are case-insensitive and the key is spelled
+  // `Path` there; a POSIX block is case-sensitive and only `PATH` is the one.
+  const pathKey = windows ? Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "Path" : "PATH";
   const current = env[pathKey] ?? "";
-  if (!current.split(";").some((entry) => entry.toLowerCase() === directory.toLowerCase())) {
-    env[pathKey] = current ? `${directory};${current}` : directory;
-  }
+  const present = current.split(separator).some((entry) => windows
+    ? entry.toLowerCase() === directory.toLowerCase()
+    : entry === directory);
+  if (!present) env[pathKey] = current ? `${directory}${separator}${current}` : directory;
 }
 
 function findWindowsJavaHome(programFiles: string): string | undefined {
