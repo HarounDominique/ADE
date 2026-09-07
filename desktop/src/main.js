@@ -2063,6 +2063,11 @@ function renderRunControl() {
   renderRunConfigurationMenu();
 }
 
+/** The selection mark is a drawn icon rather than a typed plus: the system's
+    icons are SVG at one stroke weight, and a glyph in that column would sit at
+    a different weight from every other icon in the shell. */
+const pickerPlusMark = '<span class="git-option-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 6.5v11M6.5 12h11"/></svg></span>';
+
 function runConfigurationDetail(configuration) {
   const ports = (configuration.ports ?? []).map((port) => `:${port.port}`).join(' ');
   return [configuration.kind === 'compound' ? `${configuration.members?.length ?? 0} members` : configuration.kind, ports].filter(Boolean).join(' · ');
@@ -2083,10 +2088,18 @@ function renderRunConfigurationMenu() {
       read from, so the operator can check the offer instead of trusting it. */
   const suggestions = runSuggestions.filter((draft) => !runConfigurations.some((configuration) => configuration.id === draft.id));
   const suggested = suggestions.length
-    ? `<p class="picker-note">Found in this Project — add the ones you want.</p>${suggestions.map((draft) => `<div class="picker-row" role="none"><button class="picker-option" type="button" data-run-suggestion-id="${escapeHTML(draft.id)}"><span class="git-option-mark" aria-hidden="true">+</span><span><strong>${escapeHTML(draft.label)}</strong><small>${escapeHTML(draft.source)}</small></span></button></div>`).join('')}`
+    ? `<p class="picker-note">Found in this Project — add the ones you want.</p>${suggestions.map((draft) => {
+      /** A compound's evidence is several files; the row says how many parts it
+          starts and leaves the file list to the tooltip, where it can be read
+          whole instead of clipped. */
+      const detail = draft.kind === 'compound' ? `${draft.members?.length ?? 0} members` : draft.source;
+      return `<div class="picker-row" role="none"><button class="picker-option" type="button" data-run-suggestion-id="${escapeHTML(draft.id)}" title="${escapeHTML(draft.source)}">${pickerPlusMark}<span><strong>${escapeHTML(draft.label)}</strong><small>${escapeHTML(detail)}</small></span></button></div>`;
+    }).join('')}`
     : '';
   const empty = runConfigurations.length ? '' : '<p class="picker-empty">This Project has no run configurations yet.</p>';
-  menu.innerHTML = `${empty}${rows}${suggested}<div class="picker-row" role="none"><button class="picker-option" type="button" data-action="new-run-config"><span class="git-option-mark" aria-hidden="true">+</span><span><strong>New configuration…</strong><small>writes .ade/run.json</small></span></button></div>`;
+  /** The rows above are what the repository offers; this one is the operator's
+      own action, so a rule separates them instead of a fifth identical row. */
+  menu.innerHTML = `${empty}${rows}${suggested}<div class="picker-divider" role="separator"></div><div class="picker-row picker-row-action" role="none"><button class="picker-option" type="button" data-action="new-run-config">${pickerPlusMark}<span><strong>New configuration…</strong><small>writes .ade/run.json</small></span></button></div>`;
 }
 
 /** The dialog is the only place a configuration is authored: hand-editing JSON

@@ -1771,3 +1771,10 @@ body { color: var(--text); }
 @media (prefers-reduced-motion: reduce) {
   .picker-edit { transition-duration: .01ms !important; }
 }
+
+/* What the repository offers and what the operator does are different kinds of
+   row, so a rule separates them and the action carries the interactive accent. */
+.picker-divider { height: 1px; margin: 6px 7px; background: var(--line); }
+.picker-row-action .picker-option strong { color: var(--blue); }
+.picker-row-action .git-option-mark { color: var(--blue); }
+.git-option-mark svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.9; }

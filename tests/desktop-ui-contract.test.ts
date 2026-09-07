@@ -646,3 +646,15 @@ test("the run menu opens even when the Project declares nothing", () => {
   assert.doesNotMatch(main, /run-configuration-button'\)\?\.toggleAttribute\('disabled'/);
   assert.match(main, /'Add configuration'/);
 });
+
+test("the run menu separates what the repository offers from what the operator does", () => {
+  assert.match(main, /class="picker-divider" role="separator"/);
+  assert.match(main, /class="picker-row picker-row-action"/);
+  assert.match(styles, /\.picker-row-action \.picker-option strong \{ color: var\(--blue\); \}/);
+  // Icons are drawn at the system's stroke weight, never typed as glyphs.
+  assert.match(main, /const pickerPlusMark = '<span class="git-option-mark" aria-hidden="true"><svg/);
+  assert.doesNotMatch(main, /aria-hidden="true">\+<\/span>/);
+  // A compound's several source files belong in the tooltip, not clipped in the row.
+  assert.match(main, /draft\.kind === 'compound' \? `\$\{draft\.members\?\.length \?\? 0\} members`/);
+  assert.match(main, /title="\$\{escapeHTML\(draft\.source\)\}"/);
+});
