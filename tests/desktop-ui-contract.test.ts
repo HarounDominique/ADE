@@ -658,6 +658,15 @@ test("the run menu separates what the repository offers from what the operator d
   assert.match(main, /title="\$\{escapeHTML\(draft\.source\)\}"/);
 });
 
+test("the brand mark is the product's logo, and it wears the tile's colour", () => {
+  assert.match(html, /<span class="brand-mark" aria-hidden="true"><\/span>/);
+  assert.doesNotMatch(html, /class="brand-mark">A</);
+  assert.match(styles, /--brand-glyph: url\("data:image\/png;base64,[A-Za-z0-9+/=]+"\);/);
+  // Masked rather than painted, so a single asset serves every theme's tile.
+  assert.match(styles, /\.brand-mark::before \{[^}]*background: currentColor;/);
+  assert.match(styles, /\.brand-mark::before \{[^}]*mask: var\(--brand-glyph\) center \/ contain no-repeat;/);
+});
+
 test("the terminal dock's tab strip spends its width on the working directory", () => {
   // The mode caption said what the dock already is. It cost a row of space and
   // its second line climbed into the size toggle once run consoles added tabs.
