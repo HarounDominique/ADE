@@ -7,9 +7,13 @@
 ## Objective
 
 Persistir, por Project, el historial de las terminales integradas que ejecutaron
-Claude Code, Codex/ChatGPT Code u OpenCode. El usuario puede consultar y borrar
-esas sesiones desde un popup del dock, con fecha/hora y título breve. Una
+Claude Code, Codex/ChatGPT Code u OpenCode. El usuario puede retomar, consultar y
+borrar esas sesiones desde un popup del dock, con fecha/hora y título breve. Una
 terminal manual nunca se guarda ni se resume.
+
+Retomar una sesión abre una terminal que reanuda esa misma conversación por su
+identificador nativo, de modo que el historial de mensajes lo restaura el propio
+agente. Assay nunca reproduce el transcript guardado para aparentarlo.
 
 Al finalizar una sesión elegible, Assay pide al mismo provider un título de
 menos de 60 caracteres con su modelo económico: Claude `haiku`, Codex
@@ -35,8 +39,10 @@ comandos ni alterar archivos.
 - `src/persistence/`: tabla, migración y operaciones por Project.
 - `src/application/` y `src/adapters/`: detección, título seguro y resolución
   del id de conversación desde el almacén del agente.
-- `src/desktop-sidecar.ts`: listar, leer y borrar, siempre validados por Project.
-- `tests/`: migración, aislamiento, detección, fallback y contrato de UI.
+- `src/desktop-sidecar.ts`: guardar, listar, leer y borrar, siempre validados
+  por Project, e identificar la conversación al guardar y al listar.
+- `tests/`: migración, aislamiento, detección, identificación por ventana,
+  ambigüedad, fallback y contrato de UI.
 
 ## Code Style
 

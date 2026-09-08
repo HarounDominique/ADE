@@ -28,7 +28,7 @@
 
 - [x] Task: Mostrar y borrar historial en popup
   - Acceptance: botón junto a `+`, popup accesible y no persistente, fecha/hora,
-    tab de transcript readonly y borrado confirmado por el usuario.
+    reanudación de la conversación elegida y borrado confirmado por el usuario.
   - Verify: contract tests de HTML/CSS/JS y `node --check`.
   - Files: `desktop/src/index.html`, `desktop/src/main.js`,
     `desktop/src/styles.css`, `tests/desktop-ui-contract.test.ts`.
@@ -39,3 +39,14 @@
   - Verify: `npm test`, `npm run build`, `node --check desktop/src/main.js`,
     `cargo test --manifest-path desktop/src-tauri/Cargo.toml`, `git diff --check`.
   - Files: `docu/adr/`, `docu/specs/`, `tasks/`.
+
+- [x] Task: Reanudar la conversación elegida, no el selector del provider
+  - Acceptance: al guardar y al listar se identifica la conversación en el
+    almacén del agente exigiendo que naciera durante la sesión y en su
+    directorio; varias candidatas se descartan; abrir usa `--resume <id>` y la
+    fila que no se puede identificar lo advierte y cae al selector.
+  - Verify: tests de resolución por ventana, ambigüedad, backfill del listado y
+    contrato de UI.
+  - Files: `src/application/terminal-history/provider-session-id.ts`,
+    `src/desktop-sidecar.ts`, `src/persistence/sqlite-store.ts`,
+    `desktop/src/main.js`, `tests/`.

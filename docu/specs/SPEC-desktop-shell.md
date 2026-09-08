@@ -77,6 +77,8 @@ Cada tab presenta una única superficie de consola familiar, renderizada por `xt
 
 El shell real conserva `Enter`, `↑`/`↓`, `Tab`, el completado, el historial y el resto de su comportamiento habitual; ADE no implementa una segunda capa de interpretación. El foco se recupera pulsando la superficie del terminal y cambiar de tab nunca reinicia ni mezcla sesiones. El completado de rutas lo proporciona el shell real, no ADE, y no se intenta sustituir un shell completo ni un language server.
 
+Junto a la acción de nueva sesión, un botón abre el historial de las terminales que ejecutaron un agente. El dock no gana un panel permanente: es un popup, y su contrato —qué terminal se guarda, cómo se retoma su conversación y cómo se borra— pertenece a [SPEC-agent-terminal-history](SPEC-agent-terminal-history.md#historial-y-ui). El dock sólo aporta la superficie: abrir una entrada crea un tab de terminal normal, con el mismo PTY, resize y ciclo de vida que cualquier otro.
+
 ### Tasks dentro de Projects
 
 Una Task no existe fuera de un Project, así que ambos viven en la misma vista y `Tasks` no ocupa una entrada de navegación propia. `Projects` es un maestro-detalle: a la izquierda el catálogo —estrecho, sin métricas por fila, con `Add project` en su cabecera— y a la derecha el Project activo con su ruta, una línea de contexto con recuentos reales y la lista de sus Tasks, que es el foco de la pantalla.

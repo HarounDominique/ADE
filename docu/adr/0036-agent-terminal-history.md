@@ -28,10 +28,11 @@ leyendo el almacén de sesiones del propio agente —`~/.claude/projects/<cwd>/
 para Codex—, exigiendo que la conversación *naciera* dentro de la sesión de la
 terminal y en su directorio de trabajo. La fecha de modificación no sirve: una
 sesión de agente viva en el mismo directorio se reescribe sin parar y ganaría
-siempre. Reabrir una
-sesión ejecuta `claude --resume <id>` o `codex resume <id>`, de modo que el
-historial lo restaura el agente, no Assay. Sin coincidencia inequívoca se cae al
-selector nativo del provider.
+siempre. Abrir el popup reintenta la identificación de las sesiones que aún no
+la tienen, para que una sesión anterior a esta capacidad no quede condenada al
+selector. Reabrir una sesión ejecuta `claude --resume <id>` o
+`codex resume <id>`, de modo que el historial lo restaura el agente, no Assay.
+Sin coincidencia inequívoca se cae al selector nativo del provider.
 
 El título se solicita asíncronamente al mismo provider, usando Haiku para Claude
 y Luna para Codex; OpenCode conserva su modelo local default. El fallback local

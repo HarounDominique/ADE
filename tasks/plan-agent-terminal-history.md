@@ -5,8 +5,8 @@
 ## Objective
 
 Implementar el historial por Project de terminales integradas que ejecutaron un
-agente reconocido, con transcript de solo lectura, título económico del mismo
-provider y un popup accesible en el dock.
+agente reconocido, con reanudación de la conversación por su identificador
+nativo, título económico del mismo provider y un popup accesible en el dock.
 
 ## Implementation order
 
@@ -35,8 +35,12 @@ provider y un popup accesible en el dock.
   convertir una terminal manual previa en una sesión de agente por accidente.
 - La persistencia ocurre antes de pedir el título. La falla de modelo nunca
   pierde el historial ni retrasa el cierre de la tab.
-- La reapertura es una tab distinta de tipo `history`, sin `onData`, PTY ni
-  operación `terminal_stop`.
+- La reapertura es una terminal normal que ejecuta `--resume <id>`: el historial
+  lo restaura el agente. Reproducir el transcript guardado se descartó porque el
+  proceso no lo recuerda y su TUI lo sobrescribe.
+- El identificador se lee del almacén del propio agente, nunca de los bytes del
+  PTY, y sólo cuenta una conversación nacida durante la sesión y en su
+  directorio; varias candidatas son una suposición y se descartan.
 - El sidecar es la única ruta a SQLite; la shell nunca recibe sesiones de otro
   Project ni decide permisos de resumen.
 
@@ -57,7 +61,7 @@ provider y un popup accesible en el dock.
 1. Tras SQLite: pruebas de migración y aislamiento de Project.
 2. Tras detección/resumen: tests unitarios de provider, límite y fallback.
 3. Tras sidecar: tests de protocolo para éxito, parámetros y acceso cruzado.
-4. Tras shell: contract tests del popup, navegación, borrado y tab readonly.
+4. Tras shell: contract tests del popup, navegación, borrado y reanudación por id.
 5. Antes de entregar: `npm test`, `npm run build`, `node --check
    desktop/src/main.js`, `cargo test --manifest-path desktop/src-tauri/Cargo.toml`
    y `git diff --check`.
