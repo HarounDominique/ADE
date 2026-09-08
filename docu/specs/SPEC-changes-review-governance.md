@@ -34,6 +34,8 @@ Las gates se evalúan en orden, pero un fallo puede reentrar en la fase que lo n
 | `human-approval` | actor humano, decisión y razón | BUILD, REVIEW o RECONCILE |
 | `commit` | aprobación previa y referencia al ChangeSet | SHIP |
 
+**Hueco abierto (2026-09-08):** `tests` exige evidencia de tipo `verification` que hoy ningún productor escribe, y `build` se resuelve por la existencia de un `ChangeSet` en lugar de por una ejecución. Con la policy por defecto eso deja la aprobación humana permanentemente bloqueada. El inventario y la dirección de arreglo están en [product-gap-audit](../knowledge/product-gap-audit.md#g2--la-gate-tests-no-puede-pasar-y-build-no-comprueba-nada); hasta cerrarlo, esta sección describe el contrato buscado, no el comportamiento vigente.
+
 Una gate tiene estados `pending`, `passed`, `failed` o `waived`. Sólo una policy explícita permite `waived`, siempre con actor, motivo y evidencia. `failed` no destruye el ChangeSet ni la evidencia anterior. La aplicación debe impedir `SHIP` si alguna gate requerida no está en `passed` o `waived` conforme a policy.
 
 ## ChangeSet and checkpoint contract

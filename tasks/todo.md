@@ -290,3 +290,43 @@
   - Acceptance: el rail muestra sólo conversaciones del Project activo, agrupadas por Task y `General`; el thread usa todo el ancho restante; provider/modelo/permisos siguen siendo explícitos y cambiar de provider crea una sesión nueva sin falsear su reanudación.
   - Verify: `npm run build`, `npm --prefix desktop run build`, `npm test` (117 TypeScript tests), contratos de agrupación/invalidation/provider-modelo y smoke macOS pendiente de provider real disponible.
   - Files: `src/persistence/`, `src/desktop-sidecar.ts`, `desktop/src/`, `tests/`, `docu/`.
+
+## Cierre del bucle — backlog abierto (2026-09-08)
+
+Auditoría de origen: [product-gap-audit](../docu/knowledge/product-gap-audit.md). Cada tarea cita el hueco que cierra.
+
+- [ ] Task: Convertir un turno de `Agents` en ChangeSet y evidencia (G1)
+  - Spec: [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md) · [SPEC-agent-runtime.md](../docu/specs/SPEC-agent-runtime.md)
+  - Acceptance: un turno con permiso de escritura sobre una Task activa produce el mismo `ChangeSet` y la misma evidencia con Claude Code, Codex y OpenCode; `task.run` deja de ser el único camino al pipeline y ningún proveedor queda cableado en el sidecar.
+  - Verify: `npm test`, contrato por proveedor con runner falso y smoke manual con un proveedor real.
+  - Files: `src/desktop-sidecar.ts`, `src/application/`, `tests/`.
+
+- [ ] Task: Alimentar las gates `build` y `tests` con ejecuciones reales (G2, G3)
+  - Spec: [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md) · [SPEC-run-configurations.md](../docu/specs/SPEC-run-configurations.md)
+  - Acceptance: una configuración de run marcada como verificación escribe `RuntimeEvidence` con código de salida y cola de salida acotada, ligada a la Task; `build` y `tests` pasan por esa evidencia y no por la existencia de un ChangeSet; una gate sin productor no es `required` por defecto.
+  - Verify: `npm test` con casos de éxito, fallo y ausencia de ejecución; revisión manual de Changes.
+  - Files: `src/application/change-review-read-model.ts`, `src/application/local-runtime/`, `src/desktop-sidecar.ts`, `tests/`.
+
+- [ ] Task: Publicar el resultado aprobado como commit atribuido (G4, G5)
+  - Spec: [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md) · [SPEC-git-collaboration.md](../docu/specs/SPEC-git-collaboration.md)
+  - Acceptance: existe un seam `ship` que sólo commitea con aprobación humana y gates requeridas en `passed`/`waived`; el commit de `Version control` envía `taskId` y queda registrado en la traza Git de la Task.
+  - Verify: `npm test` con casos de aprobación ausente y gate fallida; smoke sobre repositorio temporal.
+  - Files: `src/desktop-sidecar.ts`, `src/application/tasks/`, `desktop/src/main.js`, `tests/`.
+
+- [ ] Task: Dar punto de retorno a un turno con escritura (G6)
+  - Spec: [SPEC-agent-providers.md](../docu/specs/SPEC-agent-providers.md) · [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md)
+  - Acceptance: un turno con `write_code`/`write_docs` deja un checkpoint restaurable antes de ejecutarse, visible desde la Task y reversible con confirmación explícita; no se crean commits en la rama del usuario sin pedirlo.
+  - Verify: `npm test`, smoke sobre repositorio temporal con cambios sin commitear.
+  - Files: `src/application/`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `tests/`.
+
+- [ ] Task: Mostrar el coste del trabajo agéntico (G7)
+  - Spec: [SPEC-agent-runtime.md](../docu/specs/SPEC-agent-runtime.md#turn-accounting) · ADR: [0040-agent-turn-accounting](../docu/adr/0040-agent-turn-accounting.md)
+  - Acceptance: la conversación y la Task pueden decir qué consumieron por turno y en total, distinguiendo cache; una sesión sin contabilidad se muestra como desconocida y nunca como cero.
+  - Verify: `npm test`, revisión manual de Agents.
+  - Files: `desktop/src/main.js`, `src/desktop-sidecar.ts`, `tests/`.
+
+- [ ] Task: Resolver distribución y actualización del `.app` (G8)
+  - Spec: [SPEC-cross-platform-support.md](../docu/specs/SPEC-cross-platform-support.md)
+  - Acceptance: existe un artefacto instalable reproducible y la app puede informar de que hay una versión más reciente; la instalación deja de ser un reemplazo manual del bundle.
+  - Verify: `npm run desktop:smoke` y una instalación limpia verificada en macOS.
+  - Files: `desktop/src-tauri/`, `scripts/`, `docu/`.

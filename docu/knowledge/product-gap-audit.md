@@ -1,0 +1,88 @@
+---
+id: product-gap-audit
+class: operational
+status: open
+updatedAt: 2026-09-08
+source: ADE-source-audit
+---
+
+# Auditoría de huecos de producto — 2026-09-08
+
+## Propósito y método
+
+Este documento registra los huecos entre lo que Assay promete en `PRODUCT.md`, `SPEC-NEXUS` y sus specs, y lo que el código sostiene hoy. No propone superficie nueva: nombra lo que impide que el bucle `intención → cambio → verificación → review → aprobación → commit` se cierre, con la evidencia en el propio repositorio.
+
+Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se mueven; el hecho descrito es lo que hay que verificar antes de darlo por cerrado.
+
+## G1 — El workbench y el pipeline de gobierno no se tocan
+
+**Qué pasa.** `Agents` —la superficie de trabajo diaria, con Claude Code y Codex— persiste mensajes y muestra el diff del turno, pero no crea `ChangeSet`, ni evidencia, ni gates, ni review. El pipeline que sí lo hace (`task.run` → `runSpike`) instancia `OpenCodeHttpRuntime` de forma fija en `src/desktop-sidecar.ts` y se apoya en `runtime.events()`, que los adapters CLI devuelven vacío (`src/adapters/claude-cli-runtime.ts`, `src/adapters/codex-cli-runtime.ts`).
+
+**Consecuencia de producto.** El diferenciador declarado —la `Task` trazable de la intención a la review— sólo existe con el proveedor que el usuario menos ejecuta, y nunca desde la pantalla donde trabaja. Sin esto, el resto del producto es un IDE con chat.
+
+**Dirección.** Un turno de `Agents` que toca el repositorio debe producir el mismo `ChangeSet` y la misma evidencia que produce `task.run`, sea cual sea el proveedor. El puerto ya expone `diff`; lo que falta es la aplicación que lo convierte en ChangeSet ligado a la Task activa.
+
+## G2 — La gate `tests` no puede pasar y `build` no comprueba nada
+
+**Qué pasa.** `src/application/change-review-read-model.ts` da `tests` por pasada cuando existe evidencia de tipo `verification`, y ningún punto del código escribe ese tipo. La gate `build` se da por pasada por la mera existencia de un `ChangeSet`, que no es una build.
+
+**Consecuencia de producto.** Con la policy por defecto (`build, tests, agent-review, documentation-review, human-approval`) la aprobación humana queda bloqueada de forma permanente: el bucle no cierra. Contradice el principio *Verification-first* y la fila del Truth model que reserva a tests y runtime el papel de evidencia comportamental.
+
+**Dirección.** `build` y `tests` deben venir de una ejecución real con código de salida y salida capturada, no de un proxy estructural. Una gate sin productor no debería ser `required` por defecto.
+
+## G3 — Assay ya sabe ejecutar build y tests, y no lo conecta
+
+**Qué pasa.** `run-configurations` detecta y ejecuta build, test y lint para Node, Python, Maven/Gradle, Rust, Go y .NET, con consola por ejecución (`src/application/local-runtime/`). Ni el código de salida ni la salida alimentan evidencia ni gates.
+
+**Consecuencia de producto.** El camino más corto y barato para arreglar G2 ya está construido y desconectado.
+
+**Dirección.** Una ejecución de configuración marcada como verificación escribe `RuntimeEvidence` con su código de salida y una cola de salida acotada, ligada a la Task activa; `build` y `tests` leen esa evidencia.
+
+## G4 — Aprobar no publica nada
+
+**Qué pasa.** No existe un seam `ship`. `task.approve` persiste la aprobación humana y ahí termina; el commit se hace a mano desde `Version control`.
+
+**Consecuencia de producto.** La cadena `intención → commit` se rompe justo en el último eslabón, que es el que el usuario recordará.
+
+## G5 — El commit principal no se atribuye a la Task
+
+**Qué pasa.** El envío de `git.commit.create` desde `Version control` no incluye `taskId` (`desktop/src/main.js`), y el sidecar sólo registra la operación Git contra la Task cuando ese parámetro llega (`src/desktop-sidecar.ts`).
+
+**Consecuencia de producto.** `PRODUCT.md` promete commits atribuidos a Tasks; el camino que el usuario usa a diario no los atribuye.
+
+## G6 — Un turno con escritura no es reversible
+
+**Qué pasa.** Un turno con `write_code` modifica el árbol sin punto de retorno propio. Deshacer es un trabajo manual de Git.
+
+**Consecuencia de producto.** El principio *Observable and reversible* queda sostenido sólo por Git y por la disciplina del usuario. Los checkpoints automáticos están fuera de alcance declarado; un checkpoint explícito por turno con escritura no lo está.
+
+## G7 — El coste del trabajo agéntico es invisible
+
+**Qué pasa.** Desde [ADR-0040](../adr/0040-agent-turn-accounting.md) cada turno registra su consumo en `agent_turn_usage`. Ninguna superficie lo lee.
+
+**Consecuencia de producto.** Una workstation agéntica que no sabe decir lo que costó una Task deja sin responder una pregunta que el usuario se hace a diario.
+
+## G8 — Instalar y actualizar es manual
+
+**Qué pasa.** El `.dmg` sigue diferido por el fallo de `bundle_dmg.sh` del entorno y no hay mecanismo de actualización: instalar una versión nueva es reemplazar el bundle a mano en `/Applications`.
+
+**Consecuencia de producto.** Cada iteración cuesta una operación manual y no hay forma de saber, desde la app, si está desactualizada.
+
+## Orden propuesto
+
+| Prioridad | Hueco | Razón |
+|---|---|---|
+| P0 | G1 | Conecta las dos mitades del producto; sin esto lo demás no significa nada |
+| P0 | G2 + G3 | Convierte en verdad lo que hoy es un proxy y desbloquea el cierre del bucle |
+| P1 | G4 + G5 | Cierra intención → commit con atribución |
+| P1 | G6 | Sostiene *reversible* sin inventar un control de versiones propio |
+| P2 | G7 | El dato ya existe; falta lectura |
+| P2 | G8 | Fricción de distribución, no de producto |
+
+## Fuera de alcance de esta auditoría
+
+Retrieval semántico, cloud, colaboración en tiempo real, editor completo y enrutado automático de modelos siguen diferidos por decisión previa; ninguno de ellos es la causa de los huecos anteriores. Añadir superficie nueva antes de cerrar G1–G3 aumenta la distancia entre lo prometido y lo sostenible.
+
+## Riesgo de documentación
+
+`PRODUCT.md` y `SPEC-NEXUS` describen el flujo completo como capacidad disponible. Mientras G2 siga abierto, esa afirmación excede lo que el código sostiene. En un producto cuyo argumento es la verificabilidad, esa distancia es el riesgo más caro del inventario y se corrige nombrándola, no parcheándola en silencio.
