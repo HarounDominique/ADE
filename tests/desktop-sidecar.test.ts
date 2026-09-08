@@ -440,3 +440,34 @@ test("saving a terminal session records the agent conversation it can resume", (
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+/** The regression that bound a saved terminal to the operator's own live
+    conversation: reopening kept the row's original start, so the window grew to
+    cover every conversation begun since. */
+test("reopening a terminal session does not widen the window it resolves in", () => {
+  const home = mkdtempSync(join(tmpdir(), "ade-sidecar-window-"));
+  const repositoryPath = join(home, "workspace");
+  const projects = join(home, ".claude", "projects", repositoryPath.replace(/[^a-zA-Z0-9]/g, "-"));
+  mkdirSync(projects, { recursive: true });
+  writeFileSync(join(projects, "88888888-8888-4888-8888-888888888888.jsonl"), "{}\n");
+  const bornBy = Date.now();
+  const previousHome = process.env.HOME;
+  process.env.HOME = home;
+  const store = new AdeStore();
+  try {
+    const params = { sessionId: "terminal-reopened", projectId: "project-a", provider: "claude", repositoryPath, transcript: "hello", startedAt: new Date(bornBy - 3_600_000).toISOString(), endedAt: new Date(bornBy + 60_000).toISOString() };
+    // The conversation was born before this tab ever ran an agent, so it is not
+    // this tab's -- even though the row's own start is an hour earlier.
+    handleDesktopRequest(store, { id: "save-reopened", method: "terminal.history.save", params: { ...params, agentStartedAt: new Date(bornBy + 50).toISOString() } });
+    assert.equal(store.getTerminalHistorySession("terminal-reopened")?.providerSessionId, undefined);
+
+    // A tab that did start the agent claims it.
+    handleDesktopRequest(store, { id: "save-fresh", method: "terminal.history.save", params: { ...params, sessionId: "terminal-fresh", agentStartedAt: new Date(bornBy - 1_000).toISOString() } });
+    assert.equal(store.getTerminalHistorySession("terminal-fresh")?.providerSessionId, "88888888-8888-4888-8888-888888888888");
+  } finally {
+    if (previousHome === undefined) delete process.env.HOME;
+    else process.env.HOME = previousHome;
+    store.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+});

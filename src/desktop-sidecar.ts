@@ -45,7 +45,7 @@ import { resolveProviderSessionId } from "./application/terminal-history/provide
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; title?: string; startedAt?: string; endedAt?: string; truncated?: boolean };
+  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
 };
 
 export type DesktopResponse = {
@@ -156,7 +156,11 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       if (params.repositoryPath) {
         try {
           const takenIds = store.listTerminalHistorySessions(params.projectId).filter((session) => session.id !== params.sessionId).map((session) => session.providerSessionId).filter((id): id is string => Boolean(id));
-          providerSessionId = resolveProviderSessionId(provider, { repositoryPath: params.repositoryPath, startedAt: params.startedAt, endedAt: params.endedAt, takenIds });
+          /** Resolution uses the window this tab actually ran the agent in. A
+              reopened session keeps the conversation's original start, and
+              measuring from there would sweep in every conversation begun
+              since -- including the operator's own, live in the same folder. */
+          providerSessionId = resolveProviderSessionId(provider, { repositoryPath: params.repositoryPath, startedAt: params.agentStartedAt ?? params.startedAt, endedAt: params.endedAt, takenIds });
         } catch {
           providerSessionId = undefined;
         }

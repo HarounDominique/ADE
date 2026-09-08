@@ -50,6 +50,11 @@ test("agent terminal history is a modal that reopens native agent sessions", () 
   assert.match(main, /codex resume \$\{sessionId\}/);
   assert.match(main, /'claude --resume\\r'/);
   assert.match(main, /function providerSessionIdForResume/);
+  // Resolution measures the window this tab ran its agent in, not the row's own
+  // start, which a reopen would stretch across other conversations.
+  assert.match(main, /agentStartedAt: tab\.historyAgentStartedAt/);
+  // A row that can only reach the provider's picker says so before it is clicked.
+  assert.match(main, /pick from list/);
   assert.match(main, /resumeTerminalHistorySession/);
   // A stored transcript is a record, never replayed into a live PTY to look
   // like a resumed conversation.

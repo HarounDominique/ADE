@@ -497,6 +497,7 @@ function captureTerminalInput(tab, data) {
   if (provider) {
     tab.historyProvider = provider;
     tab.historyStartedAt = new Date().toISOString();
+    tab.historyAgentStartedAt = tab.historyStartedAt;
     appendTerminalHistory(tab, `$ ${tab.commandBuffer}`);
   }
   tab.commandBuffer = '';
@@ -513,7 +514,7 @@ function persistTerminalHistory(tab) {
   const transcript = terminalHistorySnapshot(tab) || readableTerminalTranscript(tab.historyTranscript);
   const id = `terminal-history-save-${Date.now()}-${tab.id}`;
   pendingContextRequests.set(id, 'terminal-history-save');
-  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'terminal.history.save', params: { sessionId: tab.historyStorageId ?? tab.id, projectId: activeProjectId, repositoryPath: workspaceRootPath, provider: tab.historyProvider, transcript, truncated: tab.historyTruncated, startedAt: tab.historyStartedAt, endedAt: new Date().toISOString() } }) }).catch(() => {});
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'terminal.history.save', params: { sessionId: tab.historyStorageId ?? tab.id, projectId: activeProjectId, repositoryPath: workspaceRootPath, provider: tab.historyProvider, transcript, truncated: tab.historyTruncated, startedAt: tab.historyStartedAt, agentStartedAt: tab.historyAgentStartedAt, endedAt: new Date().toISOString() } }) }).catch(() => {});
 }
 
 function requestTerminalHistory() {
@@ -526,7 +527,10 @@ function requestTerminalHistory() {
 function renderTerminalHistory() {
   const list = document.getElementById('terminal-history-list');
   if (!list) return;
-  list.innerHTML = terminalHistorySessions.length ? terminalHistorySessions.map((session) => { const title = terminalHistoryTitle(session.title); return `<article class="terminal-history-item" role="listitem"><button type="button" data-terminal-history-id="${escapeHTML(session.id)}"><strong>${escapeHTML(title)}</strong><small>${escapeHTML(session.provider)} · ${escapeHTML(new Date(session.endedAt).toLocaleString())}</small></button><button class="terminal-history-delete" type="button" data-delete-terminal-history-id="${escapeHTML(session.id)}" aria-label="Delete terminal session ${escapeHTML(title)}">Delete</button></article>`; }).join('') : '<p class="picker-empty">No saved agent terminal sessions in this Project.</p>';
+  /** A session Assay could not tie to a conversation can only hand the operator
+      the agent's own picker, where they have to choose a second time. Saying so
+      on the row beats letting the click promise more than it delivers. */
+  list.innerHTML = terminalHistorySessions.length ? terminalHistorySessions.map((session) => { const title = terminalHistoryTitle(session.title); const resumable = Boolean(providerSessionIdForResume(session)); const note = resumable ? '' : ' · pick from list'; const hint = resumable ? `Resume ${title}` : `Open ${session.provider}'s session list: this session was saved before Assay recorded which conversation it ran`; return `<article class="terminal-history-item" role="listitem"><button type="button" data-terminal-history-id="${escapeHTML(session.id)}" title="${escapeHTML(hint)}"><strong>${escapeHTML(title)}</strong><small>${escapeHTML(session.provider)} · ${escapeHTML(new Date(session.endedAt).toLocaleString())}${escapeHTML(note)}</small></button><button class="terminal-history-delete" type="button" data-delete-terminal-history-id="${escapeHTML(session.id)}" aria-label="Delete terminal session ${escapeHTML(title)}">Delete</button></article>`; }).join('') : '<p class="picker-empty">No saved agent terminal sessions in this Project.</p>';
 }
 
 function terminalHistoryTitle(value) {
@@ -588,6 +592,7 @@ async function resumeTerminalHistorySession(session) {
   tab.historyProvider = provider;
   tab.historyStorageId = session.id;
   tab.historyStartedAt = session.startedAt ?? new Date().toISOString();
+  tab.historyAgentStartedAt = new Date().toISOString();
   appendTerminalHistory(tab, `$ ${command.replace(/\r$/, '')}\n`);
   await sendTerminalInput(tab, command);
   const providerName = provider === 'codex' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : 'Claude';
@@ -641,6 +646,11 @@ function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null,
     historyTranscript: '',
     historyTruncated: false,
     historyStartedAt: null,
+    /** When the agent process started in *this* tab. A reopened tab keeps the
+        conversation's original start for the row, but only ever ran its agent
+        from here, and widening that window makes the terminal claim whatever
+        conversation happened to begin inside it. */
+    historyAgentStartedAt: null,
     historyStorageId: null,
   };
   tab.terminal = new Terminal({
