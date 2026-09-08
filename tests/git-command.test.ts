@@ -24,3 +24,33 @@ test("Git availability failures remain identifiable to the desktop shell", () =>
   assert.equal(error.code, "GIT_UNAVAILABLE");
   assert.match(error.message, /ADE_GIT_COMMAND/);
 });
+
+test("a desktop launcher's PATH is searched when Git sits outside the standard prefixes", () => {
+  const installed = "/opt/custom/bin/git";
+  const command = gitExecutable(
+    { PATH: "/usr/bin:/opt/custom/bin" },
+    "darwin",
+    (candidate) => candidate === installed,
+  );
+  assert.equal(command, installed);
+});
+
+test("Xcode command line tools count as an installed Git", () => {
+  const installed = "/Library/Developer/CommandLineTools/usr/bin/git";
+  assert.equal(gitExecutable({ PATH: "" }, "darwin", (candidate) => candidate === installed), installed);
+});
+
+test("a Windows PATH is searched with its own separator and executable name", () => {
+  const installed = "C:\\Tools\\git\\bin\\git.exe";
+  const command = gitExecutable(
+    { Path: "C:\\Windows\\system32;C:\\Tools\\git\\bin" },
+    "win32",
+    (candidate) => candidate === installed,
+  );
+  assert.equal(command, installed);
+});
+
+test("Git stays a bare command when nothing on disk answers", () => {
+  assert.equal(gitExecutable({ PATH: "/usr/bin" }, "linux", () => false), "git");
+  assert.equal(gitExecutable({ Path: "C:\\Windows" }, "win32", () => false), "git.exe");
+});
