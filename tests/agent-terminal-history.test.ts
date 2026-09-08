@@ -33,8 +33,13 @@ function fixtureHome(): string {
   return mkdtempSync(join(tmpdir(), "ade-provider-session-"));
 }
 
+/** A file's recorded birth time and `Date.now()` come from two clocks that
+    Windows does not keep in step to the millisecond, so a fixture written a
+    moment ago can be stamped just after a window that closes "now". The close
+    is pushed a few seconds out: these tests are about which conversation is
+    matched, never about the width of the window. */
 function windowSince(openedAt: number): { startedAt: string; endedAt: string } {
-  return { startedAt: new Date(openedAt).toISOString(), endedAt: new Date().toISOString() };
+  return { startedAt: new Date(openedAt).toISOString(), endedAt: new Date(Date.now() + 5_000).toISOString() };
 }
 
 const claudeProjects = (home: string, slug: string) => join(home, ".claude", "projects", slug);

@@ -438,7 +438,9 @@ test("saving a terminal session records the agent conversation it can resume", (
   const store = new AdeStore();
   try {
     const startedAt = new Date(Date.now() - 60_000).toISOString();
-    const endedAt = new Date().toISOString();
+    // The close is a few seconds out because a fixture's birth time and
+    // Date.now() are not the same clock on Windows.
+    const endedAt = new Date(Date.now() + 5_000).toISOString();
     handleDesktopRequest(store, { id: "terminal-save", method: "terminal.history.save", params: { sessionId: "terminal-resumable", projectId: "project-a", provider: "claude", repositoryPath, transcript: "hello", startedAt, endedAt } });
     assert.equal((handleDesktopRequest(store, { id: "terminal-get", method: "terminal.history.get", params: { sessionId: "terminal-resumable", projectId: "project-a" } }).result as { providerSessionId?: string }).providerSessionId, "77777777-7777-4777-8777-777777777777");
 
@@ -494,7 +496,7 @@ test("listing terminal history identifies conversations it could not identify be
   try {
     const openedAt = Date.now() - 1_000;
     writeFileSync(join(projects, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jsonl"), "{}\n");
-    store.saveTerminalHistorySession({ id: "terminal-legacy", projectId: "project-a", provider: "claude", title: "Older session", transcript: "hello", truncated: false, startedAt: new Date(openedAt).toISOString(), endedAt: new Date().toISOString() });
+    store.saveTerminalHistorySession({ id: "terminal-legacy", projectId: "project-a", provider: "claude", title: "Older session", transcript: "hello", truncated: false, startedAt: new Date(openedAt).toISOString(), endedAt: new Date(Date.now() + 5_000).toISOString() });
     assert.equal(store.getTerminalHistorySession("terminal-legacy")?.providerSessionId, undefined);
 
     const listed = handleDesktopRequest(store, { id: "list", method: "terminal.history.list", params: { projectId: "project-a", repositoryPath } }).result as Array<{ providerSessionId?: string }>;
