@@ -71,9 +71,12 @@ Fechas ISO-8601 UTC, IDs opacos y operaciones de persistencia explícitas.
   conversación por su identificador nativo: `claude --resume <id>` o
   `codex resume <id>`. El historial de mensajes lo restaura el agente, no Assay.
 - El identificador se resuelve al guardar, leyendo el almacén de sesiones del
-  propio agente (`~/.claude/projects/`, `~/.codex/sessions/`) acotado por
-  directorio de trabajo y ventana temporal; nunca se extrae de los bytes del
-  PTY. Sin coincidencia inequívoca se abre el selector nativo del provider.
+  propio agente (`~/.claude/projects/`, `~/.codex/sessions/`): sólo se atribuye
+  una conversación *nacida* durante la sesión de la terminal y en su directorio
+  de trabajo. Nunca se extrae de los bytes del PTY, y nunca se elige por fecha
+  de modificación: una conversación viva en el mismo directorio —la del propio
+  editor— se reescribe sin parar y ganaría siempre. Sin coincidencia inequívoca
+  se abre el selector nativo del provider.
 - OpenCode no expone reanudación por id en su CLI: usa `--continue`, que retoma
   su última sesión del Project.
 - No se intenta reconstruir un TUI desde bytes PTY: sus pantallas alternativas

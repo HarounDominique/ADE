@@ -25,7 +25,10 @@ se reproduce como PTY.
 Al guardar, Assay resuelve además el identificador nativo de la conversación
 leyendo el almacén de sesiones del propio agente —`~/.claude/projects/<cwd>/
 <uuid>.jsonl` para Claude y la línea `session_meta` de `~/.codex/sessions/...`
-para Codex—, acotado por directorio de trabajo y ventana temporal. Reabrir una
+para Codex—, exigiendo que la conversación *naciera* dentro de la sesión de la
+terminal y en su directorio de trabajo. La fecha de modificación no sirve: una
+sesión de agente viva en el mismo directorio se reescribe sin parar y ganaría
+siempre. Reabrir una
 sesión ejecuta `claude --resume <id>` o `codex resume <id>`, de modo que el
 historial lo restaura el agente, no Assay. Sin coincidencia inequívoca se cae al
 selector nativo del provider.
@@ -69,3 +72,6 @@ elegibilidad, que exige decisión explícita.
   CLI: conserva `--continue`, que retoma la última conversación del Project.
 - Dos terminales del mismo Project abiertas a la vez pueden no distinguirse; el
   id ya asignado a otra fila se descarta y, ante la duda, se ofrece el selector.
+- Una conversación reanudada dentro de la terminal (`claude --resume` a mano) no
+  nace en la ventana, así que no se le atribuye id: se ofrece el selector.
+- Un sistema de archivos sin fecha de creación fiable nunca resuelve id.

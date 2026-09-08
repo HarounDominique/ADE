@@ -11,13 +11,13 @@ export type ProviderSessionLookup = {
   takenIds?: readonly string[] | undefined;
 };
 
-/** A session file is still being written when the tab closes, so its last write
-    can land just after the recorded end. Anything wider would start claiming the
-    next conversation. */
-const trailingWriteGraceMs = 120_000;
+/** The agent writes its first line a moment after the command is recognised, so
+    a conversation born just outside the window is still this terminal's.
+    Anything wider would start claiming the neighbouring conversation. */
+const creationGraceMs = 120_000;
 const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
-type Candidate = { id: string; modifiedAt: number; path: string };
+type Candidate = { id: string; createdAt: number; path: string };
 
 /** Claude names a project directory after the working directory, with every
     character that is not alphanumeric folded to a dash. */
@@ -25,10 +25,20 @@ function claudeProjectDirectory(repositoryPath: string): string {
   return repositoryPath.replace(/[^a-zA-Z0-9]/g, "-");
 }
 
-function modifiedWithin(path: string, from: number, to: number): number | undefined {
+/** Creation time, not modification time, is what ties a conversation to a
+    terminal. Any long-lived agent session in the same directory -- the editor's
+    own, or another window -- is written to constantly, so by modification time
+    it is always the most recent file and would win every lookup. It was born
+    before this terminal opened, and that is what rules it out.
+
+    A filesystem that records no birth time reports 0; with no creation time to
+    go on the honest answer is no match, which costs the operator the picker
+    rather than the wrong conversation. */
+function createdWithin(path: string, from: number, to: number): number | undefined {
   try {
-    const modifiedAt = statSync(path).mtimeMs;
-    return modifiedAt >= from && modifiedAt <= to ? modifiedAt : undefined;
+    const createdAt = statSync(path).birthtimeMs;
+    if (!createdAt) return undefined;
+    return createdAt >= from && createdAt <= to ? createdAt : undefined;
   } catch {
     return undefined;
   }
@@ -75,8 +85,8 @@ function claudeCandidates(home: string, lookup: ProviderSessionLookup, from: num
     const id = name.slice(0, -".jsonl".length);
     if (!uuid.test(id)) continue;
     const path = join(directory, name);
-    const modifiedAt = modifiedWithin(path, from, to);
-    if (modifiedAt !== undefined) candidates.push({ id, modifiedAt, path });
+    const createdAt = createdWithin(path, from, to);
+    if (createdAt !== undefined) candidates.push({ id, createdAt, path });
   }
   return candidates;
 }
@@ -93,15 +103,15 @@ function codexCandidates(home: string, lookup: ProviderSessionLookup, from: numb
         for (const name of listFiles(directory)) {
           if (!name.startsWith("rollout-") || !name.endsWith(".jsonl")) continue;
           const path = join(directory, name);
-          const modifiedAt = modifiedWithin(path, from, to);
-          if (modifiedAt === undefined) continue;
+          const createdAt = createdWithin(path, from, to);
+          if (createdAt === undefined) continue;
           const meta = readFirstLine(path);
           if (!meta) continue;
           try {
             const payload = (JSON.parse(meta) as { payload?: { cwd?: string; session_id?: string } }).payload;
             if (!payload || payload.cwd !== lookup.repositoryPath) continue;
             const id = payload.session_id;
-            if (id && uuid.test(id)) candidates.push({ id, modifiedAt, path });
+            if (id && uuid.test(id)) candidates.push({ id, createdAt, path });
           } catch {
             continue;
           }
@@ -128,9 +138,9 @@ export function resolveProviderSessionId(provider: TerminalAgentProvider, lookup
   const home = lookup.home ?? homedir();
   const taken = new Set(lookup.takenIds ?? []);
   const candidates = provider === "claude"
-    ? claudeCandidates(home, lookup, from, to + trailingWriteGraceMs)
-    : codexCandidates(home, lookup, from, to + trailingWriteGraceMs);
+    ? claudeCandidates(home, lookup, from, to + creationGraceMs)
+    : codexCandidates(home, lookup, from, to + creationGraceMs);
   return candidates
     .filter((candidate) => !taken.has(candidate.id))
-    .sort((left, right) => right.modifiedAt - left.modifiedAt)[0]?.id;
+    .sort((left, right) => right.createdAt - left.createdAt)[0]?.id;
 }
