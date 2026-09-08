@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CodexCliRuntime, executeCodexCommand, extractCodexSessionId, extractCodexUsage } from "../src/adapters/codex-cli-runtime.js";
+import { CodexCliRuntime, executeCodexCommand, extractCodexPressure, extractCodexSessionId, extractCodexUsage } from "../src/adapters/codex-cli-runtime.js";
 
 test("Codex CLI captures its emitted session id and resumes it", async () => {
   const calls: string[][] = [];
@@ -98,4 +98,31 @@ test("Codex usage tolerates the older nested event shape and reports nothing whe
   assert.deepEqual(extractCodexUsage('{"id":"0","msg":{"type":"token_count","input_tokens":300,"cached_input_tokens":100,"output_tokens":40}}'), { inputTokens: 200, outputTokens: 40, cacheReadInputTokens: 100, cacheCreationInputTokens: 0 });
   assert.equal(extractCodexUsage('{"type":"turn.completed"}'), undefined);
   assert.equal(extractCodexUsage(undefined), undefined);
+});
+
+test("Codex reports the context it holds and both plan windows", () => {
+  const event = {
+    type: "token_count",
+    info: {
+      last_token_usage: { input_tokens: 90_000, cached_input_tokens: 80_000, output_tokens: 1_200, total_tokens: 91_200 },
+      model_context_window: 272_000,
+      rate_limits: { primary: { used_percent: 37, window_minutes: 300, resets_in_seconds: 3_600 }, secondary: { used_percent: 12, window_minutes: 10_080 } },
+    },
+  };
+
+  const pressure = extractCodexPressure(event);
+  assert.deepEqual(pressure?.context, { usedTokens: 91_200, windowTokens: 272_000 });
+  // The windows are told apart by their own length, not by the order they arrive in.
+  assert.equal(pressure?.session?.usedPercent, 37);
+  assert.equal(pressure?.session?.windowMinutes, 300);
+  assert.ok(pressure?.session?.resetsAt);
+  assert.equal(pressure?.weekly?.usedPercent, 12);
+});
+
+test("Codex pressure survives the older event shape and reports nothing when absent", () => {
+  const pressure = extractCodexPressure({ msg: { type: "token_count", rate_limits: { secondary: { used_percent: 5, window_minutes: 10_080 } } } });
+  assert.equal(pressure?.weekly?.usedPercent, 5);
+  assert.equal(pressure?.session, undefined);
+  assert.equal(extractCodexPressure({ type: "turn.completed" }), undefined);
+  assert.equal(extractCodexPressure("not an event"), undefined);
 });

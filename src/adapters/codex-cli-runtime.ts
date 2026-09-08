@@ -1,6 +1,6 @@
 import { type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt, TurnUsage } from "../ports/agent-runtime.js";
+import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt, TurnUsage, ProviderPressure, UsageWindow } from "../ports/agent-runtime.js";
 import { executeGit } from "./git-command.js";
 import { startSafeCommand } from "./safe-command.js";
 
@@ -171,4 +171,66 @@ function findCodexUsage(value: unknown, depth = 0): TurnUsage | undefined {
     if (usage) return usage;
   }
   return undefined;
+}
+
+/** Codex reports both halves in its `token_count` event: what the context
+    window is holding after the last request, and the plan windows with the
+    percentage already used. The five-hour window is the session one and the
+    weekly window the second; they are told apart by their own length, not by
+    the order the CLI happens to send them in. */
+export function extractCodexPressure(event: unknown): ProviderPressure | undefined {
+  const info = findCodexTokenCount(event);
+  if (!info) return undefined;
+  const last = info.last_token_usage as Record<string, unknown> | undefined;
+  const windowTokens = typeof info.model_context_window === "number" ? info.model_context_window : undefined;
+  const usedTokens = codexContextTokens(last);
+  const windows = readCodexLimits(info.rate_limits);
+  return {
+    ...(typeof usedTokens === "number" ? { context: { usedTokens, ...(windowTokens ? { windowTokens } : {}) } } : {}),
+    ...windows,
+  };
+}
+
+function findCodexTokenCount(value: unknown, depth = 0): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || depth > 6) return undefined;
+  const node = value as Record<string, unknown>;
+  if (node.rate_limits || node.model_context_window || node.last_token_usage) return node;
+  for (const child of Object.values(node)) {
+    const found = findCodexTokenCount(child, depth + 1);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/** The context holds the whole last request, cached tokens included: what is
+    stored apart for accounting is still occupying the window. */
+function codexContextTokens(usage: Record<string, unknown> | undefined): number | undefined {
+  if (!usage) return undefined;
+  const total = usage.total_tokens;
+  if (typeof total === "number" && Number.isFinite(total)) return total;
+  const input = usage.input_tokens;
+  const output = usage.output_tokens;
+  if (typeof input !== "number" && typeof output !== "number") return undefined;
+  return (typeof input === "number" ? input : 0) + (typeof output === "number" ? output : 0);
+}
+
+function readCodexLimits(value: unknown): { session?: UsageWindow; weekly?: UsageWindow } {
+  if (!value || typeof value !== "object") return {};
+  const limits = value as Record<string, unknown>;
+  const result: { session?: UsageWindow; weekly?: UsageWindow } = {};
+  for (const candidate of Object.values(limits)) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const entry = candidate as Record<string, unknown>;
+    const used = entry.used_percent;
+    if (typeof used !== "number" || !Number.isFinite(used)) continue;
+    const minutes = typeof entry.window_minutes === "number" ? entry.window_minutes : undefined;
+    const resets = typeof entry.resets_in_seconds === "number" ? new Date(Date.now() + entry.resets_in_seconds * 1_000).toISOString() : undefined;
+    const window: UsageWindow = { usedPercent: used, ...(minutes ? { windowMinutes: minutes } : {}), ...(resets ? { resetsAt: resets } : {}) };
+    // A window ADE cannot measure is treated as the session one only when no
+    // shorter window has claimed that place.
+    const isWeekly = minutes !== undefined && minutes > 1_440;
+    if (isWeekly) { if (!result.weekly) result.weekly = window; }
+    else if (!result.session) result.session = window;
+  }
+  return result;
 }

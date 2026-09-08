@@ -30,6 +30,10 @@ Fakes por capacidad, contract tests por adapter, detección de binario/endpoint 
 - Ask first: conceder por ejecución `write_code`, `run_commands` o `network`; `read_project` y `write_docs` se rigen por el alcance del Project.
 - Never: copiar tokens a SQLite, logs, prompts persistidos o ChangeSets.
 
+## Usage and context pressure
+
+Cada proveedor declara lo que sabe de su propio consumo mediante `ProviderPressure`: los tokens que la última petición dejó en la ventana de contexto —cache incluida, porque sigue ocupándola—, el tamaño de esa ventana cuando lo publica, y las ventanas de plan de sesión y semana con su porcentaje gastado. Codex las publica todas en `token_count`; Claude Code publica el consumo del turno pero no sus ventanas de plan en modo `--print`; OpenCode no publica ninguna. Lo que un proveedor no reporta se transmite ausente, y la shell lo muestra como desconocido en lugar de estimarlo. Véase [ADR-0041](../adr/0041-agent-pressure-dials.md).
+
 ## Session contract
 
 OpenCode reanuda el `sessionId` HTTP almacenado. Codex inicia con `codex exec --json`, captura `thread_id` y lo retoma con `codex exec resume <thread_id>`. Claude Code inicia con `claude --print --output-format stream-json --include-partial-messages --session-id <uuid>`, captura `session_id` y lo retoma con `claude --print --output-format stream-json --include-partial-messages --resume <session_id>`. El shell muestra las sesiones de cada Task y permite elegir una para continuar una skill; una sesión no se declara reanudable hasta que el proveedor ha emitido su identificador real.

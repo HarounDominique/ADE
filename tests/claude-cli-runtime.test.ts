@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ClaudeCliRuntime, executeClaudeCommand, extractClaudeSessionId, extractClaudeText, extractClaudeUsage } from "../src/adapters/claude-cli-runtime.js";
+import { ClaudeCliRuntime, executeClaudeCommand, extractClaudeSessionId, extractClaudePressure, extractClaudeText, extractClaudeUsage } from "../src/adapters/claude-cli-runtime.js";
 
 test("a read-only turn does not plan, so the requested model survives", async () => {
   // `--permission-mode plan` enforces a minimum model tier and substitutes its
@@ -84,4 +84,33 @@ test("Claude Code falls back to per-request usage when a turn reports no result"
   // free turn.
   assert.equal(extractClaudeUsage('{"type":"result","result":"done"}'), undefined);
   assert.equal(extractClaudeUsage(undefined), undefined);
+});
+
+test("Claude Code reports what the context holds and stays silent about plan windows", () => {
+  const result = JSON.parse(JSON.stringify({
+    type: "result",
+    usage: { input_tokens: 4_000, output_tokens: 900, cache_read_input_tokens: 120_000, cache_creation_input_tokens: 6_000 },
+    modelUsage: { "claude-opus-5": { inputTokens: 4_000 } },
+  }));
+
+  // Cached tokens are stored apart for accounting but still occupy the window.
+  assert.deepEqual(extractClaudePressure(result), { context: { usedTokens: 130_000, windowTokens: 1_000_000 } });
+  // `--print` carries no five-hour or weekly window, so neither is claimed.
+  assert.equal(extractClaudePressure(result).session, undefined);
+  assert.equal(extractClaudePressure(result).weekly, undefined);
+  assert.equal(extractClaudePressure({ type: "system" }), undefined);
+});
+
+test("Claude Code sizes the context by the model, and leaves it unsized when it cannot", () => {
+  const withModel = (model: string) => extractClaudePressure({ type: "assistant", message: { model, usage: { input_tokens: 1_000, output_tokens: 10 } } });
+  assert.equal(withModel("claude-haiku-4-5").context?.windowTokens, 200_000);
+  assert.equal(withModel("claude-sonnet-5").context?.windowTokens, 1_000_000);
+  // An alias ADE cannot place reports its tokens without inventing a window.
+  assert.deepEqual(withModel("some-future-model").context, { usedTokens: 1_000 });
+});
+
+test("Claude Code plan windows are read if the CLI ever reports them", () => {
+  const pressure = extractClaudePressure({ type: "result", usage: { input_tokens: 10, output_tokens: 5 }, rate_limits: { five_hour: { used_percentage: 42.5 }, seven_day: { used_percentage: 8 } } });
+  assert.equal(pressure?.session?.usedPercent, 42.5);
+  assert.equal(pressure?.weekly?.usedPercent, 8);
 });

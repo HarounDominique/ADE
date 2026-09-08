@@ -29,6 +29,20 @@ export type TurnUsage = {
   costUsd?: number;
 };
 
+/** What the provider says is left, as the provider says it. A window it does
+    not report is absent, never a full or empty one. */
+export type UsageWindow = {
+  usedPercent: number;
+  windowMinutes?: number;
+  resetsAt?: string;
+};
+
+export type ProviderPressure = {
+  context?: { usedTokens: number; windowTokens?: number };
+  session?: UsageWindow;
+  weekly?: UsageWindow;
+};
+
 export type FileDiff = {
   path?: string;
   additions?: number;

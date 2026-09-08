@@ -1,6 +1,6 @@
 import { type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt, TurnUsage } from "../ports/agent-runtime.js";
+import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt, TurnUsage, ProviderPressure, UsageWindow } from "../ports/agent-runtime.js";
 import { executeGit } from "./git-command.js";
 import { startSafeCommand } from "./safe-command.js";
 
@@ -201,4 +201,59 @@ function readUsage(value: unknown): TurnUsage {
     cacheReadInputTokens: count(usage.cache_read_input_tokens),
     cacheCreationInputTokens: count(usage.cache_creation_input_tokens),
   };
+}
+
+/** Claude Code reports no plan limits in `--print`: the five-hour and weekly
+    windows exist only in its interactive status-line contract, so ADE reports
+    them as unknown instead of guessing. What it does report every turn is the
+    token count, which is what the context window is holding. */
+export function extractClaudePressure(event: unknown): ProviderPressure | undefined {
+  if (!event || typeof event !== "object") return undefined;
+  const node = event as Record<string, unknown>;
+  const message = node.message as Record<string, unknown> | undefined;
+  const usage = isUsage(node.usage) ? node.usage : isUsage(message?.usage) ? message?.usage : undefined;
+  const limits = readClaudeLimits(node.rate_limits);
+  if (!usage) return limits;
+  const counts = readUsage(usage);
+  const model = typeof message?.model === "string" ? message.model : claudeModelFromUsage(node.modelUsage);
+  const windowTokens = model ? claudeContextWindow(model) : undefined;
+  return {
+    context: { usedTokens: counts.inputTokens + counts.cacheReadInputTokens + counts.cacheCreationInputTokens, ...(windowTokens ? { windowTokens } : {}) },
+    ...limits,
+  };
+}
+
+/** Published context windows for the aliases the model picker offers. An alias
+    ADE cannot place reports its tokens without a percentage rather than a
+    percentage of a window it invented. */
+export function claudeContextWindow(model: string): number | undefined {
+  const name = model.toLowerCase();
+  if (name.includes("haiku")) return 200_000;
+  if (["opus", "sonnet", "fable", "mythos"].some((family) => name.includes(family))) return 1_000_000;
+  return undefined;
+}
+
+function claudeModelFromUsage(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const [model] = Object.keys(value as Record<string, unknown>);
+  return model;
+}
+
+/** Shape of the status-line contract, read defensively so a CLI that starts
+    reporting it in `--print` is understood without another release of ADE. */
+function readClaudeLimits(value: unknown): ProviderPressure | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const limits = value as Record<string, unknown>;
+  const window = (candidate: unknown): UsageWindow | undefined => {
+    if (!candidate || typeof candidate !== "object") return undefined;
+    const entry = candidate as Record<string, unknown>;
+    const used = entry.used_percentage ?? entry.used_percent;
+    if (typeof used !== "number" || !Number.isFinite(used)) return undefined;
+    const resetsAt = typeof entry.resets_at === "number" ? new Date(entry.resets_at * 1_000).toISOString() : undefined;
+    return { usedPercent: used, ...(resetsAt ? { resetsAt } : {}) };
+  };
+  const session = window(limits.five_hour);
+  const weekly = window(limits.seven_day);
+  if (!session && !weekly) return undefined;
+  return { ...(session ? { session } : {}), ...(weekly ? { weekly } : {}) };
 }

@@ -170,6 +170,11 @@ export class AdeStore {
         cost_usd REAL,
         created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS agent_pressure (
+        id TEXT PRIMARY KEY,
+        payload TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS terminal_history_sessions (
         id TEXT PRIMARY KEY,
         project_id TEXT NOT NULL,
@@ -485,6 +490,19 @@ export class AdeStore {
     const row = this.db.prepare(`SELECT COALESCE(SUM(input_tokens), 0) AS inputTokens, COALESCE(SUM(output_tokens), 0) AS outputTokens, COALESCE(SUM(cache_read_input_tokens), 0) AS cacheReadInputTokens, COALESCE(SUM(cache_creation_input_tokens), 0) AS cacheCreationInputTokens, COALESCE(SUM(cost_usd), 0) AS costUsd FROM agent_turn_usage WHERE session_id = ?`).get(sessionId);
     const totals = row as { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; costUsd: number };
     return { inputTokens: totals.inputTokens, outputTokens: totals.outputTokens, cacheReadInputTokens: totals.cacheReadInputTokens, cacheCreationInputTokens: totals.cacheCreationInputTokens, costUsd: totals.costUsd };
+  }
+
+  /** What a provider last said about its own limits, and what a conversation
+      last had in its context window. Kept apart from the turn rows because a
+      plan window belongs to the account and outlives any single conversation. */
+  saveAgentPressure(id: string, payload: unknown, updatedAt = new Date().toISOString()): void {
+    this.db.prepare("INSERT INTO agent_pressure (id, payload, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at").run(id, JSON.stringify(payload), updatedAt);
+  }
+
+  getAgentPressure(id: string): { payload: unknown; updatedAt: string } | undefined {
+    const row = this.db.prepare("SELECT payload, updated_at AS updatedAt FROM agent_pressure WHERE id = ?").get(id) as { payload: string; updatedAt: string } | undefined;
+    if (!row) return undefined;
+    try { return { payload: JSON.parse(row.payload), updatedAt: row.updatedAt }; } catch { return undefined; }
   }
 
   listAgentMessages(sessionId: string): AgentMessage[] {

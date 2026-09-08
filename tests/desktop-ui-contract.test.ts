@@ -430,6 +430,28 @@ test("workspace tree expands directories lazily and keeps symlinks non-actionabl
   assert.match(main, /\[data-directory-path\]\.directory/);
 });
 
+test("Agents shows what the session, the week and the context have left", () => {
+  assert.match(html, /id="agent-pressure" role="group"/);
+  assert.match(main, /function renderAgentPressure/);
+  assert.match(main, /agentPressureDial\('session', 'Session'/);
+  assert.match(main, /agentPressureDial\('weekly', 'Weekly'/);
+  assert.match(main, /agentPressureDial\('context', 'Context'/);
+  // The dial fills with what is spent and the label says what is left.
+  assert.match(main, /const remaining = known \? Math\.round\(100 - percent\) : null;/);
+  // A window the agent does not report is a dash, never a zero.
+  assert.match(main, /const value = known \? `\$\{remaining\}%` : '—';/);
+  assert.match(main, /not reported by this agent/);
+  assert.match(main, /agent-pressure-dial\$\{known \? '' : ' unknown'\}/);
+  // The number arrives on hover or keyboard focus; the ring is always visible.
+  assert.match(styles, /\.agent-pressure-copy \{[^}]*opacity: 0;/);
+  assert.match(styles, /\.agent-pressure-dial:hover \.agent-pressure-copy, \.agent-pressure-dial:focus-visible \.agent-pressure-copy \{ opacity: 1; \}/);
+  assert.match(styles, /\.agent-pressure-dial\.unknown \.agent-pressure-ring \{[^}]*dashed/);
+  // Asked for when the surface opens, when the conversation changes and when the agent does.
+  assert.match(main, /method: 'agent\.pressure'/);
+  assert.match(main, /requestAgentPressure\(session\.provider, session\.id\)/);
+  assert.match(main, /response\.type === 'agent\.pressure'/);
+});
+
 test("a changed file is named before it is located", () => {
   // The list's width ran out on the name, which is what the reader came for.
   assert.match(main, /function gitFileLabelMarkup/);

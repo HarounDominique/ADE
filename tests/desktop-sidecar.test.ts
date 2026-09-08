@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Project } from "../src/domain/project.js";
 import { Task } from "../src/domain/task.js";
-import { agentTurnUsage, handleDesktopRequest, summarizeAgentActivity } from "../src/desktop-sidecar.js";
+import { agentTurnUsage, handleDesktopRequest, persistAgentPressure, readAgentPressure, summarizeAgentActivity } from "../src/desktop-sidecar.js";
 import type { Readable } from "node:stream";
 
 type SidecarMessage = { id?: string; type?: string; [key: string]: unknown };
@@ -537,5 +537,25 @@ test("a turn records what it cost, and Codex thread totals become per-turn rows"
   // Claude Code accounts for the turn itself, and OpenCode reports nothing here.
   assert.deepEqual(agentTurnUsage(store, "claude", "session-codex", JSON.stringify({ type: "result", usage: { input_tokens: 40, output_tokens: 120 } })), { inputTokens: 40, outputTokens: 120, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 });
   assert.equal(agentTurnUsage(store, "opencode", "session-codex", "{}"), undefined);
+  store.close();
+});
+
+test("plan windows belong to the agent and context to the conversation", () => {
+  const store = new AdeStore();
+  store.saveAgentSession({ id: "session-a", provider: "codex", directory: "/tmp/project", status: "COMPLETED", createdAt: "2026-09-08T10:00:00.000Z" });
+  store.saveAgentSession({ id: "session-b", provider: "codex", directory: "/tmp/project", status: "COMPLETED", createdAt: "2026-09-08T11:00:00.000Z" });
+
+  persistAgentPressure(store, "codex", "session-a", { context: { usedTokens: 40_000, windowTokens: 272_000 }, session: { usedPercent: 20 }, weekly: { usedPercent: 5 } });
+  // A later turn reports only its context; the account's windows are not forgotten.
+  const afterSecond = persistAgentPressure(store, "codex", "session-b", { context: { usedTokens: 9_000, windowTokens: 272_000 } });
+  assert.equal(afterSecond.session?.usedPercent, 20);
+  assert.equal(afterSecond.context?.usedTokens, 9_000);
+  // Each conversation keeps its own context.
+  assert.equal(readAgentPressure(store, "codex", "session-a").context?.usedTokens, 40_000);
+  // An agent that never reported a window has none, rather than another agent's.
+  const claude = readAgentPressure(store, "claude", "session-a");
+  assert.equal(claude.session, undefined);
+  assert.equal(claude.weekly, undefined);
+  assert.equal(claude.context?.usedTokens, 40_000);
   store.close();
 });

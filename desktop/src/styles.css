@@ -551,6 +551,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .agent-rail-label select, .agent-session-selector { width: 100%; min-height: 29px; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 3px; color: var(--text-soft); background: var(--panel-soft); font: 12px var(--mono); }
 .agent-session-selector { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .agent-session-list { display: grid; align-content: start; min-height: 0; overflow: auto; }
+#agent-session-rail-content { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 12px; }
+.agent-pressure { display: flex; margin-top: auto; padding: 11px 12px 0; gap: 14px; border-top: 1px solid var(--line); }
+.agent-pressure-dial { position: relative; display: flex; align-items: center; gap: 7px; min-width: 0; outline: none; }
+.agent-pressure-ring { position: relative; display: block; width: 20px; height: 20px; flex: 0 0 auto; border-radius: 50%; background: conic-gradient(var(--cyan) var(--pressure-angle, 0deg), color-mix(in srgb, var(--text-soft) 22%, transparent) 0); }
+.agent-pressure-ring::after { position: absolute; inset: 4px; border-radius: 50%; background: var(--panel); content: ''; }
+.agent-pressure-dial.unknown .agent-pressure-ring { background: none; border: 1px dashed color-mix(in srgb, var(--text-soft) 45%, transparent); }
+/* The dial carries the state; the number arrives when the pointer asks for it. */
+.agent-pressure-copy { display: grid; min-width: 0; opacity: 0; transition: opacity 120ms ease-out; }
+.agent-pressure-dial:hover .agent-pressure-copy, .agent-pressure-dial:focus-visible .agent-pressure-copy { opacity: 1; }
+.agent-pressure-copy strong { color: var(--text); font: 12px var(--mono); }
+.agent-pressure-copy small { color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
+.agent-pressure-dial:focus-visible .agent-pressure-ring { outline: 2px solid var(--blue); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .agent-pressure-copy { transition: none; } }
 .agent-session-item { display: grid; gap: 5px; width: 100%; padding: 10px 12px; border: 0; border-left: 2px solid transparent; color: var(--text-soft); background: transparent; text-align: left; }
 .agent-session-item:hover, .agent-session-item.active { color: var(--text); background: var(--panel-raised); }
 .agent-session-item.active { border-left-color: var(--purple); }

@@ -2839,6 +2839,84 @@ function setAgentRailCollapsed(collapsed) {
   content?.toggleAttribute('inert', collapsed);
 }
 
+/* Three dials, each showing what the provider itself reported: how much of the
+   five-hour window is spent, how much of the weekly one, and how full this
+   conversation's context window is. A provider that does not report a window
+   leaves its dial unknown -- a dash, not a zero -- because a fabricated
+   allowance is worse than an honest gap. Claude Code publishes plan windows
+   only to its interactive status line, so under `--print` those two stay
+   unknown while its context dial works. */
+let agentPressure = {};
+let agentPressureRequestId = null;
+
+function agentPressurePercent(window) {
+  if (!window || typeof window.usedPercent !== 'number') return null;
+  return Math.min(100, Math.max(0, window.usedPercent));
+}
+
+function agentContextPercent(context) {
+  if (!context || typeof context.usedTokens !== 'number' || !context.windowTokens) return null;
+  return Math.min(100, Math.max(0, (context.usedTokens / context.windowTokens) * 100));
+}
+
+function formatTokens(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '';
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}k`;
+  return String(value);
+}
+
+function agentPressureResetHint(window) {
+  if (!window?.resetsAt) return '';
+  const resets = new Date(window.resetsAt);
+  if (Number.isNaN(resets.getTime())) return '';
+  const minutes = Math.round((resets.getTime() - Date.now()) / 60_000);
+  if (minutes <= 0) return ' · resets now';
+  if (minutes < 60) return ` · resets in ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return hours < 48 ? ` · resets in ${hours} h` : ` · resets in ${Math.round(hours / 24)} d`;
+}
+
+/** Remaining is what the operator is deciding with, so the dial fills with what
+    is spent and the label says what is left. */
+function agentPressureDial(kind, label, percent, hint) {
+  const known = typeof percent === 'number';
+  const remaining = known ? Math.round(100 - percent) : null;
+  const value = known ? `${remaining}%` : '—';
+  const title = known ? `${label}: ${value} left${hint}` : `${label}: not reported by this agent${hint}`;
+  const style = known ? ` style="--pressure-angle: ${(percent * 3.6).toFixed(1)}deg"` : '';
+  return `<div class="agent-pressure-dial${known ? '' : ' unknown'}" data-pressure="${kind}" tabindex="0" role="img" aria-label="${escapeHTML(title)}" title="${escapeHTML(title)}"><span class="agent-pressure-ring"${style} aria-hidden="true"></span><span class="agent-pressure-copy" aria-hidden="true"><strong>${escapeHTML(value)}</strong><small>${escapeHTML(label)}</small></span></div>`;
+}
+
+function renderAgentPressure() {
+  const host = document.getElementById('agent-pressure');
+  if (!host) return;
+  const context = agentPressure.context;
+  const contextHint = context?.usedTokens
+    ? ` · ${formatTokens(context.usedTokens)}${context.windowTokens ? ` of ${formatTokens(context.windowTokens)}` : ''} tokens`
+    : '';
+  host.innerHTML = [
+    agentPressureDial('session', 'Session', agentPressurePercent(agentPressure.session), agentPressureResetHint(agentPressure.session)),
+    agentPressureDial('weekly', 'Weekly', agentPressurePercent(agentPressure.weekly), agentPressureResetHint(agentPressure.weekly)),
+    agentPressureDial('context', 'Context', agentContextPercent(context), contextHint),
+  ].join('');
+}
+
+function applyAgentPressure(pressure) {
+  agentPressure = pressure && typeof pressure === 'object' ? pressure : {};
+  renderAgentPressure();
+}
+
+/** Asked for on every conversation change: the plan windows belong to the
+    account and survive a restart, the context belongs to this conversation. */
+function requestAgentPressure(provider = selectedProvider, sessionId = activeAgentSessionId) {
+  if (!nativeInvoke || !provider) { applyAgentPressure({}); return; }
+  const requestId = `agent-pressure-${Date.now()}`;
+  agentPressureRequestId = requestId;
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: requestId, method: 'agent.pressure', params: { provider, ...(sessionId ? { sessionId } : {}) } }) })
+    .catch((error) => console.warn('Agent pressure unavailable:', error));
+}
+
 function selectAgentSession(sessionId) {
   const session = agentSessions.find((candidate) => candidate.id === sessionId);
   if (!session) return;
@@ -2865,6 +2943,7 @@ function selectAgentSession(sessionId) {
   // conversation is loading.
   renderAgentMessages([]);
   requestAgentMessages(session.id);
+  requestAgentPressure(session.provider, session.id);
 }
 
 function resumeAgentConversation(sessionId, provider) {
@@ -3357,6 +3436,9 @@ function startNewAgentSession() {
   if (context) context.textContent = agentTaskName(activeAgentTaskId);
   renderModelSelection();
   renderAgentSessions(agentSessions);
+  // A conversation with no turns yet has no context of its own; the account's
+  // plan windows are still the operator's to see.
+  requestAgentPressure(selectedProvider, null);
   document.getElementById('agent-prompt-input')?.focus();
 }
 
@@ -4367,6 +4449,14 @@ async function connectSidecar(snapshot) {
         renderAgentMessages(agentRenderedMessages);
         return;
       }
+      if (response.type === 'agent.pressure') {
+        if (!activeAgentSessionId || response.sessionId === activeAgentSessionId) applyAgentPressure(response.pressure);
+        return;
+      }
+      if (response.id && String(response.id) === String(agentPressureRequestId) && response.result) {
+        applyAgentPressure(response.result);
+        return;
+      }
       if (response.type === 'agent.activity' && pendingAgentTurn && String(response.id) === String(activeAgentRequestId)) {
         pendingAgentTurn.activity.push(response.item);
         renderAgentMessages(agentRenderedMessages);
@@ -4426,6 +4516,7 @@ async function connectSidecar(snapshot) {
       }
       if (response.result?.sessionId && response.result?.provider && response.result?.status === 'COMPLETED') {
         pendingAgentPromptProjects.delete(String(response.id));
+        if (response.result.pressure) applyAgentPressure(response.result.pressure);
         activeAgentSessionId = response.result.sessionId;
         agentPromptRunning = false;
         clearPendingAgentTurn();
@@ -4671,7 +4762,7 @@ function showView(view) {
   mainContent?.classList.toggle('version-control-focus', view === 'changes');
   if (mainContent) mainContent.scrollTop = 0;
   if (view === 'changes') requestVersionControlData(workspaceRootPath);
-  if (view === 'agents') requestAgentSessions(workspaceRootPath);
+  if (view === 'agents') { requestAgentSessions(workspaceRootPath); requestAgentPressure(); }
 }
 
 function notify(message) {
@@ -5318,6 +5409,7 @@ document.getElementById('agent-provider')?.addEventListener('change', (event) =>
   if (activeAgentSessionId && agentSessions.some((session) => session.id === activeAgentSessionId && session.provider !== selectedProvider)) startNewAgentSession();
   renderProviderSelection();
   renderModelSelection();
+  requestAgentPressure();
 });
 document.getElementById('agent-delete-dialog')?.addEventListener('cancel', () => {
   pendingAgentSessionDeletion = null;

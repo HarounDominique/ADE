@@ -6,8 +6,8 @@ import type { TaskStatus } from "./domain/task.js";
 import { AdeStore } from "./persistence/sqlite-store.js";
 import { getProjectSnapshot } from "./application/project-snapshot.js";
 import { OpenCodeHttpRuntime } from "./adapters/opencode-http-runtime.js";
-import { CodexCliRuntime, extractCodexUsage } from "./adapters/codex-cli-runtime.js";
-import { ClaudeCliRuntime, extractClaudeText, extractClaudeUsage } from "./adapters/claude-cli-runtime.js";
+import { CodexCliRuntime, extractCodexPressure, extractCodexUsage } from "./adapters/codex-cli-runtime.js";
+import { ClaudeCliRuntime, extractClaudePressure, extractClaudeText, extractClaudeUsage } from "./adapters/claude-cli-runtime.js";
 import { runSpike } from "./application/run-spike.js";
 import { createRuntimeEvidence } from "./domain/runtime-evidence.js";
 import { getRuntimeHistory, getTaskDetail } from "./application/task-detail.js";
@@ -296,6 +296,10 @@ export async function runDesktopSidecar(): Promise<void> {
         const repositoryPath = request.params?.repositoryPath;
         const sessions = store.listAgentSessionsForProject(request.params?.projectId, repositoryPath);
         process.stdout.write(`${JSON.stringify({ id: request.id, result: sessions })}\n`);
+      } else if (request.method === "agent.pressure") {
+        const provider = request.params?.provider;
+        if (!provider) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "provider is required" } })}\n`);
+        else process.stdout.write(`${JSON.stringify({ id: request.id, result: readAgentPressure(store, provider, request.params?.sessionId) })}\n`);
       } else if (request.method === "agent.messages") {
         const sessionId = request.params?.sessionId;
         if (!sessionId) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "sessionId is required" } })}\n`);
@@ -793,6 +797,12 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
       }
       const delta = extractAgentOutputDelta(provider, event.payload, streamState);
       if (delta) process.stdout.write(`${JSON.stringify({ type: "agent.output", id: request.id, sessionId: session.id, text: delta })}\n`);
+      /** Both CLIs report what the context window holds, and Codex also what
+          its plan windows have spent, while the turn is still running. The
+          shell should not have to wait for the turn to end to say so. */
+      const reported = provider === "claude" ? extractClaudePressure(event.payload) : provider === "codex" ? extractCodexPressure(event.payload) : undefined;
+      const merged = reported ? persistAgentPressure(store, provider, session.id, reported) : undefined;
+      if (merged) process.stdout.write(`${JSON.stringify({ type: "agent.pressure", id: request.id, sessionId: session.id, provider, pressure: merged })}\n`);
     };
     // Activity and output are streamed as they happen, not only handed over
     // with the result. A turn that reports nothing until it finishes is
@@ -822,7 +832,7 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     if (usage) store.saveAgentTurnUsage({ id: `agent-${request.id}-usage`, sessionId: session.id, provider, ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), ...usage, createdAt: new Date().toISOString() });
     let files: readonly import("./ports/agent-runtime.js").FileDiff[] = [];
     try { files = await runtime.diff(session); } catch { /* A provider may not expose a diff for this turn. */ }
-    process.stdout.write(`${JSON.stringify({ id: request.id, result: { sessionId: session.id, provider, status: "COMPLETED", output, activity, files, ...(usage ? { usage } : {}) } })}\n`);
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: { sessionId: session.id, provider, status: "COMPLETED", output, activity, files, ...(usage ? { usage } : {}), pressure: readAgentPressure(store, provider, session.id) } })}\n`);
   })().catch((error: unknown) => {
     if (active.aborted) {
       const session = active.session;
@@ -976,6 +986,33 @@ function extractAgentEventText(value: unknown): string | undefined {
   const parts = item.parts;
   if (Array.isArray(parts)) return parts.map(extractAgentEventText).filter((candidate): candidate is string => Boolean(candidate)).join("\n").trim() || undefined;
   return undefined;
+}
+
+/** A window the provider did not report this time keeps what it last said:
+    the account's five-hour and weekly windows outlive one turn, and the
+    conversation's context is the last one measured. */
+export function persistAgentPressure(store: AdeStore, provider: string, sessionId: string, reported: import("./ports/agent-runtime.js").ProviderPressure): import("./ports/agent-runtime.js").ProviderPressure {
+  const windows = { ...(reported.session ? { session: reported.session } : {}), ...(reported.weekly ? { weekly: reported.weekly } : {}) };
+  if (windows.session || windows.weekly) {
+    const stored = (store.getAgentPressure(`provider:${provider}`)?.payload ?? {}) as import("./ports/agent-runtime.js").ProviderPressure;
+    store.saveAgentPressure(`provider:${provider}`, { ...stored, ...windows });
+  }
+  if (reported.context) store.saveAgentPressure(`session:${sessionId}`, { context: reported.context });
+  return readAgentPressure(store, provider, sessionId);
+}
+
+export function readAgentPressure(store: AdeStore, provider: string, sessionId?: string): import("./ports/agent-runtime.js").ProviderPressure & { updatedAt?: string; contextUpdatedAt?: string } {
+  const windows = store.getAgentPressure(`provider:${provider}`);
+  const context = sessionId ? store.getAgentPressure(`session:${sessionId}`) : undefined;
+  const windowPayload = (windows?.payload ?? {}) as import("./ports/agent-runtime.js").ProviderPressure;
+  const contextPayload = (context?.payload ?? {}) as import("./ports/agent-runtime.js").ProviderPressure;
+  return {
+    ...(windowPayload.session ? { session: windowPayload.session } : {}),
+    ...(windowPayload.weekly ? { weekly: windowPayload.weekly } : {}),
+    ...(contextPayload.context ? { context: contextPayload.context } : {}),
+    ...(windows?.updatedAt ? { updatedAt: windows.updatedAt } : {}),
+    ...(context?.updatedAt ? { contextUpdatedAt: context.updatedAt } : {}),
+  };
 }
 
 /** Claude Code accounts for the turn that just ran; Codex reports a running
