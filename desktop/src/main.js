@@ -124,6 +124,7 @@ let selectedPendingGitFile = null;
 let gitHistoryFilter = '';
 let pendingGitFilter = '';
 let pendingGitFiles = [];
+let workspaceGitDecorations = { files: new Map(), directories: new Map() };
 let gitCommitNeedsPush = false;
 let gitUnpushedCommitCount = 0;
 let historyCommitsCollapsed = false;
@@ -1340,6 +1341,8 @@ function renderPendingGitChanges(result) {
   const count = document.getElementById('git-pending-file-count');
   const fileName = document.getElementById('git-pending-file-name');
   pendingGitFiles = result?.files ?? [];
+  workspaceGitDecorations = buildWorkspaceGitDecorations(pendingGitFiles);
+  decorateWorkspaceTree();
   const query = pendingGitFilter.trim();
   const visibleFiles = query
     ? pendingGitFiles.filter((file) => matchesGitFilter(file.path, query))
@@ -1652,6 +1655,7 @@ function updateDocumentEditState() {
   const formatButton = document.getElementById('format-document');
   const kindElement = document.getElementById('document-kind');
   const editable = Boolean(activeDocument?.kind === 'text' && editor && !editor.hidden);
+  const wasDirty = documentDirty;
   documentDirty = editable && codeEditorValue() !== documentOriginalContent;
   if (saveButton) saveButton.disabled = !documentDirty;
   if (discardButton) discardButton.disabled = !documentDirty;
@@ -1664,7 +1668,11 @@ function updateDocumentEditState() {
     kindElement.textContent = documentDirty ? `${language} · UNSAVED` : language;
   }
   updateRevealOpenFileButton();
+  // The tab record carries the state the tree reads, so the tree is repainted
+  // after it has been written -- before that write, a file that was just saved
+  // still looks unsaved.
   syncActiveDocumentTabState();
+  if (documentDirty !== wasDirty) decorateWorkspaceTree();
 }
 
 /** Called on every keystroke, so it touches the one tab that changed instead
@@ -1742,10 +1750,11 @@ async function renderActiveDocument({ focus = false } = {}) {
     status.hidden = true;
     content.hidden = true;
     setDocumentHeader({ title: 'No file selected', path: 'Select a file from Explorer to open it.', kind: '—', externalDisabled: true });
-    await setCodeEditorContent('');
     documentOriginalContent = '';
     documentDirty = false;
+    await setCodeEditorContent('');
     updateDocumentEditState();
+    decorateWorkspaceTree();
     return;
   }
   empty.hidden = true;
@@ -1764,11 +1773,16 @@ async function renderActiveDocument({ focus = false } = {}) {
     : record.state === 'error' ? `Unable to read file: ${record.message}`
     : isText ? '' : (record.message ?? 'This file cannot be previewed inside Assay.');
   content.hidden = !isText;
-  await setCodeEditorContent(isText ? (record.buffer ?? '') : '', record.path, isText && focus);
+  // The editor reports every change it is handed, including the one that loads
+  // the file. Naming the incoming original first means that report compares the
+  // new text against the new baseline instead of the outgoing file's, which is
+  // what used to make a freshly opened file look unsaved.
   documentOriginalContent = isText ? (record.original ?? '') : '';
   documentDirty = false;
+  await setCodeEditorContent(isText ? (record.buffer ?? '') : '', record.path, isText && focus);
   if (isText) restoreDocumentCaret(record);
   updateDocumentEditState();
+  decorateWorkspaceTree();
   if (isText && focus) (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
 }
 
@@ -1924,6 +1938,7 @@ function renderDocumentTabs() {
     return `<div class="${classes}" role="presentation"><button class="document-tab-button" type="button" role="tab" id="document-tab-${escapeHTML(record.id)}" aria-selected="${active}" aria-controls="document-viewer-body" tabindex="${active ? '0' : '-1'}" data-document-tab-id="${escapeHTML(record.id)}" title="${hint}"><span class="document-tab-name">${name}</span>${where ? `<span class="document-tab-where">${escapeHTML(where)}</span>` : ''}</button><button class="document-tab-close" type="button" tabindex="-1" data-document-close-id="${escapeHTML(record.id)}" aria-label="Close ${name}${dirty ? ', discarding unsaved changes' : ''}" title="Close ${name}"><span class="document-tab-dot" aria-hidden="true"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>`;
   }).join('');
   updateDocumentTabsOverflow();
+  decorateWorkspaceTree();
 }
 
 function scrollDocumentTabIntoView(id) {
@@ -2076,8 +2091,11 @@ async function saveActiveDocument() {
     documentOriginalContent = content;
     // The record is the tab, so saving writes through it rather than replacing
     // the object the strip and the close path are holding on to.
-    Object.assign(activeDocument, { content, original: content, buffer: content, size: new TextEncoder().encode(content).length });
+    Object.assign(activeDocument, { content, original: content, buffer: content, dirty: false, size: new TextEncoder().encode(content).length });
     updateDocumentEditState();
+    // The file that was unsaved a moment ago is a pending Git change now, so
+    // the tree earns its next colour without waiting for the poll.
+    requestPendingGitChanges(workspaceRootPath);
     notify('File saved in Assay.');
   } catch (error) {
     notify('Unable to save file.');
@@ -3245,6 +3263,7 @@ async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke, 
       ? renderWorkspaceEntries(entries)
       : await renderCompactWorkspacePath(entries, selectedFilePath, invoke);
     filterWorkspaceTree(document.getElementById('workspace-filter')?.value ?? '');
+    decorateWorkspaceTree();
     if (animate) requestAnimationFrame(() => tree.classList.remove('is-transitioning'));
   } catch (error) {
     tree.innerHTML = '<li>Workspace directory unavailable.</li>';
@@ -3278,6 +3297,125 @@ function renderWorkspaceEntries(entries) {
   return entries.map((entry) => renderWorkspaceEntry(entry)).join('');
 }
 
+/* The tree carries the same states the editor already knows about: what Git
+   thinks of a file, and whether its buffer still holds unsaved work. Colour is
+   the only carrier here, so every state also lands in the title and the
+   accessible name. */
+const workspaceStateClasses = ['git-modified', 'git-added', 'git-renamed', 'git-deleted', 'git-untracked', 'git-conflict', 'workspace-unsaved'];
+// Ascending severity: a directory takes the loudest state under it.
+const workspaceStateRank = ['git-deleted', 'git-renamed', 'git-modified', 'git-added', 'git-untracked', 'git-conflict'];
+const workspaceStateLabels = {
+  'git-modified': 'Modified',
+  'git-added': 'Added',
+  'git-renamed': 'Renamed',
+  'git-deleted': 'Deleted',
+  'git-untracked': 'Not tracked by Git',
+  'git-conflict': 'Merge conflict',
+  'workspace-unsaved': 'Unsaved changes',
+};
+
+/** A `git status --short` code, read as the one state worth a colour. */
+function workspaceGitStateClass(status) {
+  const code = String(status ?? '').trim();
+  if (!code || code === '!!') return null;
+  if (code === '??') return 'git-untracked';
+  if (code.includes('U') || code === 'AA' || code === 'DD') return 'git-conflict';
+  if (code.startsWith('R')) return 'git-renamed';
+  if (code.includes('A')) return 'git-added';
+  if (code.includes('D')) return 'git-deleted';
+  return 'git-modified';
+}
+
+/** Renames arrive as `old -> new`, and unusual paths arrive quoted. The tree
+    only ever has the destination to colour. Git spells its paths with a slash
+    whatever the platform does, so both sides of the lookup are keyed on the
+    segments rather than on a separator. */
+function workspaceGitRelativePath(path) {
+  const value = String(path ?? '');
+  const arrow = value.lastIndexOf(' -> ');
+  const target = arrow === -1 ? value : value.slice(arrow + 4);
+  return target.startsWith('"') && target.endsWith('"') ? target.slice(1, -1) : target;
+}
+
+const workspaceDecorationKey = (value) => pathSegments(value).join('/');
+
+function buildWorkspaceGitDecorations(files) {
+  const filesByPath = new Map();
+  const directoriesByPath = new Map();
+  for (const file of files ?? []) {
+    const state = workspaceGitStateClass(file?.status);
+    const segments = pathSegments(workspaceGitRelativePath(file?.path));
+    if (!state || !segments.length) continue;
+    filesByPath.set(segments.join('/'), state);
+    // A collapsed directory still has to admit that something changed inside it.
+    let prefix = '';
+    for (const segment of segments.slice(0, -1)) {
+      prefix = prefix ? `${prefix}/${segment}` : segment;
+      const current = directoriesByPath.get(prefix);
+      if (!current || workspaceStateRank.indexOf(state) > workspaceStateRank.indexOf(current)) directoriesByPath.set(prefix, state);
+    }
+  }
+  return { files: filesByPath, directories: directoriesByPath };
+}
+
+function unsavedDocumentPaths() {
+  return new Set(openDocuments
+    .filter((record) => (record.id === activeDocumentId ? documentDirty || record.dirty : record.dirty))
+    .map((record) => record.path));
+}
+
+/** Every directory on the way to these files, so a closed folder carries the
+    state of what is buried under it. Git states are rolled up the same way when
+    the pending list is read. */
+function ancestorDirectoryKeys(paths) {
+  const directories = new Set();
+  for (const path of paths) {
+    const segments = pathSegments(documentRelativePath(path));
+    let prefix = '';
+    for (const segment of segments.slice(0, -1)) {
+      prefix = prefix ? `${prefix}/${segment}` : segment;
+      directories.add(prefix);
+    }
+  }
+  return directories;
+}
+
+/** Repainted over whatever the tree is showing, so search results and the
+    compact path read the same as the full tree. */
+function decorateWorkspaceTree() {
+  const tree = document.getElementById('workspace-tree');
+  if (!tree) return;
+  const unsaved = unsavedDocumentPaths();
+  const unsavedDirectories = ancestorDirectoryKeys(unsaved);
+  tree.querySelectorAll('.workspace-entry').forEach((entry) => {
+    const filePath = entry.dataset.filePath ?? null;
+    const directoryPath = entry.dataset.directoryPath ?? null;
+    entry.classList.remove(...workspaceStateClasses);
+    delete entry.dataset.workspaceState;
+    // Symlinks carry a title of their own and no path to decorate.
+    if (!filePath && !directoryPath) return;
+    const relativePath = workspaceDecorationKey(documentRelativePath(filePath ?? directoryPath));
+    // Work that is not on disk yet outranks anything Git can say about the row.
+    const state = filePath
+      ? (unsaved.has(filePath) ? 'workspace-unsaved' : workspaceGitDecorations.files.get(relativePath) ?? null)
+      : (unsavedDirectories.has(relativePath) ? 'workspace-unsaved' : workspaceGitDecorations.directories.get(relativePath) ?? null);
+    const baseLabel = entry.dataset.baseLabel ?? entry.getAttribute('aria-label') ?? '';
+    if (baseLabel) entry.dataset.baseLabel = baseLabel;
+    if (!state) {
+      entry.removeAttribute('title');
+      if (baseLabel) entry.setAttribute('aria-label', baseLabel);
+      return;
+    }
+    const label = !directoryPath ? workspaceStateLabels[state]
+      : state === 'workspace-unsaved' ? 'Contains unsaved changes'
+      : `Contains changes — ${workspaceStateLabels[state]}`;
+    entry.classList.add(state);
+    entry.dataset.workspaceState = state;
+    entry.title = label;
+    if (baseLabel) entry.setAttribute('aria-label', `${baseLabel} — ${label}`);
+  });
+}
+
 async function searchWorkspaceFiles(query) {
   const tree = document.getElementById('workspace-tree');
   const invoke = nativeInvoke ?? window.__TAURI__?.core?.invoke;
@@ -3302,6 +3440,7 @@ async function searchWorkspaceFiles(query) {
     if (token !== workspaceSearchToken) return;
     const matches = workspaceSearchIndex.filter((entry) => entry.searchText.includes(needle));
     tree.innerHTML = matches.length ? matches.map((entry) => renderWorkspaceEntry(entry, '', { showPathHint: true })).join('') : '<li class="workspace-empty">No matching files.</li>';
+    decorateWorkspaceTree();
     tree.classList.add('is-searching');
     setWorkspaceSearchLoading(false);
   } catch (error) {
@@ -3384,6 +3523,7 @@ async function toggleWorkspaceDirectory(button) {
     try {
       const entries = await nativeInvoke('list_directory', { path: button.dataset.directoryPath, maxDepth: 0 });
       children.innerHTML = renderWorkspaceEntries(entries);
+      decorateWorkspaceTree();
       button.dataset.loaded = 'true';
     } catch (error) {
       children.innerHTML = '<li class="workspace-empty">Directory unavailable.</li>';
@@ -4130,8 +4270,13 @@ renderSnapshot(projectSnapshot);
 renderRuntimeStatus({ sidecar: 'STARTING', agentRuntime: 'DISCONNECTED', activeTaskId: null, lastEventAt: null, lastError: null });
 refreshProjectContext(projectSnapshot);
 connectSidecar(projectSnapshot);
+// Changes needs the diff as it is typed; the Explorer only needs its colours
+// to keep up, so every other view polls at a fifth of the rate.
+let workspaceGitPollTick = 0;
 window.setInterval(() => {
-  if (activeView === 'changes' && document.visibilityState !== 'hidden') requestPendingGitChanges(workspaceRootPath);
+  if (document.visibilityState === 'hidden') return;
+  workspaceGitPollTick += 1;
+  if (activeView === 'changes' || workspaceGitPollTick % 5 === 0) requestPendingGitChanges(workspaceRootPath);
 }, 1200);
 document.querySelectorAll('[data-view-target]').forEach((item) => item.addEventListener('click', () => showView(item.dataset.viewTarget)));
 document.querySelectorAll('[data-action]').forEach((item) => item.addEventListener('click', () => {

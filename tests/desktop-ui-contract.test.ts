@@ -485,6 +485,55 @@ test("workspace search returns files directly and restores their compact branch 
   assert.match(styles, /overflow-wrap: anywhere/);
 });
 
+test("saving a file clears the tree without waiting for another click", () => {
+  const editState = main.slice(main.indexOf("function updateDocumentEditState"), main.indexOf("/** Called on every keystroke"));
+  // The repaint has to follow the write to the tab record it reads.
+  assert.match(editState, /syncActiveDocumentTabState\(\);\n  if \(documentDirty !== wasDirty\) decorateWorkspaceTree\(\);/);
+  const save = main.slice(main.indexOf("async function saveActiveDocument"), main.indexOf("async function discardDocumentChanges"));
+  assert.match(save, /dirty: false/);
+  assert.match(save, /requestPendingGitChanges\(workspaceRootPath\)/);
+});
+
+test("opening a file never reports it as unsaved", () => {
+  // The load itself is a change event, so the baseline has to be in place
+  // before the text is handed to the editor.
+  const render = main.slice(main.indexOf("async function renderActiveDocument"), main.indexOf("async function loadDocumentRecord"));
+  assert.match(render, /documentOriginalContent = isText \? \(record\.original \?\? ''\) : '';\n  documentDirty = false;\n  await setCodeEditorContent/);
+  assert.doesNotMatch(render, /await setCodeEditorContent\(isText[\s\S]*\n  documentOriginalContent =/);
+  // And the tree is reconciled once the load settles, so no state survives it.
+  assert.match(render, /updateDocumentEditState\(\);\n  decorateWorkspaceTree\(\);/);
+});
+
+test("the workspace tree colours Git state and unsaved buffers", () => {
+  assert.match(main, /function workspaceGitStateClass/);
+  assert.match(main, /if \(code === '\?\?'\) return 'git-untracked'/);
+  assert.match(main, /return 'git-conflict'/);
+  assert.match(main, /function workspaceGitRelativePath/);
+  assert.match(main, /' -> '/);
+  assert.match(main, /function buildWorkspaceGitDecorations/);
+  assert.match(main, /directoriesByPath\.set\(prefix, state\)/);
+  assert.match(main, /function decorateWorkspaceTree/);
+  assert.match(main, /unsaved\.has\(filePath\) \? 'workspace-unsaved'/);
+  // A folder reports the unsaved work buried under it, at any depth.
+  assert.match(main, /function ancestorDirectoryKeys/);
+  assert.match(main, /const unsavedDirectories = ancestorDirectoryKeys\(unsaved\)/);
+  assert.match(main, /unsavedDirectories\.has\(relativePath\) \? 'workspace-unsaved'/);
+  assert.match(main, /'Contains unsaved changes'/);
+  assert.match(styles, /\.workspace-entry\.directory\.workspace-unsaved \.workspace-name \{ color: var\(--vcs-unsaved\); \}/);
+  // Colour alone is never the carrier: each state also lands in the title and
+  // the accessible name.
+  assert.match(main, /entry\.title = label/);
+  assert.match(main, /aria-label', `\$\{baseLabel\} — \$\{label\}`/);
+  assert.match(main, /workspaceGitDecorations = buildWorkspaceGitDecorations\(pendingGitFiles\)/);
+  assert.match(main, /workspaceGitPollTick % 5 === 0/);
+  assert.match(styles, /\.workspace-entry\.git-modified \.workspace-name \{ color: var\(--vcs-modified\); \}/);
+  assert.match(styles, /\.workspace-entry\.git-untracked \.workspace-name \{ color: var\(--vcs-untracked\); \}/);
+  assert.match(styles, /\.workspace-entry\.git-deleted \.workspace-name \{[^\n]*line-through/);
+  assert.match(styles, /\.workspace-entry\.workspace-unsaved \.workspace-name \{ color: var\(--vcs-unsaved\); \}/);
+  assert.match(styles, /\.workspace-entry\.directory\.git-modified \.workspace-name/);
+  assert.match(styles, /:root\[data-theme="dark"\] \{ --vcs-untracked/);
+});
+
 test("explorer mode changes preserve continuity with a reduced-motion path", () => {
   assert.match(styles, /\.sidebar\.explorer-expanded \.primary-nav/);
   assert.match(styles, /\.primary-nav \.nav-item:not\(\.active\) \{ display: none; \}/);

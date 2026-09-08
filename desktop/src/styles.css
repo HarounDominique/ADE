@@ -1884,3 +1884,32 @@ body { color: var(--text); }
 /* The tab strip carries the working directory alone, so the path takes the
    room the old mode caption held and the size toggle keeps the centre of the
    divider to itself. */
+
+/* Explorer states: the tree says what Git makes of a file, and which buffers
+   still hold unsaved work, before anything is opened. Colour rides on the name
+   alone so selection, hover and the glyphs keep their own meaning. */
+:root { --vcs-modified: var(--blue); --vcs-added: var(--green); --vcs-renamed: var(--cyan); --vcs-deleted: var(--faint); --vcs-untracked: #9a6321; --vcs-conflict: var(--red); --vcs-unsaved: var(--amber); }
+:root[data-theme="dark"] { --vcs-untracked: #d99f5e; }
+.workspace-entry.git-modified .workspace-name { color: var(--vcs-modified); }
+.workspace-entry.git-added .workspace-name { color: var(--vcs-added); }
+.workspace-entry.git-renamed .workspace-name { color: var(--vcs-renamed); }
+.workspace-entry.git-untracked .workspace-name { color: var(--vcs-untracked); }
+.workspace-entry.git-conflict .workspace-name { color: var(--vcs-conflict); font-weight: 600; }
+.workspace-entry.git-deleted .workspace-name { color: var(--vcs-deleted); text-decoration: line-through; }
+.workspace-entry.workspace-unsaved .workspace-name { color: var(--vcs-unsaved); }
+/* A directory only reports on its contents, so it states it quietly and never
+   strikes its own name through. */
+.workspace-entry.directory[data-workspace-state] .workspace-name { text-decoration: none; }
+.workspace-entry.directory.git-modified .workspace-name, .workspace-entry.directory.git-deleted .workspace-name { color: color-mix(in srgb, var(--vcs-modified) 68%, var(--text-soft)); }
+.workspace-entry.directory.git-added .workspace-name { color: color-mix(in srgb, var(--vcs-added) 68%, var(--text-soft)); }
+.workspace-entry.directory.git-renamed .workspace-name { color: color-mix(in srgb, var(--vcs-renamed) 68%, var(--text-soft)); }
+.workspace-entry.directory.git-untracked .workspace-name { color: color-mix(in srgb, var(--vcs-untracked) 72%, var(--text-soft)); }
+.workspace-entry.directory.git-conflict .workspace-name { color: color-mix(in srgb, var(--vcs-conflict) 76%, var(--text-soft)); }
+/* Unsaved work is the one state a folder states at full strength: it is the
+   only one that is nowhere but in this window. The dot stays on the file, so
+   the folder reads as a route to it rather than as the unsaved thing itself. */
+.workspace-entry.directory.workspace-unsaved .workspace-name { color: var(--vcs-unsaved); }
+.workspace-entry.directory.workspace-unsaved .workspace-name::after { content: none; }
+/* Unsaved work is a second axis on top of a Git state, so it also carries a
+   mark that survives a colour-blind reading of the row. */
+.workspace-entry.workspace-unsaved .workspace-name::after { margin-left: 5px; color: var(--vcs-unsaved); content: '●'; font-size: 8px; vertical-align: middle; }
