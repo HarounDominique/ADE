@@ -204,7 +204,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .document-tabs-menu-dirty { flex: 0 0 auto; color: var(--amber); font-size: 11px; }
 .document-viewer-meta { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-width: 0; padding: 9px 14px; }
 .document-viewer-path { min-width: 0; margin: 0; overflow: hidden; color: var(--muted); font: 12px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
-.document-viewer-actions { display: flex; align-items: center; flex: 0 0 auto; gap: 8px; }.document-kind { color: var(--cyan); font: 11px var(--mono); letter-spacing: .08em; }
+.document-viewer-actions { display: flex; align-items: center; flex: 0 0 auto; gap: 8px; }.document-kind { color: var(--cyan); font: 11px var(--mono); letter-spacing: .08em; }#markdown-preview-toggle { min-width: 96px; white-space: nowrap; }
 .document-empty-state { display: grid; width: 100%; align-content: center; justify-items: center; gap: 7px; padding: 40px 24px; }
 .document-empty-state[hidden] { display: none; }
 .document-empty-state svg { width: 30px; height: 30px; color: var(--faint); fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.3; }

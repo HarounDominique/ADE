@@ -9,6 +9,19 @@ const components = readFileSync(new URL("../desktop/src/components.css", import.
 const desktopBuild = readFileSync(new URL("../desktop/build.mjs", import.meta.url), "utf8");
 const sidecarBuild = readFileSync(new URL("../scripts/build-desktop-sidecar.mjs", import.meta.url), "utf8");
 const smokeBundle = readFileSync(new URL("../scripts/smoke-desktop-bundle.mjs", import.meta.url), "utf8");
+const rootPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { scripts: Record<string, string> };
+const devTauriConfig = JSON.parse(readFileSync(new URL("../desktop/src-tauri/tauri.dev.conf.json", import.meta.url), "utf8")) as {
+  productName: string;
+  identifier: string;
+  app: { windows: Array<{ title: string }> };
+};
+
+test("desktop development runs as a distinct Assay Dev app", () => {
+  assert.match(rootPackage.scripts["desktop:dev"], /npm --prefix desktop run dev/);
+  assert.equal(devTauriConfig.productName, "Assay Dev");
+  assert.equal(devTauriConfig.identifier, "com.ade.desktop.dev");
+  assert.equal(devTauriConfig.app.windows[0]?.title, "Assay Dev");
+});
 
 test("desktop shell keeps the project workbench areas and critical actions", () => {
   for (const view of ["projects", "editor", "agents", "knowledge", "changes"]) {
@@ -569,12 +582,15 @@ test("document editor fills its viewport and exposes save state", () => {
 test("Markdown opens rendered and keeps one control back to its source", () => {
   assert.match(html, /id="markdown-preview-toggle"[^>]*data-action="toggle-markdown-preview"|data-action="toggle-markdown-preview"[^>]*id="markdown-preview-toggle"/);
   assert.match(html, /id="markdown-preview-toggle"[^>]*aria-controls="document-preview"/);
+  assert.match(html, /id="markdown-preview-toggle"[^>]*aria-label="Show Markdown source text"/);
   assert.match(html, /class="document-preview" id="document-preview"[^>]*hidden/);
   // Raw HTML stays off: a file in the tree is untrusted input.
   assert.match(main, /new MarkdownIt\(\{ html: false, linkify: true \}\)/);
   assert.match(main, /import\('markdown-it'\)/);
   assert.match(main, /function syncMarkdownPreview/);
   assert.match(main, /function toggleMarkdownPreview/);
+  assert.match(main, /toggle\.textContent = rendered \? 'Source text' : 'Pretty view'/);
+  assert.match(main, /markdownMode = isMarkdownPath\(activeDocument\.path\) \? \(markdownPreviewVisible\(\) \? 'PRETTY' : 'SOURCE'\) : null/);
   assert.match(main, /localStorage\.setItem\(markdownPreviewStorageKey/);
   // The preview hides the editor, so Save must not read that as "not editable".
   assert.match(main, /const editable = Boolean\(activeDocument\?\.kind === 'text' && editor && \(!editor\.hidden \|\| markdownPreviewVisible\(\)\)\)/);
@@ -582,6 +598,7 @@ test("Markdown opens rendered and keeps one control back to its source", () => {
   assert.match(main, /function openMarkdownPreviewLink/);
   assert.match(main, /pathInsideRoot\(target\)/);
   assert.match(styles, /\.document-preview \{/);
+  assert.match(styles, /#markdown-preview-toggle \{ min-width: 96px; white-space: nowrap; \}/);
   assert.match(styles, /\.document-preview li\.markdown-task-item/);
 });
 

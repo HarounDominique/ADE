@@ -1562,7 +1562,7 @@ const codeLanguageDefinitions = [
   { label: 'CSS', extensions: ['css', 'scss'], language: () => css() },
   { label: 'HTML', extensions: ['html', 'htm'], language: () => html() },
   { label: 'JSON', extensions: ['json', 'jsonc'], language: () => json() },
-  { label: 'Markdown', extensions: ['md', 'markdown'], language: () => markdown() },
+  { label: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd'], language: () => markdown() },
   { label: 'SQL', extensions: ['sql'], language: () => sql() },
   { label: 'XML', extensions: ['xml', 'svg', 'xsl', 'xsd'], language: () => xml() },
   { label: 'YAML', extensions: ['yml', 'yaml'], language: () => yaml() },
@@ -1594,7 +1594,7 @@ const formatterParsers = {
   js: 'babel', mjs: 'babel', cjs: 'babel', jsx: 'babel',
   ts: 'typescript', mts: 'typescript', cts: 'typescript', tsx: 'typescript',
   json: 'json-stringify', jsonc: 'json', css: 'css', scss: 'scss',
-  html: 'html', htm: 'html', md: 'markdown', markdown: 'markdown', yaml: 'yaml', yml: 'yaml',
+  html: 'html', htm: 'html', md: 'markdown', markdown: 'markdown', mdown: 'markdown', mkd: 'markdown', yaml: 'yaml', yml: 'yaml',
 };
 
 function fileExtension(filePath = '') {
@@ -1730,7 +1730,8 @@ function updateDocumentEditState() {
   }
   if (kindElement && activeDocument?.kind === 'text') {
     const language = languageLabelForPath(activeDocument.path);
-    kindElement.textContent = documentDirty ? `${language} · UNSAVED` : language;
+    const markdownMode = isMarkdownPath(activeDocument.path) ? (markdownPreviewVisible() ? 'PRETTY' : 'SOURCE') : null;
+    kindElement.textContent = [language, markdownMode, documentDirty ? 'UNSAVED' : null].filter(Boolean).join(' · ');
   }
   updateRevealOpenFileButton();
   // Formatting and discarding rewrite the buffer the preview is showing.
@@ -2324,9 +2325,11 @@ async function syncMarkdownPreview() {
   if (toggle) {
     toggle.hidden = !renderable;
     toggle.disabled = !renderable;
-    toggle.textContent = rendered ? 'Source' : 'Preview';
+    toggle.textContent = rendered ? 'Source text' : 'Pretty view';
     toggle.setAttribute('aria-pressed', String(rendered));
-    toggle.title = rendered ? 'Show the Markdown source' : 'Show the rendered Markdown';
+    const label = rendered ? 'Show Markdown source text' : 'Show Markdown pretty view';
+    toggle.setAttribute('aria-label', label);
+    toggle.title = label;
   }
   preview.hidden = !rendered;
   if (rendered) {

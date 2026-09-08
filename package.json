@@ -9,7 +9,7 @@
     "dev": "tsx src/spike.ts",
     "review": "tsx src/review-spike.ts",
     "ade": "tsx src/cli.ts",
-    "desktop:dev": "npm run desktop:sidecar:build && npm --prefix desktop run tauri dev",
+    "desktop:dev": "npm run desktop:sidecar:build && npm --prefix desktop run dev",
     "desktop:build": "npm run desktop:sidecar:build && npm --prefix desktop run tauri build",
     "desktop:test": "npm test",
     "desktop:package": "npm run desktop:sidecar:build && npm --prefix desktop run tauri build",
