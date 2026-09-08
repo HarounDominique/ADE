@@ -1063,6 +1063,21 @@ mod tests {
         root
     }
 
+    /// Windows keeps a directory locked while any process still has it as a
+    /// working directory, and a killed shell's console host lets go a moment
+    /// after the shell itself does, so removal is retried before it is a
+    /// failure. POSIX unlinks on the first attempt.
+    fn remove_fixture(root: std::path::PathBuf) {
+        for attempt in 0..50 {
+            match fs::remove_dir_all(&root) {
+                Ok(()) => return,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+                Err(error) if attempt == 49 => panic!("remove fixture: {error:?}"),
+                Err(_) => std::thread::sleep(std::time::Duration::from_millis(100)),
+            }
+        }
+    }
+
     /// A process that exits immediately, spelled for the platform running the
     /// suite. `sh` only happens to exist on Windows CI because Git ships it.
     fn spawn_exiting_process() -> std::process::Child {
@@ -1238,7 +1253,7 @@ mod tests {
         }
         let _ = process.child.kill();
         let _ = process.child.wait();
-        fs::remove_dir_all(root).expect("remove fixture");
+        remove_fixture(root);
     }
 
     #[test]
