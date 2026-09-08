@@ -1719,7 +1719,7 @@ function updateDocumentEditState() {
   const discardButton = document.getElementById('discard-file');
   const formatButton = document.getElementById('format-document');
   const kindElement = document.getElementById('document-kind');
-  const editable = Boolean(activeDocument?.kind === 'text' && editor && !editor.hidden);
+  const editable = Boolean(activeDocument?.kind === 'text' && editor && (!editor.hidden || markdownPreviewVisible()));
   const wasDirty = documentDirty;
   documentDirty = editable && codeEditorValue() !== documentOriginalContent;
   if (saveButton) saveButton.disabled = !documentDirty;
@@ -1733,6 +1733,8 @@ function updateDocumentEditState() {
     kindElement.textContent = documentDirty ? `${language} · UNSAVED` : language;
   }
   updateRevealOpenFileButton();
+  // Formatting and discarding rewrite the buffer the preview is showing.
+  if (markdownPreviewVisible()) void renderMarkdownPreview();
   // The tab record carries the state the tree reads, so the tree is repainted
   // after it has been written -- before that write, a file that was just saved
   // still looks unsaved.
@@ -1818,6 +1820,7 @@ async function renderActiveDocument({ focus = false } = {}) {
     documentOriginalContent = '';
     documentDirty = false;
     await setCodeEditorContent('');
+    await syncMarkdownPreview();
     updateDocumentEditState();
     decorateWorkspaceTree();
     return;
@@ -1846,9 +1849,15 @@ async function renderActiveDocument({ focus = false } = {}) {
   documentDirty = false;
   await setCodeEditorContent(isText ? (record.buffer ?? '') : '', record.path, isText && focus);
   if (isText) restoreDocumentCaret(record);
+  await syncMarkdownPreview();
   updateDocumentEditState();
   decorateWorkspaceTree();
-  if (isText && focus) (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
+  // Focus follows the surface that is actually on screen: the rendered
+  // document when it is showing, the editor when it is not.
+  if (isText && focus) {
+    if (markdownPreviewVisible()) document.getElementById('document-preview')?.focus();
+    else (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
+  }
 }
 
 async function loadDocumentRecord(record) {
@@ -2187,7 +2196,7 @@ async function discardDocumentChanges() {
 async function formatActiveDocument() {
   const editor = document.getElementById('document-content');
   const parser = formatterParserForPath(activeDocument?.path);
-  if (!editor || editor.hidden || activeDocument?.kind !== 'text' || !parser) return;
+  if (!editor || (editor.hidden && !markdownPreviewVisible()) || activeDocument?.kind !== 'text' || !parser) return;
   const formatButton = document.getElementById('format-document');
   if (formatButton) formatButton.disabled = true;
   try {
@@ -2199,7 +2208,7 @@ async function formatActiveDocument() {
       tabWidth: 2,
       useTabs: false,
     });
-    await setCodeEditorContent(formatted, activeDocument.path, true);
+    await setCodeEditorContent(formatted, activeDocument.path, !markdownPreviewVisible());
     updateDocumentEditState();
     notify('Document formatted.');
   } catch (error) {
@@ -2208,6 +2217,183 @@ async function formatActiveDocument() {
   } finally {
     updateDocumentEditState();
   }
+}
+
+/** Markdown is read here far more often than it is edited -- the specs, the
+    ADRs and the task log are all .md -- so a Markdown file opens rendered and
+    keeps one control back to its source. markdown-it (MIT) parses with
+    `html: false`: a file in the tree is untrusted input, and the preview must
+    never become a way to run what a document carries. */
+const markdownPreviewStorageKey = 'ade-markdown-preview';
+let markdownPreviewPreference = true;
+try { markdownPreviewPreference = localStorage.getItem(markdownPreviewStorageKey) !== 'source'; } catch { markdownPreviewPreference = true; }
+let markdownRenderer = null;
+let markdownRendererLoader = null;
+
+function isMarkdownPath(filePath = '') {
+  return ['md', 'markdown', 'mdown', 'mkd'].includes(fileExtension(filePath));
+}
+
+function markdownSlug(text, used) {
+  const base = String(text).toLowerCase().trim().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, '-') || 'section';
+  let slug = base;
+  for (let index = 2; used.has(slug); index += 1) slug = `${base}-${index}`;
+  used.add(slug);
+  return slug;
+}
+
+/** Headings carry the ids a document's own `[link](#heading)` targets rely on;
+    without them every in-document link in a spec is dead. */
+function markdownHeadingAnchors(state) {
+  const used = new Set();
+  state.tokens.forEach((token, index) => {
+    if (token.type !== 'heading_open') return;
+    const inline = state.tokens[index + 1];
+    if (inline?.type === 'inline') token.attrSet('id', markdownSlug(inline.content, used));
+  });
+}
+
+/** `- [ ]` is how the task log states progress, so the preview draws the box
+    instead of the brackets. The box is inert: the file is the state. */
+function markdownTaskLists(state) {
+  state.tokens.forEach((token, index) => {
+    if (token.type !== 'inline') return;
+    const listItem = state.tokens[index - 2];
+    if (listItem?.type !== 'list_item_open') return;
+    const first = token.children?.[0];
+    if (first?.type !== 'text') return;
+    const match = /^\[([ xX])\]\s+/.exec(first.content);
+    if (!match) return;
+    first.content = first.content.slice(match[0].length);
+    const checkbox = new state.Token('html_inline', '', 0);
+    checkbox.content = `<input class="markdown-task" type="checkbox" disabled${match[1] === ' ' ? '' : ' checked'}> `;
+    token.children.unshift(checkbox);
+    listItem.attrJoin('class', 'markdown-task-item');
+  });
+}
+
+async function loadMarkdownRenderer() {
+  if (markdownRenderer) return markdownRenderer;
+  if (!markdownRendererLoader) {
+    markdownRendererLoader = import('markdown-it').then(({ default: MarkdownIt }) => {
+      markdownRenderer = new MarkdownIt({ html: false, linkify: true });
+      markdownRenderer.core.ruler.push('ade_heading_anchors', markdownHeadingAnchors);
+      markdownRenderer.core.ruler.push('ade_task_lists', markdownTaskLists);
+      return markdownRenderer;
+    });
+  }
+  return markdownRendererLoader;
+}
+
+function markdownPreviewVisible() {
+  const preview = document.getElementById('document-preview');
+  return Boolean(preview && !preview.hidden);
+}
+
+/** A record only renders once it is readable text; anything else stays with the
+    editor's own loading, binary and failure states. */
+function documentIsRenderableMarkdown(record) {
+  return Boolean(record && record.state === 'ready' && record.kind === 'text' && isMarkdownPath(record.path));
+}
+
+async function renderMarkdownPreview() {
+  const preview = document.getElementById('document-preview');
+  const record = documentTabById(activeDocumentId);
+  if (!preview || !documentIsRenderableMarkdown(record)) return;
+  // The editor holds the text that is actually on screen, including edits that
+  // have not been saved, so the preview reads from it rather than from the
+  // record's last written buffer.
+  const source = codeEditorValue() || (record.buffer ?? '');
+  const renderer = await loadMarkdownRenderer();
+  preview.innerHTML = renderer.render(source, {});
+  preview.scrollTop = record.previewScrollTop ?? 0;
+}
+
+/** One place decides which of the two surfaces the panel is showing, so the
+    toggle, the tab switch and a document that stops being Markdown all end up
+    with the same account of it. */
+async function syncMarkdownPreview() {
+  const content = document.getElementById('document-content');
+  const preview = document.getElementById('document-preview');
+  const toggle = document.getElementById('markdown-preview-toggle');
+  if (!content || !preview) return;
+  const record = documentTabById(activeDocumentId);
+  const renderable = documentIsRenderableMarkdown(record);
+  if (renderable && record.preview === undefined) record.preview = markdownPreviewPreference;
+  const rendered = renderable && record.preview === true;
+  if (toggle) {
+    toggle.hidden = !renderable;
+    toggle.disabled = !renderable;
+    toggle.textContent = rendered ? 'Source' : 'Preview';
+    toggle.setAttribute('aria-pressed', String(rendered));
+    toggle.title = rendered ? 'Show the Markdown source' : 'Show the rendered Markdown';
+  }
+  preview.hidden = !rendered;
+  if (rendered) {
+    content.hidden = true;
+    await renderMarkdownPreview();
+    return;
+  }
+  preview.innerHTML = '';
+  if (record?.state === 'ready' && record.kind === 'text') content.hidden = false;
+}
+
+async function toggleMarkdownPreview() {
+  const record = documentTabById(activeDocumentId);
+  if (!documentIsRenderableMarkdown(record)) return;
+  record.preview = !(record.preview ?? markdownPreviewPreference);
+  // The last choice is the one the next Markdown file opens with, so a reader
+  // and an author each keep the surface they work in.
+  markdownPreviewPreference = record.preview;
+  try { localStorage.setItem(markdownPreviewStorageKey, record.preview ? 'preview' : 'source'); } catch { /* Persistence is optional. */ }
+  await syncMarkdownPreview();
+  updateDocumentEditState();
+  if (record.preview) document.getElementById('document-preview')?.focus();
+  else (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
+}
+
+/** A relative link in a document is a path from the document, so it resolves
+    against the file being read rather than against the Project root. */
+function resolveMarkdownLinkPath(href) {
+  const base = activeDocument?.path ?? '';
+  if (!base) return '';
+  const segments = pathSegments(base).slice(0, -1);
+  for (const segment of pathSegments(href.split(/[?#]/)[0])) {
+    if (segment === '.') continue;
+    if (segment === '..') segments.pop();
+    else segments.push(segment);
+  }
+  const separator = base.includes('\\') && !base.includes('/') ? '\\' : '/';
+  const joined = segments.join(separator);
+  return base.startsWith('/') ? `/${joined}` : joined;
+}
+
+/** Links stay inside the shell. A document link opens that document in a tab,
+    a heading link moves within the preview, and an external address is handed
+    to the clipboard -- the webview navigating away would take the workbench
+    with it. */
+async function openMarkdownPreviewLink(href) {
+  if (!href) return;
+  if (href.startsWith('#')) {
+    const target = document.getElementById(decodeURIComponent(href.slice(1)));
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    target?.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
+    if (!target) notify('That heading is not in this document.');
+    return;
+  }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
+    try {
+      await navigator.clipboard.writeText(href);
+      notify(`External link copied to the clipboard: ${href}`);
+    } catch {
+      notify(`Assay does not open external links: ${href}`);
+    }
+    return;
+  }
+  const root = String(workspaceRootPath ?? '').replace(/\/+$/, '');
+  const target = href.startsWith('/') ? `${root}${href.split(/[?#]/)[0]}` : resolveMarkdownLinkPath(href);
+  if (!target || !pathInsideRoot(target)) { notify('That link points outside the Project.'); return; }
+  await openFileInADE(target);
 }
 
 function providerIsAvailable(providerId) {
@@ -4502,6 +4688,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     void saveActiveDocument();
     return;
   }
+  if (item.dataset.action === 'toggle-markdown-preview') {
+    void toggleMarkdownPreview();
+    return;
+  }
   if (item.dataset.action === 'format-document') {
     void formatActiveDocument();
     return;
@@ -4592,6 +4782,20 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
+const markdownPreviewSurface = document.getElementById('document-preview');
+markdownPreviewSurface?.addEventListener('click', (event) => {
+  const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
+  if (!anchor) return;
+  event.preventDefault();
+  void openMarkdownPreviewLink(anchor.getAttribute('href'));
+});
+// Where a document was left is part of reading it, so the tab keeps its own
+// scroll position across a re-render and across a switch away and back.
+markdownPreviewSurface?.addEventListener('scroll', () => {
+  const record = documentTabById(activeDocumentId);
+  if (record && markdownPreviewVisible()) record.previewScrollTop = markdownPreviewSurface.scrollTop;
+}, { passive: true });
+
 document.getElementById('terminal-new-tab')?.addEventListener('click', () => {
   createTerminalTab();
   notify('New terminal session opened.');

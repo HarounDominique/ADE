@@ -1913,3 +1913,42 @@ body { color: var(--text); }
 /* Unsaved work is a second axis on top of a Git state, so it also carries a
    mark that survives a colour-blind reading of the row. */
 .workspace-entry.workspace-unsaved .workspace-name::after { margin-left: 5px; color: var(--vcs-unsaved); content: '●'; font-size: 10px; vertical-align: middle; }
+
+/* Markdown preview: the .md files in this repository are documentation before
+   they are source, so the Editor renders them and keeps the source one control
+   away. Every colour is a shell token, which is what makes one set of rules
+   serve both themes; the measure is capped so prose keeps a readable line
+   length on a workbench-wide panel. */
+.document-preview { width: 100%; min-width: 0; min-height: 0; flex: 1 1 auto; padding: 26px 34px 48px; overflow: auto; color: var(--text-soft); background: var(--panel-soft); font: 14px/1.7 var(--sans); }
+.document-preview[hidden] { display: none; }
+.document-preview:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.document-preview > * { max-width: 78ch; }
+.document-preview > :first-child { margin-top: 0; }
+.document-preview h1, .document-preview h2, .document-preview h3, .document-preview h4, .document-preview h5, .document-preview h6 { margin: 30px 0 12px; color: var(--text); font-weight: 650; line-height: 1.28; }
+.document-preview h1 { margin: 0 0 16px; padding-bottom: 9px; border-bottom: 1px solid var(--line); font-size: 26px; letter-spacing: -.01em; }
+.document-preview h2 { padding-bottom: 7px; border-bottom: 1px solid var(--line); font-size: 20px; }
+.document-preview h3 { font-size: 17px; }
+.document-preview h4 { font-size: 15px; }
+.document-preview h5, .document-preview h6 { color: var(--muted); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.document-preview p, .document-preview ul, .document-preview ol, .document-preview blockquote { margin: 0 0 15px; }
+.document-preview ul, .document-preview ol { padding-left: 22px; }
+.document-preview li { margin-bottom: 5px; }
+.document-preview li > ul, .document-preview li > ol { margin: 5px 0 0; }
+.document-preview a { color: var(--blue); text-decoration: underline; text-underline-offset: 2px; }
+.document-preview a:hover { color: var(--cyan); }
+.document-preview strong { color: var(--text); font-weight: 650; }
+.document-preview code { padding: 1px 5px; border-radius: 4px; color: var(--text); background: color-mix(in srgb, var(--line) 55%, transparent); font: 12.5px var(--mono); }
+.document-preview pre { max-width: 100%; margin: 0 0 18px; padding: 14px 16px; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.document-preview pre code { padding: 0; border-radius: 0; color: var(--text-soft); background: none; font: 12.5px/1.6 var(--mono); }
+.document-preview blockquote { padding: 2px 0 2px 16px; border-left: 3px solid var(--line-strong); color: var(--muted); }
+.document-preview blockquote > :last-child { margin-bottom: 0; }
+.document-preview hr { margin: 28px 0; border: 0; border-top: 1px solid var(--line); }
+.document-preview img { max-width: 100%; border-radius: 6px; }
+/* A wide table scrolls inside itself instead of stretching the document. */
+.document-preview table { display: block; width: max-content; max-width: 100%; margin: 0 0 18px; overflow-x: auto; border-collapse: collapse; font-size: 13px; }
+.document-preview th, .document-preview td { padding: 7px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.document-preview th { color: var(--text); background: var(--panel); font-weight: 650; }
+.document-preview tbody tr:nth-child(2n) td { background: color-mix(in srgb, var(--panel) 60%, transparent); }
+/* A checklist keeps its box and loses the bullet the box would duplicate. */
+.document-preview li.markdown-task-item { list-style: none; margin-left: -20px; }
+.document-preview .markdown-task { margin-right: 8px; accent-color: var(--cyan); vertical-align: baseline; }

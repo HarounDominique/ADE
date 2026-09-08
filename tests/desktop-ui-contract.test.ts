@@ -566,6 +566,25 @@ test("document editor fills its viewport and exposes save state", () => {
   assert.match(main, /editor-engine-hidden/);
 });
 
+test("Markdown opens rendered and keeps one control back to its source", () => {
+  assert.match(html, /id="markdown-preview-toggle"[^>]*data-action="toggle-markdown-preview"|data-action="toggle-markdown-preview"[^>]*id="markdown-preview-toggle"/);
+  assert.match(html, /id="markdown-preview-toggle"[^>]*aria-controls="document-preview"/);
+  assert.match(html, /class="document-preview" id="document-preview"[^>]*hidden/);
+  // Raw HTML stays off: a file in the tree is untrusted input.
+  assert.match(main, /new MarkdownIt\(\{ html: false, linkify: true \}\)/);
+  assert.match(main, /import\('markdown-it'\)/);
+  assert.match(main, /function syncMarkdownPreview/);
+  assert.match(main, /function toggleMarkdownPreview/);
+  assert.match(main, /localStorage\.setItem\(markdownPreviewStorageKey/);
+  // The preview hides the editor, so Save must not read that as "not editable".
+  assert.match(main, /const editable = Boolean\(activeDocument\?\.kind === 'text' && editor && \(!editor\.hidden \|\| markdownPreviewVisible\(\)\)\)/);
+  // Links resolve inside the shell instead of navigating the webview away.
+  assert.match(main, /function openMarkdownPreviewLink/);
+  assert.match(main, /pathInsideRoot\(target\)/);
+  assert.match(styles, /\.document-preview \{/);
+  assert.match(styles, /\.document-preview li\.markdown-task-item/);
+});
+
 test("theme switch is visible in the topbar and exposes light/dark state", () => {
   assert.match(html, /class="top-actions"[\s\S]*class="theme-switch"/);
   assert.match(html, /class="theme-switch"[^>]*role="switch"[^>]*aria-checked="false"/);
