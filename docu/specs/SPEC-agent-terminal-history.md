@@ -75,8 +75,13 @@ Fechas ISO-8601 UTC, IDs opacos y operaciones de persistencia explícitas.
   una conversación *nacida* durante la sesión de la terminal y en su directorio
   de trabajo. Nunca se extrae de los bytes del PTY, y nunca se elige por fecha
   de modificación: una conversación viva en el mismo directorio —la del propio
-  editor— se reescribe sin parar y ganaría siempre. Sin coincidencia inequívoca
-  se abre el selector nativo del provider.
+  editor— se reescribe sin parar y ganaría siempre.
+- Una sola candidata es coincidencia; varias son una suposición y se descartan.
+  El operador prefiere el selector a la conversación equivocada.
+- Abrir el popup reintenta la identificación de las sesiones que aún no la
+  tienen y guarda el resultado, para que una sesión anterior a esta capacidad
+  no cueste elegir dos veces para siempre. La que sigue sin resolverse lo
+  advierte en su fila.
 - OpenCode no expone reanudación por id en su CLI: usa `--continue`, que retoma
   su última sesión del Project.
 - No se intenta reconstruir un TUI desde bytes PTY: sus pantallas alternativas

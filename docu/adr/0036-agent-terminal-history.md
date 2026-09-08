@@ -75,3 +75,5 @@ elegibilidad, que exige decisión explícita.
 - Una conversación reanudada dentro de la terminal (`claude --resume` a mano) no
   nace en la ventana, así que no se le atribuye id: se ofrece el selector.
 - Un sistema de archivos sin fecha de creación fiable nunca resuelve id.
+- Varias conversaciones nacidas en la misma ventana se descartan todas: elegir
+  la más reciente fue lo que llevó al operador a su propia conversación viva.

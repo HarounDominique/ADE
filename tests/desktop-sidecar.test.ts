@@ -471,3 +471,31 @@ test("reopening a terminal session does not widen the window it resolves in", ()
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+/** Sessions saved before Assay recorded conversation ids would otherwise cost
+    the operator two choices for ever: the row, then the agent's own picker. */
+test("listing terminal history identifies conversations it could not identify before", () => {
+  const home = mkdtempSync(join(tmpdir(), "ade-sidecar-backfill-"));
+  const repositoryPath = join(home, "workspace");
+  const projects = join(home, ".claude", "projects", repositoryPath.replace(/[^a-zA-Z0-9]/g, "-"));
+  mkdirSync(projects, { recursive: true });
+  const previousHome = process.env.HOME;
+  process.env.HOME = home;
+  const store = new AdeStore();
+  try {
+    const openedAt = Date.now() - 1_000;
+    writeFileSync(join(projects, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jsonl"), "{}\n");
+    store.saveTerminalHistorySession({ id: "terminal-legacy", projectId: "project-a", provider: "claude", title: "Older session", transcript: "hello", truncated: false, startedAt: new Date(openedAt).toISOString(), endedAt: new Date().toISOString() });
+    assert.equal(store.getTerminalHistorySession("terminal-legacy")?.providerSessionId, undefined);
+
+    const listed = handleDesktopRequest(store, { id: "list", method: "terminal.history.list", params: { projectId: "project-a", repositoryPath } }).result as Array<{ providerSessionId?: string }>;
+    assert.equal(listed[0]?.providerSessionId, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    // The answer is kept, so the next listing costs no lookup.
+    assert.equal(store.getTerminalHistorySession("terminal-legacy")?.providerSessionId, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  } finally {
+    if (previousHome === undefined) delete process.env.HOME;
+    else process.env.HOME = previousHome;
+    store.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+});

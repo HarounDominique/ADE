@@ -90,6 +90,30 @@ function getRuntimeStatus(): RuntimeStatus {
   };
 }
 
+/** Sessions recorded before Assay knew to look, and sessions whose lookup found
+    nothing at the time, are still identifiable from the window they ran in. The
+    popup is the natural moment to try again: it costs one directory listing and
+    turns a two-step resume -- click the row, then find it again in the agent's
+    own picker -- into a single click. A session that stays unresolved keeps
+    saying so on its row. */
+function backfillTerminalConversationIds(store: AdeStore, projectId: string, repositoryPath: string | undefined) {
+  const sessions = store.listTerminalHistorySessions(projectId);
+  if (!repositoryPath) return sessions;
+  const takenIds = sessions.map((session) => session.providerSessionId).filter((id): id is string => Boolean(id));
+  return sessions.map((session) => {
+    if (session.providerSessionId) return session;
+    try {
+      const providerSessionId = resolveProviderSessionId(session.provider, { repositoryPath, startedAt: session.startedAt, endedAt: session.endedAt, takenIds });
+      if (!providerSessionId) return session;
+      takenIds.push(providerSessionId);
+      store.saveTerminalHistorySession({ ...session, providerSessionId });
+      return { ...session, providerSessionId };
+    } catch {
+      return session;
+    }
+  });
+}
+
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
     if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'terminal.history.list', 'terminal.history.get', 'terminal.history.save', 'terminal.history.delete', 'service.status', 'skills.list'].includes(request.method)) {
@@ -133,7 +157,8 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
     }
     if (request.method === "terminal.history.list") {
       if (!request.params?.projectId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "projectId is required" } };
-      return { id: request.id, result: store.listTerminalHistorySessions(request.params.projectId).map(({ transcript, ...session }) => session) };
+      const sessions = backfillTerminalConversationIds(store, request.params.projectId, request.params.repositoryPath);
+      return { id: request.id, result: sessions.map(({ transcript, ...session }) => session) };
     }
     if (request.method === "terminal.history.get" || request.method === "terminal.history.delete") {
       const sessionId = request.params?.sessionId;

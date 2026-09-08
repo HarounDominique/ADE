@@ -521,7 +521,7 @@ function requestTerminalHistory() {
   if (!nativeInvoke) return;
   const id = `terminal-history-list-${Date.now()}`;
   pendingContextRequests.set(id, 'terminal-history-list');
-  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'terminal.history.list', params: { projectId: activeProjectId } }) }).catch(() => {});
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'terminal.history.list', params: { projectId: activeProjectId, repositoryPath: workspaceRootPath } }) }).catch(() => {});
 }
 
 function renderTerminalHistory() {
