@@ -134,3 +134,27 @@ test("SQLite deletes an agent session and cascades its messages", () => {
   assert.deepEqual(store.listAgentMessages("session-delete"), []);
   store.close();
 });
+
+test("SQLite migrates terminal history and keeps the conversation it can resume", () => {
+  const path = join(tmpdir(), `ade-terminal-legacy-${Date.now()}.db`);
+  const legacy = new DatabaseSync(path);
+  legacy.exec("CREATE TABLE terminal_history_sessions (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, provider TEXT NOT NULL, title TEXT NOT NULL, transcript TEXT NOT NULL, truncated INTEGER NOT NULL DEFAULT 0, started_at TEXT NOT NULL, ended_at TEXT NOT NULL)");
+  legacy.exec("INSERT INTO terminal_history_sessions VALUES ('terminal-legacy', 'project-a', 'claude', 'Older session', 'transcript', 0, '2026-09-07T10:00:00.000Z', '2026-09-07T10:30:00.000Z')");
+  legacy.close();
+
+  const store = new AdeStore(path);
+  const columns = store.db.prepare("PRAGMA table_info(terminal_history_sessions)").all() as Array<{ name: string }>;
+  assert.ok(columns.some((column) => column.name === "provider_session_id"));
+  // A row written before the column existed stays readable and simply has no
+  // conversation to resume.
+  assert.equal(store.getTerminalHistorySession("terminal-legacy")?.providerSessionId, undefined);
+
+  store.saveTerminalHistorySession({ id: "terminal-new", projectId: "project-a", provider: "claude", title: "Resumable session", transcript: "transcript", truncated: false, startedAt: "2026-09-08T10:00:00.000Z", endedAt: "2026-09-08T10:30:00.000Z", providerSessionId: "11111111-1111-4111-8111-111111111111" });
+  assert.equal(store.getTerminalHistorySession("terminal-new")?.providerSessionId, "11111111-1111-4111-8111-111111111111");
+  assert.equal(store.listTerminalHistorySessions("project-a")[0]?.providerSessionId, "11111111-1111-4111-8111-111111111111");
+
+  // Re-saving on close must not drop an id an earlier lookup already resolved.
+  store.saveTerminalHistorySession({ id: "terminal-new", projectId: "project-a", provider: "claude", title: "Resumable session", transcript: "transcript and more", truncated: false, startedAt: "2026-09-08T10:00:00.000Z", endedAt: "2026-09-08T10:45:00.000Z" });
+  assert.equal(store.getTerminalHistorySession("terminal-new")?.providerSessionId, "11111111-1111-4111-8111-111111111111");
+  store.close();
+});

@@ -44,9 +44,16 @@ test("agent terminal history is a modal that reopens native agent sessions", () 
   assert.match(main, /function terminalHistoryTitle/);
   assert.match(main, /parsed\.title \?\? parsed\.TITLE/);
   assert.match(main, /function terminalHistoryResumeCommand/);
-  assert.match(main, /claude --resume/);
-  assert.match(main, /codex resume/);
+  // Reopening resumes that conversation by id; the bare picker is only the
+  // fallback for a session no provider store could account for.
+  assert.match(main, /claude --resume \$\{sessionId\}/);
+  assert.match(main, /codex resume \$\{sessionId\}/);
+  assert.match(main, /'claude --resume\\r'/);
+  assert.match(main, /function providerSessionIdForResume/);
   assert.match(main, /resumeTerminalHistorySession/);
+  // A stored transcript is a record, never replayed into a live PTY to look
+  // like a resumed conversation.
+  assert.doesNotMatch(main, /appendTerminalTranscript\(tab\.id, session\.transcript\)/);
   assert.match(main, /escapeHTML\(title\)/);
   assert.match(styles, /\.terminal-history-dialog::backdrop[\s\S]*backdrop-filter: blur/);
 });

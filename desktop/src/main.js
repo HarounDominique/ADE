@@ -561,39 +561,37 @@ function terminalHistorySnapshot(tab) {
   return lines.join('\n').trim();
 }
 
-function terminalHistoryResumeCommand(provider) {
-  /** These commands open each provider's own session recovery flow. We do not
-      try to replay a full-screen TUI from captured escape sequences: that
-      would show a broken screen and cannot restore the agent process. */
-  if (provider === 'claude') return 'claude --resume\r';
-  if (provider === 'codex') return 'codex resume\r';
+/** The id reaches a shell line, so it is validated rather than trusted: only a
+    uuid, which cannot carry a shell metacharacter. */
+function providerSessionIdForResume(session) {
+  const id = String(session?.providerSessionId ?? '').trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null;
+}
+
+function terminalHistoryResumeCommand(provider, sessionId) {
+  /** Resuming by id restores the conversation inside the agent itself. Without
+      an id the provider can only offer its own picker: replaying captured
+      escape sequences would show a broken screen and restore nothing. */
+  if (provider === 'claude') return sessionId ? `claude --resume ${sessionId}\r` : 'claude --resume\r';
+  if (provider === 'codex') return sessionId ? `codex resume ${sessionId}\r` : 'codex resume\r';
   if (provider === 'opencode') return 'opencode --continue\r';
   return null;
 }
 
 async function resumeTerminalHistorySession(session) {
   const provider = String(session?.provider ?? '').toLowerCase();
-  const command = terminalHistoryResumeCommand(provider);
+  const sessionId = providerSessionIdForResume(session);
+  const command = terminalHistoryResumeCommand(provider, sessionId);
   if (!command) { notify('This agent terminal session cannot be resumed.'); return; }
   const title = terminalHistoryTitle(session.title);
   const tab = createTerminalTab({ kind: 'pty', label: title });
   tab.historyProvider = provider;
   tab.historyStorageId = session.id;
   tab.historyStartedAt = session.startedAt ?? new Date().toISOString();
-  tab.historyTruncated = Boolean(session.truncated);
-  if (session.transcript) {
-    appendTerminalTranscript(tab.id, session.transcript);
-    appendTerminalHistory(tab, session.transcript);
-    if (session.truncated) {
-      const notice = '\n[transcript truncated]\n';
-      appendTerminalTranscript(tab.id, notice);
-      appendTerminalHistory(tab, notice);
-    }
-  }
   appendTerminalHistory(tab, `$ ${command.replace(/\r$/, '')}\n`);
   await sendTerminalInput(tab, command);
   const providerName = provider === 'codex' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : 'Claude';
-  notify(`${providerName} is opening its saved-session picker.`);
+  notify(sessionId ? `Resuming this ${providerName} session.` : `${providerName} is opening its saved-session picker.`);
 }
 
 function toggleTerminalHistory() {

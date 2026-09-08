@@ -55,7 +55,7 @@ export type PersistedRuntimeEvidence = RuntimeEvidence;
 export type GitOperation = { id: string; taskId: string; operation: string; reference?: string; actor: string; reason: string; at: string; metadata?: string };
 export type AgentSession = { id: string; projectId?: string; taskId?: string; provider: string; directory: string; title?: string; model?: string; status: string; createdAt: string; updatedAt: string };
 export type AgentMessage = { id: string; sessionId: string; role: "user" | "assistant" | "system"; content: string; createdAt: string };
-export type TerminalHistorySession = { id: string; projectId: string; provider: "claude" | "codex" | "opencode"; title: string; transcript: string; truncated: boolean; startedAt: string; endedAt: string };
+export type TerminalHistorySession = { id: string; projectId: string; provider: "claude" | "codex" | "opencode"; title: string; transcript: string; truncated: boolean; startedAt: string; endedAt: string; providerSessionId?: string | undefined };
 
 export class AdeStore {
   readonly db: DatabaseSync;
@@ -165,13 +165,15 @@ export class AdeStore {
         transcript TEXT NOT NULL,
         truncated INTEGER NOT NULL DEFAULT 0,
         started_at TEXT NOT NULL,
-        ended_at TEXT NOT NULL
+        ended_at TEXT NOT NULL,
+        provider_session_id TEXT
       );
     `);
     this.migrateTasks();
     this.migrateChangeSets();
     this.migrateProjects();
     this.migrateAgentSessions();
+    this.migrateTerminalHistorySessions();
   }
 
   private migrateTasks(): void {
@@ -185,6 +187,13 @@ export class AdeStore {
     if (!columns.some((column) => column.name === "project_id")) this.db.exec("ALTER TABLE agent_sessions ADD COLUMN project_id TEXT");
     if (!columns.some((column) => column.name === "title")) this.db.exec("ALTER TABLE agent_sessions ADD COLUMN title TEXT");
     if (!columns.some((column) => column.name === "model")) this.db.exec("ALTER TABLE agent_sessions ADD COLUMN model TEXT");
+  }
+
+  /** The table shipped before a terminal session could be tied to the agent's
+      own conversation, so an existing database has no column to resume from. */
+  private migrateTerminalHistorySessions(): void {
+    const columns = this.db.prepare("PRAGMA table_info(terminal_history_sessions)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "provider_session_id")) this.db.exec("ALTER TABLE terminal_history_sessions ADD COLUMN provider_session_id TEXT");
   }
 
   private migrateChangeSets(): void {
@@ -417,16 +426,16 @@ export class AdeStore {
   }
 
   saveTerminalHistorySession(session: TerminalHistorySession): void {
-    this.db.prepare(`INSERT INTO terminal_history_sessions (id, project_id, provider, title, transcript, truncated, started_at, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, transcript = excluded.transcript, truncated = excluded.truncated, ended_at = excluded.ended_at`).run(session.id, session.projectId, session.provider, session.title, session.transcript, Number(session.truncated), session.startedAt, session.endedAt);
+    this.db.prepare(`INSERT INTO terminal_history_sessions (id, project_id, provider, title, transcript, truncated, started_at, ended_at, provider_session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, transcript = excluded.transcript, truncated = excluded.truncated, ended_at = excluded.ended_at, provider_session_id = COALESCE(excluded.provider_session_id, terminal_history_sessions.provider_session_id)`).run(session.id, session.projectId, session.provider, session.title, session.transcript, Number(session.truncated), session.startedAt, session.endedAt, session.providerSessionId ?? null);
   }
 
   listTerminalHistorySessions(projectId: string): TerminalHistorySession[] {
-    return this.db.prepare(`SELECT id, project_id AS projectId, provider, title, transcript, truncated, started_at AS startedAt, ended_at AS endedAt FROM terminal_history_sessions WHERE project_id = ? ORDER BY ended_at DESC, id DESC`).all(projectId).map((session) => ({ ...(session as Omit<TerminalHistorySession, "truncated">), truncated: Boolean((session as { truncated: number }).truncated) }));
+    return this.db.prepare(`SELECT id, project_id AS projectId, provider, title, transcript, truncated, started_at AS startedAt, ended_at AS endedAt, provider_session_id AS providerSessionId FROM terminal_history_sessions WHERE project_id = ? ORDER BY ended_at DESC, id DESC`).all(projectId).map((session) => ({ ...(session as Omit<TerminalHistorySession, "truncated">), truncated: Boolean((session as { truncated: number }).truncated), providerSessionId: (session as { providerSessionId: string | null }).providerSessionId ?? undefined }));
   }
 
   getTerminalHistorySession(id: string): TerminalHistorySession | undefined {
-    const session = this.db.prepare(`SELECT id, project_id AS projectId, provider, title, transcript, truncated, started_at AS startedAt, ended_at AS endedAt FROM terminal_history_sessions WHERE id = ?`).get(id) as (Omit<TerminalHistorySession, "truncated"> & { truncated: number }) | undefined;
-    return session ? { ...session, truncated: Boolean(session.truncated) } : undefined;
+    const session = this.db.prepare(`SELECT id, project_id AS projectId, provider, title, transcript, truncated, started_at AS startedAt, ended_at AS endedAt, provider_session_id AS providerSessionId FROM terminal_history_sessions WHERE id = ?`).get(id) as (Omit<TerminalHistorySession, "truncated"> & { truncated: number }) | undefined;
+    return session ? { ...session, truncated: Boolean(session.truncated), providerSessionId: (session as { providerSessionId?: string | null }).providerSessionId ?? undefined } : undefined;
   }
 
   deleteTerminalHistorySession(id: string): void {

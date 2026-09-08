@@ -31,9 +31,10 @@ comandos ni alterar archivos.
 
 ## Project Structure
 
-- `desktop/src/`: botón, popup accesible, recuperación nativa de sesión y borrado.
+- `desktop/src/`: botón, popup accesible, reanudación por id y borrado.
 - `src/persistence/`: tabla, migración y operaciones por Project.
-- `src/application/` y `src/adapters/`: detección y título seguro.
+- `src/application/` y `src/adapters/`: detección, título seguro y resolución
+  del id de conversación desde el almacén del agente.
 - `src/desktop-sidecar.ts`: listar, leer y borrar, siempre validados por Project.
 - `tests/`: migración, aislamiento, detección, fallback y contrato de UI.
 
@@ -57,8 +58,8 @@ Fechas ISO-8601 UTC, IDs opacos y operaciones de persistencia explícitas.
 - La primera invocación reconocida fija el provider y sólo entonces se captura
   entrada/salida, con un límite explícito y marca de truncamiento.
 - Al cerrar la tab o detener la app, una sesión elegible se persiste con
-  `startedAt`, `endedAt`, provider, título y transcript. Una manual no genera
-  fila ni llamada al modelo.
+  `startedAt`, `endedAt`, provider, título, transcript y el id de conversación
+  del agente cuando se resuelve. Una manual no genera fila ni llamada al modelo.
 
 ### Historial y UI
 
@@ -66,19 +67,28 @@ Fechas ISO-8601 UTC, IDs opacos y operaciones de persistencia explícitas.
   abre un popup anclado, con `aria-expanded`, navegación de teclado, Escape y
   cierre por click exterior.
 - Lista sólo sesiones del Project activo, recientes primero: título, provider y
-  fecha/hora local. Abrir una sesión crea una terminal real y lanza el selector
-  nativo de recuperación del provider (Claude o Codex); OpenCode continúa su
-  última sesión del Project. No se intenta reconstruir un TUI desde bytes PTY:
-  sus pantallas alternativas no representan una conversación recuperable.
+  fecha/hora local. Abrir una sesión crea una terminal real y reanuda *esa*
+  conversación por su identificador nativo: `claude --resume <id>` o
+  `codex resume <id>`. El historial de mensajes lo restaura el agente, no Assay.
+- El identificador se resuelve al guardar, leyendo el almacén de sesiones del
+  propio agente (`~/.claude/projects/`, `~/.codex/sessions/`) acotado por
+  directorio de trabajo y ventana temporal; nunca se extrae de los bytes del
+  PTY. Sin coincidencia inequívoca se abre el selector nativo del provider.
+- OpenCode no expone reanudación por id en su CLI: usa `--continue`, que retoma
+  su última sesión del Project.
+- No se intenta reconstruir un TUI desde bytes PTY: sus pantallas alternativas
+  no representan una conversación recuperable.
 - Borrar pide confirmación y elimina transcript/metadatos sin tocar repositorio
   ni sesiones de Agents. Cambiar Project cierra el popup y aísla los datos.
 
 ## Testing Strategy
 
 Tests SQLite de migración, orden, lectura, borrado y aislamiento; detección de
-ejecutables frente a argumentos; resumen acotado y fallback; sidecar que rechaza
-acceso cruzado; y contrato UI para popup, fecha, accesibilidad, solo lectura y
-ausencia de superficie persistente.
+ejecutables frente a argumentos; resolución del id de conversación por
+directorio, ventana temporal e ids ya asignados; resumen acotado y fallback;
+sidecar que rechaza acceso cruzado y persiste aunque la resolución falle; y
+contrato UI para popup, fecha, accesibilidad, reanudación por id y ausencia de
+superficie persistente.
 
 ## Boundaries
 
@@ -86,17 +96,19 @@ ausencia de superficie persistente.
   contenido persistido.
 - **Ask first:** añadir providers, aumentar el límite de transcript o resumir
   con un provider distinto.
-- **Never:** guardar terminales manuales, fingir que un transcript PTY es una
-  conversación reanudable, ejecutar comandos durante el resumen ni mostrar
-  datos de otro Project.
+- **Never:** guardar terminales manuales, reproducir un transcript PTY para
+  fingir una conversación reanudada, deducir el id de sesión de la salida del
+  PTY, ejecutar comandos durante el resumen ni mostrar datos de otro Project.
 
 ## Success Criteria
 
 - Una terminal con `claude`, `codex` u `opencode` cerrada aparece con título y
   fecha/hora; una manual no aparece.
 - El título usa el provider de la sesión o un fallback visible.
-- Se puede reabrir la conversación mediante la recuperación nativa del agente y
-  borrarla tras confirmar.
+- Reabrir una sesión de Claude o Codex restaura sus mensajes anteriores sin
+  pasar por el selector; una sesión sin id resuelto abre el selector nativo.
+- Reabrir una sesión no hace crecer su transcript almacenado.
+- Se puede borrar la conversación tras confirmar.
 - El historial sobrevive al reinicio y no afecta a Agents, archivos u otros
   Projects; el popup no ocupa espacio cerrado.
 

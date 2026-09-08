@@ -413,3 +413,30 @@ test("desktop sidecar proposes configurations and writes the ones that are accep
   rmSync(directory, { recursive: true, force: true });
   rmSync(projectRoot, { recursive: true, force: true });
 });
+
+test("saving a terminal session records the agent conversation it can resume", () => {
+  const home = mkdtempSync(join(tmpdir(), "ade-sidecar-home-"));
+  const repositoryPath = join(home, "workspace");
+  const projects = join(home, ".claude", "projects", repositoryPath.replace(/[^a-zA-Z0-9]/g, "-"));
+  mkdirSync(projects, { recursive: true });
+  writeFileSync(join(projects, "77777777-7777-4777-8777-777777777777.jsonl"), "{}\n");
+  const previousHome = process.env.HOME;
+  process.env.HOME = home;
+  const store = new AdeStore();
+  try {
+    const startedAt = new Date(Date.now() - 60_000).toISOString();
+    const endedAt = new Date().toISOString();
+    handleDesktopRequest(store, { id: "terminal-save", method: "terminal.history.save", params: { sessionId: "terminal-resumable", projectId: "project-a", provider: "claude", repositoryPath, transcript: "hello", startedAt, endedAt } });
+    assert.equal((handleDesktopRequest(store, { id: "terminal-get", method: "terminal.history.get", params: { sessionId: "terminal-resumable", projectId: "project-a" } }).result as { providerSessionId?: string }).providerSessionId, "77777777-7777-4777-8777-777777777777");
+
+    // A session the provider's store cannot account for still persists; it just
+    // falls back to the picker instead of resuming a conversation by id.
+    handleDesktopRequest(store, { id: "terminal-save-manual", method: "terminal.history.save", params: { sessionId: "terminal-unmatched", projectId: "project-a", provider: "claude", repositoryPath: join(home, "elsewhere"), transcript: "hello", startedAt, endedAt } });
+    assert.equal((handleDesktopRequest(store, { id: "terminal-get-manual", method: "terminal.history.get", params: { sessionId: "terminal-unmatched", projectId: "project-a" } }).result as { providerSessionId?: string }).providerSessionId, undefined);
+  } finally {
+    if (previousHome === undefined) delete process.env.HOME;
+    else process.env.HOME = previousHome;
+    store.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+});

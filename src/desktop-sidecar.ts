@@ -40,6 +40,7 @@ import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNe
 import { registerProject } from "./application/tasks/project-commands.js";
 import { LocalGitRepository } from "./adapters/local-git-repository.js";
 import { fallbackTerminalTitle, type TerminalAgentProvider } from "./application/terminal-history/agent-terminal.js";
+import { resolveProviderSessionId } from "./application/terminal-history/provider-session-id.js";
 
 export type DesktopRequest = {
   id: string | number;
@@ -148,7 +149,19 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       if (!params?.sessionId || !params.projectId || !params.provider || !params.transcript || !params.startedAt || !params.endedAt) return { id: request.id, error: { code: "INVALID_PARAMS", message: "sessionId, projectId, provider, transcript, startedAt and endedAt are required" } };
       if (!['claude', 'codex', 'opencode'].includes(params.provider)) return { id: request.id, error: { code: "INVALID_PARAMS", message: "provider must be a recognized terminal agent" } };
       const provider = params.provider as TerminalAgentProvider;
-      store.saveTerminalHistorySession({ id: params.sessionId, projectId: params.projectId, provider, title: params.title?.slice(0, 60) || fallbackTerminalTitle(provider, params.endedAt), transcript: params.transcript, truncated: Boolean(params.truncated), startedAt: params.startedAt, endedAt: params.endedAt });
+      /** The agent's own session store is what makes the conversation resumable
+          later. Losing that lookup must never cost the operator the history, so
+          a failure degrades to the provider's picker instead of an error. */
+      let providerSessionId: string | undefined;
+      if (params.repositoryPath) {
+        try {
+          const takenIds = store.listTerminalHistorySessions(params.projectId).filter((session) => session.id !== params.sessionId).map((session) => session.providerSessionId).filter((id): id is string => Boolean(id));
+          providerSessionId = resolveProviderSessionId(provider, { repositoryPath: params.repositoryPath, startedAt: params.startedAt, endedAt: params.endedAt, takenIds });
+        } catch {
+          providerSessionId = undefined;
+        }
+      }
+      store.saveTerminalHistorySession({ id: params.sessionId, projectId: params.projectId, provider, title: params.title?.slice(0, 60) || fallbackTerminalTitle(provider, params.endedAt), transcript: params.transcript, truncated: Boolean(params.truncated), startedAt: params.startedAt, endedAt: params.endedAt, providerSessionId });
       return { id: request.id, result: { id: params.sessionId, saved: true } };
     }
     if (request.method === "skills.list") return { id: request.id, result: listNativeSkills() };
