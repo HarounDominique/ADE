@@ -659,7 +659,7 @@ function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null,
     convertEol: false,
     scrollback: 5000,
     fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    fontSize: 12,
+    fontSize: 13,
     theme: activeTerminalPalette(),
   });
   tab.fitAddon = new FitAddon();
@@ -1599,7 +1599,7 @@ async function initializeMonacoEditor() {
     tabSize: 2,
     insertSpaces: true,
     fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 19,
     padding: { top: 14, bottom: 24 },
     scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },

@@ -56,7 +56,7 @@
   border-radius: var(--control-radius);
   color: var(--text-soft);
   background: var(--panel-raised);
-  font: 650 11px var(--sans);
+  font: 650 13px var(--sans);
   line-height: 1.2;
   white-space: nowrap;
   cursor: pointer;
@@ -106,7 +106,7 @@
 .icon-button:hover:not(:disabled) { color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, transparent); }
 .icon-button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 
-.text-button { padding: 0; border: 0; color: var(--blue); background: transparent; font: 500 10px var(--sans); cursor: pointer; }
+.text-button { padding: 0; border: 0; color: var(--blue); background: transparent; font: 500 12px var(--sans); cursor: pointer; }
 .text-button:hover:not(:disabled) { color: var(--text); text-decoration: underline; }
 .text-button:disabled { opacity: .55; cursor: not-allowed; }
 
