@@ -4,6 +4,7 @@ import { build } from 'esbuild';
 mkdirSync('dist', { recursive: true });
 cpSync('src/index.html', 'dist/index.html');
 cpSync('src/styles.css', 'dist/styles.css');
+cpSync('src/components.css', 'dist/components.css');
 await build({
   entryPoints: ['src/main.js'],
   bundle: true,

@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const html = readFileSync(new URL("../desktop/src/index.html", import.meta.url), "utf8");
 const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../desktop/src/styles.css", import.meta.url), "utf8");
+const components = readFileSync(new URL("../desktop/src/components.css", import.meta.url), "utf8");
 const desktopBuild = readFileSync(new URL("../desktop/build.mjs", import.meta.url), "utf8");
 const sidecarBuild = readFileSync(new URL("../scripts/build-desktop-sidecar.mjs", import.meta.url), "utf8");
 const smokeBundle = readFileSync(new URL("../scripts/smoke-desktop-bundle.mjs", import.meta.url), "utf8");
@@ -732,9 +733,10 @@ test("everything the editor panel toggles with hidden can actually hide", () => 
   // sets one without the other leaves the element on screen for good: the
   // empty state stayed up over an open file, and the open-files menu could be
   // opened but never closed.
+  const sheets = `${styles}\n${components}`;
   for (const selector of ['.document-empty-state', '.document-tabs-menu', '.document-viewer-status', '.document-content', '.icon-button']) {
-    const declaresDisplay = new RegExp(`\\${selector} \\{[^}]*display:`).test(styles);
-    const guarded = styles.includes(`${selector}[hidden]`) || new RegExp(`\\${selector}\\[hidden\\][^{]*\\{`).test(styles);
+    const declaresDisplay = new RegExp(`\\${selector} \\{[^}]*display:`).test(sheets);
+    const guarded = sheets.includes(`${selector}[hidden]`) || new RegExp(`\\${selector}\\[hidden\\][^{]*\\{`).test(sheets);
     assert.ok(!declaresDisplay || guarded, `${selector} sets display but never says what [hidden] means`);
   }
 });
@@ -880,4 +882,30 @@ test("the expanded terminal stops at the topbar instead of a fixed fraction", ()
   assert.match(main, /function terminalHeightBounds\(\)[\s\S]*?\.topbar'\)\?\.getBoundingClientRect\(\)\.bottom/);
   assert.match(main, /function terminalHeightBounds\(\)[\s\S]*?getComputedStyle\(terminalDock\)\.bottom/);
   assert.match(main, /window\.innerHeight - headerBottom - statusBarInset/);
+});
+
+test("one button component paints every action control", () => {
+  // The shell loads the shared control layer, and the bundle ships it.
+  assert.match(html, /href="\/components\.css"/);
+  assert.match(desktopBuild, /cpSync\('src\/components\.css', 'dist\/components\.css'\)/);
+  // Every role a view can ask for is defined once, in that layer.
+  for (const role of ['.button', '.button.primary', '.button.secondary', '.button.accent', '.button.ghost', '.button.danger', '.button.compact', '.button.icon', '.button.block', '.icon-button', '.text-button']) {
+    assert.match(components, new RegExp(`\\${role} \\{`), `${role} is not defined in components.css`);
+  }
+  // `.button.ghost` was carried in the markup long before anything drew it.
+  assert.match(html, /class="button ghost"/);
+  // A view may place a control; it may not repaint one.
+  assert.doesNotMatch(styles, /\.button[.:a-z-]* ?\{[^}]*background:/);
+  assert.doesNotMatch(styles, /\.text-button[.:a-z-]* ?\{[^}]*color:/);
+  // The retired theme scheme left this hover painting light-theme buttons navy.
+  assert.doesNotMatch(styles, /:root:not\(\[data-theme="light"\]\) \.button:hover/);
+});
+
+test("adding a Project is a labelled button, not a bare glyph", () => {
+  // The catalog's primary action wears the same component as New task, and
+  // says what it does instead of leaving a plus sign to imply it.
+  assert.match(html, /<button class="button primary compact" type="button" data-action="add-project">New project<\/button>/);
+  assert.match(html, /<button class="button primary" type="button" data-action="new-task"/);
+  assert.match(html, /class="button accent compact agent-new-session"/);
+  assert.doesNotMatch(styles, /\.agent-new-session[^{]*\{[^}]*(background|border-radius|font):/);
 });
