@@ -481,7 +481,7 @@ function appendTerminalTranscript(sessionId, text) {
 function renderTerminalTabs() {
   const container = document.getElementById('terminal-tabs');
   if (!container) return;
-  container.innerHTML = terminalTabs.map((tab) => `<div class="terminal-tab${tab.id === activeTerminalId ? ' active' : ''}" role="presentation"><button class="terminal-tab-button" type="button" role="tab" aria-selected="${tab.id === activeTerminalId}" aria-controls="terminal-hosts" data-terminal-tab-id="${tab.id}"><span class="terminal-tab-status${tab.started ? ' running' : ''}" aria-hidden="true"></span><span>${tab.label}</span></button><button class="terminal-tab-close" type="button" aria-label="Close ${tab.label}" title="Close ${tab.label}" data-terminal-close-id="${tab.id}">×</button></div>`).join('');
+  container.innerHTML = terminalTabs.map((tab) => `<div class="terminal-tab${tab.id === activeTerminalId ? ' active' : ''}" role="presentation"><button class="terminal-tab-button" type="button" role="tab" aria-selected="${tab.id === activeTerminalId}" aria-controls="terminal-hosts" data-terminal-tab-id="${tab.id}"><span class="terminal-tab-status${tab.started ? ' running' : ''}" aria-hidden="true"></span><span>${escapeHTML(tab.label)}</span></button><button class="terminal-tab-close" type="button" aria-label="Close ${escapeHTML(tab.label)}" title="Close ${escapeHTML(tab.label)}" data-terminal-close-id="${tab.id}">×</button></div>`).join('');
 }
 
 function syncActiveTerminalInput(focus = true) {

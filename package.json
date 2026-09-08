@@ -19,9 +19,13 @@
     "desktop:sidecar:build": "node scripts/build-desktop-sidecar.mjs"
   },
   "devDependencies": {
+    "@types/cross-spawn": "^6.0.6",
     "@types/node": "^24.0.0",
     "postject": "^1.0.0-alpha.6",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "cross-spawn": "^7.0.6"
   }
 }

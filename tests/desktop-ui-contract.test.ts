@@ -27,6 +27,13 @@ test("runtime infrastructure stays cross-cutting instead of becoming a visible m
   assert.match(main, /sidecar_request/);
 });
 
+test("terminal tab labels from run configurations are escaped before HTML rendering", () => {
+  const renderer = main.slice(main.indexOf("function renderTerminalTabs"), main.indexOf("function syncActiveTerminalInput"));
+  assert.match(renderer, /<span>\$\{escapeHTML\(tab\.label\)\}<\/span>/);
+  assert.match(renderer, /aria-label="Close \$\{escapeHTML\(tab\.label\)\}"/);
+  assert.match(renderer, /title="Close \$\{escapeHTML\(tab\.label\)\}"/);
+});
+
 test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(html, /class="agents-workbench"/);
   assert.match(html, /id="agent-session-list"/);

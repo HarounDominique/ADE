@@ -2,6 +2,7 @@ import { execFile as execFileCallback, type ChildProcess } from "node:child_proc
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt } from "../ports/agent-runtime.js";
+import { startSafeCommand } from "./safe-command.js";
 
 const execFile = promisify(execFileCallback);
 // ChatGPT's bundled Codex binary has a stable location on macOS only. On
@@ -15,15 +16,7 @@ export const defaultCodexCommand = process.env.ADE_CODEX_COMMAND ?? platformCode
 
 type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number; shell?: boolean }) => Promise<{ stdout: string }>;
 
-const execute: CommandRunner = (command, args, options) => new Promise((resolve, reject) => {
-  const child = execFileCallback(command, args, { ...options, shell: windowsCommandNeedsShell(command) }, (error, stdout) => {
-    if (error) reject(error);
-    else resolve({ stdout: stdout.toString() });
-  });
-  // `codex exec` is non-interactive. An open stdin makes it wait for an
-  // additional prompt instead of completing the JSONL response.
-  child.stdin?.end();
-});
+const execute: CommandRunner = (command, args, options) => startSafeCommand(command, args, options).completion;
 
 export const executeCodexCommand = execute;
 
@@ -90,14 +83,10 @@ export class CodexCliRuntime implements AgentRuntimePort {
 
   private runPromptCommand(args: string[], cwd: string): Promise<{ stdout: string }> {
     if (this.runner !== execute) return this.runner(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 });
-    return new Promise((resolve, reject) => {
-      const child = execFileCallback(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024, shell: windowsCommandNeedsShell(this.command) }, (error, stdout) => {
-        if (this.activeChild === child) this.activeChild = undefined;
-        if (error) reject(error);
-        else resolve({ stdout: stdout.toString() });
-      });
-      this.activeChild = child;
-      child.stdin?.end();
+    const command = startSafeCommand(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 });
+    this.activeChild = command.child;
+    return command.completion.finally(() => {
+      if (this.activeChild === command.child) this.activeChild = undefined;
     });
   }
 }
@@ -111,9 +100,6 @@ function normalizeCodexModel(model: string): string {
   return model;
 }
 
-function windowsCommandNeedsShell(command: string): boolean {
-  return process.platform === "win32" && (!/\.[^\\/]+$/.test(command) || /\.(?:cmd|bat)$/i.test(command));
-}
 
 export function extractCodexSessionId(jsonl: string): string | undefined {
   for (const line of jsonl.split(/\r?\n/)) {

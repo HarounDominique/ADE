@@ -1,4 +1,5 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { execFile, type ChildProcess } from "node:child_process";
+import crossSpawn from "cross-spawn";
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, win32 } from "node:path";
@@ -10,18 +11,16 @@ import type {
 } from "../ports/process.js";
 
 export class LocalProcess implements ProcessPort {
-  private readonly processes = new Map<string, ChildProcessWithoutNullStreams>();
+  private readonly processes = new Map<string, ChildProcess>();
   private readonly output = new Map<string, { stdout: string; stderr: string }>();
 
   async start(definition: ProcessDefinition): Promise<ProcessHandle> {
-    const child = spawn(definition.command, [...(definition.args ?? [])], {
+    const child = crossSpawn(definition.command, [...(definition.args ?? [])], {
       cwd: definition.cwd,
       env: runtimeEnvironment(definition.env),
       stdio: "pipe",
-      // npm and many Windows CLIs are .cmd shims rather than PE executables.
-      shell: windowsCommandNeedsShell(definition.command),
-      // cmd.exe is an implementation detail for .cmd shims. Keep its output
-      // on Assay's run stream instead of flashing a second terminal window.
+      // cross-spawn preserves argv while safely supporting Windows .cmd shims.
+      // Keep Windows children from flashing a second terminal window.
       windowsHide: process.platform === "win32",
       // A detached Windows child gets its own console host even when its
       // stdio is piped. Keep it attached to the sidecar so the terminal dock
@@ -29,8 +28,8 @@ export class LocalProcess implements ProcessPort {
       detached: process.platform !== "win32",
     });
     const output = { stdout: "", stderr: "" };
-    child.stdout.on("data", (chunk: Buffer) => { const text = chunk.toString(); output.stdout += text; definition.onOutput?.({ stream: "stdout", text }); });
-    child.stderr.on("data", (chunk: Buffer) => { const text = chunk.toString(); output.stderr += text; definition.onOutput?.({ stream: "stderr", text }); });
+    child.stdout?.on("data", (chunk: Buffer) => { const text = chunk.toString(); output.stdout += text; definition.onOutput?.({ stream: "stdout", text }); });
+    child.stderr?.on("data", (chunk: Buffer) => { const text = chunk.toString(); output.stderr += text; definition.onOutput?.({ stream: "stderr", text }); });
     await new Promise<void>((resolve, reject) => {
       child.once("spawn", () => resolve());
       child.once("error", reject);
@@ -61,10 +60,6 @@ export class LocalProcess implements ProcessPort {
     this.output.delete(handle.id);
     return { id: handle.id, state: "STOPPED", ...result, ...output };
   }
-}
-
-function windowsCommandNeedsShell(command: string): boolean {
-  return process.platform === "win32" && (!/\.[^\\/]+$/.test(command) || /\.(?:cmd|bat)$/i.test(command));
 }
 
 /** A packaged desktop app is opened by the operating system's own shell --
@@ -200,7 +195,7 @@ function addPathEntry(env: NodeJS.ProcessEnv, directory: string, executable: str
   if (!present) env[pathKey] = current ? `${directory}${separator}${current}` : directory;
 }
 
-async function killGroup(child: ChildProcessWithoutNullStreams, signal: NodeJS.Signals): Promise<void> {
+async function killGroup(child: ChildProcess, signal: NodeJS.Signals): Promise<void> {
   if (child.pid === undefined) return;
   if (process.platform === "win32") {
     // Negative PIDs are Unix process-group syntax and do not terminate a

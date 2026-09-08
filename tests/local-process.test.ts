@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LocalProcess, runtimeEnvironment, windowsJavaRoots, windowsNodeDirectories } from "../src/adapters/local-process.js";
+
+const localProcessSource = readFileSync(new URL("../src/adapters/local-process.ts", import.meta.url), "utf8");
+const safeCommandSource = readFileSync(new URL("../src/adapters/safe-command.ts", import.meta.url), "utf8");
 
 // Node itself is the one interpreter guaranteed on every platform the suite runs on.
 const node = process.execPath;
@@ -24,6 +27,15 @@ test("LocalProcess starts, captures output and stops a process", async () => {
   const evidence = await processPort.stop(handle);
   assert.equal(evidence.state, "STOPPED");
   assert.match(evidence.stdout, /ready/);
+});
+
+test("LocalProcess preserves argv while supporting Windows command shims", () => {
+  const start = localProcessSource.slice(localProcessSource.indexOf("async start"), localProcessSource.indexOf("async stop"));
+  assert.match(start, /crossSpawn\(definition\.command, \[\.\.\.\(definition\.args \?\? \[\]\)\]/);
+  assert.match(safeCommandSource, /cross-spawn/);
+  assert.match(safeCommandSource, /structured/);
+  assert.doesNotMatch(start, /shell:\s*true/);
+  assert.doesNotMatch(localProcessSource, /windowsCommandNeedsShell/);
 });
 
 // Windows discovery is pure given an environment block, so it is testable from
