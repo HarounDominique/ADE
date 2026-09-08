@@ -6,7 +6,7 @@ import { startSafeCommand } from "./safe-command.js";
 
 export const defaultClaudeCommand = process.env.ADE_CLAUDE_COMMAND ?? "claude";
 
-type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number; shell?: boolean }) => Promise<{ stdout: string }>;
+type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number; shell?: boolean; onStdout?: (text: string) => void }) => Promise<{ stdout: string }>;
 
 const execute: CommandRunner = (command, args, options) => startSafeCommand(command, args, options).completion;
 
@@ -30,8 +30,8 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
     return { id: `claude-pending-${randomUUID()}`, directory: input.directory };
   }
 
-  async prompt(session: SessionHandle, input: { text: string; model?: string; grantedPermissions?: readonly AgentPermission[] }): Promise<unknown> {
-    return this.executePrompt(session, input.text, input.grantedPermissions, input.model);
+  async prompt(session: SessionHandle, input: { text: string; model?: string; grantedPermissions?: readonly AgentPermission[]; onEvent?: (event: RuntimeEvent) => void }): Promise<unknown> {
+    return this.executePrompt(session, input.text, input.grantedPermissions, input.model, undefined, input.onEvent);
   }
 
   async promptAndWait(session: SessionHandle, input: StructuredPrompt): Promise<unknown> {
@@ -65,6 +65,7 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
     grantedPermissions: readonly AgentPermission[] = [],
     model?: string,
     schema?: string,
+    onEvent?: (event: RuntimeEvent) => void,
   ): Promise<string> {
     const isNew = session.id.startsWith("claude-pending-");
     const sessionId = isNew ? session.id.replace(/^claude-pending-/, "") : session.id;
@@ -80,7 +81,8 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
     // because non-interactive runs cannot prompt for permission.
     const args = [
       "--print",
-      "--output-format", "json",
+      "--output-format", "stream-json",
+      "--include-partial-messages",
       "--permission-mode", writable ? "acceptEdits" : "default",
       "--permission-prompts", "none",
       "--allowed-tools", allowedTools.join(","),
@@ -89,16 +91,20 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
       ...(isNew ? ["--session-id", sessionId] : ["--resume", session.id]),
       text,
     ];
-    const { stdout } = await this.runPromptCommand(args, session.directory);
+    const { stdout } = await this.runPromptCommand(args, session.directory, onEvent);
     if (isNew) session.id = extractClaudeSessionId(stdout) ?? sessionId;
     return stdout;
   }
 
-  private runPromptCommand(args: string[], cwd: string): Promise<{ stdout: string }> {
-    if (this.runner !== execute) return this.runner(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 });
-    const command = startSafeCommand(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 });
+  private runPromptCommand(args: string[], cwd: string, onEvent?: (event: RuntimeEvent) => void): Promise<{ stdout: string }> {
+    const jsonl = createJsonlEventEmitter((event) => onEvent?.({ type: "claude.event", payload: event }));
+    if (this.runner !== execute) {
+      return this.runner(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024, onStdout: jsonl.push }).finally(jsonl.flush);
+    }
+    const command = startSafeCommand(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024, onStdout: jsonl.push });
     this.activeChild = command.child;
     return command.completion.finally(() => {
+      jsonl.flush();
       if (this.activeChild === command.child) this.activeChild = undefined;
     });
   }
@@ -106,25 +112,48 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
 
 
 export function extractClaudeSessionId(json: string): string | undefined {
-  try {
-    const event = JSON.parse(json) as Record<string, unknown>;
-    const candidate = event.session_id ?? event.sessionId;
-    return typeof candidate === "string" && candidate.trim() ? candidate : undefined;
-  } catch {
-    return undefined;
+  for (const line of json.split(/\r?\n/).reverse()) {
+    if (!line.trim()) continue;
+    try {
+      const event = JSON.parse(line) as Record<string, unknown>;
+      const candidate = event.session_id ?? event.sessionId;
+      if (typeof candidate === "string" && candidate.trim()) return candidate;
+    } catch { /* Claude may emit a human-readable diagnostic line. */ }
   }
+  return undefined;
 }
 
 export function extractClaudeText(output: unknown): string {
   if (typeof output !== "string") return output ? JSON.stringify(output) : "";
-  try {
-    const event = JSON.parse(output) as Record<string, unknown>;
-    const result = event.result;
-    if (typeof result === "string" && result.trim()) return result.trim();
-    const text = event.text;
-    if (typeof text === "string" && text.trim()) return text.trim();
-  } catch {
-    // Claude may emit a human-readable error alongside its JSON result.
-  }
+  const events = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).flatMap((line) => {
+    try { return [JSON.parse(line) as Record<string, unknown>]; } catch { return []; }
+  });
+  const result = [...events].reverse().find((event: Record<string, unknown>) => typeof event.result === "string")?.result;
+  if (typeof result === "string" && result.trim()) return result.trim();
+  const text = events.map(extractClaudeStreamText).filter(Boolean).join("");
+  if (text.trim()) return text.trim();
   return output.trim();
+}
+
+function extractClaudeStreamText(event: Record<string, unknown>): string {
+  const nested = event.event as Record<string, unknown> | undefined;
+  const delta = nested?.delta as Record<string, unknown> | undefined;
+  return typeof delta?.text === "string" && delta.type === "text_delta" ? delta.text : "";
+}
+
+function createJsonlEventEmitter(onEvent: (event: Record<string, unknown>) => void): { push: (text: string) => void; flush: () => void } {
+  let buffer = "";
+  const consume = (line: string) => {
+    if (!line.trim()) return;
+    try { onEvent(JSON.parse(line) as Record<string, unknown>); } catch { /* Human-readable diagnostics are not stream events. */ }
+  };
+  return {
+    push(text) {
+      buffer += text;
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() ?? "";
+      lines.forEach(consume);
+    },
+    flush() { consume(buffer); buffer = ""; },
+  };
 }

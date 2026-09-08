@@ -782,15 +782,23 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     process.stdout.write(`${JSON.stringify({ type: "agent.started", id: request.id, sessionId: session.id, provider, taskId: taskId ?? null, title })}\n`);
     const eventTexts: string[] = [];
     const activity: Array<{ label: string; detail?: string; kind: "status" | "tool" }> = [];
+    const streamState: AgentStreamState = { snapshots: new Map() };
     const eventAbortController = new AbortController();
     active.eventAbortController = eventAbortController;
-    // Activity is streamed as it happens, not only handed over with the result:
-    // a turn that reports nothing until it finishes is indistinguishable from a
-    // stalled one. Providers without an event stream simply emit nothing here.
+    const recordAgentEvent = (event: import("./ports/agent-runtime.js").RuntimeEvent) => {
+      const item = summarizeAgentActivity(event);
+      if (item && !activity.some((candidate) => candidate.label === item.label && candidate.detail === item.detail)) {
+        activity.push(item);
+        process.stdout.write(`${JSON.stringify({ type: "agent.activity", id: request.id, sessionId: session.id, item })}\n`);
+      }
+      const delta = extractAgentOutputDelta(provider, event.payload, streamState);
+      if (delta) process.stdout.write(`${JSON.stringify({ type: "agent.output", id: request.id, sessionId: session.id, text: delta })}\n`);
+    };
+    // Activity and output are streamed as they happen, not only handed over
+    // with the result. A turn that reports nothing until it finishes is
+    // indistinguishable from a stalled one.
     const eventPromise = provider === "opencode"
-      ? collectAgentEvents(runtime, eventTexts, activity, eventAbortController, (item) => {
-          process.stdout.write(`${JSON.stringify({ type: "agent.activity", id: request.id, sessionId: session.id, item })}\n`);
-        })
+      ? collectAgentEvents(runtime, eventTexts, eventAbortController, recordAgentEvent)
       : Promise.resolve();
     if (active.aborted) throw new Error("AGENT_TURN_ABORTED");
     /** A Java repository with ASK installed starts the turn knowing it: the
@@ -798,13 +806,13 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
         the structural answer is one command away instead of a tree walk. The
         conversation persists the operator's prompt, never the briefing. */
     const briefing = await askBriefing({ repositoryPath: params.repositoryPath!, enabled: loadGatePolicy(params.repositoryPath).structuralBriefing }).catch(() => undefined);
-    const rawOutput = await runtime.prompt(session, { text: composeAgentPrompt(briefing, params.prompt!), ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), grantedPermissions: params.grantedPermissions ?? [] });
+    const rawOutput = await runtime.prompt(session, { text: composeAgentPrompt(briefing, params.prompt!), ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), grantedPermissions: params.grantedPermissions ?? [], ...(provider !== "opencode" ? { onEvent: recordAgentEvent } : {}) });
     await eventPromise;
     if (active.aborted) throw new Error("AGENT_TURN_ABORTED");
     if (isPendingCli && session.id.startsWith(`${provider}-pending-`)) throw new Error(`${provider} completed without reporting a resumable session id`);
     store.saveAgentSession({ id: session.id, ...(projectId ? { projectId } : {}), ...(taskId ? { taskId } : {}), provider, directory: params.repositoryPath!, title, ...(typeof params.model === "string" ? { model: params.model } : {}), status: "COMPLETED", createdAt });
     store.saveAgentMessage({ id: `agent-${request.id}-user`, sessionId: session.id, role: "user", content: params.prompt!, createdAt });
-    const output = provider === "codex" ? extractCodexText(rawOutput) : provider === "claude" ? extractClaudeText(rawOutput) : eventTexts.join("\n\n").trim();
+    const output = provider === "codex" ? extractCodexText(rawOutput) : provider === "claude" ? extractClaudeText(rawOutput) : streamState.output?.trim() || eventTexts.join("\n\n").trim();
     if (output) store.saveAgentMessage({ id: `agent-${request.id}-assistant`, sessionId: session.id, role: "assistant", content: output, createdAt: new Date().toISOString() });
     let files: readonly import("./ports/agent-runtime.js").FileDiff[] = [];
     try { files = await runtime.diff(session); } catch { /* A provider may not expose a diff for this turn. */ }
@@ -836,19 +844,14 @@ function isPendingCliSession(provider: string | undefined, sessionId: string): b
 async function collectAgentEvents(
   runtime: import("./ports/agent-runtime.js").AgentRuntimePort,
   texts: string[],
-  activity: Array<{ label: string; detail?: string; kind: "status" | "tool" }>,
   controller = new AbortController(),
-  onActivity?: (item: { label: string; detail?: string; kind: "status" | "tool" }) => void,
+  onEvent?: (event: import("./ports/agent-runtime.js").RuntimeEvent) => void,
 ): Promise<void> {
   const collect = (async () => {
     for await (const event of runtime.events(controller.signal)) {
+      onEvent?.(event);
       const text = extractAgentEventText(event.payload);
       if (text && !texts.includes(text)) texts.push(text);
-      const item = summarizeAgentActivity(event);
-      if (item && !activity.some((candidate) => candidate.label === item.label && candidate.detail === item.detail)) {
-        activity.push(item);
-        onActivity?.(item);
-      }
       const payload = event.payload as { type?: string };
       if (payload.type === "session.idle") break;
     }
@@ -857,15 +860,105 @@ async function collectAgentEvents(
   controller.abort();
 }
 
-function summarizeAgentActivity(event: import("./ports/agent-runtime.js").RuntimeEvent): { label: string; detail?: string; kind: "status" | "tool" } | undefined {
+type AgentStreamState = {
+  snapshots: Map<string, string>;
+  output?: string;
+};
+
+function extractAgentOutputDelta(provider: string, value: unknown, state: AgentStreamState): string {
+  const payload = value as Record<string, unknown> | undefined;
+  if (!payload || typeof payload !== "object") return "";
+  if (provider === "claude") {
+    const nested = payload.event as Record<string, unknown> | undefined;
+    const delta = nested?.delta as Record<string, unknown> | undefined;
+    return typeof delta?.text === "string" && delta.type === "text_delta" ? appendStreamText(state, delta.text) : "";
+  }
+  if (provider === "codex") {
+    const item = payload.item as Record<string, unknown> | undefined;
+    if (item?.type === "agent_message" && typeof item.text === "string") {
+      const id = typeof item.id === "string" ? item.id : "codex-agent-message";
+      return appendStreamSnapshot(state, id, item.text);
+    }
+    if (typeof payload.delta === "string" && /output_text|text_delta/i.test(String(payload.type ?? ""))) return appendStreamText(state, payload.delta);
+    return "";
+  }
+  const properties = payload.properties as Record<string, unknown> | undefined;
+  const part = (properties?.part ?? payload.part) as Record<string, unknown> | undefined;
+  const partText = typeof part?.text === "string" ? part.text : undefined;
+  if (part?.type === "text" && partText) {
+    const id = typeof part.id === "string" ? part.id : "opencode-text";
+    return appendStreamSnapshot(state, id, partText);
+  }
+  if (typeof properties?.delta === "string") return appendStreamText(state, properties.delta);
+  return "";
+}
+
+function appendStreamText(state: AgentStreamState, text: string): string {
+  state.output = `${state.output ?? ""}${text}`;
+  return text;
+}
+
+function appendStreamSnapshot(state: AgentStreamState, key: string, text: string): string {
+  const previous = state.snapshots.get(key) ?? "";
+  state.snapshots.set(key, text);
+  const delta = text.startsWith(previous) ? text.slice(previous.length) : text;
+  if (delta) state.output = `${state.output ?? ""}${delta}`;
+  return delta;
+}
+
+export function summarizeAgentActivity(event: import("./ports/agent-runtime.js").RuntimeEvent): { label: string; detail?: string; kind: "status" | "tool" } | undefined {
   const payload = event.payload as Record<string, unknown> | undefined;
-  const type = typeof payload?.type === "string" ? payload.type : event.type;
-  if (!type) return undefined;
-  const properties = payload?.properties as Record<string, unknown> | undefined;
-  const detailValue = [payload?.tool, payload?.name, payload?.path, payload?.file, properties?.tool, properties?.name, properties?.path, properties?.file, properties?.command]
+  if (!payload || typeof payload !== "object") return undefined;
+  const nested = payload?.event as Record<string, unknown> | undefined;
+  const nestedBlock = (nested?.content_block ?? nested?.contentBlock) as Record<string, unknown> | undefined;
+  const message = payload?.message as Record<string, unknown> | undefined;
+  const messageContent = Array.isArray(message?.content) ? message.content.find((candidate) => (candidate as Record<string, unknown>)?.type === "tool_use") as Record<string, unknown> | undefined : undefined;
+  const item = payload?.item as Record<string, unknown> | undefined;
+  const itemType = typeof item?.type === "string" ? item.type : undefined;
+  const part = ((payload?.properties as Record<string, unknown> | undefined)?.part ?? payload?.part) as Record<string, unknown> | undefined;
+  const partState = part?.state as Record<string, unknown> | undefined;
+  const partInput = partState?.input as Record<string, unknown> | undefined;
+  const rawType = typeof payload?.type === "string" ? payload.type : event.type;
+  const properties = payload.properties as Record<string, unknown> | undefined;
+  const itemInput = item?.input as Record<string, unknown> | undefined;
+  const nestedInput = nestedBlock?.input as Record<string, unknown> | undefined;
+  const messageInput = messageContent?.input as Record<string, unknown> | undefined;
+  const toolName = [item?.tool, item?.name, part?.tool, part?.name, nestedBlock?.name, messageContent?.name, payload.tool, payload.name, properties?.tool, properties?.name]
     .find((value): value is string => typeof value === "string" && value.trim().length > 0);
-  const label = type.replaceAll(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-  return { label, ...(detailValue ? { detail: detailValue } : {}), kind: /tool|file|command|patch|edit/i.test(type) ? "tool" : "status" };
+  const command = [payload.command, properties?.command, item?.command, itemInput?.command, partInput?.command, nestedInput?.command, messageInput?.command]
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+  const file = [payload.path, payload.file, properties?.path, properties?.file, item?.path, item?.file, part?.path, part?.file, itemInput?.file_path, itemInput?.path, partInput?.file_path, partInput?.path, nestedInput?.file_path, nestedInput?.path, messageInput?.file_path, messageInput?.path]
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+  // Provider protocol milestones (thread/turn lifecycle, text chunks and
+  // transient errors) are implementation detail, not progress. Only publish
+  // actions an operator can use to understand what the agent is doing.
+  if (itemType === "command_execution" && rawType === "item.started") return activity("Running command", command);
+  if (itemType === "command_execution" && rawType === "item.completed" && typeof item?.exit_code === "number" && item.exit_code !== 0) {
+    return activity(`Command failed (exit ${item.exit_code})`, command);
+  }
+  if (itemType === "file_change" && rawType === "item.started") return activity("Changing files", file);
+  if (itemType === "mcp_tool_call" && rawType === "item.started") return activity("Calling tool", toolName);
+  if (itemType === "web_search" && rawType === "item.started") return activity("Searching the web", command);
+
+  if (part?.type === "tool" || nestedBlock?.type === "tool_use" || messageContent?.type === "tool_use") {
+    return summarizeToolUse(toolName, command, file);
+  }
+  return undefined;
+}
+
+function activity(label: string, detail?: string): { label: string; detail?: string; kind: "tool" } {
+  return { label, ...(detail ? { detail } : {}), kind: "tool" };
+}
+
+function summarizeToolUse(name: string | undefined, command: string | undefined, file: string | undefined): { label: string; detail?: string; kind: "tool" } | undefined {
+  if (command) return activity("Running command", command);
+  const normalized = name?.toLowerCase();
+  if (["read", "view", "cat"].includes(normalized ?? "")) return activity("Reading file", file);
+  if (["edit", "write", "patch", "apply_patch"].includes(normalized ?? "")) return activity("Changing file", file);
+  if (["glob", "grep", "search"].includes(normalized ?? "")) return activity("Searching files", file);
+  if (["webfetch", "websearch"].includes(normalized ?? "")) return activity(normalized === "websearch" ? "Searching the web" : "Fetching URL", file);
+  return name ? activity(`Using ${name}`, file) : undefined;
 }
 
 function extractAgentEventText(value: unknown): string | undefined {

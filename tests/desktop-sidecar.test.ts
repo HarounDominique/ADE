@@ -8,10 +8,19 @@ import { join } from "node:path";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Project } from "../src/domain/project.js";
 import { Task } from "../src/domain/task.js";
-import { handleDesktopRequest } from "../src/desktop-sidecar.js";
+import { handleDesktopRequest, summarizeAgentActivity } from "../src/desktop-sidecar.js";
 import type { Readable } from "node:stream";
 
 type SidecarMessage = { id?: string; type?: string; [key: string]: unknown };
+
+test("desktop sidecar shows only actions that explain agent progress", () => {
+  assert.equal(summarizeAgentActivity({ type: "codex.event", payload: { type: "thread.started", thread_id: "thread-1" } }), undefined);
+  assert.equal(summarizeAgentActivity({ type: "codex.event", payload: { type: "turn.started" } }), undefined);
+  assert.equal(summarizeAgentActivity({ type: "codex.event", payload: { type: "error", message: "transient" } }), undefined);
+  assert.deepEqual(summarizeAgentActivity({ type: "codex.event", payload: { type: "item.started", item: { type: "command_execution", command: "npm test" } } }), { label: "Running command", detail: "npm test", kind: "tool" });
+  assert.deepEqual(summarizeAgentActivity({ type: "claude.event", payload: { type: "stream_event", event: { type: "content_block_start", content_block: { type: "tool_use", name: "Bash", input: { command: "git status" } } } } }), { label: "Running command", detail: "git status", kind: "tool" });
+  assert.deepEqual(summarizeAgentActivity({ type: "opencode.event", payload: { type: "message.part.updated", properties: { part: { type: "tool", tool: "bash", state: { input: { command: "git status" } } } } } }), { label: "Running command", detail: "git status", kind: "tool" });
+});
 
 /** The sidecar interleaves answers and push events on one stream, and a run
     emits both, so a test that reads a single chunk reads whatever arrived

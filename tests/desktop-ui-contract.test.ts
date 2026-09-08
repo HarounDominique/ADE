@@ -115,7 +115,10 @@ test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(main, /method: 'agent\.prompt'/);
   assert.match(main, /method: 'agent\.abort'/);
   assert.match(main, /handleAgentComposerKeydown/);
-  assert.match(main, /agentPromptHistoryByProject/);
+  assert.match(main, /agentPromptHistoryByConversation/);
+  assert.match(main, /savedPromptsForActiveConversation/);
+  assert.match(main, /activeAgentSessionId/);
+  assert.doesNotMatch(main, /agentPromptHistoryByProject/);
   assert.match(main, /stopAgentPrompt/);
   assert.match(main, /selectAgentSession/);
   assert.match(main, /toggleAgentSessionGroup/);
@@ -225,13 +228,15 @@ test("only a real snapshot repaints project state", () => {
 
 test("a turn in flight is visible in the conversation", () => {
   // The prompt belongs in the transcript on send, not when the turn ends.
-  assert.match(main, /pendingAgentTurn = \{ prompt, provider, startedAt: Date\.now\(\), activity: \[\], sessionId: null \}/);
+  assert.match(main, /pendingAgentTurn = \{ prompt, provider, startedAt: Date\.now\(\), activity: \[\], output: '', historyKey, sessionId: null \}/);
   assert.match(main, /function pendingTurnMarkup/);
   assert.match(main, /list\.innerHTML \+= pendingTurnMarkup\(\)/);
   // State owns the pending turn, so a re-render rebuilds it instead of losing it.
   assert.match(main, /let pendingAgentTurn = null/);
   assert.match(main, /function clearPendingAgentTurn/);
   assert.match(main, /response\.type === 'agent\.activity'/);
+  assert.match(main, /response\.type === 'agent\.output'/);
+  assert.match(main, /agentStreamingOutputMarkup/);
   assert.match(main, /function startAgentElapsedTimer/);
   assert.match(styles, /@keyframes agent-thinking-pulse/);
   assert.match(styles, /\.agent-thinking-dot \{ animation: none/);

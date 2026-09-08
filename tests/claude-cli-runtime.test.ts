@@ -30,8 +30,22 @@ test("Claude Code CLI creates a resumable session and maps permissions", async (
   assert.equal(session.id, "claude-session");
   await runtime.prompt(session, { text: "Update the project", model: "sonnet", grantedPermissions: ["write_code", "run_commands", "network"] });
   assert.deepEqual(calls, [
-    ["--print", "--output-format", "json", "--permission-mode", "default", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep", "--session-id", firstSessionId, "Read the project"],
-    ["--print", "--output-format", "json", "--permission-mode", "acceptEdits", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep,Edit,Write,Bash,WebFetch,WebSearch", "--model", "sonnet", "--resume", "claude-session", "Update the project"],
+    ["--print", "--output-format", "stream-json", "--include-partial-messages", "--permission-mode", "default", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep", "--session-id", firstSessionId, "Read the project"],
+    ["--print", "--output-format", "stream-json", "--include-partial-messages", "--permission-mode", "acceptEdits", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep,Edit,Write,Bash,WebFetch,WebSearch", "--model", "sonnet", "--resume", "claude-session", "Update the project"],
+  ]);
+});
+
+test("Claude Code forwards public text deltas while a turn is running", async () => {
+  const events: unknown[] = [];
+  const runtime = new ClaudeCliRuntime("claude", async (_command, _args, options) => {
+    options.onStdout?.('{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hel"}}}\n');
+    options.onStdout?.('{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"lo"}}}\n');
+    return { stdout: '{"type":"result","session_id":"claude-stream","result":"Hello"}\n' };
+  });
+  await runtime.prompt({ id: "claude-pending-stream", directory: "/tmp" }, { text: "hi", onEvent: (event) => events.push(event) });
+  assert.deepEqual(events.map((event) => (event as { payload: unknown }).payload), [
+    { type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "Hel" } } },
+    { type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "lo" } } },
   ]);
 });
 
@@ -40,6 +54,7 @@ test("Claude Code CLI extracts JSON result and session id", () => {
   assert.equal(extractClaudeText(output), "Done");
   assert.equal(extractClaudeSessionId(output), "session-1");
   assert.equal(extractClaudeSessionId(JSON.stringify({ result: "Done" })), undefined);
+  assert.equal(extractClaudeText('{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hel"}}}\n{"type":"result","result":"Hello"}'), "Hello");
 });
 
 test("Claude command closes stdin for non-interactive execution", async () => {

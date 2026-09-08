@@ -13,7 +13,7 @@ const platformCodexCommand = process.platform === "darwin"
   : process.platform === "win32" ? "codex.exe" : "codex";
 export const defaultCodexCommand = process.env.ADE_CODEX_COMMAND ?? platformCodexCommand;
 
-type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number; shell?: boolean }) => Promise<{ stdout: string }>;
+type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number; shell?: boolean; onStdout?: (text: string) => void }) => Promise<{ stdout: string }>;
 
 const execute: CommandRunner = (command, args, options) => startSafeCommand(command, args, options).completion;
 
@@ -33,8 +33,8 @@ export class CodexCliRuntime implements AgentRuntimePort {
     return { id: `codex-pending-${randomUUID()}`, directory: input.directory };
   }
 
-  async prompt(session: SessionHandle, input: { text: string; model?: string; grantedPermissions?: readonly AgentPermission[] }): Promise<unknown> {
-    return this.executePrompt(session, input.text, input.grantedPermissions, input.model);
+  async prompt(session: SessionHandle, input: { text: string; model?: string; grantedPermissions?: readonly AgentPermission[]; onEvent?: (event: RuntimeEvent) => void }): Promise<unknown> {
+    return this.executePrompt(session, input.text, input.grantedPermissions, input.model, input.onEvent);
   }
 
   async promptAndWait(session: SessionHandle, input: StructuredPrompt): Promise<unknown> {
@@ -57,7 +57,7 @@ export class CodexCliRuntime implements AgentRuntimePort {
     escalation.unref();
   }
 
-  private async executePrompt(session: SessionHandle, text: string, grantedPermissions: readonly AgentPermission[] = [], model?: string): Promise<string> {
+  private async executePrompt(session: SessionHandle, text: string, grantedPermissions: readonly AgentPermission[] = [], model?: string, onEvent?: (event: RuntimeEvent) => void): Promise<string> {
     const isNew = session.id.startsWith("codex-pending-");
     const sandbox = grantedPermissions.some((permission) => ["write_code", "write_docs"].includes(permission)) ? "workspace-write" : "read-only";
     const args = [
@@ -69,9 +69,11 @@ export class CodexCliRuntime implements AgentRuntimePort {
       "exec",
       "--sandbox",
       sandbox,
-      ...(isNew ? ["--cd", session.directory, "--json", text] : ["resume", session.id, text]),
+      ...(isNew ? ["--cd", session.directory] : ["resume", session.id]),
+      "--json",
+      text,
     ];
-    const { stdout } = await this.runPromptCommand(args, session.directory);
+    const { stdout } = await this.runPromptCommand(args, session.directory, onEvent);
     if (isNew) {
       const realSessionId = extractCodexSessionId(stdout);
       if (!realSessionId) throw new Error("Codex completed without reporting a resumable session id");
@@ -80,14 +82,35 @@ export class CodexCliRuntime implements AgentRuntimePort {
     return stdout;
   }
 
-  private runPromptCommand(args: string[], cwd: string): Promise<{ stdout: string }> {
-    if (this.runner !== execute) return this.runner(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 });
-    const command = startSafeCommand(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024 });
+  private runPromptCommand(args: string[], cwd: string, onEvent?: (event: RuntimeEvent) => void): Promise<{ stdout: string }> {
+    const jsonl = createJsonlEventEmitter((event) => onEvent?.({ type: "codex.event", payload: event }));
+    if (this.runner !== execute) {
+      return this.runner(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024, onStdout: jsonl.push }).finally(jsonl.flush);
+    }
+    const command = startSafeCommand(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024, onStdout: jsonl.push });
     this.activeChild = command.child;
     return command.completion.finally(() => {
+      jsonl.flush();
       if (this.activeChild === command.child) this.activeChild = undefined;
     });
   }
+}
+
+function createJsonlEventEmitter(onEvent: (event: Record<string, unknown>) => void): { push: (text: string) => void; flush: () => void } {
+  let buffer = "";
+  const consume = (line: string) => {
+    if (!line.trim()) return;
+    try { onEvent(JSON.parse(line) as Record<string, unknown>); } catch { /* Human-readable diagnostics are not stream events. */ }
+  };
+  return {
+    push(text) {
+      buffer += text;
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() ?? "";
+      lines.forEach(consume);
+    },
+    flush() { consume(buffer); buffer = ""; },
+  };
 }
 
 function normalizeCodexModel(model: string): string {

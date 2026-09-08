@@ -14,7 +14,7 @@ test("Codex CLI captures its emitted session id and resumes it", async () => {
   await runtime.prompt(session, { text: "Second turn" });
   assert.deepEqual(calls, [
     ["exec", "--sandbox", "read-only", "--cd", "/tmp/project", "--json", "First turn"],
-    ["exec", "--sandbox", "read-only", "resume", "real-codex-session", "Second turn"],
+    ["exec", "--sandbox", "read-only", "resume", "real-codex-session", "--json", "Second turn"],
   ]);
 });
 
@@ -29,7 +29,7 @@ test("Codex CLI maps write and network permissions to supported execution flags"
   await runtime.prompt(session, { text: "Search the web", grantedPermissions: ["network"] });
   assert.deepEqual(calls, [
     ["exec", "--sandbox", "workspace-write", "--cd", "/tmp/project", "--json", "Write a file"],
-    ["--search", "exec", "--sandbox", "read-only", "resume", "permission-session", "Search the web"],
+    ["--search", "exec", "--sandbox", "read-only", "resume", "permission-session", "--json", "Search the web"],
   ]);
 });
 
@@ -55,7 +55,7 @@ test("Codex CLI migrates retired models for a new session and preserves the resu
   await runtime.prompt(session, { text: "Second", model: "gpt-5.4" });
   assert.deepEqual(calls, [
     ["--model", "gpt-5.6-terra", "exec", "--sandbox", "read-only", "--cd", "/tmp/project", "--json", "First"],
-    ["exec", "--sandbox", "read-only", "resume", "current-model-session", "Second"],
+    ["exec", "--sandbox", "read-only", "resume", "current-model-session", "--json", "Second"],
   ]);
 });
 
@@ -63,6 +63,19 @@ test("Codex CLI accepts common structured session event shapes", () => {
   assert.equal(extractCodexSessionId('{"thread":{"id":"thread-session"}}'), "thread-session");
   assert.equal(extractCodexSessionId('{"session_id":"session-id"}'), "session-id");
   assert.equal(extractCodexSessionId('{"type":"turn.completed"}'), undefined);
+});
+
+test("Codex CLI forwards incremental agent-message events while a turn is running", async () => {
+  const events: unknown[] = [];
+  const runtime = new CodexCliRuntime("codex", async (_command, _args, options) => {
+    options.onStdout?.('{"type":"thread.started","thread_id":"codex-stream"}\n');
+    options.onStdout?.('{"type":"item.updated","item":{"id":"msg-1","type":"agent_message","text":"Hel"}}\n');
+    options.onStdout?.('{"type":"item.updated","item":{"id":"msg-1","type":"agent_message","text":"Hello"}}\n');
+    return { stdout: '{"type":"thread.started","thread_id":"codex-stream"}\n{"type":"item.completed","item":{"id":"msg-1","type":"agent_message","text":"Hello"}}\n' };
+  });
+  await runtime.prompt({ id: "codex-pending-stream", directory: "/tmp" }, { text: "hi", onEvent: (event) => events.push(event) });
+  assert.equal(events.length, 3);
+  assert.equal((events[1] as { payload: { item: { text: string } } }).payload.item.text, "Hel");
 });
 
 test("Codex command closes stdin for non-interactive execution", async () => {

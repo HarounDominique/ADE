@@ -12,9 +12,9 @@ export type StartedCommand = { child: ChildProcess; completion: Promise<CommandR
 export function startSafeCommand(
   command: string,
   args: readonly string[],
-  options: SpawnOptionsWithoutStdio & { maxBuffer?: number },
+  options: SpawnOptionsWithoutStdio & { maxBuffer?: number; onStdout?: (text: string) => void },
 ): StartedCommand {
-  const { maxBuffer = 4 * 1024 * 1024, ...spawnOptions } = options;
+  const { maxBuffer = 4 * 1024 * 1024, onStdout, ...spawnOptions } = options;
   const child = crossSpawn(command, [...args], { ...spawnOptions, stdio: ["pipe", "pipe", "pipe"] });
   child.stdin?.end();
 
@@ -31,6 +31,7 @@ export function startSafeCommand(
       const text = chunk.toString();
       if (target === "stdout") stdout += text;
       else stderr += text;
+      if (target === "stdout") onStdout?.(text);
       if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > maxBuffer) {
         child.kill("SIGKILL");
         fail(new Error(`Command output exceeded ${maxBuffer} bytes`));

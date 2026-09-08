@@ -1551,6 +1551,7 @@ body { color: var(--text); }
    else: the prompt appears on send, and the agent's own reported steps appear
    as it takes them. */
 .agent-message-pending { opacity: 1; }
+.agent-streaming-output { white-space: pre-wrap; overflow-wrap: anywhere; }
 .agent-thinking { display: inline-flex; align-items: center; gap: 6px; color: var(--purple); font-weight: 650; }
 .agent-thinking-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: agent-thinking-pulse 1.4s ease-in-out infinite; }
 @keyframes agent-thinking-pulse {

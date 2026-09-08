@@ -110,9 +110,10 @@ let activeAgentRequestId = null;
 let agentStopRequested = false;
 let agentPromptHistoryIndex = -1;
 let agentPromptHistoryDraft = '';
+let agentPromptHistoryKey = null;
 let agentRailCollapsed = false;
 const agentGroupExpansion = new Map();
-const agentPromptHistoryByProject = new Map();
+const agentPromptHistoryByConversation = new Map();
 const runtimeEvents = [];
 let activeView = 'projects';
 let pendingGitRefreshInFlight = false;
@@ -2697,6 +2698,7 @@ function resetAgentWorkspaceForProject() {
   agentStopRequested = false;
   agentPromptHistoryIndex = -1;
   agentPromptHistoryDraft = '';
+  agentPromptHistoryKey = null;
   agentGroupExpansion.clear();
   agentSessions = [];
   selectedAgentModel = '';
@@ -2716,14 +2718,19 @@ function agentActivityMarkup() {
   return `<ol class="agent-activity-trace">${pendingAgentTurn.activity.map((item) => `<li class="agent-activity-item agent-activity-${escapeHTML(item.kind)}"><span>${escapeHTML(item.label)}</span>${item.detail ? `<code>${escapeHTML(item.detail)}</code>` : ''}</li>`).join('')}</ol>`;
 }
 
+function agentStreamingOutputMarkup() {
+  if (!pendingAgentTurn?.output) return '';
+  return `<div class="agent-message-content agent-streaming-output">${escapeHTML(pendingAgentTurn.output)}</div>`;
+}
+
 function pendingTurnMarkup() {
   if (!pendingAgentTurn) return '';
   const provider = escapeHTML(pendingAgentTurn.provider);
-  // Only OpenCode reports what it is doing; for one-shot CLI runtimes the honest
-  // signal is that the turn is running and for how long, not invented steps.
-  const waiting = pendingAgentTurn.activity.length ? 'Working' : pendingAgentTurn.sessionId ? 'Thinking' : 'Sending';
+  // The status starts conservatively and becomes a live response indicator as
+  // soon as the provider emits public text; activity remains provider-reported.
+  const waiting = pendingAgentTurn.output ? 'Responding' : pendingAgentTurn.activity.length ? 'Working' : pendingAgentTurn.sessionId ? 'Thinking' : 'Sending';
   return `<li class="agent-message agent-message-user"><div class="agent-message-meta"><strong>You</strong><time>${escapeHTML(new Date(pendingAgentTurn.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time></div><div class="agent-message-content">${escapeHTML(pendingAgentTurn.prompt)}</div></li>
-    <li class="agent-message agent-message-assistant agent-message-pending" aria-live="polite"><div class="agent-message-meta"><strong>${provider}</strong><span class="agent-thinking"><span class="agent-thinking-dot" aria-hidden="true"></span>${waiting}</span><time id="agent-turn-elapsed">0s</time></div>${agentActivityMarkup()}</li>`;
+    <li class="agent-message agent-message-assistant agent-message-pending" aria-live="polite"><div class="agent-message-meta"><strong>${provider}</strong><span class="agent-thinking"><span class="agent-thinking-dot" aria-hidden="true"></span>${waiting}</span><time id="agent-turn-elapsed">0s</time></div>${agentStreamingOutputMarkup()}${agentActivityMarkup()}</li>`;
 }
 
 function renderAgentMessages(messages) {
@@ -2825,6 +2832,8 @@ function selectAgentSession(sessionId) {
   const session = agentSessions.find((candidate) => candidate.id === sessionId);
   if (!session) return;
   activeAgentSessionId = session.id;
+  agentPromptHistoryKey = session.id;
+  resetAgentPromptHistoryNavigation();
   activeAgentTaskId = session.taskId ?? null;
   selectedProvider = session.provider;
   /** A stored model -- an empty string included -- is the conversation's own
@@ -2841,6 +2850,9 @@ function selectAgentSession(sessionId) {
   if (title) title.textContent = agentSessionTitle(session);
   if (context) context.textContent = agentTaskName(activeAgentTaskId);
   renderAgentSessions(agentSessions);
+  // A previous conversation's messages cannot be used as history while this
+  // conversation is loading.
+  renderAgentMessages([]);
   requestAgentMessages(session.id);
 }
 
@@ -2852,6 +2864,8 @@ function resumeAgentConversation(sessionId, provider) {
     return;
   }
   activeAgentSessionId = sessionId;
+  agentPromptHistoryKey = sessionId;
+  resetAgentPromptHistoryNavigation();
   selectedProvider = provider || selectedProvider;
   const providerSelect = document.getElementById('agent-provider');
   if (providerSelect) providerSelect.value = selectedProvider;
@@ -2861,6 +2875,7 @@ function resumeAgentConversation(sessionId, provider) {
   if (title) title.textContent = `Session ${sessionId.slice(0, 18)}`;
   renderProviderSelection();
   renderModelSelection();
+  renderAgentMessages([]);
   showView('agents');
   requestAgentSessions(workspaceRootPath);
   requestAgentMessages(sessionId);
@@ -3318,6 +3333,8 @@ function confirmDeleteAgentSession() {
 
 function startNewAgentSession() {
   activeAgentSessionId = null;
+  agentPromptHistoryKey = `new-conversation-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  resetAgentPromptHistoryNavigation();
   activeAgentTaskId = selectedTaskId ?? null;
   selectedAgentModel = defaultModelForProvider(selectedProvider);
   renderAgentMessages([]);
@@ -3332,9 +3349,40 @@ function startNewAgentSession() {
   document.getElementById('agent-prompt-input')?.focus();
 }
 
+function resetAgentPromptHistoryNavigation() {
+  agentPromptHistoryIndex = -1;
+  agentPromptHistoryDraft = '';
+}
+
+function agentPromptHistoryKeyForConversation() {
+  if (activeAgentSessionId) return activeAgentSessionId;
+  if (!agentPromptHistoryKey) agentPromptHistoryKey = `new-conversation-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  return agentPromptHistoryKey;
+}
+
+function savedPromptsForActiveConversation() {
+  return agentRenderedMessages
+    .filter((message) => message.role === 'user' && typeof message.content === 'string' && message.content.trim())
+    .map((message) => message.content.trim());
+}
+
 function agentPromptHistory() {
-  const history = agentPromptHistoryByProject.get(activeProjectId) ?? [];
-  agentPromptHistoryByProject.set(activeProjectId, history);
+  const key = agentPromptHistoryKeyForConversation();
+  let history = agentPromptHistoryByConversation.get(key) ?? [];
+  // Saved user messages are the durable history. The local cache only makes a
+  // just-sent prompt available before the sidecar has persisted the turn.
+  const saved = savedPromptsForActiveConversation();
+  if (saved.length) {
+    const unsaved = history.filter((prompt) => !saved.includes(prompt));
+    history = [];
+    for (const prompt of [...saved, ...unsaved]) {
+      const existing = history.lastIndexOf(prompt);
+      if (existing >= 0) history.splice(existing, 1);
+      history.push(prompt);
+    }
+  }
+  if (history.length > 50) history.splice(0, history.length - 50);
+  agentPromptHistoryByConversation.set(key, history);
   return history;
 }
 
@@ -3344,8 +3392,8 @@ function rememberAgentPrompt(prompt) {
   if (existing >= 0) history.splice(existing, 1);
   history.push(prompt);
   if (history.length > 50) history.splice(0, history.length - 50);
-  agentPromptHistoryIndex = -1;
-  agentPromptHistoryDraft = '';
+  resetAgentPromptHistoryNavigation();
+  return agentPromptHistoryKeyForConversation();
 }
 
 function recallAgentPrompt(input, direction) {
@@ -3418,7 +3466,7 @@ function sendAgentPrompt(event) {
   selectedProvider = provider;
   selectedAgentModel = model;
   activeAgentTaskId = taskId;
-  rememberAgentPrompt(prompt);
+  const historyKey = rememberAgentPrompt(prompt);
   agentPromptRunning = true;
   agentStopRequested = false;
   const button = document.getElementById('agent-send-button');
@@ -3430,7 +3478,7 @@ function sendAgentPrompt(event) {
   // The prompt belongs in the conversation the moment it is sent. Waiting for
   // the turn to finish leaves the user staring at an unchanged transcript with
   // no evidence their message went anywhere.
-  pendingAgentTurn = { prompt, provider, startedAt: Date.now(), activity: [], sessionId: null };
+  pendingAgentTurn = { prompt, provider, startedAt: Date.now(), activity: [], output: '', historyKey, sessionId: null };
   renderAgentMessages(agentRenderedMessages);
   startAgentElapsedTimer();
   const requestId = `agent-prompt-${Date.now()}`;
@@ -4232,13 +4280,29 @@ async function connectSidecar(snapshot) {
         appendRunOutput(response.sessionId, response.text ?? '');
         return;
       }
-      if (response.type === 'agent.activity' && pendingAgentTurn) {
+      if (response.type === 'agent.output' && pendingAgentTurn && String(response.id) === String(activeAgentRequestId)) {
+        const delta = typeof response.text === 'string' ? response.text : '';
+        pendingAgentTurn.output = `${pendingAgentTurn.output ?? ''}${delta}`;
+        renderAgentMessages(agentRenderedMessages);
+        return;
+      }
+      if (response.type === 'agent.activity' && pendingAgentTurn && String(response.id) === String(activeAgentRequestId)) {
         pendingAgentTurn.activity.push(response.item);
         renderAgentMessages(agentRenderedMessages);
         return;
       }
       if (response.type === 'agent.started') {
+        const pendingHistoryKey = pendingAgentTurn?.historyKey;
+        if (pendingHistoryKey && pendingHistoryKey !== response.sessionId) {
+          const pendingHistory = agentPromptHistoryByConversation.get(pendingHistoryKey);
+          if (pendingHistory) {
+            agentPromptHistoryByConversation.set(response.sessionId, pendingHistory);
+            agentPromptHistoryByConversation.delete(pendingHistoryKey);
+          }
+        }
         activeAgentSessionId = response.sessionId;
+        agentPromptHistoryKey = response.sessionId;
+        resetAgentPromptHistoryNavigation();
         activeAgentTaskId = response.taskId ?? null;
         const providerLabel = document.getElementById('agent-session-provider');
         const title = document.getElementById('agent-session-title');

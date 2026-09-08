@@ -15,6 +15,8 @@ export type AgentPromptInput = {
   agent?: string;
   model?: string;
   grantedPermissions?: readonly AgentPermission[];
+  /** Internal bridge used by the desktop shell for provider-emitted events. */
+  onEvent?: (event: RuntimeEvent) => void;
 };
 
 export type FileDiff = {

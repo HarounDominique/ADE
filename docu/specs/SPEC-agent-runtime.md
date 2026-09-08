@@ -16,7 +16,7 @@ Una conversación puede continuar, renombrarse, resumirse, bifurcarse, archivars
 
 ## Tech Stack
 
-`OpenCodeHttpRuntime`, `CodexCliRuntime` y `ClaudeCliRuntime` son las implementaciones iniciales de `AgentRuntimePort`, mediante HTTP/SSE y CLI JSON respectivamente. El dominio y la aplicación no importan tipos de proveedor. La versión validada en el spike es OpenCode `1.18.26`; la URL se configura con `OPENCODE_URL` y por defecto es `http://127.0.0.1:4096`. Codex usa el comando detectado por el entorno o `ADE_CODEX_COMMAND`; Claude Code usa `claude` o `ADE_CLAUDE_COMMAND`.
+`OpenCodeHttpRuntime`, `CodexCliRuntime` y `ClaudeCliRuntime` son las implementaciones iniciales de `AgentRuntimePort`, mediante HTTP/SSE y CLI JSONL respectivamente. El dominio y la aplicación no importan tipos de proveedor. La versión validada en el spike es OpenCode `1.18.26`; la URL se configura con `OPENCODE_URL` y por defecto es `http://127.0.0.1:4096`. Codex usa el comando detectado por el entorno o `ADE_CODEX_COMMAND`; Claude Code usa `claude` o `ADE_CLAUDE_COMMAND`.
 
 ## Commands
 
@@ -30,7 +30,7 @@ npm run review -- /ruta/al/repositorio "Describe the task"
 
 Con OpenCode sirviendo localmente: `opencode serve --hostname 127.0.0.1 --port 4096`. El adapter expone una API reproducible para health, crear sesión, enviar una Task, solicitar salida JSON estructurada, recibir streaming SSE, cancelar y obtener diff. El smoke test real está documentado en [Spike 001](../spikes/001-opencode-runtime.md#smoke-test-real) y la revisión independiente en [Spike 002](../spikes/002-independent-review.md#flujo-validado).
 
-Con Claude Code instalado, el smoke local del adapter puede comprobarse sin abrir una TUI: `claude --print --output-format json --permission-mode plan --permission-prompts none "Inspect the repository"`. La autenticación permanece en Claude Code y no forma parte de la configuración de ADE.
+Con Claude Code instalado, el smoke local del adapter puede comprobarse sin abrir una TUI: `claude --print --output-format stream-json --include-partial-messages --permission-mode default --permission-prompts none "Inspect the repository"`. La autenticación permanece en Claude Code y no forma parte de la configuración de ADE.
 
 ## Runtime contract
 
@@ -40,11 +40,13 @@ Con Claude Code instalado, el smoke local del adapter puede comprobarse sin abri
 - `createSession`: crea una sesión aislada por `directory` y devuelve un handle estable.
 - `prompt`: envía trabajo asíncrono al Implementer, incluyendo opcionalmente el `model` elegido por el usuario.
 - `promptAndWait`: envía una petición que debe devolver una respuesta estructurada según un JSON Schema y puede fijar `model`; se usa para el Reviewer.
-- `events`: expone eventos SSE hasta cierre, cancelación o `session.idle` consumido por la aplicación.
+- `events`: expone el stream de eventos nativo cuando el provider lo ofrece —SSE en OpenCode— hasta cierre, cancelación o `session.idle` consumido por la aplicación; los CLIs entregan sus eventos públicos mediante `onEvent`.
 - `diff`: obtiene el cambio que el runtime atribuye a la sesión.
 - `abort`: solicita cancelación explícita de la sesión.
 
 El puerto no garantiza semántica de negocio: no decide si una Task está terminada, no aprueba findings y no persiste secretos. La aplicación coordina eventos, timeout/cancelación, ChangeSet y Review; el adapter traduce errores HTTP, headers de directorio, formato de mensajes y SSE.
+
+Durante `prompt`, el callback interno opcional `onEvent` entrega eventos públicos del proveedor mientras el proceso está vivo. La aplicación puede normalizarlos como `agent.output` —deltas de texto— y `agent.activity` —acciones verificables con contexto— para el transcript; los hitos internos de protocolo no se publican. No se solicita ni se muestra la cadena de pensamiento privada. Los adapters CLI conservan el stdout completo para obtener el identificador de sesión y la respuesta final; la shell sólo persiste el mensaje completo cuando el turno termina correctamente.
 
 Cada sesión debe conservar `id` y `directory`. El `directory` se envía en cada operación que dependa del contexto del repositorio para impedir que una sesión opere accidentalmente sobre otro proyecto.
 
@@ -69,10 +71,13 @@ El puerto expresa capacidades de ADE, no tipos de OpenCode:
 
 ```ts
 interface AgentRuntimePort {
+  health(): Promise<{ healthy: boolean; version?: string }>;
   createSession(input: { directory: string; title?: string }): Promise<SessionHandle>;
-  prompt(session: SessionHandle, input: { text: string; agent?: string }): Promise<void>;
+  prompt(session: SessionHandle, input: AgentPromptInput): Promise<unknown>;
+  promptAndWait(session: SessionHandle, input: StructuredPrompt): Promise<unknown>;
   events(signal?: AbortSignal): AsyncIterable<RuntimeEvent>;
-  abort(session: SessionHandle): Promise<void>;
+  diff(session: SessionHandle): Promise<readonly FileDiff[]>;
+  abort(): Promise<void>;
 }
 ```
 
