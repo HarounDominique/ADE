@@ -55,3 +55,61 @@ npm run ade -- review /ruta/al/repositorio "Describe la tarea"
 ```
 
 `project snapshot` es la lectura estructurada que consume la shell desktop mediante el sidecar JSON-RPC de Tauri.
+
+## Gate estructural con ASK
+
+Assay no analiza código: consume evidencia estructural de [ASK Engine](https://github.com/HarounDominique/sourcecode) por contrato y la publica como la gate `structural-gate` de una Task. El diseño está en [SPEC-structural-gate](docu/specs/SPEC-structural-gate.md) y la decisión en [ADR-0037](docu/adr/0037-structural-gate-from-ask.md).
+
+Requisitos: ASK instalado (`pip install sourcecode`, comando `ask`) y la skill de Project instalada. `ADE_ASK_COMMAND` fuerza un ejecutable concreto cuando conviven varios entornos.
+
+```bash
+# 1. instalar la skill en el Project (una vez)
+#    equivale a skills.install con source ./skills/ask-gate.json
+```
+
+```json
+{"id":"i1","method":"skills.install","params":{"repositoryPath":"/ruta/al/proyecto","source":"/ruta/a/ADE/skills/ask-gate.json"}}
+```
+
+```json
+{"id":"g1","method":"gate.ask","params":{"repositoryPath":"/ruta/al/proyecto","since":"origin/main","taskId":"task-1","grantedPermissions":["run_commands"]}}
+```
+
+La respuesta trae el veredicto, los componentes implicados, la versión de ASK y el comando exacto que se ejecutó:
+
+```json
+{"gate":{"id":"structural-gate","status":"pending","evidenceIds":["structural-gate-task-1-..."],"failureReason":"ASK could not decide: verify"},
+ "verdict":"UNVERIFIED","exitCode":2,"since":"origin/main","unverifiedComponents":["verify"],
+ "tool":{"name":"ask","version":"5.9.30","buildCommit":"793177c"},
+ "command":["pack","gate","/ruta/al/proyecto","--format","json","--compact","--since","origin/main"]}
+```
+
+| Veredicto ASK | Gate de Assay | Significado |
+|---|---|---|
+| `PASS` | `passed` | ningún componente estableció bloqueo y todos pudieron decidir |
+| `BLOCK` | `failed` | un componente estableció un cambio bloqueante |
+| `UNVERIFIED` | `pending` | no se probó nada en ninguna dirección — nunca se convierte en `passed` |
+
+Sin `taskId` la llamada es una lectura. Con `taskId` el veredicto se persiste como evidencia `structural.gate.*` y aparece en `change.review`. La gate es **opt-in**: un Project la exige declarándola en `.ade/policy.json`.
+
+```json
+{"requiredGates":["build","tests","agent-review","documentation-review","structural-gate","human-approval"]}
+```
+
+### El agente usa ASK por su cuenta
+
+Cuando el Project es Java y `ask` está instalado, el turno del agente empieza con un briefing corto de capacidades — qué es ASK, los comandos que pagan y su frontera — y el agente decide si lo usa. Nada se ejecuta en su nombre.
+
+```
+[ADE] This repository is Java/Spring (pom.xml, …). ASK Engine is installed as `ask`: it answers
+structural questions deterministically from a cached model of the repository, so reach for it
+before re-reading the tree file by file.
+- `ask . --compact` — repository shape and where to start
+- `ask endpoints .` — REST surface with effective paths and security policy
+- `ask impact <Type> .` — what breaks if that type changes
+…
+```
+
+Un repositorio sin Java no recibe briefing, y Java que sólo vive en un fixture de tests no cuenta como repositorio Java. Se desactiva con `"structuralBriefing": false` en `.ade/policy.json`. El briefing no se persiste en la conversación: se guarda el prompt del operador.
+
+Sin ASK instalado, `gate.ask` responde `ASK_UNAVAILABLE` con la instrucción de instalación; nunca una gate aprobada. ASK responde con solvencia en repositorios Java/Spring: en otros lenguajes el veredicto habitual es `UNVERIFIED`, que es exactamente lo que la gate publica.

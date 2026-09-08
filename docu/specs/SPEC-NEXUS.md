@@ -33,7 +33,7 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | Git | Verdad histórica | Timeline de ADE |
 | Tests y runtime | Evidencia comportamental | Afirmación de “terminado” |
 | ADE DB | Historial operativo | Estado del repositorio |
-| ASK (futuro) | Evidencia estructural | Juicio humano |
+| ASK | Evidencia estructural, consumida por contrato ([SPEC-structural-gate.md](SPEC-structural-gate.md)) | Juicio humano |
 
 ## Tech Foundations
 
@@ -69,6 +69,7 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | cross-platform-support | [SPEC-cross-platform-support.md](SPEC-cross-platform-support.md) | Fronteras de plataforma, verificación por matriz y grados de soporte | desktop-shell, workspace-core, local-runtime | in-progress | — |
 | run-configurations | [SPEC-run-configurations.md](SPEC-run-configurations.md) | Configuraciones de arranque y depuración del Project, puertos y consola por ejecución | local-runtime, desktop-shell, workspace-core | in-progress | — |
 | agent-terminal-history | [SPEC-agent-terminal-history.md](SPEC-agent-terminal-history.md) | Historial de terminales con agente, reanudación por id, títulos y popup del dock | workspace-core, agent-providers, desktop-shell | done | — |
+| structural-gate | [SPEC-structural-gate.md](SPEC-structural-gate.md) | Veredicto estructural externo (ASK) como gate citable del Task, opt-in por política | changes-review-governance, native-skills | in-progress | — |
 
 `done` identifica capacidades implementadas y verificadas; `planned` identifica una spec aprobada para una iteración posterior, todavía no implementada.
 
@@ -120,7 +121,7 @@ La slice v0.4 implementa [SPEC-file-workspace](SPEC-file-workspace.md#product-co
 
 ## Scope boundary
 
-Este nexus cubre MVP, v0.2 y v0.3 cerradas, además de la slice v0.4 de editor interno y sus refinamientos de shell. AgentMemory, ASK como dependencia, browser automation, cloud, sync realtime, colaboración multiusuario y productización siguen fuera. Los worktrees entran en v0.3 sólo como aislamiento Git local.
+Este nexus cubre MVP, v0.2 y v0.3 cerradas, además de la slice v0.4 de editor interno y sus refinamientos de shell. AgentMemory, browser automation, cloud, sync realtime, colaboración multiusuario y productización siguen fuera. ASK entra únicamente como proveedor externo de evidencia consumido por contrato y opt-in por Project ([SPEC-structural-gate.md](SPEC-structural-gate.md)): Assay no incorpora análisis estructural propio ni distribuye ASK. Los worktrees entran en v0.3 sólo como aislamiento Git local.
 
 ## MVP contract
 
@@ -288,6 +289,9 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-08 — agent-terminal-history-tasks — Plan aprobado y tareas verificables registradas en `tasks/todo-agent-terminal-history.md`; pendiente de revisión humana antes de escribir código.
 - 2026-09-08 — agent-terminal-history-implementation — Implementado: SQLite local por Project, detección conservadora de Claude/Codex/OpenCode, fallback y resumen asíncrono con el provider, API aislada del sidecar y popup accesible del dock con tab de solo lectura y borrado confirmado. Se propagó a ADR-0036 y las tareas quedaron verificadas.
 - 2026-09-08 — agent-terminal-history-resume — Reabrir una sesión guardada reanuda esa conversación (`claude --resume <id>`, `codex resume <id>`) en lugar de abrir el selector del provider. El identificador se lee del almacén del propio agente, exigiendo que la conversación naciera durante la sesión y en su directorio; varias candidatas se descartan y el popup reintenta identificar las filas antiguas. Se retiró la reproducción del transcript en la terminal. Se propagó a `SPEC-agent-terminal-history`, ADR-0036 y la baseline de verificación (194 tests TypeScript, 20 Rust). Sin contratos dependientes que propagar.
+- 2026-09-08 — structural-gate-briefing — Un turno de agente sobre un repositorio Java con ASK instalado recibe un briefing corto de capacidades antes del prompt del operador; el agente decide si lo usa. Desactivable con `structuralBriefing: false`.
+- 2026-09-08 — structural-gate — Se añadió el módulo `structural-gate`: la skill de Project `ask-gate` autoriza la ejecución, `gate.ask` traduce `ask pack gate` a la gate `structural-gate` con su evidencia, y `UNVERIFIED` queda `pending` y nunca `passed`. La gate es opt-in mediante `requiredGates` en `.ade/policy.json`; la política por defecto no cambia.
+- 2026-09-08 — run-configurations-toolchains — La detección de ejecución amplía sus propuestas a build/test/lint para Node, Python, Maven/Gradle, Rust, Go y .NET; la shell muestra disponibilidad y versión mediante sondeos `--version`/equivalentes sin empaquetar compiladores ni ejecutar propuestas. Se propagó a `SPEC-run-configurations`, README, ADR-0038 y las tareas de orquestación.
 
 ## Automatic Reconciliation Log
 

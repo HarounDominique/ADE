@@ -1,0 +1,22 @@
+{
+  "id": "ask-gate",
+  "version": "1.0.0",
+  "label": "ASK structural gate",
+  "description": "Run ASK Engine's change safety gate over the Project and publish PASS, BLOCK or UNVERIFIED as gate evidence.",
+  "inputs": [
+    "repository",
+    "since",
+    "pr"
+  ],
+  "outputs": [
+    "verdict",
+    "evidence"
+  ],
+  "permissions": [
+    "read_project",
+    "run_commands"
+  ],
+  "source": "project",
+  "installedFrom": "/Users/user/Documents/workspace/ADE/skills/ask-gate.json",
+  "installedAt": "2026-09-08T16:01:33.128Z"
+}

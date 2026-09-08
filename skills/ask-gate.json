@@ -1,0 +1,10 @@
+{
+  "id": "ask-gate",
+  "version": "1.0.0",
+  "label": "ASK structural gate",
+  "description": "Run ASK Engine's change safety gate over the Project and publish PASS, BLOCK or UNVERIFIED as gate evidence.",
+  "inputs": ["repository", "since", "pr"],
+  "outputs": ["verdict", "evidence"],
+  "permissions": ["read_project", "run_commands"],
+  "source": "project"
+}

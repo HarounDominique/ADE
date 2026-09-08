@@ -30,6 +30,7 @@ Las gates se evalúan en orden, pero un fallo puede reentrar en la fase que lo n
 | `tests` | comandos definidos, salida y código 0 | BUILD o VERIFY |
 | `agent-review` | Review independiente persistida | REVIEW |
 | `documentation-review` | evidencia `documentation.reconciled` con paquete de reconciliación y traza de Nexus | RECONCILE |
+| `structural-gate` | evidencia `structural.gate.*` con veredicto, componentes y versión de la herramienta; opt-in por `requiredGates` ([SPEC-structural-gate.md](SPEC-structural-gate.md)) | BUILD o VERIFY |
 | `human-approval` | actor humano, decisión y razón | BUILD, REVIEW o RECONCILE |
 | `commit` | aprobación previa y referencia al ChangeSet | SHIP |
 

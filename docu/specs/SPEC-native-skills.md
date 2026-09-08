@@ -16,7 +16,7 @@ Prompt engineering, PR review, Spector/spec-driven development, workflow adaptat
 
 ## Project Structure
 
-`.ade/skills/` contiene skills del Project; el paquete nativo vive en `skills/`; el registro y runners viven en `src/application/skills/`; el sidecar expone el contrato a la shell. La vista primaria `Agents` no incluye gestión de skills para preservar el espacio de conversación; las skills siguen disponibles para Tasks y operaciones del sidecar.
+`.ade/skills/` contiene skills del Project; el paquete distribuible vive en `skills/`, cuya primera skill empaquetada es `ask-gate.json` ([SPEC-structural-gate.md](SPEC-structural-gate.md)); el registro y runners viven en `src/application/skills/`; el sidecar expone el contrato a la shell. La vista primaria `Agents` no incluye gestión de skills para preservar el espacio de conversación; las skills siguen disponibles para Tasks y operaciones del sidecar.
 
 ## Code Style
 

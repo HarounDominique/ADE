@@ -23,6 +23,8 @@ import { listNativeSkills, listSkills } from "./application/skills/skill-catalog
 import { getGitStatus } from "./application/git/git-status.js";
 import { findReferenceImpact } from "./application/knowledge/reference-impact.js";
 import { runNativeSkill } from "./application/skills/run-skill.js";
+import { askGateEvidenceType, askGateSummary, evaluateAskGate } from "./application/gates/ask-gate.js";
+import { askBriefing, composeAgentPrompt } from "./application/structural-context/ask-briefing.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
 import { commitAndPush, createBranch, createCommit, createPullRequest, createWorktree, fetchOrigin, pushBranch, switchBranch } from "./application/git/git-mutations.js";
@@ -47,7 +49,7 @@ import { resolveProviderSessionId } from "./application/terminal-history/provide
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
+  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
 };
 
 export type DesktopResponse = {
@@ -307,6 +309,37 @@ export async function runDesktopSidecar(): Promise<void> {
         startAgentPrompt(store, request);
       } else if (request.method === "agent.abort") {
         void abortAgentPrompt(request);
+      } else if (request.method === "gate.ask") {
+        const params = request.params;
+        if (!params?.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+        else void evaluateAskGate({
+          repositoryPath: params.repositoryPath,
+          ...(params.since ? { since: params.since } : {}),
+          ...(params.profile ? { profile: params.profile } : {}),
+          ...(params.grantedPermissions ? { grantedPermissions: params.grantedPermissions } : {}),
+        }).then((result) => {
+          /** A verdict nobody can cite is an opinion: when the run belongs to a
+              Task, the gate is published as evidence the review model reads. */
+          if (params.taskId) {
+            const evidencePolicy = loadGatePolicy(params.repositoryPath).evidence;
+            const evidenceId = `structural-gate-${params.taskId}-${Date.now()}-${++runtimeEvidenceSequence}`;
+            store.saveRuntimeEvidence(createRuntimeEvidence({
+              id: evidenceId,
+              taskId: params.taskId,
+              type: askGateEvidenceType(result.verdict),
+              summary: askGateSummary(result),
+              details: JSON.stringify({ verdict: result.verdict, exitCode: result.exitCode, since: result.since, pr: result.pr, blockingComponents: result.blockingComponents, unverifiedComponents: result.unverifiedComponents, tool: result.tool, command: result.command.join(" ") }),
+              policy: evidencePolicy,
+            }));
+            store.pruneRuntimeEvidence(params.taskId, evidencePolicy.maxItems);
+            process.stdout.write(`${JSON.stringify({ id: request.id, result: { ...result, evidenceId, gate: { ...result.gate, evidenceIds: [evidenceId] } } })}\n`);
+            return;
+          }
+          process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`);
+        }).catch((error: unknown) => {
+          const code = error && typeof error === "object" && "code" in error && typeof (error as { code: unknown }).code === "string" ? (error as { code: string }).code : "ASK_GATE_FAILED";
+          process.stdout.write(`${JSON.stringify({ id: request.id, error: { code, message: error instanceof Error ? error.message : String(error) } })}\n`);
+        });
       } else if (request.method === "skills.run") {
         const params = request.params;
         if (!params?.skillId || !params.intent || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "skillId, intent and repositoryPath are required" } })}\n`);
@@ -760,7 +793,12 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
         })
       : Promise.resolve();
     if (active.aborted) throw new Error("AGENT_TURN_ABORTED");
-    const rawOutput = await runtime.prompt(session, { text: params.prompt!, ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), grantedPermissions: params.grantedPermissions ?? [] });
+    /** A Java repository with ASK installed starts the turn knowing it: the
+        agent decides whether to use it, but it can no longer fail to know that
+        the structural answer is one command away instead of a tree walk. The
+        conversation persists the operator's prompt, never the briefing. */
+    const briefing = await askBriefing({ repositoryPath: params.repositoryPath!, enabled: loadGatePolicy(params.repositoryPath).structuralBriefing }).catch(() => undefined);
+    const rawOutput = await runtime.prompt(session, { text: composeAgentPrompt(briefing, params.prompt!), ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), grantedPermissions: params.grantedPermissions ?? [] });
     await eventPromise;
     if (active.aborted) throw new Error("AGENT_TURN_ABORTED");
     if (isPendingCli && session.id.startsWith(`${provider}-pending-`)) throw new Error(`${provider} completed without reporting a resumable session id`);

@@ -5,12 +5,15 @@ export type GatePolicy = {
   requiredGates: readonly string[];
   evidence: { maxItems: number; summaryLimit: number; detailsLimit: number };
   gitWorkflow: "pull-request" | "direct";
+  /** Whether an agent turn on a Java repository is told that ASK is installed. */
+  structuralBriefing: boolean;
 };
 
 const DEFAULT_POLICY: GatePolicy = {
   requiredGates: ["build", "tests", "agent-review", "documentation-review", "human-approval"],
   evidence: { maxItems: 100, summaryLimit: 500, detailsLimit: 2_000 },
   gitWorkflow: "pull-request",
+  structuralBriefing: true,
 };
 
 export function loadGatePolicy(repositoryPath?: string): GatePolicy {
@@ -26,6 +29,7 @@ export function loadGatePolicy(repositoryPath?: string): GatePolicy {
         detailsLimit: positiveInt(evidence.detailsLimit, DEFAULT_POLICY.evidence.detailsLimit),
       },
       gitWorkflow: raw.gitWorkflow === "direct" ? "direct" : "pull-request",
+      structuralBriefing: raw.structuralBriefing !== false,
     };
   } catch {
     return DEFAULT_POLICY;

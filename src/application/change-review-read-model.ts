@@ -1,6 +1,7 @@
 import { AdeStore } from "../persistence/sqlite-store.js";
 import type { Gate } from "../domain/gate.js";
 import { loadGatePolicy } from "./change-review/gate-policy.js";
+import { structuralGateId } from "./gates/ask-gate.js";
 
 export function getChangeReview(store: AdeStore, taskId: string) {
   const task = store.rehydrateTask(taskId);
@@ -17,6 +18,7 @@ export function getChangeReview(store: AdeStore, taskId: string) {
     "agent-review": { id: "agent-review", required: true, status: reviewPassed ? "passed" : "pending", evidenceIds: review ? [review.id] : [] },
     "documentation-review": { id: "documentation-review", required: true, status: evidence.some((item) => item.type === "documentation.reconciled") ? "passed" : "pending", evidenceIds: evidence.filter((item) => item.type === "documentation.reconciled").map((item) => item.id) },
     "human-approval": { id: "human-approval", required: true, status: store.getApproval(taskId) ? "passed" : "pending", evidenceIds: store.getApproval(taskId) ? [taskId] : [] },
+    [structuralGateId]: structuralGate(evidence),
   };
   const gates: Gate[] = policy.requiredGates.map((id) => definitions[id] ?? { id, required: true, status: "pending", evidenceIds: [] as string[] });
   store.saveGates(taskId, gates);
@@ -26,5 +28,21 @@ export function getChangeReview(store: AdeStore, taskId: string) {
     changeSet: changeSets[0] ?? null,
     review: review ? { ...review, findings: JSON.parse(review.findings) } : null,
     gates,
+  };
+}
+
+/** The newest structural verdict decides: a gate that was blocked and then run
+    again after the fix reports what ASK last proved, not what it once found.
+    A Project that never ran the gate leaves it pending rather than passed. */
+function structuralGate(evidence: readonly { id: string; type: string; summary: string }[]): Gate {
+  const latest = evidence.find((item) => item.type.startsWith("structural.gate."));
+  if (!latest) return { id: structuralGateId, required: true, status: "pending", evidenceIds: [] };
+  if (latest.type === "structural.gate.pass") return { id: structuralGateId, required: true, status: "passed", evidenceIds: [latest.id] };
+  return {
+    id: structuralGateId,
+    required: true,
+    status: latest.type === "structural.gate.block" ? "failed" : "pending",
+    evidenceIds: [latest.id],
+    failureReason: latest.summary,
   };
 }
