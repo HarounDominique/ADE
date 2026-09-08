@@ -31,6 +31,7 @@ import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js"
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
 import { loadRunConfigurations, saveRunConfigurations } from "./application/local-runtime/run-config.js";
 import { detectRunConfigurations } from "./application/local-runtime/run-detection.js";
+import { inspectProjectToolchains } from "./application/local-runtime/toolchain-inspection.js";
 import { RunManager, RunPortConflictError } from "./application/local-runtime/run-manager.js";
 import { LocalPortProbe } from "./adapters/local-port-probe.js";
 import type { ResolvedRunConfiguration, RunConfiguration } from "./domain/run-configuration.js";
@@ -487,6 +488,8 @@ export async function runDesktopSidecar(): Promise<void> {
         void stopRunConfiguration(request);
       } else if (request.method === "run.detect") {
         void detectRunConfigurationsFor(request);
+      } else if (request.method === "toolchain.inspect") {
+        void inspectProjectToolchainsFor(request);
       } else if (request.method === "run.save") {
         void saveRunConfigurationsFor(request);
       } else if (request.method === "terminal.history.save") {
@@ -576,6 +579,19 @@ async function detectRunConfigurationsFor(request: DesktopRequest): Promise<void
     process.stdout.write(`${JSON.stringify({ id: request.id, result: await detectRunConfigurations(repositoryPath) })}\n`);
   } catch (error: unknown) {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "RUN_DETECT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
+  }
+}
+
+async function inspectProjectToolchainsFor(request: DesktopRequest): Promise<void> {
+  const repositoryPath = request.params?.repositoryPath;
+  if (!repositoryPath) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+    return;
+  }
+  try {
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: await inspectProjectToolchains(repositoryPath) })}\n`);
+  } catch (error: unknown) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "TOOLCHAIN_INSPECT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
   }
 }
 

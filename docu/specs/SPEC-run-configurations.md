@@ -17,6 +17,8 @@ Este módulo es la capa de usuario sobre [local-runtime](SPEC-local-runtime.md#r
 - Un Project declara sus configuraciones en `.ade/run.json`, versionable con el repositorio. Sin fichero no hay configuraciones inventadas: la shell ofrece crear la primera desde un diálogo propio, y editar JSON a mano no es requisito de ninguna operación.
 - La autoría vive en ese diálogo: crear, editar y borrar escriben `.ade/run.json`. La validación de un campo se muestra donde se escribe, y el sidecar vuelve a validar antes de escribir, de modo que nunca queda en disco un catálogo que la próxima apertura rechace. Un guardado rechazado conserva el diálogo abierto con el campo señalado.
 - Al abrir un Project sin configuraciones, ADE lee lo que el repositorio ya declara —`package.json`, `pom.xml`, `build.gradle`, `angular.json`— y **propone** configuraciones nombrando el fichero del que salió cada una. Proponer no es crear: nada se escribe hasta que el operador acepta. Un puerto sólo se propone cuando la dependencia que lo documenta está presente; dos mitades detectadas proponen además la compuesta que las arranca juntas.
+- La detección también propone operaciones de build, test y lint cuando el repositorio las declara de forma inequívoca. En el primer corte cubre scripts de Node, `pyproject.toml`, Maven, Gradle, Cargo, Go Modules y proyectos .NET (`.sln`/`.csproj`). La detección sólo inspecciona la raíz y sus subdirectorios inmediatos, no ejecuta comandos y no escribe `.ade/run.json`.
+- El menú de ejecución muestra el toolchain implicado por cada manifiesto y comprueba su entry point con una consulta de versión (`--version` o equivalente). El estado distingue disponible/no disponible y conserva el error de la comprobación; el sondeo no ejecuta build, test ni lint.
 - La topbar expone un control de ejecución: selector de configuración, `Run`, `Debug`, `Stop` y el estado de lo que está corriendo, con su puerto o URL.
 - `Run` y `Debug` son dos modos de la misma configuración, no dos configuraciones. `Debug` añade los argumentos y el puerto de depuración que la configuración declara; si no los declara, `Debug` aparece deshabilitado y explica por qué.
 - Cada ejecución abre su propia pestaña en el dock de terminal, con la salida del proceso, el comando ejecutado y su cwd. La salida no se resume ni se oculta.
@@ -109,6 +111,8 @@ Una URL http se abre en el navegador del sistema como escape hatch. ADE no incor
 
 Depurador integrado, breakpoints y profiling; contenedores y Docker Compose; despliegue remoto o cloud; hot reload propio; gestión de versiones de runtime (`nvm`, `sdkman`, `pyenv`); orquestación de dependencias entre Projects distintos.
 
+ADE tampoco empaqueta compiladores o runtimes. Los comandos propuestos delegan en las herramientas instaladas y versionadas por el propio Project. CMake, Make y otros sistemas de build no declarados quedan fuera de la detección automática inicial.
+
 ## Acceptance criteria
 
 - Un Project con `.ade/run.json` válido lista sus configuraciones en la topbar y arranca la seleccionada con un solo control.
@@ -119,10 +123,11 @@ Depurador integrado, breakpoints y profiling; contenedores y Docker Compose; des
 - La salida de cada ejecución es accesible completa y con marca explícita cuando se trunca.
 - Los valores de entorno marcados como secretos no aparecen en consola, evidencia ni logs.
 - Una configuración inválida —`service` inexistente, `members` circulares, puerto fuera de rango— falla en validación con el campo señalado, y nunca a mitad de arranque.
+- Cuando el Project declara un manifiesto soportado, el control informa del comando de toolchain y su versión o de que no está disponible, sin bloquear la edición ni escribir configuración.
 
 ## Verification
 
-Tests de parseo y validación de `.ade/run.json`, incluidas referencias rotas y ciclos en `members`; arranque y parada con procesos efímeros; puerto ocupado detectado antes de lanzar; orden de arranque y parada inversa en compound; timeout de parada y escalado de señal; ausencia de procesos huérfanos; redacción de secretos en salida y evidencia; sustitución de `${port:...}` entre miembros; y contract test de la superficie —selector, `Run`, `Debug`, `Stop` y estado— sobre la shell. Ningún test depende de un servidor externo ni de un puerto fijo del sistema anfitrión.
+Tests de parseo y validación de `.ade/run.json`, incluidas referencias rotas y ciclos en `members`; detección de propuestas para Node, Python, Maven/Gradle, Rust, Go y .NET; rechazo de artefactos y dependencias; arranque y parada con procesos efímeros; puerto ocupado detectado antes de lanzar; orden de arranque y parada inversa en compound; timeout de parada y escalado de señal; ausencia de procesos huérfanos; redacción de secretos en salida y evidencia; sustitución de `${port:...}` entre miembros; y contract test de la superficie —selector, `Run`, `Debug`, `Stop` y estado— sobre la shell. Ningún test depende de un servidor externo ni de un puerto fijo del sistema anfitrión.
 
 ## Boundaries
 
@@ -139,7 +144,7 @@ Tests de parseo y validación de `.ade/run.json`, incluidas referencias rotas y 
 
 ## Implementation status
 
-Implementado y verificado: `RunConfiguration` y `RunSession` en el dominio; carga y validación de `.ade/run.json` con herencia desde `.ade/services.json`, ciclos de `members` y campos señalados uno a uno; `RunManager` con sondeo previo de todos los puertos del árbol, arranque ordenado de compuestas, parada en orden inverso, healthcheck con deadline y limpieza de los miembros ya arrancados cuando uno falla; `LocalPortProbe` por bind, sin depender de binarios externos; salida en vivo a través de `ProcessDefinition.onOutput`; y los métodos `run.list`, `run.start` y `run.stop` del sidecar, con `RUN_PORT_CONFLICT` y `RUN_CONFIG_INVALID` como errores propios y `run.output` / `run.session` como eventos.
+Implementado y verificado: `RunConfiguration` y `RunSession` en el dominio; carga y validación de `.ade/run.json` con herencia desde `.ade/services.json`, ciclos de `members` y campos señalados uno a uno; `RunManager` con sondeo previo de todos los puertos del árbol, arranque ordenado de compuestas, parada en orden inverso, healthcheck con deadline y limpieza de los miembros ya arrancados cuando uno falla; `LocalPortProbe` por bind, sin depender de binarios externos; salida en vivo a través de `ProcessDefinition.onOutput`; y los métodos `run.list`, `run.start` y `run.stop` del sidecar, con `RUN_PORT_CONFLICT` y `RUN_CONFIG_INVALID` como errores propios y `run.output` / `run.session` como eventos. La detección propone además build/test/lint desde Node, Python, Maven/Gradle, Rust, Go y .NET sin ejecutar ni escribir durante el escaneo.
 
 La superficie también está implementada: el control vive en la topbar con el mismo menú que Project, Task y branch; `Debug` se deshabilita y se explica cuando la configuración no lo declara; el estado muestra `STARTING`/`RUNNING`/`FAILED` con su puerto y abre la URL local del servicio a través de un comando nativo que sólo acepta direcciones de loopback; `bind: "all"` se confirma por ejecución en el diálogo propio de la shell; y cada ejecución escribe en su propia pestaña del dock de terminal, que no acepta entrada y cuyo cierre oculta la consola sin detener el proceso.
 

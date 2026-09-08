@@ -477,6 +477,8 @@ test("navigation sidebar supports persisted pointer and keyboard resizing", () =
 test("explorer keeps the active file path as a compact branch and has a full-tree mode", () => {
   assert.match(html, /data-action="toggle-explorer"/);
   assert.match(html, /aria-label="Expand workspace tree"/);
+  assert.match(styles, /\.explorer-actions \[data-action="toggle-explorer"\] svg \{ transform: rotate\(-90deg\); \}/);
+  assert.match(main, /expanded \? 'rotate\(90deg\)' : 'rotate\(-90deg\)'/);
   assert.match(main, /renderCompactWorkspacePath/);
   assert.match(main, /selectedFilePath/);
   assert.match(main, /explorerExpanded/);
@@ -484,6 +486,13 @@ test("explorer keeps the active file path as a compact branch and has a full-tre
   assert.match(main, /revealSelectedFileBranch/);
   assert.match(main, /await revealSelectedFileBranch\(\)/);
   assert.match(main, /collapseExplorer/);
+});
+
+test("run control exposes detected project toolchains without executing them", () => {
+  assert.match(main, /sendContextRequest\('toolchain\.inspect'/);
+  assert.match(main, /contextPurpose === 'toolchain-inspect'/);
+  assert.match(main, /toolchainStatuses/);
+  assert.match(main, /Toolchains/);
 });
 
 test("workspace search returns files directly and restores their compact branch on selection", () => {

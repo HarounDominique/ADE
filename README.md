@@ -42,6 +42,8 @@ El flujo integrado se ejecuta con `npm run review -- /ruta/al/repositorio "Descr
 
 El Editor interno usa CodeMirror 6 (MIT) como motor principal para resaltado sintáctico, gutter de líneas, plegado, búsqueda, indentación y edición. JavaScript/TypeScript, C++, Java, PHP, Python, Rust, CSS/SCSS, HTML, JSON, Markdown, SQL, XML y YAML usan sus paquetes oficiales; Monaco Editor (MIT) se activa automáticamente como fallback para C, C#, Go, Dart, Kotlin, Ruby, Swift, Scala, Lua, Shell, PowerShell, Objective-C, F#, Elixir, Perl, R, GraphQL, Protocol Buffers y Dockerfiles. La superficie de ADE sigue siendo única aunque cambie el motor por extensión. `Format` usa Prettier (MIT) para JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown y YAML; el alcance y el inventario de licencias están en [SPEC-file-workspace](docu/specs/SPEC-file-workspace.md) y [THIRD_PARTY_LICENSES](desktop/THIRD_PARTY_LICENSES.md).
 
+El control de ejecución también inspecciona de forma no destructiva los manifiestos del Project y propone configuraciones de build, test y lint para Node, Python, Maven/Gradle, Rust, Go y .NET. ADE delega en los toolchains instalados por el repositorio —no empaqueta compiladores—, muestra su disponibilidad y versión, y no ejecuta ni guarda una propuesta hasta que el operador la acepta. El contrato y sus límites están en [SPEC-run-configurations](docu/specs/SPEC-run-configurations.md) y la decisión en [ADR-0038](docu/adr/0038-external-project-toolchains.md).
+
 La CLI permite registrar Projects y operar Tasks sin UI:
 
 ```bash

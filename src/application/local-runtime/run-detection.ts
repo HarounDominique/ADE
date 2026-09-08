@@ -10,6 +10,7 @@ export type RunConfigurationDraft = RunConfiguration & { source: string };
 
 const ignoredDirectories = new Set([".git", ".ade", "node_modules", "dist", "build", "target", "out", "vendor", ".gradle", ".idea", ".vscode"]);
 const runnableScripts = ["start", "dev", "serve"] as const;
+const qualityScripts = ["build", "test", "lint"] as const;
 
 export async function detectRunConfigurations(projectRoot: string): Promise<readonly RunConfigurationDraft[]> {
   const directories = [projectRoot, ...(await immediateSubdirectories(projectRoot))];
@@ -18,6 +19,10 @@ export async function detectRunConfigurations(projectRoot: string): Promise<read
     drafts.push(...await detectNode(projectRoot, directory));
     drafts.push(...await detectMaven(projectRoot, directory));
     drafts.push(...await detectGradle(projectRoot, directory));
+    drafts.push(...await detectPython(projectRoot, directory));
+    drafts.push(...await detectRust(projectRoot, directory));
+    drafts.push(...await detectGo(projectRoot, directory));
+    drafts.push(...await detectDotnet(projectRoot, directory));
   }
   const unique = drafts.filter((draft, index) => drafts.findIndex((candidate) => candidate.id === draft.id) === index);
   const servers = unique.filter((draft) => draft.ports?.some((port) => port.protocol === "http"));
@@ -65,6 +70,41 @@ function cwdToken(projectRoot: string, directory: string): string {
   return suffix ? `\${projectRoot}/${suffix}` : "${projectRoot}";
 }
 
+function sourceLabel(projectRoot: string, directory: string, fileName: string): string {
+  const prefix = relativeLabel(projectRoot, directory);
+  return [prefix, fileName].filter(Boolean).join("/");
+}
+
+function toolchainId(projectRoot: string, directory: string, toolchain: string, operation: string): string {
+  const prefix = relativeLabel(projectRoot, directory);
+  return identifier(prefix ? `${prefix}-${toolchain}` : toolchain, operation);
+}
+
+function toolchainLabel(projectRoot: string, directory: string, toolchain: string, operation: string): string {
+  const prefix = relativeLabel(projectRoot, directory);
+  return [prefix, toolchain, operation].filter(Boolean).join(" · ");
+}
+
+function commandDraft(
+  projectRoot: string,
+  directory: string,
+  toolchain: string,
+  operation: string,
+  command: string,
+  args: readonly string[],
+  source: string,
+): RunConfigurationDraft {
+  return {
+    id: toolchainId(projectRoot, directory, toolchain, operation),
+    label: toolchainLabel(projectRoot, directory, toolchain, operation),
+    kind: "command",
+    command,
+    args,
+    cwd: cwdToken(projectRoot, directory),
+    source,
+  };
+}
+
 /** The port is only proposed when a framework that documents one is actually a
     dependency; guessing it would put a wrong number in front of the operator
     with the same confidence as a right one. */
@@ -85,7 +125,11 @@ async function detectNode(projectRoot: string, directory: string): Promise<reado
   const prefix = relativeLabel(projectRoot, directory);
   const drafts: RunConfigurationDraft[] = [];
   const runnable = runnableScripts.find((script) => scripts[script]);
-  for (const script of [runnable, scripts.test ? "test" : undefined].filter((value): value is string => Boolean(value))) {
+  const scriptsToDetect = [...new Set([
+    runnable,
+    ...qualityScripts.filter((script) => scripts[script]),
+  ].filter(Boolean))] as string[];
+  for (const script of scriptsToDetect) {
     drafts.push({
       id: identifier(prefix, script),
       label: [prefix, script].filter(Boolean).join(" · ") || script,
@@ -102,44 +146,118 @@ async function detectNode(projectRoot: string, directory: string): Promise<reado
 
 async function detectMaven(projectRoot: string, directory: string): Promise<readonly RunConfigurationDraft[]> {
   const pom = await readFile(join(directory, "pom.xml"), "utf8").catch(() => undefined);
-  if (!pom || !pom.includes("spring-boot")) return [];
+  if (!pom) return [];
   const wrapper = await exists(join(directory, process.platform === "win32" ? "mvnw.cmd" : "mvnw"));
   const prefix = relativeLabel(projectRoot, directory);
-  return [{
-    id: identifier(prefix, "spring-boot"),
-    label: [prefix, "Spring Boot"].filter(Boolean).join(" · "),
-    kind: "command",
-    // cmd.exe does not understand the POSIX `./mvnw` spelling. Maven projects
-    // ship a dedicated batch wrapper on Windows, which also avoids requiring a
-    // machine-wide Maven installation.
-    command: wrapper ? (process.platform === "win32" ? "mvnw.cmd" : "./mvnw") : "mvn",
-    args: ["spring-boot:run"],
-    cwd: cwdToken(projectRoot, directory),
-    ports: [{ name: "api", port: 8080, protocol: "http", bind: "loopback" }],
-    debug: {
-      args: ["spring-boot:run", "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"],
-      port: 5005,
-      protocol: "jdwp",
-      attachHint: "Attach a JVM debugger to localhost:5005",
-    },
-    source: [prefix, "pom.xml"].filter(Boolean).join("/"),
-  }];
+  // cmd.exe does not understand the POSIX `./mvnw` spelling. Maven projects
+  // ship a dedicated batch wrapper on Windows, which also avoids requiring a
+  // machine-wide Maven installation.
+  const command = wrapper ? (process.platform === "win32" ? "mvnw.cmd" : "./mvnw") : "mvn";
+  const source = sourceLabel(projectRoot, directory, "pom.xml");
+  const drafts: RunConfigurationDraft[] = [
+    commandDraft(projectRoot, directory, "maven", "build", command, ["verify"], source),
+    commandDraft(projectRoot, directory, "maven", "test", command, ["test"], source),
+  ];
+  if (pom.includes("spring-boot")) {
+    drafts.unshift({
+      id: identifier(prefix, "spring-boot"),
+      label: [prefix, "Spring Boot"].filter(Boolean).join(" · "),
+      kind: "command",
+      command,
+      args: ["spring-boot:run"],
+      cwd: cwdToken(projectRoot, directory),
+      ports: [{ name: "api", port: 8080, protocol: "http", bind: "loopback" }],
+      debug: {
+        args: ["spring-boot:run", "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"],
+        port: 5005,
+        protocol: "jdwp",
+        attachHint: "Attach a JVM debugger to localhost:5005",
+      },
+      source,
+    });
+  }
+  return drafts;
 }
 
 async function detectGradle(projectRoot: string, directory: string): Promise<readonly RunConfigurationDraft[]> {
-  const build = await readFile(join(directory, "build.gradle"), "utf8").catch(() => readFile(join(directory, "build.gradle.kts"), "utf8").catch(() => undefined));
-  if (!build || !build.includes("org.springframework.boot")) return [];
+  const buildFile = await readFile(join(directory, "build.gradle"), "utf8").then((content) => ({ name: "build.gradle", content })).catch(() => readFile(join(directory, "build.gradle.kts"), "utf8").then((content) => ({ name: "build.gradle.kts", content })).catch(() => undefined));
+  if (!buildFile) return [];
   const wrapper = await exists(join(directory, process.platform === "win32" ? "gradlew.bat" : "gradlew"));
   const prefix = relativeLabel(projectRoot, directory);
-  return [{
-    id: identifier(prefix, "boot-run"),
-    label: [prefix, "Spring Boot"].filter(Boolean).join(" · "),
-    kind: "command",
-    command: wrapper ? (process.platform === "win32" ? "gradlew.bat" : "./gradlew") : "gradle",
-    args: ["bootRun"],
-    cwd: cwdToken(projectRoot, directory),
-    ports: [{ name: "api", port: 8080, protocol: "http", bind: "loopback" }],
-    debug: { args: ["bootRun", "--debug-jvm"], port: 5005, protocol: "jdwp", attachHint: "Attach a JVM debugger to localhost:5005" },
-    source: [prefix, "build.gradle"].filter(Boolean).join("/"),
-  }];
+  const command = wrapper ? (process.platform === "win32" ? "gradlew.bat" : "./gradlew") : "gradle";
+  const source = sourceLabel(projectRoot, directory, buildFile.name);
+  const drafts: RunConfigurationDraft[] = [
+    commandDraft(projectRoot, directory, "gradle", "build", command, ["build"], source),
+    commandDraft(projectRoot, directory, "gradle", "test", command, ["test"], source),
+  ];
+  if (buildFile.content.includes("org.springframework.boot")) {
+    drafts.unshift({
+      id: identifier(prefix, "boot-run"),
+      label: [prefix, "Spring Boot"].filter(Boolean).join(" · "),
+      kind: "command",
+      command,
+      args: ["bootRun"],
+      cwd: cwdToken(projectRoot, directory),
+      ports: [{ name: "api", port: 8080, protocol: "http", bind: "loopback" }],
+      debug: { args: ["bootRun", "--debug-jvm"], port: 5005, protocol: "jdwp", attachHint: "Attach a JVM debugger to localhost:5005" },
+      source,
+    });
+  }
+  return drafts;
+}
+
+async function detectPython(projectRoot: string, directory: string): Promise<readonly RunConfigurationDraft[]> {
+  const pyproject = await readFile(join(directory, "pyproject.toml"), "utf8").catch(() => undefined);
+  if (!pyproject) return [];
+  const requirements = await readFile(join(directory, "requirements.txt"), "utf8").catch(() => "");
+  const declared = `${pyproject}\n${requirements}`;
+  const source = sourceLabel(projectRoot, directory, "pyproject.toml");
+  const runner = await exists(join(directory, "uv.lock")) || /\[tool\.uv\]/.test(pyproject)
+    ? { command: "uv", prefix: ["run"] }
+    : await exists(join(directory, "poetry.lock")) || /\[tool\.poetry\]/.test(pyproject)
+      ? { command: "poetry", prefix: ["run"] }
+      : { command: "python", prefix: [] };
+  const drafts: RunConfigurationDraft[] = [];
+  if (/\[build-system\]/.test(pyproject)) drafts.push(commandDraft(projectRoot, directory, "python", "build", runner.command, [...runner.prefix, "-m", "build"], source));
+  if (/\[tool\.pytest(?:\.|\])|(?:^|[\s=])pytest(?:[<=>\s]|$)/m.test(declared)) drafts.push(commandDraft(projectRoot, directory, "python", "test", runner.command, [...runner.prefix, "-m", "pytest"], source));
+  if (/\[tool\.ruff(?:\.|\])|(?:^|[\s=])ruff(?:[<=>\s]|$)/m.test(declared)) drafts.push(commandDraft(projectRoot, directory, "python", "lint", runner.command, [...runner.prefix, "ruff", "check", "."], source));
+  if (/\[tool\.mypy(?:\.|\])|(?:^|[\s=])mypy(?:[<=>\s]|$)/m.test(declared)) drafts.push(commandDraft(projectRoot, directory, "python", "typecheck", runner.command, [...runner.prefix, "mypy", "."], source));
+  return drafts;
+}
+
+async function detectRust(projectRoot: string, directory: string): Promise<readonly RunConfigurationDraft[]> {
+  if (!await exists(join(directory, "Cargo.toml"))) return [];
+  const source = sourceLabel(projectRoot, directory, "Cargo.toml");
+  return [
+    commandDraft(projectRoot, directory, "cargo", "build", "cargo", ["build", "--workspace"], source),
+    commandDraft(projectRoot, directory, "cargo", "test", "cargo", ["test", "--workspace"], source),
+    commandDraft(projectRoot, directory, "cargo", "lint", "cargo", ["clippy", "--workspace", "--all-targets", "--all-features"], source),
+  ];
+}
+
+async function detectGo(projectRoot: string, directory: string): Promise<readonly RunConfigurationDraft[]> {
+  if (!await exists(join(directory, "go.mod"))) return [];
+  const source = sourceLabel(projectRoot, directory, "go.mod");
+  return [
+    commandDraft(projectRoot, directory, "go", "build", "go", ["build", "./..."], source),
+    commandDraft(projectRoot, directory, "go", "test", "go", ["test", "./..."], source),
+    commandDraft(projectRoot, directory, "go", "lint", "go", ["vet", "./..."], source),
+  ];
+}
+
+async function detectDotnet(projectRoot: string, directory: string): Promise<readonly RunConfigurationDraft[]> {
+  const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
+  const manifest = entries.find((entry) => entry.isFile() && /\.sln$/.test(entry.name))
+    ?? entries.find((entry) => entry.isFile() && /\.csproj$/.test(entry.name));
+  if (!manifest) return [];
+  const source = sourceLabel(projectRoot, directory, manifest.name);
+  const target = [manifest.name];
+  const drafts = [
+    commandDraft(projectRoot, directory, "dotnet", "build", "dotnet", ["build", ...target], source),
+    commandDraft(projectRoot, directory, "dotnet", "test", "dotnet", ["test", ...target], source),
+  ];
+  if (await exists(join(directory, ".editorconfig"))) {
+    drafts.push(commandDraft(projectRoot, directory, "dotnet", "lint", "dotnet", ["format", ...target, "--verify-no-changes"], source));
+  }
+  return drafts;
 }

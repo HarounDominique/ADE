@@ -91,6 +91,7 @@ let runSessions = [];
 let selectedRunConfigurationId = null;
 let runCatalogError = null;
 let runSuggestions = [];
+let toolchainStatuses = [];
 let editedRunConfigurationId = null;
 let pendingRunSaveMessage = null;
 let agentSessions = [];
@@ -146,6 +147,7 @@ const pendingAgentMessageSessions = new Map();
 const pendingAgentSessionDeletes = new Map();
 const pendingAgentPromptProjects = new Map();
 const pendingSnapshotProjects = new Map();
+const pendingToolchainInspectionPaths = new Map();
 const taskDetailMarkup = new Map();
 const pendingProjectRemovals = new Map();
 
@@ -988,6 +990,7 @@ function sendContextRequest(method, params = {}, purpose = method) {
   if (!nativeInvoke) return Promise.reject(new Error('Local sidecar unavailable'));
   const id = `context-${purpose}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   pendingContextRequests.set(String(id), purpose);
+  if (purpose === 'toolchain-inspect' && params.repositoryPath) pendingToolchainInspectionPaths.set(String(id), params.repositoryPath);
   if (method === 'project.remove' && params.projectId) pendingProjectRemovals.set(String(id), params.projectId);
   return nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method, params }) });
 }
@@ -2867,6 +2870,7 @@ function resumeAgentConversation(sessionId, provider) {
 function requestRunConfigurations(path = workspaceRootPath) {
   if (!nativeInvoke || !path) return;
   void sendContextRequest('run.list', { repositoryPath: path }, 'run-list');
+  void sendContextRequest('toolchain.inspect', { repositoryPath: path }, 'toolchain-inspect');
 }
 
 function selectedRunConfiguration() {
@@ -2947,6 +2951,9 @@ function renderRunConfigurationMenu() {
     menu.innerHTML = `<p class="picker-empty">${escapeHTML(runCatalogError)}</p><p class="picker-hint">Fix .ade/run.json and reopen this menu.</p>`;
     return;
   }
+  const toolchains = toolchainStatuses.length
+    ? `<p class="picker-note">Toolchains</p><p class="picker-hint">${toolchainStatuses.map((status) => `${escapeHTML(status.label)}: ${escapeHTML(status.available ? (status.version ?? 'available') : 'unavailable')}`).join(' · ')}</p>`
+    : '';
   const rows = runConfigurations.map((configuration) => {
     const selected = configuration.id === selectedRunConfigurationId;
     return `<div class="picker-row${selected ? ' selected' : ''}" role="none"><button class="picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-run-configuration-id="${escapeHTML(configuration.id)}"><span class="git-option-mark" aria-hidden="true">${selected ? '✓' : ''}</span><span><strong>${escapeHTML(configuration.label)}</strong><small>${escapeHTML(runConfigurationDetail(configuration))}</small></span></button><button class="picker-edit" type="button" data-run-edit-id="${escapeHTML(configuration.id)}" aria-label="Edit ${escapeHTML(configuration.label)}" title="Edit ${escapeHTML(configuration.label)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="m14.5 5.5 4 4"/></svg></button></div>`;
@@ -2966,7 +2973,7 @@ function renderRunConfigurationMenu() {
   const empty = runConfigurations.length ? '' : '<p class="picker-empty">This Project has no run configurations yet.</p>';
   /** The rows above are what the repository offers; this one is the operator's
       own action, so a rule separates them instead of a fifth identical row. */
-  menu.innerHTML = `${empty}${rows}${suggested}<div class="picker-divider" role="separator"></div><div class="picker-row picker-row-action" role="none"><button class="picker-option" type="button" data-action="new-run-config">${pickerPlusMark}<span><strong>New configuration…</strong><small>writes .ade/run.json</small></span></button></div>`;
+  menu.innerHTML = `${toolchains}${empty}${rows}${suggested}<div class="picker-divider" role="separator"></div><div class="picker-row picker-row-action" role="none"><button class="picker-option" type="button" data-action="new-run-config">${pickerPlusMark}<span><strong>New configuration…</strong><small>writes .ade/run.json</small></span></button></div>`;
 }
 
 /** The dialog is the only place a configuration is authored: hand-editing JSON
@@ -3221,6 +3228,7 @@ function resetRunControlForProject() {
   runConfigurations = [];
   runSessions = [];
   runSuggestions = [];
+  toolchainStatuses = [];
   runCatalogError = null;
   try { selectedRunConfigurationId = localStorage.getItem(`ade-run-configuration:${activeProjectId}`); } catch { selectedRunConfigurationId = null; }
   closeRunPicker();
@@ -3837,7 +3845,7 @@ function updateExplorerMode(expanded) {
   toggle?.setAttribute('aria-expanded', String(expanded));
   toggle?.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} workspace tree`);
   toggle?.setAttribute('title', `${expanded ? 'Collapse' : 'Expand'} workspace tree`);
-  toggle?.querySelector('svg')?.style.setProperty('transform', expanded ? 'rotate(90deg)' : 'none');
+  toggle?.querySelector('svg')?.style.setProperty('transform', expanded ? 'rotate(90deg)' : 'rotate(-90deg)');
 }
 
 async function expandExplorerFrom(button) {
@@ -3967,6 +3975,11 @@ async function connectSidecar(snapshot) {
       const deletedAgentSessionId = pendingAgentSessionDeletes.get(String(response.id));
       if (deletedAgentSessionId) pendingAgentSessionDeletes.delete(String(response.id));
       if (contextPurpose === 'git-pending') pendingGitRefreshInFlight = false;
+      const toolchainInspectionPath = pendingToolchainInspectionPaths.get(String(response.id));
+      if (toolchainInspectionPath) {
+        pendingToolchainInspectionPaths.delete(String(response.id));
+        if (toolchainInspectionPath !== workspaceRootPath) return;
+      }
       const snapshotProjectId = pendingSnapshotProjects.get(String(response.id));
       if (snapshotProjectId) {
         pendingSnapshotProjects.delete(String(response.id));
@@ -4020,6 +4033,11 @@ async function connectSidecar(snapshot) {
           runConfigurations = [];
           renderRunControl();
         }
+        if (contextPurpose === 'toolchain-inspect') {
+          toolchainStatuses = [];
+          renderRunConfigurationMenu();
+          return;
+        }
         if (String(response.id).startsWith('run-start-') || String(response.id).startsWith('run-stop-')) {
           notify(response.error.code === 'RUN_PORT_CONFLICT' ? `${response.error.message}. Free it or change the declared port.` : response.error.message);
           requestRunConfigurations(workspaceRootPath);
@@ -4039,6 +4057,11 @@ async function connectSidecar(snapshot) {
             already has a catalog is not asked to grow one. */
         if (!runConfigurations.length) void sendContextRequest('run.detect', { repositoryPath: workspaceRootPath }, 'run-detect');
         renderRunControl();
+        return;
+      }
+      if (contextPurpose === 'toolchain-inspect' && Array.isArray(response.result)) {
+        toolchainStatuses = response.result;
+        renderRunConfigurationMenu();
         return;
       }
       if (contextPurpose === 'run-detect' && Array.isArray(response.result)) {

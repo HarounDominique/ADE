@@ -74,6 +74,8 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 
 **Build order:** `project-task-workflow → development-workflow → agent-runtime + knowledge-docs + local-runtime → changes-review-governance → desktop-shell`.
 
+La ampliación de `run-configurations` con propuestas de toolchains externos reutiliza `local-runtime` y no añade un runtime ni un compilador al producto. La decisión está en [ADR-0038](../adr/0038-external-project-toolchains.md).
+
 **v0.3 build order:** `workspace-core → agent-providers + native-skills → git-collaboration + living-knowledge → desktop-shell integration`. `quality-consulting` se implementará como skills nativas sobre esos contratos.
 
 **Próximo corte:** `workspace-core + agent-providers + desktop-shell → agent-terminal-history`.

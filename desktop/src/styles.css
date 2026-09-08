@@ -312,6 +312,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* Explorer focus mode keeps the selected file's path visible without losing context. */
 .explorer-actions { display: flex; align-items: center; gap: 2px; }
 .explorer-actions .icon-button svg { transition: transform .16s ease; }
+.explorer-actions [data-action="toggle-explorer"] svg { transform: rotate(-90deg); }
 /* `display: grid` outranks the user agent's `[hidden]`, so every icon button
    that is toggled off needs the state spelled out here. */
 .icon-button[hidden] { display: none; }

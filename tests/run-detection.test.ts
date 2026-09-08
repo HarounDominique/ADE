@@ -59,6 +59,51 @@ test("a port is proposed only when a framework that documents one is a dependenc
   assert.equal(draft?.ports, undefined);
 });
 
+test("toolchain manifests propose build, test and lint without executing them", async () => {
+  const root = await fixture();
+  await writeFile(join(root, "package.json"), JSON.stringify({ scripts: { build: "tsc", test: "vitest", lint: "eslint ." } }), "utf8");
+  await writeFile(join(root, "pyproject.toml"), "[build-system]\n[tool.pytest.ini_options]\n[tool.ruff]\n[tool.mypy]\n", "utf8");
+  await writeFile(join(root, "Cargo.toml"), "[package]\nname = 'fixture'\n", "utf8");
+  await writeFile(join(root, "go.mod"), "module example.test\n\ngo 1.24\n", "utf8");
+  await writeFile(join(root, "fixture.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />\n", "utf8");
+  await writeFile(join(root, ".editorconfig"), "root = true\n", "utf8");
+
+  const drafts = await detectRunConfigurations(root);
+  const find = (id: string) => drafts.find((draft) => draft.id === id);
+  assert.deepEqual(find("build")?.args, ["run", "build"]);
+  assert.deepEqual(find("test")?.args, ["run", "test"]);
+  assert.deepEqual(find("lint")?.args, ["run", "lint"]);
+  assert.deepEqual(find("python-build")?.args, ["-m", "build"]);
+  assert.deepEqual(find("python-test")?.args, ["-m", "pytest"]);
+  assert.deepEqual(find("python-lint")?.args, ["ruff", "check", "."]);
+  assert.deepEqual(find("python-typecheck")?.args, ["mypy", "."]);
+  assert.deepEqual(find("cargo-build")?.args, ["build", "--workspace"]);
+  assert.deepEqual(find("cargo-test")?.args, ["test", "--workspace"]);
+  assert.deepEqual(find("cargo-lint")?.args, ["clippy", "--workspace", "--all-targets", "--all-features"]);
+  assert.deepEqual(find("go-build")?.args, ["build", "./..."]);
+  assert.deepEqual(find("go-test")?.args, ["test", "./..."]);
+  assert.deepEqual(find("go-lint")?.args, ["vet", "./..."]);
+  assert.deepEqual(find("dotnet-build")?.args, ["build", "fixture.csproj"]);
+  assert.deepEqual(find("dotnet-test")?.args, ["test", "fixture.csproj"]);
+  assert.deepEqual(find("dotnet-lint")?.args, ["format", "fixture.csproj", "--verify-no-changes"]);
+});
+
+test("Python proposals respect uv and Poetry runners", async () => {
+  const uvRoot = await fixture();
+  await writeFile(join(uvRoot, "pyproject.toml"), "[build-system]\n[tool.uv]\n[tool.pytest.ini_options]\n", "utf8");
+  await writeFile(join(uvRoot, "uv.lock"), "version = 1\n", "utf8");
+  const uvBuild = (await detectRunConfigurations(uvRoot)).find((draft) => draft.id === "python-build");
+  assert.equal(uvBuild?.command, "uv");
+  assert.deepEqual(uvBuild?.args, ["run", "-m", "build"]);
+
+  const poetryRoot = await fixture();
+  await writeFile(join(poetryRoot, "pyproject.toml"), "[tool.poetry]\n[tool.ruff]\n", "utf8");
+  await writeFile(join(poetryRoot, "poetry.lock"), "", "utf8");
+  const poetryLint = (await detectRunConfigurations(poetryRoot)).find((draft) => draft.id === "python-lint");
+  assert.equal(poetryLint?.command, "poetry");
+  assert.deepEqual(poetryLint?.args, ["run", "ruff", "check", "."]);
+});
+
 test("detection ignores build output and dependency directories", async () => {
   const root = await fixture();
   await mkdir(join(root, "node_modules", "left-pad"), { recursive: true });
