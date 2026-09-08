@@ -1,14 +1,12 @@
-import { execFile as execFileCallback } from "node:child_process";
-import { promisify } from "node:util";
-const execFile = promisify(execFileCallback);
+import { executeGit } from "../../adapters/git-command.js";
 
 export async function inspectGitWorkspace(directory: string) {
   const [branches, worktrees, remotes, currentBranch, status] = await Promise.all([
-    execFile("git", ["for-each-ref", "--format=%(refname:short)", "refs/heads"], { cwd: directory }),
-    execFile("git", ["worktree", "list", "--porcelain"], { cwd: directory }),
-    execFile("git", ["remote", "-v"], { cwd: directory }),
-    execFile("git", ["branch", "--show-current"], { cwd: directory }),
-    execFile("git", ["status", "--short"], { cwd: directory }),
+    executeGit(["for-each-ref", "--format=%(refname:short)", "refs/heads"], { cwd: directory }),
+    executeGit(["worktree", "list", "--porcelain"], { cwd: directory }),
+    executeGit(["remote", "-v"], { cwd: directory }),
+    executeGit(["branch", "--show-current"], { cwd: directory }),
+    executeGit(["status", "--short"], { cwd: directory }),
   ]);
   return {
     currentBranch: currentBranch.stdout.trim() || "detached",

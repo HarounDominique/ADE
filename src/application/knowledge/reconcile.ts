@@ -1,10 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { execFile as execFileCallback } from "node:child_process";
 import { basename, dirname, join } from "node:path";
-import { promisify } from "node:util";
+import { executeGit } from "../../adapters/git-command.js";
 import { buildKnowledgeGraph, relative } from "./knowledge-graph.js";
-
-const execFile = promisify(execFileCallback);
 
 export async function proposeKnowledgeReconciliation(root: string, changedFile: string) {
   const graph = await buildKnowledgeGraph(root);
@@ -63,7 +60,7 @@ export async function reconcileChangedDocumentation(root: string) {
 }
 
 async function changedDocumentationFiles(root: string): Promise<string[]> {
-  const status = await execFile("git", ["status", "--porcelain"], { cwd: root });
+  const status = await executeGit(["status", "--porcelain"], { cwd: root });
   return status.stdout
     .split("\n")
     .filter(Boolean)

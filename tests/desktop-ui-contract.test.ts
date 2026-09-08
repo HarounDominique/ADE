@@ -17,7 +17,7 @@ const devTauriConfig = JSON.parse(readFileSync(new URL("../desktop/src-tauri/tau
 };
 
 test("desktop development runs as a distinct Assay Dev app", () => {
-  assert.match(rootPackage.scripts["desktop:dev"], /npm --prefix desktop run dev/);
+  assert.match(rootPackage.scripts["desktop:dev"] ?? "", /npm --prefix desktop run dev/);
   assert.equal(devTauriConfig.productName, "Assay Dev");
   assert.equal(devTauriConfig.identifier, "com.ade.desktop.dev");
   assert.equal(devTauriConfig.app.windows[0]?.title, "Assay Dev");
@@ -52,6 +52,7 @@ test("agent terminal history is a modal that reopens native agent sessions", () 
   assert.match(html, /id="terminal-history-toggle"[\s\S]*aria-haspopup="dialog"/);
   assert.match(html, /id="terminal-history-dialog" aria-labelledby="terminal-history-title"/);
   assert.match(main, /function terminalAgentProvider/);
+  assert.ok(main.includes('(?:\\S+[\\\\/])?'));
   assert.match(main, /\['claude', 'codex', 'opencode'\]/);
   assert.match(main, /method: 'terminal\.history\.save'/);
   assert.match(main, /method: 'terminal\.history\.delete'/);
@@ -70,11 +71,25 @@ test("agent terminal history is a modal that reopens native agent sessions", () 
   // A row that can only reach the provider's picker says so before it is clicked.
   assert.match(main, /pick from list/);
   assert.match(main, /resumeTerminalHistorySession/);
+  assert.match(main, /function prepareTerminalReadiness/);
+  assert.match(main, /markTerminalReady\(tab\)/);
   // A stored transcript is a record, never replayed into a live PTY to look
   // like a resumed conversation.
   assert.doesNotMatch(main, /appendTerminalTranscript\(tab\.id, session\.transcript\)/);
   assert.match(main, /escapeHTML\(title\)/);
   assert.match(styles, /\.terminal-history-dialog::backdrop[\s\S]*backdrop-filter: blur/);
+});
+
+test("desktop startup placeholders and platform label are not macOS-specific", () => {
+  assert.match(html, /id="project-path">Project root</);
+  assert.match(html, /id="status-platform">Desktop</);
+  assert.doesNotMatch(html, />macOS</);
+});
+
+test("a missing Git installation updates Git status instead of reopening the operation dialog", () => {
+  assert.match(main, /response\.error\.code === 'GIT_UNAVAILABLE'/);
+  assert.match(main, /git-history-status/);
+  assert.match(main, /git-pending-status/);
 });
 
 test("Agents keeps sessions and conversation as the primary surface", () => {

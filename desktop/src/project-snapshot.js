@@ -7,7 +7,7 @@ export const projectSnapshot = {
     id: 'ade',
     name: 'ADE',
     description: 'Agentic Development Environment',
-    repositoryPath: '/Users/user/Documents/workspace/ADE',
+    repositoryPath: 'Project root',
     branch: 'master',
     workingTree: 'clean',
   },

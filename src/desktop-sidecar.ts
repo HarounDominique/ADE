@@ -39,6 +39,7 @@ import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNetwork, updateProjectSkill } from "./application/skills/skill-install.js";
 import { registerProject } from "./application/tasks/project-commands.js";
 import { LocalGitRepository } from "./adapters/local-git-repository.js";
+import { GitUnavailableError } from "./adapters/git-command.js";
 import { fallbackTerminalTitle, type TerminalAgentProvider } from "./application/terminal-history/agent-terminal.js";
 import { resolveProviderSessionId } from "./application/terminal-history/provider-session-id.js";
 
@@ -83,6 +84,15 @@ type ActiveAgentPrompt = {
   aborted: boolean;
 };
 const activeAgentPrompts = new Map<string, ActiveAgentPrompt>();
+
+function gitError(error: unknown, fallback = "GIT_FAILED"): { code: string; message: string } {
+  const unavailable = error instanceof GitUnavailableError
+    || (error && typeof error === "object" && "code" in error && error.code === "ENOENT");
+  return {
+    code: unavailable ? "GIT_UNAVAILABLE" : fallback,
+    message: error instanceof Error ? error.message : String(error),
+  };
+}
 
 function getRuntimeStatus(): RuntimeStatus {
   return {
@@ -362,29 +372,29 @@ export async function runDesktopSidecar(): Promise<void> {
       } else if (request.method === "git.history") {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
-        else void listGitCommits(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        else void listGitCommits(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error) })}\n`));
       } else if (request.method === "git.commit.diff") {
         const directory = request.params?.repositoryPath;
         const commit = request.params?.commit;
         if (!directory || !commit) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and commit are required" } })}\n`);
-        else void readGitCommitDiff(directory, commit, request.params?.file).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        else void readGitCommitDiff(directory, commit, request.params?.file).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error) })}\n`));
       } else if (request.method === "git.pending") {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
-        else void inspectPendingGitChanges(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        else void inspectPendingGitChanges(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error) })}\n`));
       } else if (request.method === "git.pending.diff") {
         const directory = request.params?.repositoryPath;
         const file = request.params?.file;
         if (!directory || !file) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and file are required" } })}\n`);
-        else void readPendingGitDiff(directory, file).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        else void readPendingGitDiff(directory, file).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error) })}\n`));
       } else if (request.method === "git.fetch.origin") {
         const params = request.params;
         if (!params?.repositoryPath || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, actor and reason are required" } })}\n`);
-        else void fetchOrigin({ directory: params.repositoryPath, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_MUTATION_BLOCKED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        else void fetchOrigin({ directory: params.repositoryPath, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error, "GIT_MUTATION_BLOCKED") })}\n`));
       } else if (request.method === "git.workspace") {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
-        else void inspectGitWorkspace(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        else void inspectGitWorkspace(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error) })}\n`));
       } else if (request.method === "git.workflow") {
         const directory = request.params?.repositoryPath;
         process.stdout.write(`${JSON.stringify({ id: request.id, result: { gitWorkflow: loadGatePolicy(directory).gitWorkflow } })}\n`);
@@ -406,7 +416,7 @@ export async function runDesktopSidecar(): Promise<void> {
               store.saveGitOperation({ id: `git-${request.id}`, taskId: params.taskId, operation: result.operation, ...(reference ? { reference } : {}), actor: params.actor!, reason: params.reason!, metadata: JSON.stringify(result) });
             }
             process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`);
-          }).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_MUTATION_BLOCKED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+          }).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error, "GIT_MUTATION_BLOCKED") })}\n`));
         }
       } else if (request.method === "knowledge.graph") {
         const root = request.params?.repositoryPath;
@@ -464,7 +474,7 @@ export async function runDesktopSidecar(): Promise<void> {
       } else if (request.method === "git.status") {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
-        else void getGitStatus(directory).then((status) => process.stdout.write(`${JSON.stringify({ id: request.id, result: status })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "GIT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        else void getGitStatus(directory).then((status) => process.stdout.write(`${JSON.stringify({ id: request.id, result: status })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error) })}\n`));
       } else if (request.method === "service.start") {
         void startLocalService(request);
       } else if (request.method === "service.stop") {

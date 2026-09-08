@@ -74,6 +74,10 @@ jobs:
         if: matrix.platform == 'windows'
         run: npm run desktop:package
 
+      - name: Smoke test Windows desktop app
+        if: matrix.platform == 'windows'
+        run: npm run desktop:smoke
+
       - name: Upload Windows desktop app
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v4

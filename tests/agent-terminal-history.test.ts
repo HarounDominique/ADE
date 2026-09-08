@@ -4,11 +4,12 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fallbackTerminalTitle, terminalAgentProvider, terminalTitleModel } from "../src/application/terminal-history/agent-terminal.js";
-import { resolveProviderSessionId } from "../src/application/terminal-history/provider-session-id.js";
+import { comparableRepositoryPath, resolveProviderSessionId } from "../src/application/terminal-history/provider-session-id.js";
 
 test("only recognized terminal executables create agent history", () => {
   assert.equal(terminalAgentProvider("claude"), "claude");
   assert.equal(terminalAgentProvider("C:/tools/codex.exe exec"), "codex");
+  assert.equal(terminalAgentProvider("C:\\tools\\claude.exe"), "claude");
   assert.equal(terminalAgentProvider("opencode.cmd"), "opencode");
   assert.equal(terminalAgentProvider("echo claude"), undefined);
   assert.equal(terminalAgentProvider("npm run codex"), undefined);
@@ -94,6 +95,18 @@ test("a Codex terminal session is matched by the working directory it recorded",
   writeSession(join(directory, "rollout-2026-09-08T10-20-00-55555555-5555-4555-8555-555555555555.jsonl"), meta("55555555-5555-4555-8555-555555555555", "/tmp/demo"));
 
   assert.equal(resolveProviderSessionId("codex", { repositoryPath: "/tmp/demo", ...windowSince(openedAt), home }), "55555555-5555-4555-8555-555555555555");
+});
+
+test("Windows session paths match despite slash and casing differences", () => {
+  const home = fixtureHome();
+  const openedAt = Date.now() - 1_000;
+  const directory = join(home, ".codex", "sessions", "2026", "09", "08");
+  const id = "99999999-9999-4999-8999-999999999999";
+  const meta = `${JSON.stringify({ type: "session_meta", payload: { session_id: id, cwd: "C:\\Work\\Assay" } })}\n`;
+  writeSession(join(directory, `rollout-2026-09-08T10-20-00-${id}.jsonl`), meta);
+
+  assert.equal(comparableRepositoryPath("C:\\Work\\Assay", "win32"), comparableRepositoryPath("c:/work/assay", "win32"));
+  assert.equal(resolveProviderSessionId("codex", { repositoryPath: "c:/work/assay", ...windowSince(openedAt), home, platform: "win32" }), id);
 });
 
 test("an unmatched terminal session resolves to no conversation rather than a guess", () => {

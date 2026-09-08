@@ -1,11 +1,8 @@
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
-import { execFile as execFileCallback } from "node:child_process";
-import { promisify } from "node:util";
+import { executeGit } from "../../adapters/git-command.js";
 import { validateSkillManifest, type SkillManifest } from "../../domain/skill.js";
-
-const execFile = promisify(execFileCallback);
 
 type StoredProjectSkill = SkillManifest & { installedFrom?: string; installedAt?: string };
 
@@ -56,7 +53,7 @@ async function resolveSource(source: string): Promise<{ path: string; file: bool
   const directory = await mkdtemp(join(tmpdir(), "ade-skill-install-"));
   const remote = /^[\w.-]+\/[\w.-]+$/.test(source) ? `https://github.com/${source}.git` : source;
   try {
-    await execFile("git", ["clone", "--depth", "1", remote, directory]);
+    await executeGit(["clone", "--depth", "1", remote, directory]);
     return { path: directory, file: false };
   } catch (error) {
     await rm(directory, { recursive: true, force: true });

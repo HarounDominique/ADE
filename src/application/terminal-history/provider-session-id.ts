@@ -1,6 +1,6 @@
 import { closeSync, openSync, readSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
 import type { TerminalAgentProvider } from "./agent-terminal.js";
 
 export type ProviderSessionLookup = {
@@ -9,6 +9,8 @@ export type ProviderSessionLookup = {
   endedAt: string;
   home?: string | undefined;
   takenIds?: readonly string[] | undefined;
+  /** Test seam for Windows path matching on non-Windows CI runners. */
+  platform?: NodeJS.Platform | undefined;
 };
 
 /** The agent writes its first line a moment after the command is recognised.
@@ -19,6 +21,18 @@ const creationGraceMs = 2_000;
 const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 type Candidate = { id: string; createdAt: number; path: string };
+
+/** Codex records the native spelling of its working directory. Windows treats
+    drive and directory casing as equivalent, while callers may arrive with
+    either slash convention, so compare canonical Windows identities rather
+    than the raw strings persisted by two independent processes. */
+export function comparableRepositoryPath(path: string, platform = process.platform): string {
+  if (platform !== "win32") return path;
+  const withoutExtendedPrefix = path
+    .replace(/^\\\\\?\\UNC\\/i, "\\\\")
+    .replace(/^\\\\\?\\/i, "");
+  return win32.normalize(withoutExtendedPrefix).replaceAll("\\", "/").toLowerCase();
+}
 
 /** Claude names a project directory after the working directory, with every
     character that is not alphanumeric folded to a dash. */
@@ -113,7 +127,7 @@ function codexCandidates(home: string, lookup: ProviderSessionLookup, from: numb
           if (!meta) continue;
           try {
             const payload = (JSON.parse(meta) as { payload?: { cwd?: string; session_id?: string } }).payload;
-            if (!payload || payload.cwd !== lookup.repositoryPath) continue;
+            if (!payload || typeof payload.cwd !== "string" || comparableRepositoryPath(payload.cwd, lookup.platform) !== comparableRepositoryPath(lookup.repositoryPath, lookup.platform)) continue;
             const id = payload.session_id;
             if (id && uuid.test(id)) candidates.push({ id, createdAt, path });
           } catch {

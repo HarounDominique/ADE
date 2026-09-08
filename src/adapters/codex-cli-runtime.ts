@@ -1,10 +1,9 @@
-import { execFile as execFileCallback, type ChildProcess } from "node:child_process";
+import { type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { promisify } from "node:util";
 import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt } from "../ports/agent-runtime.js";
+import { executeGit } from "./git-command.js";
 import { startSafeCommand } from "./safe-command.js";
 
-const execFile = promisify(execFileCallback);
 // ChatGPT's bundled Codex binary has a stable location on macOS only. On
 // Windows uses the .exe explicitly: calling the extensionless `codex` makes
 // Node route through cmd.exe, which splits a natural-language prompt into
@@ -45,7 +44,7 @@ export class CodexCliRuntime implements AgentRuntimePort {
 
   async *events(): AsyncIterable<RuntimeEvent> { return; }
   async diff(session: SessionHandle): Promise<readonly FileDiff[]> {
-    const { stdout } = await execFile("git", ["diff", "--numstat"], { cwd: session.directory });
+    const { stdout } = await executeGit(["diff", "--numstat"], { cwd: session.directory });
     return stdout.split("\n").filter(Boolean).map((line) => { const [additions, deletions, path] = line.split("\t"); return { ...(path ? { path } : {}), additions: Number(additions), deletions: Number(deletions) }; });
   }
   async abort(): Promise<void> {

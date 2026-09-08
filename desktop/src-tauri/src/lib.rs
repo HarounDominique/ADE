@@ -1193,65 +1193,49 @@ mod tests {
         fs::remove_dir_all(root).expect("remove fixture");
     }
 
-    // Not run on Windows: input written before the console host starts reading is
-    // dropped by ConPTY, where a Unix tty would have buffered it, so this races.
-    // Waiting for a prompt first means deciding what the Windows shell is and what
-    // it prints -- an open question in SPEC-cross-platform-support, and not one to
-    // settle from a machine that cannot observe the answer. Windows PTY behaviour
-    // stays unverified rather than asserted by a test written for a Unix shell.
-    #[cfg(not(target_os = "windows"))]
     #[test]
-    fn terminal_pty_prefers_the_operator_shell_with_a_fallback() {
-        // The terminal is supposed to be the operator's, not a minimal shell
-        // wearing a prompt we invented -- but an environment without $SHELL
-        // still has to get a working one.
-        let resolved = std::env::var("SHELL")
-            .ok()
-            .filter(|value| !value.trim().is_empty() && std::path::Path::new(value).is_file());
-        assert!(resolved.is_none() || std::path::Path::new(&resolved.unwrap()).is_file());
-        assert!(
-            std::path::Path::new("/bin/sh").is_file(),
-            "the fallback shell must exist"
-        );
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    #[test]
-    fn terminal_pty_runs_an_interactive_shell_command() {
+    fn terminal_pty_accepts_input_after_the_shell_is_ready() {
         let root = fixture_root("terminal-pty");
         let (mut process, reader) = start_terminal_pty(&root).expect("start PTY");
-        process
-            .writer
-            // `echo` is the one spelling both /bin/sh and cmd understand, and the
-            // newlines have to be real: with `\\n` the line was never submitted and
-            // the assertion matched the terminal's echo of the input instead of any
-            // command output.
-            .write_all(b"echo ADE_PTY_OK\nexit\n")
-            .expect("write PTY input");
-        process.writer.flush().expect("flush PTY input");
         let (sender, receiver) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let mut reader = reader;
-            let mut output = String::new();
             let mut bytes = [0u8; 1024];
             loop {
                 match reader.read(&mut bytes) {
                     Ok(0) | Err(_) => break,
                     Ok(size) => {
-                        output.push_str(&String::from_utf8_lossy(&bytes[..size]));
-                        if output.contains("ADE_PTY_OK") {
-                            let _ = sender.send(output);
+                        if sender
+                            .send(String::from_utf8_lossy(&bytes[..size]).into_owned())
+                            .is_err()
+                        {
                             break;
                         }
                     }
                 }
             }
         });
-        let output = receiver
-            .recv_timeout(std::time::Duration::from_secs(2))
-            .expect("read PTY output before timeout");
-
-        assert!(output.contains("ADE_PTY_OK"));
+        let startup = receiver
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("shell should write a prompt before receiving terminal input");
+        assert!(!startup.is_empty());
+        #[cfg(target_os = "windows")]
+        let command = b"Write-Output ([char]0x2603)\r".as_slice();
+        #[cfg(not(target_os = "windows"))]
+        let command = b"printf '\\342\\230\\203\\n'\n".as_slice();
+        process
+            .writer
+            .write_all(command)
+            .expect("write PTY input after prompt");
+        process.writer.flush().expect("flush PTY input");
+        let mut output = startup;
+        while !output.contains('☃') {
+            output.push_str(
+                &receiver
+                    .recv_timeout(std::time::Duration::from_secs(5))
+                    .expect("PTY command should produce output after shell readiness"),
+            );
+        }
         let _ = process.child.kill();
         let _ = process.child.wait();
         fs::remove_dir_all(root).expect("remove fixture");

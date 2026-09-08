@@ -1,5 +1,7 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
+import { executeGit } from "../../adapters/git-command.js";
+
 const execFile = promisify(execFileCallback);
 
 type ConfirmedOperation = { directory: string; actor: string; reason: string; confirmed: boolean };
@@ -10,28 +12,28 @@ function assertConfirmed(input: ConfirmedOperation): void {
 
 export async function createBranch(input: ConfirmedOperation & { name: string }) {
   assertConfirmed(input);
-  await execFile("git", ["switch", "-c", input.name], { cwd: input.directory });
+  await executeGit(["switch", "-c", input.name], { cwd: input.directory });
   return { operation: "branch.create", name: input.name, actor: input.actor, reason: input.reason };
 }
 
 export async function switchBranch(input: ConfirmedOperation & { branch: string }) {
   assertConfirmed(input);
   if (!input.branch.trim()) throw new Error("Cannot switch to an empty branch");
-  await execFile("git", ["switch", input.branch], { cwd: input.directory });
+  await executeGit(["switch", input.branch], { cwd: input.directory });
   return { operation: "branch.switch", branch: input.branch, actor: input.actor, reason: input.reason };
 }
 
 export async function createWorktree(input: ConfirmedOperation & { path: string; branch: string }) {
   assertConfirmed(input);
-  await execFile("git", ["worktree", "add", "-b", input.branch, input.path], { cwd: input.directory });
+  await executeGit(["worktree", "add", "-b", input.branch, input.path], { cwd: input.directory });
   return { operation: "worktree.create", path: input.path, branch: input.branch, actor: input.actor, reason: input.reason };
 }
 
 export async function createCommit(input: ConfirmedOperation & { message: string; body?: string }) {
   assertConfirmed(input);
-  await execFile("git", ["add", "--all"], { cwd: input.directory });
-  const result = await execFile("git", ["commit", "-m", input.message, ...(input.body ? ["-m", input.body] : [])], { cwd: input.directory });
-  const commit = (await execFile("git", ["rev-parse", "HEAD"], { cwd: input.directory })).stdout.trim();
+  await executeGit(["add", "--all"], { cwd: input.directory });
+  const result = await executeGit(["commit", "-m", input.message, ...(input.body ? ["-m", input.body] : [])], { cwd: input.directory });
+  const commit = (await executeGit(["rev-parse", "HEAD"], { cwd: input.directory })).stdout.trim();
   return { operation: "commit.create", message: input.message, commit, output: result.stdout.trim(), actor: input.actor, reason: input.reason };
 }
 
@@ -44,7 +46,7 @@ export async function commitAndPush(input: ConfirmedOperation & { message: strin
 
 export async function fetchOrigin(input: ConfirmedOperation & { remote?: string }) {
   assertConfirmed(input);
-  const result = await execFile("git", ["fetch", input.remote ?? "origin"], { cwd: input.directory });
+  const result = await executeGit(["fetch", input.remote ?? "origin"], { cwd: input.directory });
   return { operation: "fetch.origin", output: result.stdout.trim(), actor: input.actor, reason: input.reason };
 }
 
@@ -56,8 +58,8 @@ export async function createPullRequest(input: ConfirmedOperation & { title: str
 
 export async function pushBranch(input: ConfirmedOperation & { remote?: string; branch?: string }) {
   assertConfirmed(input);
-  const branch = input.branch ?? (await execFile("git", ["branch", "--show-current"], { cwd: input.directory })).stdout.trim();
+  const branch = input.branch ?? (await executeGit(["branch", "--show-current"], { cwd: input.directory })).stdout.trim();
   if (!branch) throw new Error("Cannot push without a current branch");
-  const result = await execFile("git", ["push", input.remote ?? "origin", branch], { cwd: input.directory });
+  const result = await executeGit(["push", input.remote ?? "origin", branch], { cwd: input.directory });
   return { operation: "push", branch, output: result.stdout.trim(), actor: input.actor, reason: input.reason };
 }

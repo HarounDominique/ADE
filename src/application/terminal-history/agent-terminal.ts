@@ -9,7 +9,7 @@ const commandProvider: Record<string, TerminalAgentProvider> = {
 /** Identifies only a simple executable invocation. Shell aliases and pipelines
     are deliberately ignored: a missed session is safer than recording a manual one. */
 export function terminalAgentProvider(input: string): TerminalAgentProvider | undefined {
-  const command = input.trim().match(/^(?:env\s+)?(?:\S+\/)?([^\s\\/]+)(?:\s|$)/)?.[1]?.toLowerCase();
+  const command = input.trim().match(/^(?:env\s+)?(?:\S+[\\/])?([^\s\\/]+)(?:\s|$)/)?.[1]?.toLowerCase();
   if (!command) return undefined;
   return commandProvider[command.replace(/\.(?:cmd|exe|bat)$/i, "")];
 }

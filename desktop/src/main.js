@@ -34,6 +34,7 @@ let nativeInvoke;
 const terminalTabs = [];
 let activeTerminalId = null;
 let terminalTabSequence = 0;
+const terminalReadinessTimeoutMs = 5_000;
 let terminalHistorySessions = [];
 let terminalHistoryDeleteId = null;
 let selectedProvider = 'opencode';
@@ -543,8 +544,35 @@ function renderTerminalOutput() {
 function appendTerminalTranscript(sessionId, text) {
   const tab = terminalTabs.find((candidate) => candidate.id === sessionId);
   if (!tab) return;
+  markTerminalReady(tab);
   if (tab.historyProvider) appendTerminalHistory(tab, text);
   tab.terminal?.write(text);
+}
+
+/** ConPTY drops input sent before PowerShell begins reading.  The first output
+    is the shell's prompt (or profile output), which is the earliest portable
+    signal that forwarding keystrokes is safe.  A bounded fallback still lets
+    an unusual silent shell be used instead of leaving the terminal unusable. */
+function prepareTerminalReadiness(tab) {
+  if (tab.ready) return Promise.resolve();
+  if (tab.readiness) return tab.readiness;
+  tab.readiness = new Promise((resolve) => {
+    tab.resolveReadiness = resolve;
+    tab.readinessTimeout = window.setTimeout(() => {
+      console.warn('Terminal produced no startup output; forwarding input after the readiness timeout.');
+      markTerminalReady(tab);
+    }, terminalReadinessTimeoutMs);
+  });
+  return tab.readiness;
+}
+
+function markTerminalReady(tab) {
+  if (tab.ready) return;
+  tab.ready = true;
+  if (tab.readinessTimeout) window.clearTimeout(tab.readinessTimeout);
+  tab.readinessTimeout = null;
+  tab.resolveReadiness?.();
+  tab.resolveReadiness = null;
 }
 
 function appendTerminalHistory(tab, text) {
@@ -570,7 +598,7 @@ function captureTerminalInput(tab, data) {
 }
 
 function terminalAgentProvider(input) {
-  const command = input.trim().match(/^(?:env\s+)?(?:\S+\/)?([^\s\\/]+)(?:\s|$)/)?.[1]?.toLowerCase();
+  const command = input.trim().match(/^(?:env\s+)?(?:\S+[\\/])?([^\s\\/]+)(?:\s|$)/)?.[1]?.toLowerCase();
   const name = command?.replace(/\.(?:cmd|exe|bat)$/i, '');
   return ['claude', 'codex', 'opencode'].includes(name) ? name : null;
 }
@@ -707,6 +735,10 @@ function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null,
     fitAddon: null,
     startPromise: null,
     inputQueue: Promise.resolve(),
+    ready: false,
+    readiness: null,
+    readinessTimeout: null,
+    resolveReadiness: null,
     commandBuffer: '',
     historyProvider: null,
     historyTranscript: '',
@@ -760,6 +792,7 @@ function closeTerminalTab(sessionId) {
   /** Closing a run's console hides its output; it does not stop the run, which
       stays visible and stoppable in the topbar. */
   persistTerminalHistory(tab);
+  markTerminalReady(tab);
   if (tab.kind === 'pty' && tab.started) nativeInvoke?.('terminal_stop', { sessionId: tab.id }).catch(() => {});
   tab.terminal?.dispose();
   document.querySelector(`[data-terminal-host="${CSS.escape(tab.id)}"]`)?.remove();
@@ -769,14 +802,16 @@ function closeTerminalTab(sessionId) {
 }
 
 async function startTerminal(tab) {
-  if (tab.started) return;
   if (tab.startPromise) return tab.startPromise;
+  if (tab.started) return tab.readiness ?? Promise.resolve();
   tab.startPromise = (async () => {
     if (!nativeInvoke) throw new Error('Native terminal requires the desktop runtime.');
+    const readiness = prepareTerminalReadiness(tab);
     await nativeInvoke('terminal_start', { sessionId: tab.id, cwd: workspaceRootPath });
     tab.started = true;
     renderTerminalTabs();
     scheduleTerminalFit();
+    await readiness;
   })().finally(() => { tab.startPromise = null; });
   return tab.startPromise;
 }
@@ -3963,6 +3998,13 @@ async function connectSidecar(snapshot) {
         if (contextPurpose === 'branches') {
           const menu = document.getElementById('branch-context-menu');
           if (menu && !menu.hidden) menu.innerHTML = `<p class="git-context-empty">${escapeHTML(response.error.message)}</p>`;
+        }
+        if (response.error.code === 'GIT_UNAVAILABLE') {
+          const message = response.error.message;
+          document.getElementById('git-history-status')?.replaceChildren(document.createTextNode(message));
+          document.getElementById('git-pending-status')?.replaceChildren(document.createTextNode(message));
+          document.getElementById('git-workspace-output')?.replaceChildren(document.createTextNode(message));
+          return;
         }
         if (contextPurpose === 'run-save') {
           /** The file was not written: the dialog stays open with the field the

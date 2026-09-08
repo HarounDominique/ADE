@@ -1,7 +1,4 @@
-import { execFile as execFileCallback } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFile = promisify(execFileCallback);
+import { executeGit } from "./git-command.js";
 
 export type GitChanges = {
   status: string;
@@ -11,9 +8,9 @@ export type GitChanges = {
 
 export async function captureGitChanges(directory: string): Promise<GitChanges> {
   const [statusResult, diffResult, untrackedResult] = await Promise.all([
-    execFile("git", ["status", "--short"], { cwd: directory }),
-    execFile("git", ["diff", "--binary"], { cwd: directory }),
-    execFile("git", ["ls-files", "--others", "--exclude-standard"], { cwd: directory }),
+    executeGit(["status", "--short"], { cwd: directory }),
+    executeGit(["diff", "--binary"], { cwd: directory }),
+    executeGit(["ls-files", "--others", "--exclude-standard"], { cwd: directory }),
   ]);
   return {
     status: statusResult.stdout,
