@@ -414,14 +414,27 @@ test("desktop sidecar proposes configurations and writes the ones that are accep
   rmSync(projectRoot, { recursive: true, force: true });
 });
 
+/** `os.homedir()` reads HOME on POSIX and USERPROFILE on Windows, so a home
+    the test owns has to be spelled in both to survive either CI runner. */
+function overrideHome(home: string): () => void {
+  const previous = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  return () => {
+    for (const [name, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  };
+}
+
 test("saving a terminal session records the agent conversation it can resume", () => {
   const home = mkdtempSync(join(tmpdir(), "ade-sidecar-home-"));
   const repositoryPath = join(home, "workspace");
   const projects = join(home, ".claude", "projects", repositoryPath.replace(/[^a-zA-Z0-9]/g, "-"));
   mkdirSync(projects, { recursive: true });
   writeFileSync(join(projects, "77777777-7777-4777-8777-777777777777.jsonl"), "{}\n");
-  const previousHome = process.env.HOME;
-  process.env.HOME = home;
+  const restoreHome = overrideHome(home);
   const store = new AdeStore();
   try {
     const startedAt = new Date(Date.now() - 60_000).toISOString();
@@ -434,8 +447,7 @@ test("saving a terminal session records the agent conversation it can resume", (
     handleDesktopRequest(store, { id: "terminal-save-manual", method: "terminal.history.save", params: { sessionId: "terminal-unmatched", projectId: "project-a", provider: "claude", repositoryPath: join(home, "elsewhere"), transcript: "hello", startedAt, endedAt } });
     assert.equal((handleDesktopRequest(store, { id: "terminal-get-manual", method: "terminal.history.get", params: { sessionId: "terminal-unmatched", projectId: "project-a" } }).result as { providerSessionId?: string }).providerSessionId, undefined);
   } finally {
-    if (previousHome === undefined) delete process.env.HOME;
-    else process.env.HOME = previousHome;
+    restoreHome();
     store.close();
     rmSync(home, { recursive: true, force: true });
   }
@@ -451,8 +463,7 @@ test("reopening a terminal session does not widen the window it resolves in", ()
   mkdirSync(projects, { recursive: true });
   writeFileSync(join(projects, "88888888-8888-4888-8888-888888888888.jsonl"), "{}\n");
   const bornBy = Date.now();
-  const previousHome = process.env.HOME;
-  process.env.HOME = home;
+  const restoreHome = overrideHome(home);
   const store = new AdeStore();
   try {
     const params = { sessionId: "terminal-reopened", projectId: "project-a", provider: "claude", repositoryPath, transcript: "hello", startedAt: new Date(bornBy - 3_600_000).toISOString(), endedAt: new Date(bornBy + 60_000).toISOString() };
@@ -465,8 +476,7 @@ test("reopening a terminal session does not widen the window it resolves in", ()
     handleDesktopRequest(store, { id: "save-fresh", method: "terminal.history.save", params: { ...params, sessionId: "terminal-fresh", agentStartedAt: new Date(bornBy - 1_000).toISOString() } });
     assert.equal(store.getTerminalHistorySession("terminal-fresh")?.providerSessionId, "88888888-8888-4888-8888-888888888888");
   } finally {
-    if (previousHome === undefined) delete process.env.HOME;
-    else process.env.HOME = previousHome;
+    restoreHome();
     store.close();
     rmSync(home, { recursive: true, force: true });
   }
@@ -479,8 +489,7 @@ test("listing terminal history identifies conversations it could not identify be
   const repositoryPath = join(home, "workspace");
   const projects = join(home, ".claude", "projects", repositoryPath.replace(/[^a-zA-Z0-9]/g, "-"));
   mkdirSync(projects, { recursive: true });
-  const previousHome = process.env.HOME;
-  process.env.HOME = home;
+  const restoreHome = overrideHome(home);
   const store = new AdeStore();
   try {
     const openedAt = Date.now() - 1_000;
@@ -493,8 +502,7 @@ test("listing terminal history identifies conversations it could not identify be
     // The answer is kept, so the next listing costs no lookup.
     assert.equal(store.getTerminalHistorySession("terminal-legacy")?.providerSessionId, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
   } finally {
-    if (previousHome === undefined) delete process.env.HOME;
-    else process.env.HOME = previousHome;
+    restoreHome();
     store.close();
     rmSync(home, { recursive: true, force: true });
   }
