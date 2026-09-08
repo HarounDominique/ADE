@@ -1,6 +1,6 @@
 import { type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt } from "../ports/agent-runtime.js";
+import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt, TurnUsage } from "../ports/agent-runtime.js";
 import { executeGit } from "./git-command.js";
 import { startSafeCommand } from "./safe-command.js";
 
@@ -133,6 +133,42 @@ export function extractCodexSessionId(jsonl: string): string | undefined {
       const candidate = event.thread_id ?? event.session_id ?? thread?.id ?? session?.id;
       if (typeof candidate === "string" && candidate.trim()) return candidate;
     } catch { /* A final text line does not carry a session id. */ }
+  }
+  return undefined;
+}
+
+/** Codex reports `total_token_usage` as a running total for the whole thread,
+    not for the turn that just ran, so the caller subtracts what it already
+    recorded for the session. Its `input_tokens` counts cached tokens too; ADE
+    stores them apart, as Claude Code already reports them, so a row means the
+    same thing whichever provider produced it. */
+export function extractCodexUsage(jsonl: unknown): TurnUsage | undefined {
+  if (typeof jsonl !== "string") return undefined;
+  for (const line of jsonl.split(/\r?\n/).reverse()) {
+    if (!line.trim()) continue;
+    let event: unknown;
+    try { event = JSON.parse(line); } catch { continue; }
+    const usage = findCodexUsage(event);
+    if (usage) return usage;
+  }
+  return undefined;
+}
+
+function findCodexUsage(value: unknown, depth = 0): TurnUsage | undefined {
+  if (!value || typeof value !== "object" || depth > 6) return undefined;
+  const node = value as Record<string, unknown>;
+  const totals = node.total_token_usage;
+  if (totals && typeof totals === "object") return findCodexUsage(totals, depth + 1);
+  const input = node.input_tokens;
+  const output = node.output_tokens;
+  if (typeof input === "number" || typeof output === "number") {
+    const count = (candidate: unknown): number => (typeof candidate === "number" && Number.isFinite(candidate) ? candidate : 0);
+    const cached = count(node.cached_input_tokens);
+    return { inputTokens: Math.max(count(input) - cached, 0), outputTokens: count(output), cacheReadInputTokens: cached, cacheCreationInputTokens: 0 };
+  }
+  for (const child of Object.values(node)) {
+    const usage = findCodexUsage(child, depth + 1);
+    if (usage) return usage;
   }
   return undefined;
 }

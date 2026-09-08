@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ClaudeCliRuntime, executeClaudeCommand, extractClaudeSessionId, extractClaudeText } from "../src/adapters/claude-cli-runtime.js";
+import { ClaudeCliRuntime, executeClaudeCommand, extractClaudeSessionId, extractClaudeText, extractClaudeUsage } from "../src/adapters/claude-cli-runtime.js";
 
 test("a read-only turn does not plan, so the requested model survives", async () => {
   // `--permission-mode plan` enforces a minimum model tier and substitutes its
@@ -60,4 +60,28 @@ test("Claude Code CLI extracts JSON result and session id", () => {
 test("Claude command closes stdin for non-interactive execution", async () => {
   const result = await executeClaudeCommand(process.execPath, ["-e", "process.stdin.resume(); process.stdin.on('end', () => process.stdout.write('STDIN_CLOSED'))"], { cwd: process.cwd(), maxBuffer: 1024 });
   assert.equal(result.stdout, "STDIN_CLOSED");
+});
+
+test("Claude Code accounts for the turn from its result event", () => {
+  const stdout = [
+    JSON.stringify({ type: "assistant", message: { usage: { input_tokens: 12, output_tokens: 30, cache_read_input_tokens: 900 } } }),
+    JSON.stringify({ type: "result", result: "done", usage: { input_tokens: 40, output_tokens: 120, cache_read_input_tokens: 2_400, cache_creation_input_tokens: 600 }, total_cost_usd: 0.0125 }),
+  ].join("\n");
+
+  // The result event already aggregates every request the turn made, so the
+  // per-request assistant usage must not be added on top of it.
+  assert.deepEqual(extractClaudeUsage(stdout), { inputTokens: 40, outputTokens: 120, cacheReadInputTokens: 2_400, cacheCreationInputTokens: 600, costUsd: 0.0125 });
+});
+
+test("Claude Code falls back to per-request usage when a turn reports no result", () => {
+  const stdout = [
+    JSON.stringify({ type: "assistant", message: { usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 100 } } }),
+    JSON.stringify({ type: "assistant", message: { usage: { input_tokens: 4, output_tokens: 7, cache_creation_input_tokens: 50 } } }),
+  ].join("\n");
+
+  assert.deepEqual(extractClaudeUsage(stdout), { inputTokens: 14, outputTokens: 12, cacheReadInputTokens: 100, cacheCreationInputTokens: 50 });
+  // A turn nobody accounted for has no usage: reporting zeros would read as a
+  // free turn.
+  assert.equal(extractClaudeUsage('{"type":"result","result":"done"}'), undefined);
+  assert.equal(extractClaudeUsage(undefined), undefined);
 });

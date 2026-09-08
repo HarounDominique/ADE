@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Project } from "../src/domain/project.js";
 import { Task } from "../src/domain/task.js";
-import { handleDesktopRequest, summarizeAgentActivity } from "../src/desktop-sidecar.js";
+import { agentTurnUsage, handleDesktopRequest, summarizeAgentActivity } from "../src/desktop-sidecar.js";
 import type { Readable } from "node:stream";
 
 type SidecarMessage = { id?: string; type?: string; [key: string]: unknown };
@@ -517,4 +517,25 @@ test("listing terminal history identifies conversations it could not identify be
     store.close();
     rmSync(home, { recursive: true, force: true });
   }
+});
+
+test("a turn records what it cost, and Codex thread totals become per-turn rows", () => {
+  const store = new AdeStore();
+  store.saveAgentSession({ id: "session-codex", provider: "codex", directory: "/tmp/project", status: "COMPLETED", createdAt: "2026-09-08T10:00:00.000Z" });
+  const total = (input: number, cached: number, output: number) => JSON.stringify({ type: "token_count", info: { total_token_usage: { input_tokens: input, cached_input_tokens: cached, output_tokens: output } } });
+
+  const first = agentTurnUsage(store, "codex", "session-codex", total(1_000, 600, 200));
+  assert.deepEqual(first, { inputTokens: 400, outputTokens: 200, cacheReadInputTokens: 600, cacheCreationInputTokens: 0 });
+  store.saveAgentTurnUsage({ id: "turn-1-usage", sessionId: "session-codex", provider: "codex", ...first!, createdAt: "2026-09-08T10:01:00.000Z" });
+
+  // The second turn reports the thread total again: only the difference is new.
+  assert.deepEqual(agentTurnUsage(store, "codex", "session-codex", total(2_500, 1_800, 260)), { inputTokens: 300, outputTokens: 60, cacheReadInputTokens: 1_200, cacheCreationInputTokens: 0 });
+  // A resumed thread the CLI recounts from zero reports what it read, never a
+  // negative turn.
+  assert.deepEqual(agentTurnUsage(store, "codex", "session-codex", total(100, 0, 10)), { inputTokens: 100, outputTokens: 10, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 });
+
+  // Claude Code accounts for the turn itself, and OpenCode reports nothing here.
+  assert.deepEqual(agentTurnUsage(store, "claude", "session-codex", JSON.stringify({ type: "result", usage: { input_tokens: 40, output_tokens: 120 } })), { inputTokens: 40, outputTokens: 120, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 });
+  assert.equal(agentTurnUsage(store, "opencode", "session-codex", "{}"), undefined);
+  store.close();
 });

@@ -158,3 +158,25 @@ test("SQLite migrates terminal history and keeps the conversation it can resume"
   assert.equal(store.getTerminalHistorySession("terminal-new")?.providerSessionId, "11111111-1111-4111-8111-111111111111");
   store.close();
 });
+
+test("SQLite records what each agent turn cost and sums the session", () => {
+  const store = new AdeStore();
+  store.saveAgentSession({ id: "session-usage", provider: "claude", directory: "/tmp/project", model: "haiku", status: "COMPLETED", createdAt: "2026-09-08T10:00:00.000Z" });
+
+  store.saveAgentTurnUsage({ id: "turn-1-usage", sessionId: "session-usage", provider: "claude", model: "haiku", inputTokens: 40, outputTokens: 120, cacheReadInputTokens: 2_400, cacheCreationInputTokens: 600, costUsd: 0.0125, createdAt: "2026-09-08T10:01:00.000Z" });
+  store.saveAgentTurnUsage({ id: "turn-2-usage", sessionId: "session-usage", provider: "claude", inputTokens: 10, outputTokens: 30, cacheReadInputTokens: 3_000, cacheCreationInputTokens: 0, createdAt: "2026-09-08T10:02:00.000Z" });
+
+  const turns = store.listAgentTurnUsage("session-usage");
+  assert.deepEqual(turns.map((turn) => turn.id), ["turn-1-usage", "turn-2-usage"]);
+  assert.equal(turns[0]?.model, "haiku");
+  // A turn without a reported cost keeps it absent instead of claiming zero.
+  assert.equal(turns[1]?.costUsd, undefined);
+  assert.equal(turns[1]?.model, undefined);
+  assert.deepEqual(store.agentSessionUsage("session-usage"), { inputTokens: 50, outputTokens: 150, cacheReadInputTokens: 5_400, cacheCreationInputTokens: 600, costUsd: 0.0125 });
+
+  // A conversation deleted from the workbench takes its accounting with it.
+  store.deleteAgentSession("session-usage");
+  assert.deepEqual(store.listAgentTurnUsage("session-usage"), []);
+  assert.deepEqual(store.agentSessionUsage("session-usage"), { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUsd: 0 });
+  store.close();
+});

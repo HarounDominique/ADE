@@ -1,6 +1,6 @@
 import { type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt } from "../ports/agent-runtime.js";
+import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt, TurnUsage } from "../ports/agent-runtime.js";
 import { executeGit } from "./git-command.js";
 import { startSafeCommand } from "./safe-command.js";
 
@@ -155,5 +155,50 @@ function createJsonlEventEmitter(onEvent: (event: Record<string, unknown>) => vo
       lines.forEach(consume);
     },
     flush() { consume(buffer); buffer = ""; },
+  };
+}
+
+/** Claude Code reports the turn's token count in its final `result` event, which
+    already aggregates every API request the turn made. Assistant events carry a
+    per-request `usage` and are only summed when the run ended without a result
+    event -- an aborted turn, or a CLI version that omits it. */
+export function extractClaudeUsage(output: unknown): TurnUsage | undefined {
+  if (typeof output !== "string") return undefined;
+  const events = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).flatMap((line) => {
+    try { return [JSON.parse(line) as Record<string, unknown>]; } catch { return []; }
+  });
+  const result = [...events].reverse().find((event) => event.type === "result" && isUsage(event.usage));
+  if (result) {
+    const usage = readUsage(result.usage);
+    const cost = result.total_cost_usd;
+    return { ...usage, ...(typeof cost === "number" ? { costUsd: cost } : {}) };
+  }
+  const requests = events.flatMap((event) => {
+    const message = event.message as Record<string, unknown> | undefined;
+    return isUsage(message?.usage) ? [readUsage(message?.usage)] : [];
+  });
+  if (!requests.length) return undefined;
+  return requests.reduce((total, usage) => ({
+    inputTokens: total.inputTokens + usage.inputTokens,
+    outputTokens: total.outputTokens + usage.outputTokens,
+    cacheReadInputTokens: total.cacheReadInputTokens + usage.cacheReadInputTokens,
+    cacheCreationInputTokens: total.cacheCreationInputTokens + usage.cacheCreationInputTokens,
+  }));
+}
+
+function isUsage(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object") return false;
+  const usage = value as Record<string, unknown>;
+  return typeof usage.input_tokens === "number" || typeof usage.output_tokens === "number";
+}
+
+function readUsage(value: unknown): TurnUsage {
+  const usage = (value ?? {}) as Record<string, unknown>;
+  const count = (candidate: unknown): number => (typeof candidate === "number" && Number.isFinite(candidate) ? candidate : 0);
+  return {
+    inputTokens: count(usage.input_tokens),
+    outputTokens: count(usage.output_tokens),
+    cacheReadInputTokens: count(usage.cache_read_input_tokens),
+    cacheCreationInputTokens: count(usage.cache_creation_input_tokens),
   };
 }

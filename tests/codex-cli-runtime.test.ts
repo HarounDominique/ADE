@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CodexCliRuntime, executeCodexCommand, extractCodexSessionId } from "../src/adapters/codex-cli-runtime.js";
+import { CodexCliRuntime, executeCodexCommand, extractCodexSessionId, extractCodexUsage } from "../src/adapters/codex-cli-runtime.js";
 
 test("Codex CLI captures its emitted session id and resumes it", async () => {
   const calls: string[][] = [];
@@ -81,4 +81,21 @@ test("Codex CLI forwards incremental agent-message events while a turn is runnin
 test("Codex command closes stdin for non-interactive execution", async () => {
   const result = await executeCodexCommand(process.execPath, ["-e", "process.stdin.resume(); process.stdin.on('end', () => process.stdout.write('STDIN_CLOSED'))"], { cwd: process.cwd(), maxBuffer: 1024 });
   assert.equal(result.stdout, "STDIN_CLOSED");
+});
+
+test("Codex reports thread totals with cached input counted apart", () => {
+  const stdout = [
+    JSON.stringify({ type: "thread.started", thread_id: "codex-usage" }),
+    JSON.stringify({ type: "token_count", info: { total_token_usage: { input_tokens: 5_000, cached_input_tokens: 4_200, output_tokens: 900, total_tokens: 5_900 }, last_token_usage: { input_tokens: 1_000, cached_input_tokens: 800, output_tokens: 100 } } }),
+  ].join("\n");
+
+  // `input_tokens` includes the cached ones; ADE stores them apart so a Codex
+  // row means what a Claude Code row means.
+  assert.deepEqual(extractCodexUsage(stdout), { inputTokens: 800, outputTokens: 900, cacheReadInputTokens: 4_200, cacheCreationInputTokens: 0 });
+});
+
+test("Codex usage tolerates the older nested event shape and reports nothing when absent", () => {
+  assert.deepEqual(extractCodexUsage('{"id":"0","msg":{"type":"token_count","input_tokens":300,"cached_input_tokens":100,"output_tokens":40}}'), { inputTokens: 200, outputTokens: 40, cacheReadInputTokens: 100, cacheCreationInputTokens: 0 });
+  assert.equal(extractCodexUsage('{"type":"turn.completed"}'), undefined);
+  assert.equal(extractCodexUsage(undefined), undefined);
 });

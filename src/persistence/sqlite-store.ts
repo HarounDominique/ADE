@@ -55,6 +55,7 @@ export type PersistedRuntimeEvidence = RuntimeEvidence;
 export type GitOperation = { id: string; taskId: string; operation: string; reference?: string; actor: string; reason: string; at: string; metadata?: string };
 export type AgentSession = { id: string; projectId?: string; taskId?: string; provider: string; directory: string; title?: string; model?: string; status: string; createdAt: string; updatedAt: string };
 export type AgentMessage = { id: string; sessionId: string; role: "user" | "assistant" | "system"; content: string; createdAt: string };
+export type AgentTurnUsage = { id: string; sessionId: string; provider: string; model?: string; inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; costUsd?: number; createdAt: string };
 export type TerminalHistorySession = { id: string; projectId: string; provider: "claude" | "codex" | "opencode"; title: string; transcript: string; truncated: boolean; startedAt: string; endedAt: string; providerSessionId?: string | undefined };
 
 export class AdeStore {
@@ -155,6 +156,18 @@ export class AdeStore {
         session_id TEXT NOT NULL REFERENCES agent_sessions(id) ON DELETE CASCADE,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS agent_turn_usage (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL REFERENCES agent_sessions(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL,
+        model TEXT,
+        input_tokens INTEGER NOT NULL,
+        output_tokens INTEGER NOT NULL,
+        cache_read_input_tokens INTEGER NOT NULL,
+        cache_creation_input_tokens INTEGER NOT NULL,
+        cost_usd REAL,
         created_at TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS terminal_history_sessions (
@@ -448,6 +461,30 @@ export class AdeStore {
 
   saveAgentMessage(input: Omit<AgentMessage, "createdAt"> & { createdAt?: string }): void {
     this.db.prepare(`INSERT INTO agent_messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content = excluded.content`).run(input.id, input.sessionId, input.role, input.content, input.createdAt ?? new Date().toISOString());
+  }
+
+  /** One row per completed turn. A turn the provider did not account for has
+      no row: an absent cost is not a free one. */
+  saveAgentTurnUsage(input: Omit<AgentTurnUsage, "createdAt"> & { createdAt?: string }): void {
+    this.db.prepare(`INSERT INTO agent_turn_usage (id, session_id, provider, model, input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens, cost_usd, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET input_tokens = excluded.input_tokens, output_tokens = excluded.output_tokens, cache_read_input_tokens = excluded.cache_read_input_tokens, cache_creation_input_tokens = excluded.cache_creation_input_tokens, cost_usd = excluded.cost_usd`)
+      .run(input.id, input.sessionId, input.provider, input.model ?? null, input.inputTokens, input.outputTokens, input.cacheReadInputTokens, input.cacheCreationInputTokens, input.costUsd ?? null, input.createdAt ?? new Date().toISOString());
+  }
+
+  listAgentTurnUsage(sessionId: string): AgentTurnUsage[] {
+    return this.db.prepare(`SELECT id, session_id AS sessionId, provider, model, input_tokens AS inputTokens, output_tokens AS outputTokens, cache_read_input_tokens AS cacheReadInputTokens, cache_creation_input_tokens AS cacheCreationInputTokens, cost_usd AS costUsd, created_at AS createdAt FROM agent_turn_usage WHERE session_id = ? ORDER BY created_at ASC, id ASC`).all(sessionId)
+      .map((row) => {
+        const { model, costUsd, ...usage } = row as Omit<AgentTurnUsage, "model" | "costUsd"> & { model: string | null; costUsd: number | null };
+        return { ...usage, ...(model ? { model } : {}), ...(typeof costUsd === "number" ? { costUsd } : {}) };
+      });
+  }
+
+  /** What the session has spent so far, summed from its turns. Codex reports a
+      running thread total instead of a per-turn one, so the sidecar needs this
+      to reduce it back to the turn that just ran. */
+  agentSessionUsage(sessionId: string): { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; costUsd: number } {
+    const row = this.db.prepare(`SELECT COALESCE(SUM(input_tokens), 0) AS inputTokens, COALESCE(SUM(output_tokens), 0) AS outputTokens, COALESCE(SUM(cache_read_input_tokens), 0) AS cacheReadInputTokens, COALESCE(SUM(cache_creation_input_tokens), 0) AS cacheCreationInputTokens, COALESCE(SUM(cost_usd), 0) AS costUsd FROM agent_turn_usage WHERE session_id = ?`).get(sessionId);
+    const totals = row as { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; costUsd: number };
+    return { inputTokens: totals.inputTokens, outputTokens: totals.outputTokens, cacheReadInputTokens: totals.cacheReadInputTokens, cacheCreationInputTokens: totals.cacheCreationInputTokens, costUsd: totals.costUsd };
   }
 
   listAgentMessages(sessionId: string): AgentMessage[] {

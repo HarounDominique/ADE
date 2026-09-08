@@ -6,8 +6,8 @@ import type { TaskStatus } from "./domain/task.js";
 import { AdeStore } from "./persistence/sqlite-store.js";
 import { getProjectSnapshot } from "./application/project-snapshot.js";
 import { OpenCodeHttpRuntime } from "./adapters/opencode-http-runtime.js";
-import { CodexCliRuntime } from "./adapters/codex-cli-runtime.js";
-import { ClaudeCliRuntime, extractClaudeText } from "./adapters/claude-cli-runtime.js";
+import { CodexCliRuntime, extractCodexUsage } from "./adapters/codex-cli-runtime.js";
+import { ClaudeCliRuntime, extractClaudeText, extractClaudeUsage } from "./adapters/claude-cli-runtime.js";
 import { runSpike } from "./application/run-spike.js";
 import { createRuntimeEvidence } from "./domain/runtime-evidence.js";
 import { getRuntimeHistory, getTaskDetail } from "./application/task-detail.js";
@@ -814,9 +814,15 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     store.saveAgentMessage({ id: `agent-${request.id}-user`, sessionId: session.id, role: "user", content: params.prompt!, createdAt });
     const output = provider === "codex" ? extractCodexText(rawOutput) : provider === "claude" ? extractClaudeText(rawOutput) : streamState.output?.trim() || eventTexts.join("\n\n").trim();
     if (output) store.saveAgentMessage({ id: `agent-${request.id}-assistant`, sessionId: session.id, role: "assistant", content: output, createdAt: new Date().toISOString() });
+    /** Routing a cheap turn to a cheap model is only worth doing once the turns
+        are counted, so every completed turn records what the provider charged
+        for it. A provider that reports nothing -- OpenCode today -- records
+        nothing rather than a zero. */
+    const usage = agentTurnUsage(store, provider, session.id, rawOutput);
+    if (usage) store.saveAgentTurnUsage({ id: `agent-${request.id}-usage`, sessionId: session.id, provider, ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), ...usage, createdAt: new Date().toISOString() });
     let files: readonly import("./ports/agent-runtime.js").FileDiff[] = [];
     try { files = await runtime.diff(session); } catch { /* A provider may not expose a diff for this turn. */ }
-    process.stdout.write(`${JSON.stringify({ id: request.id, result: { sessionId: session.id, provider, status: "COMPLETED", output, activity, files } })}\n`);
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: { sessionId: session.id, provider, status: "COMPLETED", output, activity, files, ...(usage ? { usage } : {}) } })}\n`);
   })().catch((error: unknown) => {
     if (active.aborted) {
       const session = active.session;
@@ -970,6 +976,25 @@ function extractAgentEventText(value: unknown): string | undefined {
   const parts = item.parts;
   if (Array.isArray(parts)) return parts.map(extractAgentEventText).filter((candidate): candidate is string => Boolean(candidate)).join("\n").trim() || undefined;
   return undefined;
+}
+
+/** Claude Code accounts for the turn that just ran; Codex reports a running
+    total for the whole thread, so what this turn added is that total minus the
+    turns already recorded. A total that went backwards -- a resumed thread the
+    CLI recounts from zero -- is reported as read instead of as a negative. */
+export function agentTurnUsage(store: AdeStore, provider: string, sessionId: string, rawOutput: unknown): import("./ports/agent-runtime.js").TurnUsage | undefined {
+  if (provider === "claude") return extractClaudeUsage(rawOutput);
+  if (provider !== "codex") return undefined;
+  const total = extractCodexUsage(rawOutput);
+  if (!total) return undefined;
+  const recorded = store.agentSessionUsage(sessionId);
+  const remaining = (current: number, already: number): number => (current >= already ? current - already : current);
+  return {
+    inputTokens: remaining(total.inputTokens, recorded.inputTokens),
+    outputTokens: remaining(total.outputTokens, recorded.outputTokens),
+    cacheReadInputTokens: remaining(total.cacheReadInputTokens, recorded.cacheReadInputTokens),
+    cacheCreationInputTokens: remaining(total.cacheCreationInputTokens, recorded.cacheCreationInputTokens),
+  };
 }
 
 function extractCodexText(value: unknown): string {

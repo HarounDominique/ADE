@@ -50,6 +50,12 @@ Durante `prompt`, el callback interno opcional `onEvent` entrega eventos públic
 
 Cada sesión debe conservar `id` y `directory`. El `directory` se envía en cada operación que dependa del contexto del repositorio para impedir que una sesión opere accidentalmente sobre otro proyecto.
 
+## Turn accounting
+
+Cada turno completado registra lo que el proveedor dice que costó. El puerto declara `TurnUsage` —tokens de entrada, de salida, leídos de cache, escritos en cache y coste declarado cuando el proveedor lo da— y los adapters lo traducen desde su propio formato: Claude Code desde el evento `result` de `stream-json`, que ya agrega todas las peticiones del turno, y Codex desde `token_count`, cuyo `total_token_usage` es acumulado del thread y se reduce al turno restando lo ya registrado en la sesión. Los tokens cacheados se guardan aparte de la entrada para que una fila signifique lo mismo en cualquier proveedor.
+
+La aplicación persiste una fila por turno en `agent_turn_usage`, ligada a la conversación y borrada con ella, y devuelve el consumo en el resultado del turno. Un proveedor que no contabiliza —OpenCode en este seam— no escribe fila: la ausencia de coste no es coste cero. La contabilidad no decide modelo; el enrutado automático queda diferido en [ADR-0040](../adr/0040-agent-turn-accounting.md), que fija además la restricción de no cambiar de modelo dentro de una conversación viva para no perder el prompt cache del proveedor.
+
 ## Role isolation
 
 El Implementer y el Reviewer usan sesiones independientes. El Reviewer recibe `taskId`, intención, ChangeSet, diff Git, archivos no trackeados y evidencia disponible; no recibe la conversación ni el historial de mensajes del Implementer. La respuesta estructurada se valida antes de construir una `Review`; una respuesta inválida es un fallo accionable, no un `pass` implícito.

@@ -19,6 +19,16 @@ export type AgentPromptInput = {
   onEvent?: (event: RuntimeEvent) => void;
 };
 
+/** What one turn cost the provider. Tokens are counted by the provider, not
+    inferred by ADE: a turn that reports nothing has no usage, never a zero. */
+export type TurnUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+  costUsd?: number;
+};
+
 export type FileDiff = {
   path?: string;
   additions?: number;
