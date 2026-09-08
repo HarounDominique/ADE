@@ -251,6 +251,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .sidebar-tool kbd { margin-left: auto; color: var(--faint); font: 11px var(--mono); }
 .terminal-dock { left: var(--sidebar-width, 246px); display: flex; height: var(--terminal-height, 138px); flex-direction: column; }
 .terminal-dock.terminal-size-transitioning { transition: height .22s cubic-bezier(.16,1,.3,1); }
+.terminal-dock.terminal-collapsed .terminal-dock-tabs, .terminal-dock.terminal-collapsed .terminal-surface { display: none; }
 .terminal-resizer { position: relative; flex: 0 0 7px; margin: 0 -22px; cursor: row-resize; touch-action: none; }
 .terminal-resizer::after { position: absolute; top: 3px; left: 50%; width: 38px; height: 2px; border-radius: 2px; background: var(--line-strong); content: ''; transform: translateX(-50%); }
 .terminal-resizer:hover::after, .terminal-resizer:focus-visible::after { background: var(--cyan); }

@@ -65,6 +65,7 @@ let workspaceSearchTimer = null;
 const terminalResizer = document.getElementById('terminal-resizer');
 const terminalSizeToggle = document.getElementById('terminal-size-toggle');
 const terminalDock = document.getElementById('terminal-dock-panel');
+const terminalDockContent = terminalDock?.querySelectorAll('.terminal-dock-tabs, .terminal-surface');
 const sidebarResizer = document.getElementById('sidebar-resizer');
 const terminalStorageKey = `ade-terminal-height:${activeProjectId}`;
 const sidebarStorageKey = `ade-sidebar-width:${activeProjectId}`;
@@ -376,7 +377,10 @@ applyTheme(initialTheme);
     the terminal's. Both edges are measured rather than assumed, because the
     topbar grows with the theme and the dock sits on top of the status bar. */
 function terminalHeightBounds() {
-  const min = 110;
+  // Keep only the resizer strip visible at the collapsed end of the range.
+  // The tab bar and transcript are hidden at this height, so the control stays
+  // usable without reserving terminal workspace that the user cannot see.
+  const min = 40;
   const headerBottom = document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 48;
   const statusBarInset = terminalDock ? parseFloat(getComputedStyle(terminalDock).bottom) || 0 : 0;
   return { min, max: Math.max(min, Math.round(window.innerHeight - headerBottom - statusBarInset)) };
@@ -417,6 +421,8 @@ function setTerminalHeight(nextHeight, persist = true) {
   const bounds = terminalHeightBounds();
   terminalHeight = Math.max(bounds.min, Math.min(bounds.max, Math.round(nextHeight)));
   document.documentElement.style.setProperty('--terminal-height', `${terminalHeight}px`);
+  terminalDock?.classList.toggle('terminal-collapsed', terminalHeight === bounds.min);
+  terminalDockContent?.forEach((element) => element.toggleAttribute('aria-hidden', terminalHeight === bounds.min));
   terminalResizer?.setAttribute('aria-valuemax', String(bounds.max));
   terminalResizer?.setAttribute('aria-valuenow', String(terminalHeight));
   updateTerminalSizeToggle();
