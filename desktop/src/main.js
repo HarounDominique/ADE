@@ -17,8 +17,9 @@ import { markdown } from '@codemirror/lang-markdown';
 import { sql } from '@codemirror/lang-sql';
 import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
-import { defaultHighlightStyle, bracketMatching, indentOnInput, syntaxHighlighting } from '@codemirror/language';
-import { EditorState, Compartment } from '@codemirror/state';
+import { HighlightStyle, bracketMatching, indentOnInput, syntaxHighlighting } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
+import { EditorState, Compartment, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 
@@ -137,6 +138,7 @@ let monacoLoader = null;
 let prettierLoader = null;
 let activeEditorEngine = 'codemirror';
 const codeEditorLanguage = new Compartment();
+const codeEditorHighlight = new Compartment();
 const pendingContextRequests = new Map();
 const pendingAgentSessionPaths = new Map();
 const pendingAgentMessageSessions = new Map();
@@ -269,6 +271,68 @@ const terminalPalettes = {
   },
 };
 
+/** Editor syntax palettes.  CodeMirror's defaultHighlightStyle is written for a
+    white page -- it paints names in pure blue and comments in near-black -- so
+    in dark mode a Java class or field sank into the background and could not be
+    read. Each theme now gets its own style, built from the product's tokens and
+    checked against every panel-soft background the skins use: nothing here
+    falls below 5:1, comfortably past the 4.5:1 minimum for body-size text.
+
+    The two palettes assign the same hue to the same role, so a file keeps its
+    shape across a theme switch: purple for keywords, green for types, blue for
+    the name being defined, red for strings, amber for numbers and annotations. */
+const codeHighlightPalettes = {
+  dark: {
+    keyword: '#c9b0ff', string: '#f3a3aa', number: '#f2cc85', comment: '#8ba2b6',
+    type: '#7cd9a5', name: '#cfdae4', definition: '#8fb9ff', callee: '#6fdccf',
+    property: '#95e9de', meta: '#f2cc85', operator: '#a6b8c8', invalid: '#ff9aa2',
+  },
+  light: {
+    keyword: '#6f48a6', string: '#ab3d47', number: '#8a5d11', comment: '#566878',
+    type: '#167646', name: '#243544', definition: '#1d4fa8', callee: '#0b6b65',
+    property: '#0f6d68', meta: '#8a5d11', operator: '#4a5c6e', invalid: '#a32b2b',
+  },
+};
+
+function codeHighlightStyle(theme) {
+  const palette = codeHighlightPalettes[theme === 'light' ? 'light' : 'dark'];
+  return HighlightStyle.define([
+    { tag: [tags.keyword, tags.modifier, tags.controlKeyword, tags.operatorKeyword, tags.self, tags.null, tags.atom, tags.bool], color: palette.keyword },
+    { tag: [tags.string, tags.special(tags.string), tags.regexp], color: palette.string },
+    { tag: [tags.escape, tags.character], color: palette.number },
+    { tag: [tags.number, tags.integer, tags.float, tags.unit], color: palette.number },
+    { tag: [tags.comment, tags.lineComment, tags.blockComment, tags.docComment], color: palette.comment, fontStyle: 'italic' },
+    { tag: [tags.typeName, tags.className, tags.namespace, tags.standard(tags.typeName)], color: palette.type },
+    { tag: [tags.variableName, tags.labelName], color: palette.name },
+    { tag: [tags.definition(tags.variableName), tags.definition(tags.propertyName)], color: palette.definition },
+    { tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.macroName], color: palette.callee },
+    { tag: [tags.propertyName, tags.attributeName], color: palette.property },
+    { tag: [tags.meta, tags.annotation, tags.processingInstruction, tags.definitionKeyword, tags.moduleKeyword], color: palette.meta },
+    { tag: [tags.operator, tags.punctuation, tags.separator, tags.bracket, tags.derefOperator], color: palette.operator },
+    { tag: [tags.tagName], color: palette.type },
+    { tag: [tags.heading], color: palette.definition, fontWeight: '600' },
+    { tag: [tags.link, tags.url], color: palette.callee, textDecoration: 'underline' },
+    { tag: [tags.emphasis], fontStyle: 'italic' },
+    { tag: [tags.strong], fontWeight: '600' },
+    { tag: [tags.strikethrough], textDecoration: 'line-through' },
+    { tag: [tags.invalid], color: palette.invalid },
+  ]);
+}
+
+/** basicSetup already installs defaultHighlightStyle, and the first extension
+    in the list wins, so simply adding ours after it changed nothing on screen.
+    Prec.highest puts the theme's style in front of the bundled one. */
+function codeHighlightExtension(theme) {
+  return Prec.highest(syntaxHighlighting(codeHighlightStyle(theme), { fallback: true }));
+}
+
+function applyCodeEditorTheme(theme) {
+  if (!codeEditorView) return;
+  codeEditorView.dispatch({
+    effects: codeEditorHighlight.reconfigure(codeHighlightExtension(theme)),
+  });
+}
+
 /** The active theme, readable before any terminal exists: a terminal created
     later must open in the theme already on screen instead of a hardcoded one. */
 function activeTerminalPalette() {
@@ -284,6 +348,7 @@ function applyTheme(theme) {
   // controls sit on a line measured from its foot.
   syncSidebarControlAnchor();
   applyMonacoTheme(nextTheme);
+  applyCodeEditorTheme(nextTheme);
   document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
     button.setAttribute('aria-checked', String(nextTheme === 'light'));
     const nextLabel = nextTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
@@ -1564,7 +1629,7 @@ function initializeCodeEditor() {
       extensions: [
         basicSetup,
         codeEditorLanguage.of([]),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        codeEditorHighlight.of(codeHighlightExtension(document.documentElement.dataset.theme)),
         bracketMatching(),
         indentOnInput(),
         EditorView.lineWrapping,
