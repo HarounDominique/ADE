@@ -58,8 +58,6 @@ let activeDocument = null;
 let documentOriginalContent = '';
 let documentDirty = false;
 let explorerExpanded = false;
-let workspaceSearchEntries = null;
-let workspaceSearchIndex = null;
 let workspaceSearchToken = 0;
 let workspaceSearchTimer = null;
 const terminalResizer = document.getElementById('terminal-resizer');
@@ -1146,8 +1144,6 @@ async function switchProjectFromContext(project) {
     window.clearTimeout(workspaceSearchTimer);
     workspaceSearchToken += 1;
     setWorkspaceSearchLoading(false);
-    workspaceSearchEntries = null;
-    workspaceSearchIndex = null;
     await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
     await refreshGitWorkspace(workspaceRootPath, nativeInvoke);
     requestAgentSessions(workspaceRootPath);
@@ -3525,8 +3521,6 @@ async function refreshProjectContext(snapshot) {
     window.clearTimeout(workspaceSearchTimer);
     workspaceSearchToken += 1;
     setWorkspaceSearchLoading(false);
-    workspaceSearchEntries = null;
-    workspaceSearchIndex = null;
     await loadWorkspaceTree(context.repositoryPath, invoke);
     await syncDocumentScope();
     await refreshGitWorkspace(context.repositoryPath, invoke);
@@ -3730,21 +3724,12 @@ async function searchWorkspaceFiles(query) {
     return;
   }
   const token = workspaceSearchToken;
-  tree.classList.add('is-searching');
   setWorkspaceSearchLoading(true);
-  tree.innerHTML = '<li class="workspace-empty">Searching files…</li>';
   try {
-    if (!workspaceSearchIndex) {
-      workspaceSearchEntries = await invoke('list_directory', { path: workspaceRootPath, maxDepth: 99 });
-      workspaceSearchIndex = workspaceSearchEntries
-        .filter((entry) => entry.kind === 'file')
-        .map((entry) => ({ ...entry, searchText: `${entry.name} ${entry.path}`.toLowerCase() }));
-    }
+    const matches = await invoke('search_directory', { path: workspaceRootPath, query: needle });
     if (token !== workspaceSearchToken) return;
-    const matches = workspaceSearchIndex.filter((entry) => entry.searchText.includes(needle));
     tree.innerHTML = matches.length ? matches.map((entry) => renderWorkspaceEntry(entry, '', { showPathHint: true })).join('') : '<li class="workspace-empty">No matching files.</li>';
     decorateWorkspaceTree();
-    tree.classList.add('is-searching');
     setWorkspaceSearchLoading(false);
   } catch (error) {
     if (token !== workspaceSearchToken) return;
@@ -3771,9 +3756,6 @@ function scheduleWorkspaceFileSearch(query) {
     void loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true, requestToken: token });
     return;
   }
-  const tree = document.getElementById('workspace-tree');
-  tree?.classList.add('is-searching');
-  if (tree) tree.innerHTML = '<li class="workspace-empty">Searching files…</li>';
   setWorkspaceSearchLoading(true);
   workspaceSearchTimer = window.setTimeout(() => {
     if (token !== workspaceSearchToken) return;
@@ -3900,8 +3882,6 @@ async function revealOpenFileInExplorer() {
     window.clearTimeout(workspaceSearchTimer);
     workspaceSearchToken += 1;
     setWorkspaceSearchLoading(false);
-    workspaceSearchEntries = null;
-    workspaceSearchIndex = null;
   }
   if (!explorerExpanded || filtered) {
     updateExplorerMode(true);
@@ -4672,8 +4652,6 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     window.clearTimeout(workspaceSearchTimer);
     workspaceSearchToken += 1;
     setWorkspaceSearchLoading(false);
-    workspaceSearchEntries = null;
-    workspaceSearchIndex = null;
     loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
     return;
   }

@@ -501,14 +501,14 @@ test("workspace search returns files directly and restores their compact branch 
   assert.match(styles, /\.explorer-search-status\[hidden\] \{ display: none; \}/);
   assert.match(main, /searchWorkspaceFiles/);
   assert.match(main, /scheduleWorkspaceFileSearch/);
-  assert.match(main, /workspaceSearchIndex/);
   assert.match(main, /workspaceSearchTimer/);
   assert.match(main, /setWorkspaceSearchLoading/);
   assert.match(main, /setWorkspaceSearchLoading\(false\);[\s\S]*void collapseExplorer\(\)/);
   assert.match(main, /aria-busy/);
   assert.match(main, /window\.setTimeout/);
-  assert.match(main, /maxDepth: 99/);
-  assert.match(main, /entry\.kind === 'file'/);
+  assert.match(main, /invoke\('search_directory', \{ path: workspaceRootPath, query: needle \}\)/);
+  assert.doesNotMatch(main, /workspaceSearchIndex/);
+  assert.doesNotMatch(main, /tree\) tree\.innerHTML = '<li class="workspace-empty">Searching files…<\/li>'/);
   assert.match(main, /No matching files/);
   assert.match(main, /workspace-path-hint/);
   assert.match(main, /workspace-result-copy/);

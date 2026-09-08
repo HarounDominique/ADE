@@ -447,6 +447,22 @@ fn list_directory(
     list_directory_in(&workspace, &path, max_depth)
 }
 
+#[tauri::command]
+async fn search_directory(
+    workspace: tauri::State<'_, WorkspaceRoot>,
+    path: String,
+    query: String,
+) -> Result<Vec<DirectoryEntry>, String> {
+    let root = workspace.resolve(&path)?;
+    if !root.is_dir() {
+        return Err(format!("Directory does not exist: {}", root.display()));
+    }
+    let needle = query.trim().to_lowercase();
+    tauri::async_runtime::spawn_blocking(move || search_directory_from_root(root, needle))
+        .await
+        .map_err(|error| format!("Unable to search workspace: {error}"))?
+}
+
 fn list_directory_in(
     workspace: &WorkspaceRoot,
     path: &str,
@@ -493,6 +509,66 @@ fn collect_directory(
         });
         if file_type.is_dir() && depth < max_depth {
             collect_directory(&entry_path, depth + 1, max_depth, entries)?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+fn search_directory_in(
+    workspace: &WorkspaceRoot,
+    path: &str,
+    query: &str,
+) -> Result<Vec<DirectoryEntry>, String> {
+    let root = workspace.resolve(path)?;
+    if !root.is_dir() {
+        return Err(format!("Directory does not exist: {}", root.display()));
+    }
+    search_directory_from_root(root, query.trim().to_lowercase())
+}
+
+fn search_directory_from_root(
+    root: PathBuf,
+    needle: String,
+) -> Result<Vec<DirectoryEntry>, String> {
+    let mut entries = Vec::new();
+    collect_matching_files(&root, 0, &needle, &mut entries)?;
+    Ok(entries)
+}
+
+fn collect_matching_files(
+    root: &Path,
+    depth: usize,
+    needle: &str,
+    entries: &mut Vec<DirectoryEntry>,
+) -> Result<(), String> {
+    let mut children = std::fs::read_dir(root)
+        .map_err(|error| format!("Unable to read directory: {error}"))?
+        .filter_map(Result::ok)
+        .collect::<Vec<_>>();
+    children.sort_by_key(|entry| entry.file_name().to_string_lossy().to_lowercase());
+    children.sort_by_key(|entry| {
+        std::cmp::Reverse(entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false))
+    });
+    for entry in children {
+        let entry_path = entry.path();
+        let file_type = entry.file_type().map_err(|error| error.to_string())?;
+        if file_type.is_dir() {
+            collect_matching_files(&entry_path, depth + 1, needle, entries)?;
+            continue;
+        }
+        if !file_type.is_file() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let path = entry_path.to_string_lossy().into_owned();
+        if format!("{name} {path}").to_lowercase().contains(needle) {
+            entries.push(DirectoryEntry {
+                name,
+                path,
+                kind: "file".to_string(),
+                depth,
+            });
         }
     }
     Ok(())
@@ -1022,6 +1098,7 @@ pub fn run() {
             greet,
             project_context,
             list_directory,
+            search_directory,
             open_file,
             open_run_url,
             read_file,
@@ -1050,7 +1127,7 @@ pub fn run() {
 mod tests {
     use super::{
         list_directory_in, open_document_in, open_file_in, open_local_url, open_terminal_in,
-        project_context_for,
+        project_context_for, search_directory_in,
         read_file_in, start_terminal_pty, terminal_exec_in, write_file_in, SidecarSupervisor,
         WorkspaceRoot, MAX_FILE_PREVIEW_BYTES,
     };
@@ -1185,6 +1262,25 @@ mod tests {
         assert!(entries
             .iter()
             .any(|entry| entry.name == "link" && entry.kind == "symlink"));
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn search_directory_returns_matching_files_without_the_full_tree_payload() {
+        let root = fixture_root("search-directory");
+        fs::create_dir_all(root.join("src/nested")).expect("create nested source");
+        fs::write(root.join("README.md"), "readme").expect("create readme");
+        fs::write(root.join("src/main.rs"), "main").expect("create source");
+        fs::write(root.join("src/nested/notes.md"), "notes").expect("create nested file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select project");
+
+        let entries = search_directory_in(&workspace, &root.to_string_lossy(), "notes")
+            .expect("search files");
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "notes.md");
+        assert_eq!(entries[0].kind, "file");
         fs::remove_dir_all(root).expect("remove fixture");
     }
 
