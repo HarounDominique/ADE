@@ -33,6 +33,8 @@ let nativeInvoke;
 const terminalTabs = [];
 let activeTerminalId = null;
 let terminalTabSequence = 0;
+let terminalHistorySessions = [];
+let terminalHistoryDeleteId = null;
 let selectedProvider = 'opencode';
 let selectedAgentModel = '';
 let activeProjectId = projectSnapshot.project.id;
@@ -475,7 +477,132 @@ function renderTerminalOutput() {
 function appendTerminalTranscript(sessionId, text) {
   const tab = terminalTabs.find((candidate) => candidate.id === sessionId);
   if (!tab) return;
+  if (tab.historyProvider) appendTerminalHistory(tab, text);
   tab.terminal?.write(text);
+}
+
+function appendTerminalHistory(tab, text) {
+  const limit = 200_000;
+  if (tab.historyTranscript.length >= limit) { tab.historyTruncated = true; return; }
+  tab.historyTranscript += text.slice(0, limit - tab.historyTranscript.length);
+  if (tab.historyTranscript.length >= limit) tab.historyTruncated = true;
+}
+
+function captureTerminalInput(tab, data) {
+  if (tab.kind !== 'pty') return;
+  if (tab.historyProvider) { appendTerminalHistory(tab, data); return; }
+  tab.commandBuffer += data;
+  if (!/[\r\n]/.test(data)) return;
+  const provider = terminalAgentProvider(tab.commandBuffer);
+  if (provider) {
+    tab.historyProvider = provider;
+    tab.historyStartedAt = new Date().toISOString();
+    appendTerminalHistory(tab, `$ ${tab.commandBuffer}`);
+  }
+  tab.commandBuffer = '';
+}
+
+function terminalAgentProvider(input) {
+  const command = input.trim().match(/^(?:env\s+)?(?:\S+\/)?([^\s\\/]+)(?:\s|$)/)?.[1]?.toLowerCase();
+  const name = command?.replace(/\.(?:cmd|exe|bat)$/i, '');
+  return ['claude', 'codex', 'opencode'].includes(name) ? name : null;
+}
+
+function persistTerminalHistory(tab) {
+  if (!nativeInvoke || !tab.historyProvider || !tab.historyTranscript) return;
+  const transcript = terminalHistorySnapshot(tab) || readableTerminalTranscript(tab.historyTranscript);
+  const id = `terminal-history-save-${Date.now()}-${tab.id}`;
+  pendingContextRequests.set(id, 'terminal-history-save');
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'terminal.history.save', params: { sessionId: tab.historyStorageId ?? tab.id, projectId: activeProjectId, repositoryPath: workspaceRootPath, provider: tab.historyProvider, transcript, truncated: tab.historyTruncated, startedAt: tab.historyStartedAt, endedAt: new Date().toISOString() } }) }).catch(() => {});
+}
+
+function requestTerminalHistory() {
+  if (!nativeInvoke) return;
+  const id = `terminal-history-list-${Date.now()}`;
+  pendingContextRequests.set(id, 'terminal-history-list');
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'terminal.history.list', params: { projectId: activeProjectId } }) }).catch(() => {});
+}
+
+function renderTerminalHistory() {
+  const list = document.getElementById('terminal-history-list');
+  if (!list) return;
+  list.innerHTML = terminalHistorySessions.length ? terminalHistorySessions.map((session) => { const title = terminalHistoryTitle(session.title); return `<article class="terminal-history-item" role="listitem"><button type="button" data-terminal-history-id="${escapeHTML(session.id)}"><strong>${escapeHTML(title)}</strong><small>${escapeHTML(session.provider)} · ${escapeHTML(new Date(session.endedAt).toLocaleString())}</small></button><button class="terminal-history-delete" type="button" data-delete-terminal-history-id="${escapeHTML(session.id)}" aria-label="Delete terminal session ${escapeHTML(title)}">Delete</button></article>`; }).join('') : '<p class="picker-empty">No saved agent terminal sessions in this Project.</p>';
+}
+
+function terminalHistoryTitle(value) {
+  const raw = String(value ?? '').trim();
+  try {
+    const parsed = JSON.parse(raw);
+    const title = parsed.title ?? parsed.TITLE;
+    if (typeof title === 'string' && title.trim()) return terminalHistoryTitle(title);
+  } catch { /* Plain-text fallback. */ }
+  return raw.startsWith('{') ? 'Agent terminal session' : raw.replace(/^title\s*:\s*/i, '').replace(/^['"]|['"]$/g, '') || 'Agent terminal session';
+}
+
+function readableTerminalTranscript(value) {
+  return String(value ?? '')
+    .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
+    .replace(/\r(?!\n)/g, '')
+    .replaceAll('\n', '\r\n');
+}
+
+/** xterm has already applied cursor movement, alternate-screen changes and
+    colour control codes. Persisting its rendered buffer, rather than raw PTY
+    bytes, is the only replayable record of a full-screen agent TUI. */
+function terminalHistorySnapshot(tab) {
+  const buffer = tab.terminal?.buffer?.active;
+  if (!buffer) return '';
+  const lines = [];
+  for (let index = 0; index < buffer.length; index += 1) {
+    const line = buffer.getLine(index)?.translateToString(true) ?? '';
+    lines.push(line);
+  }
+  return lines.join('\n').trim();
+}
+
+function terminalHistoryResumeCommand(provider) {
+  /** These commands open each provider's own session recovery flow. We do not
+      try to replay a full-screen TUI from captured escape sequences: that
+      would show a broken screen and cannot restore the agent process. */
+  if (provider === 'claude') return 'claude --resume\r';
+  if (provider === 'codex') return 'codex resume\r';
+  if (provider === 'opencode') return 'opencode --continue\r';
+  return null;
+}
+
+async function resumeTerminalHistorySession(session) {
+  const provider = String(session?.provider ?? '').toLowerCase();
+  const command = terminalHistoryResumeCommand(provider);
+  if (!command) { notify('This agent terminal session cannot be resumed.'); return; }
+  const title = terminalHistoryTitle(session.title);
+  const tab = createTerminalTab({ kind: 'pty', label: title });
+  tab.historyProvider = provider;
+  tab.historyStorageId = session.id;
+  tab.historyStartedAt = session.startedAt ?? new Date().toISOString();
+  tab.historyTruncated = Boolean(session.truncated);
+  if (session.transcript) {
+    appendTerminalTranscript(tab.id, session.transcript);
+    appendTerminalHistory(tab, session.transcript);
+    if (session.truncated) {
+      const notice = '\n[transcript truncated]\n';
+      appendTerminalTranscript(tab.id, notice);
+      appendTerminalHistory(tab, notice);
+    }
+  }
+  appendTerminalHistory(tab, `$ ${command.replace(/\r$/, '')}\n`);
+  await sendTerminalInput(tab, command);
+  const providerName = provider === 'codex' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : 'Claude';
+  notify(`${providerName} is opening its saved-session picker.`);
+}
+
+function toggleTerminalHistory() {
+  const dialog = document.getElementById('terminal-history-dialog');
+  const button = document.getElementById('terminal-history-toggle');
+  if (!dialog?.showModal || !button) return;
+  dialog.showModal();
+  button.setAttribute('aria-expanded', 'true');
+  requestTerminalHistory();
 }
 
 function renderTerminalTabs() {
@@ -511,6 +638,12 @@ function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null,
     fitAddon: null,
     startPromise: null,
     inputQueue: Promise.resolve(),
+    commandBuffer: '',
+    historyProvider: null,
+    historyTranscript: '',
+    historyTruncated: false,
+    historyStartedAt: null,
+    historyStorageId: null,
   };
   tab.terminal = new Terminal({
     cursorBlink: true,
@@ -525,6 +658,7 @@ function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null,
   tab.terminal.onData((data) => {
     /** A run's console shows what the process wrote; there is no PTY behind it
         to accept what the operator types. */
+    if (tab.kind === 'pty') captureTerminalInput(tab, data);
     if (tab.kind === 'pty') void sendTerminalInput(tab, data);
   });
   tab.terminal.onResize(({ cols, rows }) => {
@@ -551,6 +685,7 @@ function closeTerminalTab(sessionId) {
   const [tab] = terminalTabs.splice(index, 1);
   /** Closing a run's console hides its output; it does not stop the run, which
       stays visible and stoppable in the topbar. */
+  persistTerminalHistory(tab);
   if (tab.kind === 'pty' && tab.started) nativeInvoke?.('terminal_stop', { sessionId: tab.id }).catch(() => {});
   tab.terminal?.dispose();
   document.querySelector(`[data-terminal-host="${CSS.escape(tab.id)}"]`)?.remove();
@@ -3515,6 +3650,27 @@ async function connectSidecar(snapshot) {
         notify('Saved conversation deleted.');
         return;
       }
+      if (contextPurpose === 'terminal-history-list' && Array.isArray(response.result)) {
+        terminalHistorySessions = response.result;
+        renderTerminalHistory();
+        return;
+      }
+      if (contextPurpose === 'terminal-history-save' && response.result?.saved) {
+        if (document.getElementById('terminal-history-dialog')?.open) requestTerminalHistory();
+        return;
+      }
+      if (contextPurpose === 'terminal-history-delete' && response.result?.removed) {
+        terminalHistorySessions = terminalHistorySessions.filter((session) => session.id !== response.result.id);
+        renderTerminalHistory();
+        notify('Saved terminal session deleted.');
+        return;
+      }
+      if (contextPurpose === 'terminal-history-get' && response.result?.provider) {
+        const session = response.result;
+        document.getElementById('terminal-history-dialog')?.close();
+        void resumeTerminalHistorySession(session);
+        return;
+      }
       if (contextPurpose === 'branches' && response.result?.branches) {
         gitBranches = response.result.branches;
         renderBranchMenu();
@@ -4093,6 +4249,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     closeDeleteAgentSessionDialog();
     return;
   }
+  if (item.dataset.action === 'close-terminal-history') {
+    document.getElementById('terminal-history-dialog')?.close();
+    return;
+  }
   if (item.dataset.action === 'confirm-delete-agent-session') {
     confirmDeleteAgentSession();
     return;
@@ -4218,6 +4378,8 @@ document.getElementById('terminal-new-tab')?.addEventListener('click', () => {
   createTerminalTab();
   notify('New terminal session opened.');
 });
+document.getElementById('terminal-history-toggle')?.addEventListener('click', toggleTerminalHistory);
+document.getElementById('terminal-history-dialog')?.addEventListener('close', () => document.getElementById('terminal-history-toggle')?.setAttribute('aria-expanded', 'false'));
 document.getElementById('repository-context-button')?.addEventListener('click', () => toggleGitContextMenu('repository'));
 document.getElementById('task-context-button')?.addEventListener('click', () => toggleGitContextMenu('task'));
 document.getElementById('branch-context-button')?.addEventListener('click', () => toggleGitContextMenu('branch'));
@@ -4307,12 +4469,35 @@ document.addEventListener('click', (event) => {
   }
   const tabButton = event.target.closest('[data-terminal-tab-id]');
   if (tabButton) selectTerminalTab(tabButton.dataset.terminalTabId);
+  const historySession = event.target.closest('[data-terminal-history-id]');
+  if (historySession && nativeInvoke) {
+    const id = `terminal-history-get-${Date.now()}`;
+    pendingContextRequests.set(id, 'terminal-history-get');
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'terminal.history.get', params: { sessionId: historySession.dataset.terminalHistoryId, projectId: activeProjectId } }) });
+    return;
+  }
+  const deleteHistory = event.target.closest('[data-delete-terminal-history-id]');
+  if (deleteHistory) {
+    terminalHistoryDeleteId = deleteHistory.dataset.deleteTerminalHistoryId;
+    requestConfirmation({ eyebrow: 'DELETE TERMINAL SESSION', title: 'Delete saved terminal session?', copy: 'This permanently removes its transcript from Assay. Your Project files are unchanged.', confirmLabel: 'Delete', tone: 'danger' }, () => {
+      if (!nativeInvoke || !terminalHistoryDeleteId) return;
+      const id = `terminal-history-delete-${Date.now()}`;
+      pendingContextRequests.set(id, 'terminal-history-delete');
+      nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'terminal.history.delete', params: { sessionId: terminalHistoryDeleteId, projectId: activeProjectId } }) });
+      terminalHistoryDeleteId = null;
+    });
+    return;
+  }
 });
 document.addEventListener('click', (event) => {
   if (!event.target.closest('.git-context-control')) closeGitContextMenus();
 });
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeGitContextMenus();
+  if (event.key === 'Escape') {
+    closeGitContextMenus();
+    const dialog = document.getElementById('terminal-history-dialog');
+    if (dialog?.open) { dialog.close(); document.getElementById('terminal-history-toggle')?.focus(); }
+  }
 });
 document.addEventListener('click', (event) => {
   const runEdit = event.target.closest('[data-run-edit-id]');
@@ -4547,6 +4732,7 @@ document.addEventListener('keydown', (event) => {
 initializeCodeEditor();
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });
 window.addEventListener('beforeunload', () => {
+  terminalTabs.forEach(persistTerminalHistory);
   nativeInvoke?.('terminal_stop_all').catch(() => {});
 });
 taskForm?.addEventListener('submit', async (event) => {

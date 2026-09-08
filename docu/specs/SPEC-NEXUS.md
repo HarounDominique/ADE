@@ -68,12 +68,15 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | file-workspace | [SPEC-file-workspace.md](SPEC-file-workspace.md) | Editor interno de texto, lectura/escritura segura y escape hatch externo | workspace-core, desktop-shell | done | — |
 | cross-platform-support | [SPEC-cross-platform-support.md](SPEC-cross-platform-support.md) | Fronteras de plataforma, verificación por matriz y grados de soporte | desktop-shell, workspace-core, local-runtime | in-progress | — |
 | run-configurations | [SPEC-run-configurations.md](SPEC-run-configurations.md) | Configuraciones de arranque y depuración del Project, puertos y consola por ejecución | local-runtime, desktop-shell, workspace-core | in-progress | — |
+| agent-terminal-history | [SPEC-agent-terminal-history.md](SPEC-agent-terminal-history.md) | Historial de terminales con agente, títulos y popup del dock | workspace-core, agent-providers, desktop-shell | done | — |
 
 `done` identifica capacidades implementadas y verificadas; `planned` identifica una spec aprobada para una iteración posterior, todavía no implementada.
 
 **Build order:** `project-task-workflow → development-workflow → agent-runtime + knowledge-docs + local-runtime → changes-review-governance → desktop-shell`.
 
 **v0.3 build order:** `workspace-core → agent-providers + native-skills → git-collaboration + living-knowledge → desktop-shell integration`. `quality-consulting` se implementará como skills nativas sobre esos contratos.
+
+**Próximo corte:** `workspace-core + agent-providers + desktop-shell → agent-terminal-history`.
 
 Las ramas paralelas sólo pueden comenzar cuando `project-task-workflow` haya definido el contrato de Task y sus eventos mínimos. `development-workflow` define las transiciones que coordinan las ramas, pero no convierte cada fase en una obligación.
 
@@ -278,6 +281,10 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-07 — run-configurations-runtime — Primer corte del módulo: dominio, carga y validación de `.ade/run.json`, `RunManager` con sondeo previo de puertos, compuestas ordenadas con parada inversa y limpieza tras el fallo de un miembro, `LocalPortProbe` por bind —portable sin `lsof` ni `netstat`—, salida en vivo por `ProcessDefinition.onOutput` y los métodos `run.list`, `run.start` y `run.stop` del sidecar con eventos `run.output` y `run.session`. El módulo pasa a `in-progress`: falta la superficie de la shell. `npm test` pasa con 148 tests TypeScript.
 - 2026-09-07 — run-configurations-surface — La shell gana el control de arranque en la topbar: selector con el mismo menú que Project, Task y branch, `Run`, `Debug` —deshabilitado y explicado cuando la configuración no lo declara—, `Stop`, y un estado que muestra el puerto y abre la URL local. El menú desplegable pasa a ser componente compartido (`picker`) en lugar de pertenecer a la cabecera de Agents. Cada ejecución escribe en su propia pestaña del dock de terminal, que no acepta entrada y cuyo cierre oculta la consola sin detener el proceso. Abrir la URL usa un comando nativo `open_run_url` que sólo acepta direcciones de loopback, y `bind: "all"` se confirma por ejecución. Se propagó a `SPEC-desktop-shell`. `npm test` pasa con 151 tests TypeScript y `cargo test` con 20 Rust.
 - 2026-09-07 — run-configurations-authoring — La shell deja de exigir que el operador escriba JSON: un diálogo propio crea, edita y borra configuraciones, y `run.save` valida antes de escribir `.ade/run.json` conservando las claves que no le pertenecen. Al abrir un Project sin configuraciones, `run.detect` lee `package.json`, `pom.xml`, `build.gradle` y `angular.json` de la raíz y de sus subdirectorios inmediatos y propone configuraciones nombrando el fichero de origen —un puerto sólo cuando la dependencia que lo documenta está presente, y la compuesta cuando hay dos mitades—; proponer no es crear y nada se escribe sin aceptación. Corrige la promesa incumplida del corte anterior, que nombraba el fichero en lugar de ofrecer crearlo. `npm test` pasa con 158 tests TypeScript.
+- 2026-09-08 — agent-terminal-history — Nuevo módulo `draft`: sólo se conservarán terminales que invoquen Claude, Codex/ChatGPT Code u OpenCode, con resumen económico del mismo provider y popup del dock. Pendiente de aprobación humana; no hay contratos dependientes que propagar.
+- 2026-09-08 — agent-terminal-history-plan — Especificación aprobada y módulo movido a `ready`; se creó `tasks/plan-agent-terminal-history.md`. No cambian contratos de módulos dependientes.
+- 2026-09-08 — agent-terminal-history-tasks — Plan aprobado y tareas verificables registradas en `tasks/todo-agent-terminal-history.md`; pendiente de revisión humana antes de escribir código.
+- 2026-09-08 — agent-terminal-history-implementation — Implementado: SQLite local por Project, detección conservadora de Claude/Codex/OpenCode, fallback y resumen asíncrono con el provider, API aislada del sidecar y popup accesible del dock con tab de solo lectura y borrado confirmado. Se propagó a ADR-0036 y las tareas quedaron verificadas.
 
 ## Automatic Reconciliation Log
 

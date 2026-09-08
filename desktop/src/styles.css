@@ -272,16 +272,40 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .terminal-tabs { display: flex; align-items: stretch; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
 .terminal-tab { display: inline-flex; align-items: stretch; flex: 0 0 auto; min-width: 108px; max-width: 180px; border-bottom: 2px solid transparent; }
 .terminal-tab.active { border-bottom-color: var(--cyan); }
-.terminal-tab-button, .terminal-tab-close, .terminal-new-tab { border: 0; color: var(--faint); background: transparent; font: 9px var(--mono); }
+.terminal-tab-button, .terminal-tab-close, .terminal-new-tab, .terminal-history-toggle { border: 0; color: var(--faint); background: transparent; font: 9px var(--mono); }
 .terminal-tab-button { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 0 7px; overflow: hidden; color: inherit; cursor: pointer; text-transform: uppercase; }
 .terminal-tab-button span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .terminal-tab-button:hover, .terminal-tab-button:focus-visible, .terminal-tab.active .terminal-tab-button { color: var(--text); background: color-mix(in srgb, var(--panel-raised) 75%, transparent); }
-.terminal-tab-button:focus-visible, .terminal-tab-close:focus-visible, .terminal-new-tab:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.terminal-tab-button:focus-visible, .terminal-tab-close:focus-visible, .terminal-new-tab:focus-visible, .terminal-history-toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .terminal-tab-close { width: 23px; padding: 0; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; }
 .terminal-tab-close:hover { color: var(--text); background: color-mix(in srgb, var(--panel-raised) 85%, transparent); }
 .terminal-tab-status { width: 5px; height: 5px; flex: 0 0 auto; border-radius: 50%; background: var(--faint); }
 .terminal-tab-status.running { background: var(--green); box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 20%, transparent); }
 .terminal-new-tab { width: 28px; height: 24px; flex: 0 0 auto; margin: 4px 6px 0 2px; color: var(--text-soft); cursor: pointer; font-size: 16px; line-height: 1; }
+.terminal-history-toggle { width: 28px; height: 24px; flex: 0 0 auto; cursor: pointer; font-size: 16px; }
+.terminal-history-toggle:hover { color: var(--cyan); background: var(--panel-raised); }
+.terminal-dock-tabs { position: relative; }
+.terminal-history-menu { position: absolute; z-index: 20; right: 52px; bottom: calc(100% - 2px); width: min(360px, 86vw); max-height: 320px; overflow: auto; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); box-shadow: 0 12px 32px rgba(0,0,0,.28); }
+.terminal-history-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; width: 100%; padding: 8px; text-align: left; color: var(--text); background: transparent; border: 0; cursor: pointer; }
+.terminal-history-item:hover { background: var(--panel-raised); }
+.terminal-history-item small { color: var(--faint); }
+.terminal-history-delete { border: 0; color: var(--danger); background: transparent; cursor: pointer; }
+.terminal-history-dialog { width: min(720px, calc(100vw - 48px)); max-height: min(680px, calc(100vh - 72px)); padding: 0; border: 1px solid var(--line-strong); border-radius: 12px; color: var(--text); background: var(--panel); box-shadow: 0 28px 84px rgba(7, 16, 24, .42); }
+.terminal-history-dialog::backdrop { background: rgba(7, 16, 24, .48); backdrop-filter: blur(7px); }
+.terminal-history-dialog-content { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 360px; max-height: inherit; }
+.terminal-history-dialog-content > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 26px 18px; border-bottom: 1px solid var(--line); }
+.terminal-history-dialog-content h2 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
+.terminal-history-dialog-content p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+.terminal-history-list { display: grid; align-content: start; gap: 2px; overflow: auto; padding: 10px; }
+.terminal-history-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 0; border-bottom: 1px solid var(--line); }
+.terminal-history-item > button:first-child { display: grid; gap: 4px; min-width: 0; padding: 13px 14px; border: 0; color: var(--text); background: transparent; text-align: left; cursor: pointer; }
+.terminal-history-item > button:first-child:hover { background: var(--panel-soft); }
+.terminal-history-item strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.terminal-history-item small { color: var(--muted); font: 10px var(--mono); }
+.terminal-history-item .terminal-history-delete { min-height: 34px; margin-right: 8px; padding: 0 9px; border: 1px solid transparent; border-radius: 5px; font-size: 11px; }
+.terminal-history-item .terminal-history-delete:hover { border-color: color-mix(in srgb, var(--red) 36%, var(--line)); background: color-mix(in srgb, var(--red) 9%, transparent); }
+.terminal-history-item button:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+@media (prefers-reduced-motion: no-preference) { .terminal-history-dialog { animation: terminal-history-enter 160ms ease-out; } @keyframes terminal-history-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } } }
 .terminal-new-tab:hover { color: var(--cyan); background: var(--panel-raised); }
 @media (max-width: 760px) { .terminal-cwd { max-width: 45%; } .terminal-tab { min-width: 96px; } }
 

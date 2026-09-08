@@ -55,6 +55,7 @@ export type PersistedRuntimeEvidence = RuntimeEvidence;
 export type GitOperation = { id: string; taskId: string; operation: string; reference?: string; actor: string; reason: string; at: string; metadata?: string };
 export type AgentSession = { id: string; projectId?: string; taskId?: string; provider: string; directory: string; title?: string; model?: string; status: string; createdAt: string; updatedAt: string };
 export type AgentMessage = { id: string; sessionId: string; role: "user" | "assistant" | "system"; content: string; createdAt: string };
+export type TerminalHistorySession = { id: string; projectId: string; provider: "claude" | "codex" | "opencode"; title: string; transcript: string; truncated: boolean; startedAt: string; endedAt: string };
 
 export class AdeStore {
   readonly db: DatabaseSync;
@@ -155,6 +156,16 @@ export class AdeStore {
         role TEXT NOT NULL,
         content TEXT NOT NULL,
         created_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS terminal_history_sessions (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        title TEXT NOT NULL,
+        transcript TEXT NOT NULL,
+        truncated INTEGER NOT NULL DEFAULT 0,
+        started_at TEXT NOT NULL,
+        ended_at TEXT NOT NULL
       );
     `);
     this.migrateTasks();
@@ -403,6 +414,27 @@ export class AdeStore {
 
   deleteAgentSession(sessionId: string): void {
     this.db.prepare("DELETE FROM agent_sessions WHERE id = ?").run(sessionId);
+  }
+
+  saveTerminalHistorySession(session: TerminalHistorySession): void {
+    this.db.prepare(`INSERT INTO terminal_history_sessions (id, project_id, provider, title, transcript, truncated, started_at, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, transcript = excluded.transcript, truncated = excluded.truncated, ended_at = excluded.ended_at`).run(session.id, session.projectId, session.provider, session.title, session.transcript, Number(session.truncated), session.startedAt, session.endedAt);
+  }
+
+  listTerminalHistorySessions(projectId: string): TerminalHistorySession[] {
+    return this.db.prepare(`SELECT id, project_id AS projectId, provider, title, transcript, truncated, started_at AS startedAt, ended_at AS endedAt FROM terminal_history_sessions WHERE project_id = ? ORDER BY ended_at DESC, id DESC`).all(projectId).map((session) => ({ ...(session as Omit<TerminalHistorySession, "truncated">), truncated: Boolean((session as { truncated: number }).truncated) }));
+  }
+
+  getTerminalHistorySession(id: string): TerminalHistorySession | undefined {
+    const session = this.db.prepare(`SELECT id, project_id AS projectId, provider, title, transcript, truncated, started_at AS startedAt, ended_at AS endedAt FROM terminal_history_sessions WHERE id = ?`).get(id) as (Omit<TerminalHistorySession, "truncated"> & { truncated: number }) | undefined;
+    return session ? { ...session, truncated: Boolean(session.truncated) } : undefined;
+  }
+
+  deleteTerminalHistorySession(id: string): void {
+    this.db.prepare("DELETE FROM terminal_history_sessions WHERE id = ?").run(id);
+  }
+
+  updateTerminalHistoryTitle(id: string, title: string): void {
+    this.db.prepare("UPDATE terminal_history_sessions SET title = ? WHERE id = ?").run(title.slice(0, 60), id);
   }
 
   saveAgentMessage(input: Omit<AgentMessage, "createdAt"> & { createdAt?: string }): void {

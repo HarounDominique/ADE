@@ -39,11 +39,12 @@ import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNetwork, updateProjectSkill } from "./application/skills/skill-install.js";
 import { registerProject } from "./application/tasks/project-commands.js";
 import { LocalGitRepository } from "./adapters/local-git-repository.js";
+import { fallbackTerminalTitle, type TerminalAgentProvider } from "./application/terminal-history/agent-terminal.js";
 
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; title?: string; startedAt?: string; endedAt?: string; truncated?: boolean };
 };
 
 export type DesktopResponse = {
@@ -90,7 +91,7 @@ function getRuntimeStatus(): RuntimeStatus {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'service.status', 'skills.list'].includes(request.method)) {
+    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'terminal.history.list', 'terminal.history.get', 'terminal.history.save', 'terminal.history.delete', 'service.status', 'skills.list'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.list") {
@@ -128,6 +129,27 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       if (request.params?.projectId && session.projectId && session.projectId !== request.params.projectId) return { id: request.id, error: { code: "SESSION_PROJECT_MISMATCH", message: "This conversation belongs to another Project" } };
       store.deleteAgentSession(sessionId);
       return { id: request.id, result: { id: sessionId, removed: true } };
+    }
+    if (request.method === "terminal.history.list") {
+      if (!request.params?.projectId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "projectId is required" } };
+      return { id: request.id, result: store.listTerminalHistorySessions(request.params.projectId).map(({ transcript, ...session }) => session) };
+    }
+    if (request.method === "terminal.history.get" || request.method === "terminal.history.delete") {
+      const sessionId = request.params?.sessionId;
+      if (!sessionId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "sessionId is required" } };
+      const session = store.getTerminalHistorySession(sessionId);
+      if (!session) return { id: request.id, error: { code: "TERMINAL_SESSION_NOT_FOUND", message: `Terminal session ${sessionId} was not found` } };
+      if (request.params?.projectId && session.projectId !== request.params.projectId) return { id: request.id, error: { code: "TERMINAL_SESSION_PROJECT_MISMATCH", message: "This terminal session belongs to another Project" } };
+      if (request.method === "terminal.history.delete") { store.deleteTerminalHistorySession(sessionId); return { id: request.id, result: { id: sessionId, removed: true } }; }
+      return { id: request.id, result: session };
+    }
+    if (request.method === "terminal.history.save") {
+      const params = request.params;
+      if (!params?.sessionId || !params.projectId || !params.provider || !params.transcript || !params.startedAt || !params.endedAt) return { id: request.id, error: { code: "INVALID_PARAMS", message: "sessionId, projectId, provider, transcript, startedAt and endedAt are required" } };
+      if (!['claude', 'codex', 'opencode'].includes(params.provider)) return { id: request.id, error: { code: "INVALID_PARAMS", message: "provider must be a recognized terminal agent" } };
+      const provider = params.provider as TerminalAgentProvider;
+      store.saveTerminalHistorySession({ id: params.sessionId, projectId: params.projectId, provider, title: params.title?.slice(0, 60) || fallbackTerminalTitle(provider, params.endedAt), transcript: params.transcript, truncated: Boolean(params.truncated), startedAt: params.startedAt, endedAt: params.endedAt });
+      return { id: request.id, result: { id: params.sessionId, saved: true } };
     }
     if (request.method === "skills.list") return { id: request.id, result: listNativeSkills() };
     if (request.method === "service.status") {
@@ -415,6 +437,10 @@ export async function runDesktopSidecar(): Promise<void> {
         void detectRunConfigurationsFor(request);
       } else if (request.method === "run.save") {
         void saveRunConfigurationsFor(request);
+      } else if (request.method === "terminal.history.save") {
+        const response = handleDesktopRequest(store, request);
+        process.stdout.write(`${JSON.stringify(response)}\n`);
+        if (!response.error) void enrichTerminalHistoryTitle(store, request.params);
       } else {
         process.stdout.write(`${JSON.stringify(handleDesktopRequest(store, request))}\n`);
       }
@@ -426,6 +452,30 @@ export async function runDesktopSidecar(): Promise<void> {
     for (const manager of runManagers.values()) await manager.stopAll().catch(() => undefined);
     store.close();
   }
+}
+
+async function enrichTerminalHistoryTitle(store: AdeStore, params: DesktopRequest["params"]): Promise<void> {
+  if (!params?.sessionId || !params.provider || !params.repositoryPath || !params.transcript) return;
+  const provider = params.provider as TerminalAgentProvider;
+  const runtime = provider === "claude" ? new ClaudeCliRuntime() : provider === "codex" ? new CodexCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+  const model = provider === "claude" ? "haiku" : provider === "codex" ? "gpt-5.6-luna" : undefined;
+  try {
+    const session = await runtime.createSession({ directory: params.repositoryPath, title: "Terminal history title" });
+    const result = await runtime.promptAndWait(session, { text: `Return only a concise title, at most 60 characters, for this agent terminal transcript:\n${params.transcript.slice(0, 12_000)}`, ...(model ? { model } : {}), format: { type: "json_schema", schema: { type: "object", properties: { title: { type: "string", maxLength: 60 } }, required: ["title"] } } });
+    const output = typeof (result as { output?: unknown })?.output === "string" ? (result as { output: string }).output : "";
+    const title = terminalHistoryTitle(output);
+    if (title) store.updateTerminalHistoryTitle(params.sessionId, title);
+  } catch { /* The persisted fallback title remains usable without a provider. */ }
+}
+
+function terminalHistoryTitle(output: string): string {
+  const trimmed = output.trim();
+  try {
+    const title = JSON.parse(trimmed) as Record<string, unknown>;
+    const value = title.title ?? title.TITLE;
+    if (typeof value === "string" && value.trim()) return value.trim().replace(/\s+/g, " ").slice(0, 60);
+  } catch { /* Some providers return plain text. */ }
+  return trimmed.startsWith("{") ? "Agent terminal session" : trimmed.replace(/^title\s*:\s*/i, "").replace(/^['"]|['"]$/g, "").replace(/\s+/g, " ").slice(0, 60);
 }
 
 async function runCatalog(repositoryPath: string): Promise<readonly ResolvedRunConfiguration[]> {

@@ -105,6 +105,15 @@ test("desktop sidecar refuses to delete a conversation from another Project", ()
   store.close();
 });
 
+test("desktop sidecar isolates saved agent terminal sessions by Project", () => {
+  const store = new AdeStore();
+  const saved = handleDesktopRequest(store, { id: "terminal-save", method: "terminal.history.save", params: { sessionId: "terminal-a", projectId: "project-a", provider: "claude", transcript: "hello", startedAt: "2026-09-08T10:00:00.000Z", endedAt: "2026-09-08T10:05:00.000Z" } });
+  assert.deepEqual(saved, { id: "terminal-save", result: { id: "terminal-a", saved: true } });
+  assert.equal((handleDesktopRequest(store, { id: "terminal-list", method: "terminal.history.list", params: { projectId: "project-a" } }).result as Array<{ id: string }>)[0]?.id, "terminal-a");
+  assert.equal(handleDesktopRequest(store, { id: "terminal-get-wrong", method: "terminal.history.get", params: { sessionId: "terminal-a", projectId: "project-b" } }).error?.code, "TERMINAL_SESSION_PROJECT_MISMATCH");
+  store.close();
+});
+
 test("desktop sidecar returns actionable protocol errors", () => {
   const store = new AdeStore();
 

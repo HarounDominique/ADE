@@ -34,6 +34,23 @@ test("terminal tab labels from run configurations are escaped before HTML render
   assert.match(renderer, /title="Close \$\{escapeHTML\(tab\.label\)\}"/);
 });
 
+test("agent terminal history is a modal that reopens native agent sessions", () => {
+  assert.match(html, /id="terminal-history-toggle"[\s\S]*aria-haspopup="dialog"/);
+  assert.match(html, /id="terminal-history-dialog" aria-labelledby="terminal-history-title"/);
+  assert.match(main, /function terminalAgentProvider/);
+  assert.match(main, /\['claude', 'codex', 'opencode'\]/);
+  assert.match(main, /method: 'terminal\.history\.save'/);
+  assert.match(main, /method: 'terminal\.history\.delete'/);
+  assert.match(main, /function terminalHistoryTitle/);
+  assert.match(main, /parsed\.title \?\? parsed\.TITLE/);
+  assert.match(main, /function terminalHistoryResumeCommand/);
+  assert.match(main, /claude --resume/);
+  assert.match(main, /codex resume/);
+  assert.match(main, /resumeTerminalHistorySession/);
+  assert.match(main, /escapeHTML\(title\)/);
+  assert.match(styles, /\.terminal-history-dialog::backdrop[\s\S]*backdrop-filter: blur/);
+});
+
 test("Agents keeps sessions and conversation as the primary surface", () => {
   assert.match(html, /class="agents-workbench"/);
   assert.match(html, /id="agent-session-list"/);
