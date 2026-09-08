@@ -28,7 +28,7 @@ type RuntimeEvidence = {
 };
 ```
 
-El ciclo normal es `DECLARED → STARTING → RUNNING → STOPPING → STOPPED`. Un proceso que termina inesperadamente, excede el timeout de arranque o falla el healthcheck pasa a `FAILED`. `RUNNING` sólo puede emitirse después de que el proceso esté vivo y el healthcheck requerido haya pasado.
+El ciclo normal es `DECLARED → STARTING → RUNNING → STOPPING → STOPPED`. Un proceso que termina inesperadamente —incluido justo después de `spawn`—, excede el timeout de arranque o falla el healthcheck pasa a `FAILED`. La implementación notifica la salida del proceso al supervisor para que no quede una sesión stale en `RUNNING`; `RUNNING` sólo puede emitirse después de que el proceso esté vivo y el healthcheck requerido haya pasado.
 
 Cada operación devuelve o persiste evidencia con comando, cwd, actor, timestamps, código de salida, stdout/stderr limitado y resultado del healthcheck. Los límites de salida deben evitar memoria ilimitada sin ocultar que hubo truncamiento.
 

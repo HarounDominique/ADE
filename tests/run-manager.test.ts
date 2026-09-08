@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { RunManager, RunPortConflictError } from "../src/application/local-runtime/run-manager.js";
 import { resolveRunConfigurations } from "../src/application/local-runtime/run-config.js";
 import { LocalProcess } from "../src/adapters/local-process.js";
@@ -125,5 +126,66 @@ test("the same configuration cannot be started twice at once", async () => {
 
   const started = await manager.start(catalog, "client", "run");
   await assert.rejects(manager.start(catalog, "client", "run"), /already running/);
+  await manager.stop(started.id);
+});
+
+test("a process that exits after spawn becomes a failed run with its exit code", async () => {
+  const manager = new RunManager(new LocalProcess(), freePorts, { projectRoot: tmpdir() });
+  const catalog = resolveRunConfigurations([alive({ args: ["-e", "process.exit(7)"] })]);
+
+  const started = await manager.start(catalog, "client", "run");
+  await settle();
+  const session = manager.session(started.id);
+  assert.equal(session?.state, "FAILED");
+  assert.equal(session?.exitCode, 7);
+  assert.match(session?.failure ?? "", /code 7/);
+});
+
+test("a compound preserves the member failure that prevented startup", async () => {
+  const manager = new RunManager(new LocalProcess(), freePorts, { projectRoot: tmpdir() });
+  const catalog = resolveRunConfigurations([
+    alive({ id: "broken", args: ["-e", "process.exit(9)"] }),
+    { id: "stack", label: "Stack", kind: "compound", members: ["broken"] },
+  ]);
+
+  const started = await manager.start(catalog, "stack", "run");
+  await settle();
+  const session = manager.session(started.id);
+  assert.equal(session?.state, "FAILED");
+  assert.match(session?.failure ?? "", /member broken exited with code 9/);
+});
+
+test("a compound refuses members that declare the same port", async () => {
+  const manager = new RunManager(new LocalProcess(), freePorts, { projectRoot: tmpdir() });
+  const catalog = resolveRunConfigurations([
+    alive({ id: "api", ports: [{ port: 8080, protocol: "tcp", bind: "loopback" }] }),
+    alive({ id: "worker", ports: [{ port: 8080, protocol: "tcp", bind: "loopback" }] }),
+    { id: "stack", label: "Stack", kind: "compound", members: ["api", "worker"] },
+  ]);
+
+  await assert.rejects(manager.start(catalog, "stack", "run"), /port 8080 is declared by both api and worker/);
+  assert.deepEqual(manager.sessions(), []);
+});
+
+test("a missing command directory produces an actionable failed session", async () => {
+  const manager = new RunManager(new LocalProcess(), freePorts, { projectRoot: tmpdir() });
+  const missing = resolveRunConfigurations([alive({ cwd: join(tmpdir(), "ade-directory-that-does-not-exist") })]);
+
+  const started = await manager.start(missing, "client", "run");
+  assert.equal(started.state, "FAILED");
+  assert.match(started.failure ?? "", /cwd does not exist/);
+});
+
+test("concurrent starts reserve a configuration before probing ports", async () => {
+  let release!: () => void;
+  const probe: PortProbePort = { inUse: async () => new Promise<boolean>((resolve) => { release = () => resolve(false); }) };
+  const manager = new RunManager(new LocalProcess(), probe, { projectRoot: tmpdir() });
+  const catalog = resolveRunConfigurations([alive({ ports: [{ port: 43127, protocol: "tcp", bind: "loopback" }] })]);
+  const firstStart = manager.start(catalog, "client", "run");
+
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  await assert.rejects(manager.start(catalog, "client", "run"), /already running or starting/);
+  release();
+  const started = await firstStart;
   await manager.stop(started.id);
 });

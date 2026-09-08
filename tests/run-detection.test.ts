@@ -14,8 +14,10 @@ test("a fullstack Project is proposed as its two halves and the compound that st
   const root = await fixture();
   await mkdir(join(root, "angular-17-client"), { recursive: true });
   await mkdir(join(root, "spring-boot-server"), { recursive: true });
+  await mkdir(join(root, "spring-boot-server", "src", "main", "java"), { recursive: true });
   await writeFile(join(root, "angular-17-client", "package.json"), JSON.stringify({ scripts: { start: "ng serve", test: "ng test" }, dependencies: { "@angular/core": "^17" } }), "utf8");
   await writeFile(join(root, "spring-boot-server", "pom.xml"), "<project><dependency>spring-boot-starter-web</dependency></project>", "utf8");
+  await writeFile(join(root, "spring-boot-server", "src", "main", "java", "Application.java"), "@SpringBootApplication class Application { public static void main(String[] args) {} }", "utf8");
 
   const drafts = await detectRunConfigurations(root);
   const client = drafts.find((draft) => draft.id === "angular-17-client-start");
@@ -39,17 +41,31 @@ test("a fullstack Project is proposed as its two halves and the compound that st
 
 test("the wrapper is preferred when the repository ships one", async () => {
   const root = await fixture();
+  await mkdir(join(root, "src", "main", "java"), { recursive: true });
   await writeFile(join(root, "pom.xml"), "<project>spring-boot-maven-plugin</project>", "utf8");
+  await writeFile(join(root, "src", "main", "java", "Application.java"), "@SpringBootApplication class Application { public static void main(String[] args) {} }", "utf8");
   await writeFile(join(root, process.platform === "win32" ? "mvnw.cmd" : "mvnw"), "#!/bin/sh\n", "utf8");
   const [draft] = await detectRunConfigurations(root);
-  assert.equal(draft?.command, process.platform === "win32" ? "mvnw.cmd" : "./mvnw");
+  assert.equal(draft?.command, process.platform === "win32" ? "mvnw.cmd" : "sh");
+  assert.deepEqual(draft?.args, process.platform === "win32" ? ["spring-boot:run"] : ["./mvnw", "spring-boot:run"]);
 
   const gradleRoot = await fixture();
+  await mkdir(join(gradleRoot, "src", "main", "java"), { recursive: true });
   await writeFile(join(gradleRoot, "build.gradle"), "plugins { id 'org.springframework.boot' }", "utf8");
+  await writeFile(join(gradleRoot, "src", "main", "java", "Application.java"), "@SpringBootApplication class Application { public static void main(String[] args) {} }", "utf8");
   await writeFile(join(gradleRoot, process.platform === "win32" ? "gradlew.bat" : "gradlew"), "#!/bin/sh\n", "utf8");
   const [gradleDraft] = await detectRunConfigurations(gradleRoot);
-  assert.equal(gradleDraft?.command, process.platform === "win32" ? "gradlew.bat" : "./gradlew");
-  assert.deepEqual(gradleDraft?.args, ["bootRun"]);
+  assert.equal(gradleDraft?.command, process.platform === "win32" ? "gradlew.bat" : "sh");
+  assert.deepEqual(gradleDraft?.args, process.platform === "win32" ? ["bootRun"] : ["./gradlew", "bootRun"]);
+});
+
+test("an aggregator POM never receives a Spring Boot run configuration", async () => {
+  const root = await fixture();
+  await writeFile(join(root, "pom.xml"), "<project><packaging>pom</packaging><modules><module>app</module></modules><plugin>spring-boot-maven-plugin</plugin></project>", "utf8");
+
+  const drafts = await detectRunConfigurations(root);
+  assert.equal(drafts.some((draft) => draft.id === "spring-boot"), false);
+  assert.deepEqual(drafts.map((draft) => draft.id), ["maven-build", "maven-test"]);
 });
 
 test("a port is proposed only when a framework that documents one is a dependency", async () => {

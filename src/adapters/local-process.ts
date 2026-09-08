@@ -28,18 +28,34 @@ export class LocalProcess implements ProcessPort {
       detached: process.platform !== "win32",
     });
     const output = { stdout: "", stderr: "" };
+    const id = definition.id;
     child.stdout?.on("data", (chunk: Buffer) => { const text = chunk.toString(); output.stdout += text; definition.onOutput?.({ stream: "stdout", text }); });
     child.stderr?.on("data", (chunk: Buffer) => { const text = chunk.toString(); output.stderr += text; definition.onOutput?.({ stream: "stderr", text }); });
-    await new Promise<void>((resolve, reject) => {
-      child.once("spawn", () => resolve());
-      child.once("error", reject);
-    });
-    const id = definition.id;
-    this.processes.set(id, child);
-    this.output.set(id, output);
-    child.once("close", () => {
+    // Attach before waiting for spawn: a command such as `mvn` can fail and
+    // close in the same turn as spawn, and missing that event leaves a stale
+    // RUNNING session forever.
+    child.once("close", (exitCode, signal) => {
+      definition.onExit?.({
+        id,
+        state: exitCode === 0 && !signal ? "STOPPED" : "FAILED",
+        exitCode,
+        signal,
+        ...output,
+      });
       this.processes.delete(id);
     });
+    this.processes.set(id, child);
+    this.output.set(id, output);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        child.once("spawn", () => resolve());
+        child.once("error", reject);
+      });
+    } catch (error) {
+      this.processes.delete(id);
+      this.output.delete(id);
+      throw error;
+    }
     return { id, pid: child.pid ?? -1, state: "RUNNING" };
   }
 

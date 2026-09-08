@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import type { ProcessHandle, ProcessPort } from "../../ports/process.js";
+import type { ProcessEvidence, ProcessHandle, ProcessPort } from "../../ports/process.js";
 import type { PortProbePort } from "../../ports/port-probe.js";
 import type {
   ResolvedRunConfiguration,
@@ -37,6 +37,7 @@ type Tracked = {
     failed start leaves nothing running behind it. */
 export class RunManager {
   private readonly tracked = new Map<string, Tracked>();
+  private readonly starting = new Set<string>();
   private sequence = 0;
 
   constructor(
@@ -56,14 +57,21 @@ export class RunManager {
   async start(catalog: readonly ResolvedRunConfiguration[], configurationId: string, mode: RunMode): Promise<RunSession> {
     const configuration = catalog.find((candidate) => candidate.id === configurationId);
     if (!configuration) throw new RunConfigurationError(configurationId, "id", "no configuration declared with that id");
-    if (this.activeSessionFor(configurationId)) throw new RunConfigurationError(configurationId, "id", "this configuration is already running");
+    const configurationIds = [...new Set([configuration.id, ...leavesOf(catalog, configuration).map((leaf) => leaf.id)])];
+    const busyId = configurationIds.find((id) => this.activeSessionFor(id) || this.starting.has(id));
+    if (busyId) throw new RunConfigurationError(busyId, "id", "this configuration is already running or starting");
+    configurationIds.forEach((id) => this.starting.add(id));
     /** Every port of the whole tree is probed before the first process is
         spawned: a conflict discovered halfway leaves an operator with half an
         application running and no memory of which half. */
-    await this.assertPortsFree(catalog, configuration, mode);
-    return configuration.kind === "compound"
-      ? this.startCompound(catalog, configuration, mode)
-      : this.startLeaf(catalog, configuration, mode);
+    try {
+      await this.assertPortsFree(catalog, configuration, mode);
+      return configuration.kind === "compound"
+        ? await this.startCompound(catalog, configuration, mode)
+        : await this.startLeaf(catalog, configuration, mode);
+    } finally {
+      configurationIds.forEach((id) => this.starting.delete(id));
+    }
   }
 
   async stop(sessionId: string): Promise<RunSession> {
@@ -83,8 +91,12 @@ export class RunManager {
   }
 
   private async assertPortsFree(catalog: readonly ResolvedRunConfiguration[], configuration: ResolvedRunConfiguration, mode: RunMode): Promise<void> {
+    const claimed = new Map<number, string>();
     for (const leaf of leavesOf(catalog, configuration)) {
       for (const port of portsOf(leaf, mode)) {
+        const previousOwner = claimed.get(port);
+        if (previousOwner) throw new RunConfigurationError(configuration.id, "members", `port ${port} is declared by both ${previousOwner} and ${leaf.id}`);
+        claimed.set(port, leaf.id);
         if (await this.ports.inUse(port)) throw new RunPortConflictError(leaf.id, port);
       }
     }
@@ -102,10 +114,13 @@ export class RunManager {
       if (!started || started.state !== "RUNNING") {
         /** The members already up came from this action, so this action takes
             them back down rather than leaving a half-started application. */
+        if (entry.session.state !== "STARTING") return entry.session;
         await this.stopMembers(entry);
-        return this.settle(entry, { state: "FAILED", failure: `member ${memberId} did not start` });
+        const detail = started?.failure ? `: ${started.failure}` : "";
+        return this.settle(entry, { state: "FAILED", failure: `member ${memberId} did not start${detail}` });
       }
     }
+    if (entry.session.state !== "STARTING") return entry.session;
     return this.settle(entry, { state: "RUNNING" });
   }
 
@@ -126,18 +141,50 @@ export class RunManager {
         cwd: substituteRunTokens(configuration.cwd, context),
         env,
         onOutput: (chunk) => this.options.onOutput?.({ sessionId: entry.session.id, ...chunk }),
+        onExit: (evidence) => this.processExited(entry, evidence),
       });
     } catch (error) {
-      return this.settle(entry, { state: "FAILED", failure: error instanceof Error ? error.message : String(error) });
+      return this.settle(entry, { state: "FAILED", failure: startFailure(configuration, substituteRunTokens(configuration.cwd, context), error) });
     }
     entry.handle = handle;
     entry.session = { ...entry.session, pid: handle.pid };
+    // The process can exit between spawn and this assignment. Do not turn a
+    // failed/finished process back into RUNNING while the start promise settles.
+    if (entry.session.state !== "STARTING") return entry.session;
 
-    if (configuration.healthcheck && !(await waitForHealthy(configuration, substituteRunTokens(configuration.healthcheck.target, context)))) {
+    if (configuration.healthcheck && !(await waitForHealthy(configuration, substituteRunTokens(configuration.healthcheck.target, context), () => entry.session.state === "STARTING"))) {
+      if (entry.session.state !== "STARTING") return entry.session;
+      // Stopping for a failed healthcheck is intentional. Mark it before
+      // killing the child so the close event cannot mistake cleanup for an
+      // unexpected member exit and race the compound's own failure path.
+      this.settle(entry, { state: "STOPPING" });
       await this.processes.stop(handle, configuration.shutdownTimeoutMs).catch(() => undefined);
       return this.settle(entry, { state: "FAILED", failure: "healthcheck did not pass before its timeout" });
     }
+    if (entry.session.state !== "STARTING") return entry.session;
     return this.settle(entry, { state: "RUNNING" });
+  }
+
+  private processExited(entry: Tracked, evidence: ProcessEvidence): void {
+    if (entry.session.state !== "STARTING" && entry.session.state !== "RUNNING") return;
+    const successful = evidence.exitCode === 0 && !evidence.signal;
+    this.settle(entry, {
+      state: successful ? "STOPPED" : "FAILED",
+      exitCode: evidence.exitCode ?? null,
+      ...(successful ? {} : { failure: processExitFailure(evidence) }),
+    });
+    if (entry.session.parentId) void this.failCompoundParent(entry, evidence);
+  }
+
+  private async failCompoundParent(member: Tracked, evidence: ProcessEvidence): Promise<void> {
+    const parent = member.session.parentId ? this.tracked.get(member.session.parentId) : undefined;
+    if (!parent || (parent.session.state !== "STARTING" && parent.session.state !== "RUNNING")) return;
+    const detail = evidence.exitCode === 0 && !evidence.signal
+      ? "member exited unexpectedly"
+      : processExitFailure(evidence).replace(/^process /, "");
+    this.settle(parent, { state: "STOPPING", failure: `member ${member.session.configurationId} ${detail}` });
+    await this.stopMembers(parent);
+    if ((parent.session.state as RunSession["state"]) === "STOPPING") this.settle(parent, { state: "FAILED" });
   }
 
   private track(configuration: ResolvedRunConfiguration, mode: RunMode, extra: { ports: readonly RunPort[]; parentId?: string }): Tracked {
@@ -204,17 +251,31 @@ function portsOf(configuration: ResolvedRunConfiguration, mode: RunMode): readon
   return declaredPorts(configuration, mode).map((port) => port.port);
 }
 
-async function waitForHealthy(configuration: ResolvedRunConfiguration, target: string): Promise<boolean> {
+async function waitForHealthy(configuration: ResolvedRunConfiguration, target: string, isStarting: () => boolean = () => true): Promise<boolean> {
   const healthcheck = configuration.healthcheck;
   if (!healthcheck) return true;
   const deadline = Date.now() + healthcheck.timeoutMs;
   /** A service is not healthy the instant it is spawned, so the check is a
       wait with a deadline rather than a single verdict taken too early. */
-  while (Date.now() < deadline) {
+  while (isStarting() && Date.now() < deadline) {
     if (await probeOnce(healthcheck.type, target, configuration)) return true;
     await new Promise((resolve) => setTimeout(resolve, 120));
   }
   return false;
+}
+
+function startFailure(configuration: ResolvedRunConfiguration, cwd: string, error: unknown): string {
+  const code = error && typeof error === "object" && "code" in error ? String((error as { code: unknown }).code) : "";
+  if (code === "ENOENT") return `${configuration.id}: unable to start ${configuration.command}; command not found or cwd does not exist (${cwd})`;
+  if (code === "EACCES") return `${configuration.id}: unable to start ${configuration.command}; permission denied (${cwd})`;
+  const detail = error instanceof Error ? error.message : String(error);
+  return `${configuration.id}: unable to start ${configuration.command} in ${cwd}: ${detail}`;
+}
+
+function processExitFailure(evidence: ProcessEvidence): string {
+  if (evidence.signal) return `process exited with signal ${evidence.signal}`;
+  if (evidence.exitCode !== undefined && evidence.exitCode !== null) return `process exited with code ${evidence.exitCode}`;
+  return "process exited unexpectedly";
 }
 
 async function probeOnce(type: "http" | "command", target: string, configuration: ResolvedRunConfiguration): Promise<boolean> {

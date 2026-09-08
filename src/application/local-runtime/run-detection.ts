@@ -147,28 +147,27 @@ async function detectNode(projectRoot: string, directory: string): Promise<reado
 async function detectMaven(projectRoot: string, directory: string): Promise<readonly RunConfigurationDraft[]> {
   const pom = await readFile(join(directory, "pom.xml"), "utf8").catch(() => undefined);
   if (!pom) return [];
-  const wrapper = await exists(join(directory, process.platform === "win32" ? "mvnw.cmd" : "mvnw"));
+  const wrapperName = process.platform === "win32" ? "mvnw.cmd" : "mvnw";
+  const wrapper = await wrapperInvocation(directory, wrapperName);
   const prefix = relativeLabel(projectRoot, directory);
-  // cmd.exe does not understand the POSIX `./mvnw` spelling. Maven projects
-  // ship a dedicated batch wrapper on Windows, which also avoids requiring a
-  // machine-wide Maven installation.
-  const command = wrapper ? (process.platform === "win32" ? "mvnw.cmd" : "./mvnw") : "mvn";
+  const command = wrapper?.command ?? "mvn";
+  const wrapperArgs = wrapper?.args ?? [];
   const source = sourceLabel(projectRoot, directory, "pom.xml");
   const drafts: RunConfigurationDraft[] = [
-    commandDraft(projectRoot, directory, "maven", "build", command, ["verify"], source),
-    commandDraft(projectRoot, directory, "maven", "test", command, ["test"], source),
+    commandDraft(projectRoot, directory, "maven", "build", command, [...wrapperArgs, "verify"], source),
+    commandDraft(projectRoot, directory, "maven", "test", command, [...wrapperArgs, "test"], source),
   ];
-  if (pom.includes("spring-boot")) {
+  if (pom.includes("spring-boot") && await hasSpringBootEntryPoint(directory, pom)) {
     drafts.unshift({
       id: identifier(prefix, "spring-boot"),
       label: [prefix, "Spring Boot"].filter(Boolean).join(" · "),
       kind: "command",
       command,
-      args: ["spring-boot:run"],
+      args: [...wrapperArgs, "spring-boot:run"],
       cwd: cwdToken(projectRoot, directory),
       ports: [{ name: "api", port: 8080, protocol: "http", bind: "loopback" }],
       debug: {
-        args: ["spring-boot:run", "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"],
+        args: [...wrapperArgs, "spring-boot:run", "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"],
         port: 5005,
         protocol: "jdwp",
         attachHint: "Attach a JVM debugger to localhost:5005",
@@ -182,24 +181,26 @@ async function detectMaven(projectRoot: string, directory: string): Promise<read
 async function detectGradle(projectRoot: string, directory: string): Promise<readonly RunConfigurationDraft[]> {
   const buildFile = await readFile(join(directory, "build.gradle"), "utf8").then((content) => ({ name: "build.gradle", content })).catch(() => readFile(join(directory, "build.gradle.kts"), "utf8").then((content) => ({ name: "build.gradle.kts", content })).catch(() => undefined));
   if (!buildFile) return [];
-  const wrapper = await exists(join(directory, process.platform === "win32" ? "gradlew.bat" : "gradlew"));
+  const wrapperName = process.platform === "win32" ? "gradlew.bat" : "gradlew";
+  const wrapper = await wrapperInvocation(directory, wrapperName);
   const prefix = relativeLabel(projectRoot, directory);
-  const command = wrapper ? (process.platform === "win32" ? "gradlew.bat" : "./gradlew") : "gradle";
+  const command = wrapper?.command ?? "gradle";
+  const wrapperArgs = wrapper?.args ?? [];
   const source = sourceLabel(projectRoot, directory, buildFile.name);
   const drafts: RunConfigurationDraft[] = [
-    commandDraft(projectRoot, directory, "gradle", "build", command, ["build"], source),
-    commandDraft(projectRoot, directory, "gradle", "test", command, ["test"], source),
+    commandDraft(projectRoot, directory, "gradle", "build", command, [...wrapperArgs, "build"], source),
+    commandDraft(projectRoot, directory, "gradle", "test", command, [...wrapperArgs, "test"], source),
   ];
-  if (buildFile.content.includes("org.springframework.boot")) {
+  if (buildFile.content.includes("org.springframework.boot") && await hasSpringBootEntryPoint(directory, buildFile.content)) {
     drafts.unshift({
       id: identifier(prefix, "boot-run"),
       label: [prefix, "Spring Boot"].filter(Boolean).join(" · "),
       kind: "command",
       command,
-      args: ["bootRun"],
+      args: [...wrapperArgs, "bootRun"],
       cwd: cwdToken(projectRoot, directory),
       ports: [{ name: "api", port: 8080, protocol: "http", bind: "loopback" }],
-      debug: { args: ["bootRun", "--debug-jvm"], port: 5005, protocol: "jdwp", attachHint: "Attach a JVM debugger to localhost:5005" },
+      debug: { args: [...wrapperArgs, "bootRun", "--debug-jvm"], port: 5005, protocol: "jdwp", attachHint: "Attach a JVM debugger to localhost:5005" },
       source,
     });
   }
@@ -260,4 +261,52 @@ async function detectDotnet(projectRoot: string, directory: string): Promise<rea
     drafts.push(commandDraft(projectRoot, directory, "dotnet", "lint", "dotnet", ["format", ...target, "--verify-no-changes"], source));
   }
   return drafts;
+}
+
+type WrapperInvocation = { command: string; args: readonly string[] };
+
+/** A wrapper copied from a zip or checked out with broken executable bits is
+    still usable on POSIX, but spawning `./mvnw` would fail with EACCES. Invoke
+    it through `sh` in that case; on Windows cross-spawn handles the `.cmd`
+    entry point directly. */
+async function wrapperInvocation(directory: string, name: string): Promise<WrapperInvocation | undefined> {
+  const path = join(directory, name);
+  if (!await exists(path)) return undefined;
+  if (process.platform === "win32") return { command: name, args: [] };
+  const executable = await stat(path).then((entry) => (entry.mode & 0o111) !== 0).catch(() => false);
+  return executable ? { command: `./${name}`, args: [] } : { command: "sh", args: [`./${name}`] };
+}
+
+/** Spring Boot's plugin can be inherited by every module in a reactor. A
+    plugin mention is therefore not enough evidence that the current directory
+    is runnable. Require a configured main class or a real source entry point;
+    aggregators with `<packaging>pom</packaging>` consequently offer build/test
+    but never a misleading application run. */
+async function hasSpringBootEntryPoint(directory: string, buildFile: string): Promise<boolean> {
+  if (configuredMainClass(buildFile)) return true;
+  if (/<packaging>\s*pom\s*<\/packaging>/i.test(buildFile) || /<modules\s*>/i.test(buildFile)) return false;
+  for (const sourceRoot of ["src/main/java", "src/main/kotlin", "src/main/groovy"]) {
+    if (await sourceTreeHasMain(join(directory, sourceRoot))) return true;
+  }
+  return false;
+}
+
+function configuredMainClass(buildFile: string): boolean {
+  return /<(?:mainClass|start-class)>\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*<\//i.test(buildFile)
+    || /spring-boot\.run\.main-class\s*[=:]\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*/i.test(buildFile);
+}
+
+async function sourceTreeHasMain(root: string, depth = 0): Promise<boolean> {
+  if (depth > 8) return false;
+  const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (entry.name.startsWith(".") || ignoredDirectories.has(entry.name)) continue;
+    const path = join(root, entry.name);
+    if (entry.isDirectory() && await sourceTreeHasMain(path, depth + 1)) return true;
+    if (!entry.isFile() || !/\.(?:java|kt|groovy)$/.test(entry.name)) continue;
+    const source = await readFile(path, "utf8").catch(() => "");
+    if (/(?:static\s+void\s+main\s*\(|\bfun\s+main\s*\()/s.test(source)
+      && /@SpringBoot(?:Application|Configuration)\b|\bSpringApplication\.run\s*\(|\brunApplication\s*</.test(source)) return true;
+  }
+  return false;
 }

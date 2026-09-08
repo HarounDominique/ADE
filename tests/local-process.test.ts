@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LocalProcess, runtimeEnvironment, windowsJavaRoots, windowsNodeDirectories } from "../src/adapters/local-process.js";
+import type { ProcessEvidence } from "../src/ports/process.js";
 
 const localProcessSource = readFileSync(new URL("../src/adapters/local-process.ts", import.meta.url), "utf8");
 const safeCommandSource = readFileSync(new URL("../src/adapters/safe-command.ts", import.meta.url), "utf8");
@@ -119,4 +120,22 @@ test("LocalProcess reports an exit without leaving a handle", async () => {
   const evidence = await processPort.stop(handle);
   assert.equal(evidence.state, "STOPPED");
   assert.match(evidence.stdout, /done/);
+});
+
+test("LocalProcess reports an early failure through onExit", async () => {
+  const processPort = new LocalProcess();
+  let exit: ProcessEvidence | undefined;
+  const handle = await processPort.start({
+    id: "process-early-failure",
+    command: node,
+    args: ["-e", "process.stderr.write('bad config'); process.exit(7);"],
+    cwd: tmpdir(),
+    onExit: (evidence) => { exit = evidence; },
+  });
+
+  await settle();
+  assert.equal(handle.state, "RUNNING");
+  assert.equal(exit?.state, "FAILED");
+  assert.equal(exit?.exitCode, 7);
+  assert.match(exit?.stderr ?? "", /bad config/);
 });
