@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const html = readFileSync(new URL("../desktop/src/index.html", import.meta.url), "utf8");
 const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../desktop/src/styles.css", import.meta.url), "utf8");
+const components = readFileSync(new URL("../desktop/src/components.css", import.meta.url), "utf8");
 const desktopBuild = readFileSync(new URL("../desktop/build.mjs", import.meta.url), "utf8");
 const sidecarBuild = readFileSync(new URL("../scripts/build-desktop-sidecar.mjs", import.meta.url), "utf8");
 const smokeBundle = readFileSync(new URL("../scripts/smoke-desktop-bundle.mjs", import.meta.url), "utf8");
@@ -484,6 +485,55 @@ test("workspace search returns files directly and restores their compact branch 
   assert.match(styles, /overflow-wrap: anywhere/);
 });
 
+test("saving a file clears the tree without waiting for another click", () => {
+  const editState = main.slice(main.indexOf("function updateDocumentEditState"), main.indexOf("/** Called on every keystroke"));
+  // The repaint has to follow the write to the tab record it reads.
+  assert.match(editState, /syncActiveDocumentTabState\(\);\n  if \(documentDirty !== wasDirty\) decorateWorkspaceTree\(\);/);
+  const save = main.slice(main.indexOf("async function saveActiveDocument"), main.indexOf("async function discardDocumentChanges"));
+  assert.match(save, /dirty: false/);
+  assert.match(save, /requestPendingGitChanges\(workspaceRootPath\)/);
+});
+
+test("opening a file never reports it as unsaved", () => {
+  // The load itself is a change event, so the baseline has to be in place
+  // before the text is handed to the editor.
+  const render = main.slice(main.indexOf("async function renderActiveDocument"), main.indexOf("async function loadDocumentRecord"));
+  assert.match(render, /documentOriginalContent = isText \? \(record\.original \?\? ''\) : '';\n  documentDirty = false;\n  await setCodeEditorContent/);
+  assert.doesNotMatch(render, /await setCodeEditorContent\(isText[\s\S]*\n  documentOriginalContent =/);
+  // And the tree is reconciled once the load settles, so no state survives it.
+  assert.match(render, /updateDocumentEditState\(\);\n  decorateWorkspaceTree\(\);/);
+});
+
+test("the workspace tree colours Git state and unsaved buffers", () => {
+  assert.match(main, /function workspaceGitStateClass/);
+  assert.match(main, /if \(code === '\?\?'\) return 'git-untracked'/);
+  assert.match(main, /return 'git-conflict'/);
+  assert.match(main, /function workspaceGitRelativePath/);
+  assert.match(main, /' -> '/);
+  assert.match(main, /function buildWorkspaceGitDecorations/);
+  assert.match(main, /directoriesByPath\.set\(prefix, state\)/);
+  assert.match(main, /function decorateWorkspaceTree/);
+  assert.match(main, /unsaved\.has\(filePath\) \? 'workspace-unsaved'/);
+  // A folder reports the unsaved work buried under it, at any depth.
+  assert.match(main, /function ancestorDirectoryKeys/);
+  assert.match(main, /const unsavedDirectories = ancestorDirectoryKeys\(unsaved\)/);
+  assert.match(main, /unsavedDirectories\.has\(relativePath\) \? 'workspace-unsaved'/);
+  assert.match(main, /'Contains unsaved changes'/);
+  assert.match(styles, /\.workspace-entry\.directory\.workspace-unsaved \.workspace-name \{ color: var\(--vcs-unsaved\); \}/);
+  // Colour alone is never the carrier: each state also lands in the title and
+  // the accessible name.
+  assert.match(main, /entry\.title = label/);
+  assert.match(main, /aria-label', `\$\{baseLabel\} — \$\{label\}`/);
+  assert.match(main, /workspaceGitDecorations = buildWorkspaceGitDecorations\(pendingGitFiles\)/);
+  assert.match(main, /workspaceGitPollTick % 5 === 0/);
+  assert.match(styles, /\.workspace-entry\.git-modified \.workspace-name \{ color: var\(--vcs-modified\); \}/);
+  assert.match(styles, /\.workspace-entry\.git-untracked \.workspace-name \{ color: var\(--vcs-untracked\); \}/);
+  assert.match(styles, /\.workspace-entry\.git-deleted \.workspace-name \{[^\n]*line-through/);
+  assert.match(styles, /\.workspace-entry\.workspace-unsaved \.workspace-name \{ color: var\(--vcs-unsaved\); \}/);
+  assert.match(styles, /\.workspace-entry\.directory\.git-modified \.workspace-name/);
+  assert.match(styles, /:root\[data-theme="dark"\] \{ --vcs-untracked/);
+});
+
 test("explorer mode changes preserve continuity with a reduced-motion path", () => {
   assert.match(styles, /\.sidebar\.explorer-expanded \.primary-nav/);
   assert.match(styles, /\.primary-nav \.nav-item:not\(\.active\) \{ display: none; \}/);
@@ -514,6 +564,25 @@ test("document editor fills its viewport and exposes save state", () => {
   assert.match(main, /monacoLanguageDefinitions/);
   assert.match(main, /setModelLanguage/);
   assert.match(main, /editor-engine-hidden/);
+});
+
+test("Markdown opens rendered and keeps one control back to its source", () => {
+  assert.match(html, /id="markdown-preview-toggle"[^>]*data-action="toggle-markdown-preview"|data-action="toggle-markdown-preview"[^>]*id="markdown-preview-toggle"/);
+  assert.match(html, /id="markdown-preview-toggle"[^>]*aria-controls="document-preview"/);
+  assert.match(html, /class="document-preview" id="document-preview"[^>]*hidden/);
+  // Raw HTML stays off: a file in the tree is untrusted input.
+  assert.match(main, /new MarkdownIt\(\{ html: false, linkify: true \}\)/);
+  assert.match(main, /import\('markdown-it'\)/);
+  assert.match(main, /function syncMarkdownPreview/);
+  assert.match(main, /function toggleMarkdownPreview/);
+  assert.match(main, /localStorage\.setItem\(markdownPreviewStorageKey/);
+  // The preview hides the editor, so Save must not read that as "not editable".
+  assert.match(main, /const editable = Boolean\(activeDocument\?\.kind === 'text' && editor && \(!editor\.hidden \|\| markdownPreviewVisible\(\)\)\)/);
+  // Links resolve inside the shell instead of navigating the webview away.
+  assert.match(main, /function openMarkdownPreviewLink/);
+  assert.match(main, /pathInsideRoot\(target\)/);
+  assert.match(styles, /\.document-preview \{/);
+  assert.match(styles, /\.document-preview li\.markdown-task-item/);
 });
 
 test("theme switch is visible in the topbar and exposes light/dark state", () => {
@@ -732,9 +801,10 @@ test("everything the editor panel toggles with hidden can actually hide", () => 
   // sets one without the other leaves the element on screen for good: the
   // empty state stayed up over an open file, and the open-files menu could be
   // opened but never closed.
+  const sheets = `${styles}\n${components}`;
   for (const selector of ['.document-empty-state', '.document-tabs-menu', '.document-viewer-status', '.document-content', '.icon-button']) {
-    const declaresDisplay = new RegExp(`\\${selector} \\{[^}]*display:`).test(styles);
-    const guarded = styles.includes(`${selector}[hidden]`) || new RegExp(`\\${selector}\\[hidden\\][^{]*\\{`).test(styles);
+    const declaresDisplay = new RegExp(`\\${selector} \\{[^}]*display:`).test(sheets);
+    const guarded = sheets.includes(`${selector}[hidden]`) || new RegExp(`\\${selector}\\[hidden\\][^{]*\\{`).test(sheets);
     assert.ok(!declaresDisplay || guarded, `${selector} sets display but never says what [hidden] means`);
   }
 });
@@ -880,4 +950,30 @@ test("the expanded terminal stops at the topbar instead of a fixed fraction", ()
   assert.match(main, /function terminalHeightBounds\(\)[\s\S]*?\.topbar'\)\?\.getBoundingClientRect\(\)\.bottom/);
   assert.match(main, /function terminalHeightBounds\(\)[\s\S]*?getComputedStyle\(terminalDock\)\.bottom/);
   assert.match(main, /window\.innerHeight - headerBottom - statusBarInset/);
+});
+
+test("one button component paints every action control", () => {
+  // The shell loads the shared control layer, and the bundle ships it.
+  assert.match(html, /href="\/components\.css"/);
+  assert.match(desktopBuild, /cpSync\('src\/components\.css', 'dist\/components\.css'\)/);
+  // Every role a view can ask for is defined once, in that layer.
+  for (const role of ['.button', '.button.primary', '.button.secondary', '.button.accent', '.button.ghost', '.button.danger', '.button.compact', '.button.icon', '.button.block', '.icon-button', '.text-button']) {
+    assert.match(components, new RegExp(`\\${role} \\{`), `${role} is not defined in components.css`);
+  }
+  // `.button.ghost` was carried in the markup long before anything drew it.
+  assert.match(html, /class="button ghost"/);
+  // A view may place a control; it may not repaint one.
+  assert.doesNotMatch(styles, /\.button[.:a-z-]* ?\{[^}]*background:/);
+  assert.doesNotMatch(styles, /\.text-button[.:a-z-]* ?\{[^}]*color:/);
+  // The retired theme scheme left this hover painting light-theme buttons navy.
+  assert.doesNotMatch(styles, /:root:not\(\[data-theme="light"\]\) \.button:hover/);
+});
+
+test("adding a Project is a labelled button, not a bare glyph", () => {
+  // The catalog's primary action wears the same component as New task, and
+  // says what it does instead of leaving a plus sign to imply it.
+  assert.match(html, /<button class="button primary compact" type="button" data-action="add-project">New project<\/button>/);
+  assert.match(html, /<button class="button primary" type="button" data-action="new-task"/);
+  assert.match(html, /class="button accent compact agent-new-session"/);
+  assert.doesNotMatch(styles, /\.agent-new-session[^{]*\{[^}]*(background|border-radius|font):/);
 });

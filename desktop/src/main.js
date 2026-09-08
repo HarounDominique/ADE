@@ -17,8 +17,9 @@ import { markdown } from '@codemirror/lang-markdown';
 import { sql } from '@codemirror/lang-sql';
 import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
-import { defaultHighlightStyle, bracketMatching, indentOnInput, syntaxHighlighting } from '@codemirror/language';
-import { EditorState, Compartment } from '@codemirror/state';
+import { HighlightStyle, bracketMatching, indentOnInput, syntaxHighlighting } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
+import { EditorState, Compartment, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 
@@ -124,6 +125,7 @@ let selectedPendingGitFile = null;
 let gitHistoryFilter = '';
 let pendingGitFilter = '';
 let pendingGitFiles = [];
+let workspaceGitDecorations = { files: new Map(), directories: new Map() };
 let gitCommitNeedsPush = false;
 let gitUnpushedCommitCount = 0;
 let historyCommitsCollapsed = false;
@@ -136,6 +138,7 @@ let monacoLoader = null;
 let prettierLoader = null;
 let activeEditorEngine = 'codemirror';
 const codeEditorLanguage = new Compartment();
+const codeEditorHighlight = new Compartment();
 const pendingContextRequests = new Map();
 const pendingAgentSessionPaths = new Map();
 const pendingAgentMessageSessions = new Map();
@@ -268,6 +271,68 @@ const terminalPalettes = {
   },
 };
 
+/** Editor syntax palettes.  CodeMirror's defaultHighlightStyle is written for a
+    white page -- it paints names in pure blue and comments in near-black -- so
+    in dark mode a Java class or field sank into the background and could not be
+    read. Each theme now gets its own style, built from the product's tokens and
+    checked against every panel-soft background the skins use: nothing here
+    falls below 5:1, comfortably past the 4.5:1 minimum for body-size text.
+
+    The two palettes assign the same hue to the same role, so a file keeps its
+    shape across a theme switch: purple for keywords, green for types, blue for
+    the name being defined, red for strings, amber for numbers and annotations. */
+const codeHighlightPalettes = {
+  dark: {
+    keyword: '#c9b0ff', string: '#f3a3aa', number: '#f2cc85', comment: '#8ba2b6',
+    type: '#7cd9a5', name: '#cfdae4', definition: '#8fb9ff', callee: '#6fdccf',
+    property: '#95e9de', meta: '#f2cc85', operator: '#a6b8c8', invalid: '#ff9aa2',
+  },
+  light: {
+    keyword: '#6f48a6', string: '#ab3d47', number: '#8a5d11', comment: '#566878',
+    type: '#167646', name: '#243544', definition: '#1d4fa8', callee: '#0b6b65',
+    property: '#0f6d68', meta: '#8a5d11', operator: '#4a5c6e', invalid: '#a32b2b',
+  },
+};
+
+function codeHighlightStyle(theme) {
+  const palette = codeHighlightPalettes[theme === 'light' ? 'light' : 'dark'];
+  return HighlightStyle.define([
+    { tag: [tags.keyword, tags.modifier, tags.controlKeyword, tags.operatorKeyword, tags.self, tags.null, tags.atom, tags.bool], color: palette.keyword },
+    { tag: [tags.string, tags.special(tags.string), tags.regexp], color: palette.string },
+    { tag: [tags.escape, tags.character], color: palette.number },
+    { tag: [tags.number, tags.integer, tags.float, tags.unit], color: palette.number },
+    { tag: [tags.comment, tags.lineComment, tags.blockComment, tags.docComment], color: palette.comment, fontStyle: 'italic' },
+    { tag: [tags.typeName, tags.className, tags.namespace, tags.standard(tags.typeName)], color: palette.type },
+    { tag: [tags.variableName, tags.labelName], color: palette.name },
+    { tag: [tags.definition(tags.variableName), tags.definition(tags.propertyName)], color: palette.definition },
+    { tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.macroName], color: palette.callee },
+    { tag: [tags.propertyName, tags.attributeName], color: palette.property },
+    { tag: [tags.meta, tags.annotation, tags.processingInstruction, tags.definitionKeyword, tags.moduleKeyword], color: palette.meta },
+    { tag: [tags.operator, tags.punctuation, tags.separator, tags.bracket, tags.derefOperator], color: palette.operator },
+    { tag: [tags.tagName], color: palette.type },
+    { tag: [tags.heading], color: palette.definition, fontWeight: '600' },
+    { tag: [tags.link, tags.url], color: palette.callee, textDecoration: 'underline' },
+    { tag: [tags.emphasis], fontStyle: 'italic' },
+    { tag: [tags.strong], fontWeight: '600' },
+    { tag: [tags.strikethrough], textDecoration: 'line-through' },
+    { tag: [tags.invalid], color: palette.invalid },
+  ]);
+}
+
+/** basicSetup already installs defaultHighlightStyle, and the first extension
+    in the list wins, so simply adding ours after it changed nothing on screen.
+    Prec.highest puts the theme's style in front of the bundled one. */
+function codeHighlightExtension(theme) {
+  return Prec.highest(syntaxHighlighting(codeHighlightStyle(theme), { fallback: true }));
+}
+
+function applyCodeEditorTheme(theme) {
+  if (!codeEditorView) return;
+  codeEditorView.dispatch({
+    effects: codeEditorHighlight.reconfigure(codeHighlightExtension(theme)),
+  });
+}
+
 /** The active theme, readable before any terminal exists: a terminal created
     later must open in the theme already on screen instead of a hardcoded one. */
 function activeTerminalPalette() {
@@ -283,6 +348,7 @@ function applyTheme(theme) {
   // controls sit on a line measured from its foot.
   syncSidebarControlAnchor();
   applyMonacoTheme(nextTheme);
+  applyCodeEditorTheme(nextTheme);
   document.querySelectorAll('[data-action="toggle-theme"]').forEach((button) => {
     button.setAttribute('aria-checked', String(nextTheme === 'light'));
     const nextLabel = nextTheme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
@@ -658,7 +724,7 @@ function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null,
     convertEol: false,
     scrollback: 5000,
     fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    fontSize: 12,
+    fontSize: 13,
     theme: activeTerminalPalette(),
   });
   tab.fitAddon = new FitAddon();
@@ -1340,6 +1406,8 @@ function renderPendingGitChanges(result) {
   const count = document.getElementById('git-pending-file-count');
   const fileName = document.getElementById('git-pending-file-name');
   pendingGitFiles = result?.files ?? [];
+  workspaceGitDecorations = buildWorkspaceGitDecorations(pendingGitFiles);
+  decorateWorkspaceTree();
   const query = pendingGitFilter.trim();
   const visibleFiles = query
     ? pendingGitFiles.filter((file) => matchesGitFilter(file.path, query))
@@ -1561,7 +1629,7 @@ function initializeCodeEditor() {
       extensions: [
         basicSetup,
         codeEditorLanguage.of([]),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        codeEditorHighlight.of(codeHighlightExtension(document.documentElement.dataset.theme)),
         bracketMatching(),
         indentOnInput(),
         EditorView.lineWrapping,
@@ -1596,7 +1664,7 @@ async function initializeMonacoEditor() {
     tabSize: 2,
     insertSpaces: true,
     fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 19,
     padding: { top: 14, bottom: 24 },
     scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
@@ -1651,7 +1719,8 @@ function updateDocumentEditState() {
   const discardButton = document.getElementById('discard-file');
   const formatButton = document.getElementById('format-document');
   const kindElement = document.getElementById('document-kind');
-  const editable = Boolean(activeDocument?.kind === 'text' && editor && !editor.hidden);
+  const editable = Boolean(activeDocument?.kind === 'text' && editor && (!editor.hidden || markdownPreviewVisible()));
+  const wasDirty = documentDirty;
   documentDirty = editable && codeEditorValue() !== documentOriginalContent;
   if (saveButton) saveButton.disabled = !documentDirty;
   if (discardButton) discardButton.disabled = !documentDirty;
@@ -1664,7 +1733,13 @@ function updateDocumentEditState() {
     kindElement.textContent = documentDirty ? `${language} · UNSAVED` : language;
   }
   updateRevealOpenFileButton();
+  // Formatting and discarding rewrite the buffer the preview is showing.
+  if (markdownPreviewVisible()) void renderMarkdownPreview();
+  // The tab record carries the state the tree reads, so the tree is repainted
+  // after it has been written -- before that write, a file that was just saved
+  // still looks unsaved.
   syncActiveDocumentTabState();
+  if (documentDirty !== wasDirty) decorateWorkspaceTree();
 }
 
 /** Called on every keystroke, so it touches the one tab that changed instead
@@ -1742,10 +1817,12 @@ async function renderActiveDocument({ focus = false } = {}) {
     status.hidden = true;
     content.hidden = true;
     setDocumentHeader({ title: 'No file selected', path: 'Select a file from Explorer to open it.', kind: '—', externalDisabled: true });
-    await setCodeEditorContent('');
     documentOriginalContent = '';
     documentDirty = false;
+    await setCodeEditorContent('');
+    await syncMarkdownPreview();
     updateDocumentEditState();
+    decorateWorkspaceTree();
     return;
   }
   empty.hidden = true;
@@ -1764,12 +1841,23 @@ async function renderActiveDocument({ focus = false } = {}) {
     : record.state === 'error' ? `Unable to read file: ${record.message}`
     : isText ? '' : (record.message ?? 'This file cannot be previewed inside Assay.');
   content.hidden = !isText;
-  await setCodeEditorContent(isText ? (record.buffer ?? '') : '', record.path, isText && focus);
+  // The editor reports every change it is handed, including the one that loads
+  // the file. Naming the incoming original first means that report compares the
+  // new text against the new baseline instead of the outgoing file's, which is
+  // what used to make a freshly opened file look unsaved.
   documentOriginalContent = isText ? (record.original ?? '') : '';
   documentDirty = false;
+  await setCodeEditorContent(isText ? (record.buffer ?? '') : '', record.path, isText && focus);
   if (isText) restoreDocumentCaret(record);
+  await syncMarkdownPreview();
   updateDocumentEditState();
-  if (isText && focus) (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
+  decorateWorkspaceTree();
+  // Focus follows the surface that is actually on screen: the rendered
+  // document when it is showing, the editor when it is not.
+  if (isText && focus) {
+    if (markdownPreviewVisible()) document.getElementById('document-preview')?.focus();
+    else (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
+  }
 }
 
 async function loadDocumentRecord(record) {
@@ -1924,6 +2012,7 @@ function renderDocumentTabs() {
     return `<div class="${classes}" role="presentation"><button class="document-tab-button" type="button" role="tab" id="document-tab-${escapeHTML(record.id)}" aria-selected="${active}" aria-controls="document-viewer-body" tabindex="${active ? '0' : '-1'}" data-document-tab-id="${escapeHTML(record.id)}" title="${hint}"><span class="document-tab-name">${name}</span>${where ? `<span class="document-tab-where">${escapeHTML(where)}</span>` : ''}</button><button class="document-tab-close" type="button" tabindex="-1" data-document-close-id="${escapeHTML(record.id)}" aria-label="Close ${name}${dirty ? ', discarding unsaved changes' : ''}" title="Close ${name}"><span class="document-tab-dot" aria-hidden="true"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>`;
   }).join('');
   updateDocumentTabsOverflow();
+  decorateWorkspaceTree();
 }
 
 function scrollDocumentTabIntoView(id) {
@@ -2076,8 +2165,11 @@ async function saveActiveDocument() {
     documentOriginalContent = content;
     // The record is the tab, so saving writes through it rather than replacing
     // the object the strip and the close path are holding on to.
-    Object.assign(activeDocument, { content, original: content, buffer: content, size: new TextEncoder().encode(content).length });
+    Object.assign(activeDocument, { content, original: content, buffer: content, dirty: false, size: new TextEncoder().encode(content).length });
     updateDocumentEditState();
+    // The file that was unsaved a moment ago is a pending Git change now, so
+    // the tree earns its next colour without waiting for the poll.
+    requestPendingGitChanges(workspaceRootPath);
     notify('File saved in Assay.');
   } catch (error) {
     notify('Unable to save file.');
@@ -2104,7 +2196,7 @@ async function discardDocumentChanges() {
 async function formatActiveDocument() {
   const editor = document.getElementById('document-content');
   const parser = formatterParserForPath(activeDocument?.path);
-  if (!editor || editor.hidden || activeDocument?.kind !== 'text' || !parser) return;
+  if (!editor || (editor.hidden && !markdownPreviewVisible()) || activeDocument?.kind !== 'text' || !parser) return;
   const formatButton = document.getElementById('format-document');
   if (formatButton) formatButton.disabled = true;
   try {
@@ -2116,7 +2208,7 @@ async function formatActiveDocument() {
       tabWidth: 2,
       useTabs: false,
     });
-    await setCodeEditorContent(formatted, activeDocument.path, true);
+    await setCodeEditorContent(formatted, activeDocument.path, !markdownPreviewVisible());
     updateDocumentEditState();
     notify('Document formatted.');
   } catch (error) {
@@ -2125,6 +2217,183 @@ async function formatActiveDocument() {
   } finally {
     updateDocumentEditState();
   }
+}
+
+/** Markdown is read here far more often than it is edited -- the specs, the
+    ADRs and the task log are all .md -- so a Markdown file opens rendered and
+    keeps one control back to its source. markdown-it (MIT) parses with
+    `html: false`: a file in the tree is untrusted input, and the preview must
+    never become a way to run what a document carries. */
+const markdownPreviewStorageKey = 'ade-markdown-preview';
+let markdownPreviewPreference = true;
+try { markdownPreviewPreference = localStorage.getItem(markdownPreviewStorageKey) !== 'source'; } catch { markdownPreviewPreference = true; }
+let markdownRenderer = null;
+let markdownRendererLoader = null;
+
+function isMarkdownPath(filePath = '') {
+  return ['md', 'markdown', 'mdown', 'mkd'].includes(fileExtension(filePath));
+}
+
+function markdownSlug(text, used) {
+  const base = String(text).toLowerCase().trim().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, '-') || 'section';
+  let slug = base;
+  for (let index = 2; used.has(slug); index += 1) slug = `${base}-${index}`;
+  used.add(slug);
+  return slug;
+}
+
+/** Headings carry the ids a document's own `[link](#heading)` targets rely on;
+    without them every in-document link in a spec is dead. */
+function markdownHeadingAnchors(state) {
+  const used = new Set();
+  state.tokens.forEach((token, index) => {
+    if (token.type !== 'heading_open') return;
+    const inline = state.tokens[index + 1];
+    if (inline?.type === 'inline') token.attrSet('id', markdownSlug(inline.content, used));
+  });
+}
+
+/** `- [ ]` is how the task log states progress, so the preview draws the box
+    instead of the brackets. The box is inert: the file is the state. */
+function markdownTaskLists(state) {
+  state.tokens.forEach((token, index) => {
+    if (token.type !== 'inline') return;
+    const listItem = state.tokens[index - 2];
+    if (listItem?.type !== 'list_item_open') return;
+    const first = token.children?.[0];
+    if (first?.type !== 'text') return;
+    const match = /^\[([ xX])\]\s+/.exec(first.content);
+    if (!match) return;
+    first.content = first.content.slice(match[0].length);
+    const checkbox = new state.Token('html_inline', '', 0);
+    checkbox.content = `<input class="markdown-task" type="checkbox" disabled${match[1] === ' ' ? '' : ' checked'}> `;
+    token.children.unshift(checkbox);
+    listItem.attrJoin('class', 'markdown-task-item');
+  });
+}
+
+async function loadMarkdownRenderer() {
+  if (markdownRenderer) return markdownRenderer;
+  if (!markdownRendererLoader) {
+    markdownRendererLoader = import('markdown-it').then(({ default: MarkdownIt }) => {
+      markdownRenderer = new MarkdownIt({ html: false, linkify: true });
+      markdownRenderer.core.ruler.push('ade_heading_anchors', markdownHeadingAnchors);
+      markdownRenderer.core.ruler.push('ade_task_lists', markdownTaskLists);
+      return markdownRenderer;
+    });
+  }
+  return markdownRendererLoader;
+}
+
+function markdownPreviewVisible() {
+  const preview = document.getElementById('document-preview');
+  return Boolean(preview && !preview.hidden);
+}
+
+/** A record only renders once it is readable text; anything else stays with the
+    editor's own loading, binary and failure states. */
+function documentIsRenderableMarkdown(record) {
+  return Boolean(record && record.state === 'ready' && record.kind === 'text' && isMarkdownPath(record.path));
+}
+
+async function renderMarkdownPreview() {
+  const preview = document.getElementById('document-preview');
+  const record = documentTabById(activeDocumentId);
+  if (!preview || !documentIsRenderableMarkdown(record)) return;
+  // The editor holds the text that is actually on screen, including edits that
+  // have not been saved, so the preview reads from it rather than from the
+  // record's last written buffer.
+  const source = codeEditorValue() || (record.buffer ?? '');
+  const renderer = await loadMarkdownRenderer();
+  preview.innerHTML = renderer.render(source, {});
+  preview.scrollTop = record.previewScrollTop ?? 0;
+}
+
+/** One place decides which of the two surfaces the panel is showing, so the
+    toggle, the tab switch and a document that stops being Markdown all end up
+    with the same account of it. */
+async function syncMarkdownPreview() {
+  const content = document.getElementById('document-content');
+  const preview = document.getElementById('document-preview');
+  const toggle = document.getElementById('markdown-preview-toggle');
+  if (!content || !preview) return;
+  const record = documentTabById(activeDocumentId);
+  const renderable = documentIsRenderableMarkdown(record);
+  if (renderable && record.preview === undefined) record.preview = markdownPreviewPreference;
+  const rendered = renderable && record.preview === true;
+  if (toggle) {
+    toggle.hidden = !renderable;
+    toggle.disabled = !renderable;
+    toggle.textContent = rendered ? 'Source' : 'Preview';
+    toggle.setAttribute('aria-pressed', String(rendered));
+    toggle.title = rendered ? 'Show the Markdown source' : 'Show the rendered Markdown';
+  }
+  preview.hidden = !rendered;
+  if (rendered) {
+    content.hidden = true;
+    await renderMarkdownPreview();
+    return;
+  }
+  preview.innerHTML = '';
+  if (record?.state === 'ready' && record.kind === 'text') content.hidden = false;
+}
+
+async function toggleMarkdownPreview() {
+  const record = documentTabById(activeDocumentId);
+  if (!documentIsRenderableMarkdown(record)) return;
+  record.preview = !(record.preview ?? markdownPreviewPreference);
+  // The last choice is the one the next Markdown file opens with, so a reader
+  // and an author each keep the surface they work in.
+  markdownPreviewPreference = record.preview;
+  try { localStorage.setItem(markdownPreviewStorageKey, record.preview ? 'preview' : 'source'); } catch { /* Persistence is optional. */ }
+  await syncMarkdownPreview();
+  updateDocumentEditState();
+  if (record.preview) document.getElementById('document-preview')?.focus();
+  else (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
+}
+
+/** A relative link in a document is a path from the document, so it resolves
+    against the file being read rather than against the Project root. */
+function resolveMarkdownLinkPath(href) {
+  const base = activeDocument?.path ?? '';
+  if (!base) return '';
+  const segments = pathSegments(base).slice(0, -1);
+  for (const segment of pathSegments(href.split(/[?#]/)[0])) {
+    if (segment === '.') continue;
+    if (segment === '..') segments.pop();
+    else segments.push(segment);
+  }
+  const separator = base.includes('\\') && !base.includes('/') ? '\\' : '/';
+  const joined = segments.join(separator);
+  return base.startsWith('/') ? `/${joined}` : joined;
+}
+
+/** Links stay inside the shell. A document link opens that document in a tab,
+    a heading link moves within the preview, and an external address is handed
+    to the clipboard -- the webview navigating away would take the workbench
+    with it. */
+async function openMarkdownPreviewLink(href) {
+  if (!href) return;
+  if (href.startsWith('#')) {
+    const target = document.getElementById(decodeURIComponent(href.slice(1)));
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    target?.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
+    if (!target) notify('That heading is not in this document.');
+    return;
+  }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
+    try {
+      await navigator.clipboard.writeText(href);
+      notify(`External link copied to the clipboard: ${href}`);
+    } catch {
+      notify(`Assay does not open external links: ${href}`);
+    }
+    return;
+  }
+  const root = String(workspaceRootPath ?? '').replace(/\/+$/, '');
+  const target = href.startsWith('/') ? `${root}${href.split(/[?#]/)[0]}` : resolveMarkdownLinkPath(href);
+  if (!target || !pathInsideRoot(target)) { notify('That link points outside the Project.'); return; }
+  await openFileInADE(target);
 }
 
 function providerIsAvailable(providerId) {
@@ -3245,6 +3514,7 @@ async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke, 
       ? renderWorkspaceEntries(entries)
       : await renderCompactWorkspacePath(entries, selectedFilePath, invoke);
     filterWorkspaceTree(document.getElementById('workspace-filter')?.value ?? '');
+    decorateWorkspaceTree();
     if (animate) requestAnimationFrame(() => tree.classList.remove('is-transitioning'));
   } catch (error) {
     tree.innerHTML = '<li>Workspace directory unavailable.</li>';
@@ -3278,6 +3548,125 @@ function renderWorkspaceEntries(entries) {
   return entries.map((entry) => renderWorkspaceEntry(entry)).join('');
 }
 
+/* The tree carries the same states the editor already knows about: what Git
+   thinks of a file, and whether its buffer still holds unsaved work. Colour is
+   the only carrier here, so every state also lands in the title and the
+   accessible name. */
+const workspaceStateClasses = ['git-modified', 'git-added', 'git-renamed', 'git-deleted', 'git-untracked', 'git-conflict', 'workspace-unsaved'];
+// Ascending severity: a directory takes the loudest state under it.
+const workspaceStateRank = ['git-deleted', 'git-renamed', 'git-modified', 'git-added', 'git-untracked', 'git-conflict'];
+const workspaceStateLabels = {
+  'git-modified': 'Modified',
+  'git-added': 'Added',
+  'git-renamed': 'Renamed',
+  'git-deleted': 'Deleted',
+  'git-untracked': 'Not tracked by Git',
+  'git-conflict': 'Merge conflict',
+  'workspace-unsaved': 'Unsaved changes',
+};
+
+/** A `git status --short` code, read as the one state worth a colour. */
+function workspaceGitStateClass(status) {
+  const code = String(status ?? '').trim();
+  if (!code || code === '!!') return null;
+  if (code === '??') return 'git-untracked';
+  if (code.includes('U') || code === 'AA' || code === 'DD') return 'git-conflict';
+  if (code.startsWith('R')) return 'git-renamed';
+  if (code.includes('A')) return 'git-added';
+  if (code.includes('D')) return 'git-deleted';
+  return 'git-modified';
+}
+
+/** Renames arrive as `old -> new`, and unusual paths arrive quoted. The tree
+    only ever has the destination to colour. Git spells its paths with a slash
+    whatever the platform does, so both sides of the lookup are keyed on the
+    segments rather than on a separator. */
+function workspaceGitRelativePath(path) {
+  const value = String(path ?? '');
+  const arrow = value.lastIndexOf(' -> ');
+  const target = arrow === -1 ? value : value.slice(arrow + 4);
+  return target.startsWith('"') && target.endsWith('"') ? target.slice(1, -1) : target;
+}
+
+const workspaceDecorationKey = (value) => pathSegments(value).join('/');
+
+function buildWorkspaceGitDecorations(files) {
+  const filesByPath = new Map();
+  const directoriesByPath = new Map();
+  for (const file of files ?? []) {
+    const state = workspaceGitStateClass(file?.status);
+    const segments = pathSegments(workspaceGitRelativePath(file?.path));
+    if (!state || !segments.length) continue;
+    filesByPath.set(segments.join('/'), state);
+    // A collapsed directory still has to admit that something changed inside it.
+    let prefix = '';
+    for (const segment of segments.slice(0, -1)) {
+      prefix = prefix ? `${prefix}/${segment}` : segment;
+      const current = directoriesByPath.get(prefix);
+      if (!current || workspaceStateRank.indexOf(state) > workspaceStateRank.indexOf(current)) directoriesByPath.set(prefix, state);
+    }
+  }
+  return { files: filesByPath, directories: directoriesByPath };
+}
+
+function unsavedDocumentPaths() {
+  return new Set(openDocuments
+    .filter((record) => (record.id === activeDocumentId ? documentDirty || record.dirty : record.dirty))
+    .map((record) => record.path));
+}
+
+/** Every directory on the way to these files, so a closed folder carries the
+    state of what is buried under it. Git states are rolled up the same way when
+    the pending list is read. */
+function ancestorDirectoryKeys(paths) {
+  const directories = new Set();
+  for (const path of paths) {
+    const segments = pathSegments(documentRelativePath(path));
+    let prefix = '';
+    for (const segment of segments.slice(0, -1)) {
+      prefix = prefix ? `${prefix}/${segment}` : segment;
+      directories.add(prefix);
+    }
+  }
+  return directories;
+}
+
+/** Repainted over whatever the tree is showing, so search results and the
+    compact path read the same as the full tree. */
+function decorateWorkspaceTree() {
+  const tree = document.getElementById('workspace-tree');
+  if (!tree) return;
+  const unsaved = unsavedDocumentPaths();
+  const unsavedDirectories = ancestorDirectoryKeys(unsaved);
+  tree.querySelectorAll('.workspace-entry').forEach((entry) => {
+    const filePath = entry.dataset.filePath ?? null;
+    const directoryPath = entry.dataset.directoryPath ?? null;
+    entry.classList.remove(...workspaceStateClasses);
+    delete entry.dataset.workspaceState;
+    // Symlinks carry a title of their own and no path to decorate.
+    if (!filePath && !directoryPath) return;
+    const relativePath = workspaceDecorationKey(documentRelativePath(filePath ?? directoryPath));
+    // Work that is not on disk yet outranks anything Git can say about the row.
+    const state = filePath
+      ? (unsaved.has(filePath) ? 'workspace-unsaved' : workspaceGitDecorations.files.get(relativePath) ?? null)
+      : (unsavedDirectories.has(relativePath) ? 'workspace-unsaved' : workspaceGitDecorations.directories.get(relativePath) ?? null);
+    const baseLabel = entry.dataset.baseLabel ?? entry.getAttribute('aria-label') ?? '';
+    if (baseLabel) entry.dataset.baseLabel = baseLabel;
+    if (!state) {
+      entry.removeAttribute('title');
+      if (baseLabel) entry.setAttribute('aria-label', baseLabel);
+      return;
+    }
+    const label = !directoryPath ? workspaceStateLabels[state]
+      : state === 'workspace-unsaved' ? 'Contains unsaved changes'
+      : `Contains changes — ${workspaceStateLabels[state]}`;
+    entry.classList.add(state);
+    entry.dataset.workspaceState = state;
+    entry.title = label;
+    if (baseLabel) entry.setAttribute('aria-label', `${baseLabel} — ${label}`);
+  });
+}
+
 async function searchWorkspaceFiles(query) {
   const tree = document.getElementById('workspace-tree');
   const invoke = nativeInvoke ?? window.__TAURI__?.core?.invoke;
@@ -3302,6 +3691,7 @@ async function searchWorkspaceFiles(query) {
     if (token !== workspaceSearchToken) return;
     const matches = workspaceSearchIndex.filter((entry) => entry.searchText.includes(needle));
     tree.innerHTML = matches.length ? matches.map((entry) => renderWorkspaceEntry(entry, '', { showPathHint: true })).join('') : '<li class="workspace-empty">No matching files.</li>';
+    decorateWorkspaceTree();
     tree.classList.add('is-searching');
     setWorkspaceSearchLoading(false);
   } catch (error) {
@@ -3384,6 +3774,7 @@ async function toggleWorkspaceDirectory(button) {
     try {
       const entries = await nativeInvoke('list_directory', { path: button.dataset.directoryPath, maxDepth: 0 });
       children.innerHTML = renderWorkspaceEntries(entries);
+      decorateWorkspaceTree();
       button.dataset.loaded = 'true';
     } catch (error) {
       children.innerHTML = '<li class="workspace-empty">Directory unavailable.</li>';
@@ -4130,8 +4521,13 @@ renderSnapshot(projectSnapshot);
 renderRuntimeStatus({ sidecar: 'STARTING', agentRuntime: 'DISCONNECTED', activeTaskId: null, lastEventAt: null, lastError: null });
 refreshProjectContext(projectSnapshot);
 connectSidecar(projectSnapshot);
+// Changes needs the diff as it is typed; the Explorer only needs its colours
+// to keep up, so every other view polls at a fifth of the rate.
+let workspaceGitPollTick = 0;
 window.setInterval(() => {
-  if (activeView === 'changes' && document.visibilityState !== 'hidden') requestPendingGitChanges(workspaceRootPath);
+  if (document.visibilityState === 'hidden') return;
+  workspaceGitPollTick += 1;
+  if (activeView === 'changes' || workspaceGitPollTick % 5 === 0) requestPendingGitChanges(workspaceRootPath);
 }, 1200);
 document.querySelectorAll('[data-view-target]').forEach((item) => item.addEventListener('click', () => showView(item.dataset.viewTarget)));
 document.querySelectorAll('[data-action]').forEach((item) => item.addEventListener('click', () => {
@@ -4292,6 +4688,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     void saveActiveDocument();
     return;
   }
+  if (item.dataset.action === 'toggle-markdown-preview') {
+    void toggleMarkdownPreview();
+    return;
+  }
   if (item.dataset.action === 'format-document') {
     void formatActiveDocument();
     return;
@@ -4382,6 +4782,20 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };
   notify(messages[item.dataset.action] ?? 'Action recorded.');
 }));
+const markdownPreviewSurface = document.getElementById('document-preview');
+markdownPreviewSurface?.addEventListener('click', (event) => {
+  const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
+  if (!anchor) return;
+  event.preventDefault();
+  void openMarkdownPreviewLink(anchor.getAttribute('href'));
+});
+// Where a document was left is part of reading it, so the tab keeps its own
+// scroll position across a re-render and across a switch away and back.
+markdownPreviewSurface?.addEventListener('scroll', () => {
+  const record = documentTabById(activeDocumentId);
+  if (record && markdownPreviewVisible()) record.previewScrollTop = markdownPreviewSurface.scrollTop;
+}, { passive: true });
+
 document.getElementById('terminal-new-tab')?.addEventListener('click', () => {
   createTerminalTab();
   notify('New terminal session opened.');

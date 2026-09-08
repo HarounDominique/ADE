@@ -1,0 +1,116 @@
+/* Shared controls — one definition per role, so a control looks the same
+   wherever the workbench puts it.  This layer owns the paint (surface, ink,
+   border, radius, motion); the view stylesheets keep only what is genuinely
+   local, such as where a control sits or how wide its column is.
+
+   Roles
+     .button            a labelled action; unqualified it reads as secondary
+     .button.primary    the one action a surface exists to perform
+     .button.accent     a quiet invitation: accent ink on a tinted surface
+     .button.ghost      a low-priority action that earns its surface on hover
+     .button.danger     a destructive confirmation
+     .icon-button       a bare toolbar affordance, no surface at rest
+     .text-button       an inline, link-weight action inside running copy
+
+   Modifiers
+     .compact           a shorter control for headings and rails
+     .icon              icon only, square, sized from the control height
+     .block             fills the width of its container                     */
+
+:root {
+  --control-height: 34px;
+  --control-height-compact: 29px;
+  --control-radius: 8px;
+  --control-radius-compact: 7px;
+  --control-padding-x: 13px;
+  --control-padding-x-compact: 10px;
+  --button-primary-surface: #2f69c9;
+  --button-primary-surface-hover: #3a75d5;
+  --button-primary-border: #275fb8;
+  --button-primary-ink: #ffffff;
+  --button-primary-shadow: 0 3px 9px rgba(41, 88, 168, .2);
+  --button-danger-surface: #b54551;
+  --button-danger-surface-hover: #a03d48;
+  --button-danger-border: #a03d48;
+  --button-danger-ink: #ffffff;
+}
+
+:root[data-theme="dark"] {
+  --button-primary-surface: #3d6fc4;
+  --button-primary-surface-hover: #4a7cd1;
+  --button-primary-border: #4d7fd0;
+  --button-primary-shadow: 0 3px 9px rgba(8, 12, 20, .38);
+  --button-danger-surface: #b9505c;
+  --button-danger-surface-hover: #c65c68;
+  --button-danger-border: #c96872;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: var(--control-height);
+  padding: 7px var(--control-padding-x);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--control-radius);
+  color: var(--text-soft);
+  background: var(--panel-raised);
+  font: 650 13px var(--sans);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.button > svg { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.button:hover:not(:disabled) { border-color: var(--blue); color: var(--text); background: color-mix(in srgb, var(--blue) 8%, var(--panel-raised)); }
+.button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.button:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Secondary is the resting state of the component, so the class only has to
+   say out loud what an unqualified button already is. */
+.button.secondary { border-color: var(--line-strong); color: var(--text-soft); background: var(--panel-raised); }
+
+.button.primary { border-color: var(--button-primary-border); color: var(--button-primary-ink); background: var(--button-primary-surface); box-shadow: var(--button-primary-shadow); }
+.button.primary:hover:not(:disabled) { border-color: var(--button-primary-border); color: var(--button-primary-ink); background: var(--button-primary-surface-hover); }
+
+.button.accent { border-color: color-mix(in srgb, var(--blue) 28%, var(--line)); color: var(--blue); background: color-mix(in srgb, var(--blue) 7%, var(--panel)); box-shadow: none; }
+.button.accent:hover:not(:disabled) { border-color: color-mix(in srgb, var(--blue) 44%, var(--line)); color: var(--blue); background: color-mix(in srgb, var(--blue) 13%, var(--panel)); }
+
+.button.ghost { border-color: transparent; color: var(--muted); background: transparent; box-shadow: none; }
+.button.ghost:hover:not(:disabled) { border-color: var(--line); color: var(--text); background: var(--panel-soft); }
+
+.button.danger { border-color: var(--button-danger-border); color: var(--button-danger-ink); background: var(--button-danger-surface); }
+.button.danger:hover:not(:disabled) { border-color: var(--button-danger-border); color: var(--button-danger-ink); background: var(--button-danger-surface-hover); }
+
+.button.compact { min-height: var(--control-height-compact); padding: 5px var(--control-padding-x-compact); border-radius: var(--control-radius-compact); }
+.button.compact > svg { width: 15px; height: 15px; }
+.button.icon { width: var(--control-height); padding: 0; }
+.button.compact.icon { width: var(--control-height-compact); }
+.button.block { width: 100%; }
+
+/* Toolbar affordances carry no surface until they are approached, but they
+   still owe the pointer a target the size of a real control. */
+.icon-button {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+.icon-button > svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
+.icon-button:hover:not(:disabled) { color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, transparent); }
+.icon-button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+
+.text-button { padding: 0; border: 0; color: var(--blue); background: transparent; font: 500 12px var(--sans); cursor: pointer; }
+.text-button:hover:not(:disabled) { color: var(--text); text-decoration: underline; }
+.text-button:disabled { opacity: .55; cursor: not-allowed; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .button, .icon-button, .text-button { transition: color .14s ease, background-color .14s ease, border-color .14s ease, box-shadow .14s ease, transform .1s ease; }
+  .button:active:not(:disabled) { transform: translateY(1px); }
+}
