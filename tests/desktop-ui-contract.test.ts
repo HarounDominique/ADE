@@ -430,6 +430,42 @@ test("workspace tree expands directories lazily and keeps symlinks non-actionabl
   assert.match(main, /\[data-directory-path\]\.directory/);
 });
 
+test("a changed file is named before it is located", () => {
+  // The list's width ran out on the name, which is what the reader came for.
+  assert.match(main, /function gitFileLabelMarkup/);
+  assert.match(main, /const name = segments\.at\(-1\) \?\? path;/);
+  assert.match(main, /const where = segments\.slice\(0, -1\)\.join\('\/'\);/);
+  assert.match(main, /class="git-file-name"/);
+  assert.match(main, /class="git-file-where"/);
+  assert.doesNotMatch(main, /data-git-pending-file="\$\{escapeHTML\(file\.path\)\}"><span class="git-file-status">\$\{escapeHTML\(file\.status\)\}<\/span><code>/);
+  // The whole path is still one hover away, and it still addresses the diff.
+  assert.match(main, /title="\$\{escapeHTML\(workspaceGitRelativePath\(file\.path\)\)\}"/);
+  assert.match(main, /data-git-pending-file="\$\{escapeHTML\(file\.path\)\}"/);
+  assert.match(styles, /\.git-file-name \{ flex: 0 1 auto;/);
+  assert.match(styles, /\.git-file-where \{ flex: 1 100 0;/);
+});
+
+test("resting on a file in the tree names it after a second and a half", () => {
+  assert.match(html, /id="workspace-tooltip" role="tooltip" hidden/);
+  assert.match(main, /const workspaceTooltipDelay = 1500;/);
+  assert.match(main, /setTimeout\(\(\) => showWorkspaceTooltip\(entry, clientX, clientY\), workspaceTooltipDelay\)/);
+  // The row's own name with its extension, never the path the tree already shows.
+  assert.match(main, /pathBaseName\(entry\?\.dataset\.filePath \?\? ''\)/);
+  assert.match(main, /#workspace-tree \.workspace-entry\.file/);
+  // The native tooltip cannot be delayed and carries the Git state, so it is
+  // parked while the pointer rests and the state travels into this one.
+  assert.match(main, /function parkNativeWorkspaceTitle/);
+  assert.match(main, /function restoreNativeWorkspaceTitle/);
+  assert.match(main, /parkNativeWorkspaceTitle\(workspaceTooltipEntry\);/);
+  assert.match(main, /workspaceStateLabels\[state\] \?\? ''/);
+  // Leaving, clicking, scrolling or losing the window ends the hover.
+  assert.match(main, /document\.addEventListener\('pointerdown', hideWorkspaceTooltip\)/);
+  assert.match(main, /document\.addEventListener\('scroll', hideWorkspaceTooltip, true\)/);
+  assert.match(main, /window\.addEventListener\('blur', hideWorkspaceTooltip\)/);
+  assert.match(styles, /\.workspace-tooltip \{ position: fixed;[^\n]*pointer-events: none; \}/);
+  assert.match(styles, /\.workspace-tooltip\[hidden\] \{ display: none; \}/);
+});
+
 test("desktop navigation is labeled and terminal dock supports persisted resizing", () => {
   assert.doesNotMatch(html, /class="activity-rail"/);
   assert.match(html, /class="primary-nav"/);

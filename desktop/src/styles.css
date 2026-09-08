@@ -337,6 +337,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .workspace-entry.search-result { align-items: flex-start; min-height: 42px; padding-top: 7px; padding-bottom: 7px; }
 .workspace-entry.search-result .workspace-result-copy { min-width: 0; flex: 1 1 auto; }
 .workspace-entry.search-result .workspace-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-tooltip { position: fixed; z-index: 12; display: grid; gap: 2px; max-width: 320px; padding: 5px 8px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--text); background: var(--panel-raised); box-shadow: var(--shadow-soft); font: 12px var(--mono); pointer-events: none; }
+.workspace-tooltip strong { overflow-wrap: anywhere; font-weight: 500; }
+.workspace-tooltip small { color: var(--muted); font-size: 11px; }
+.workspace-tooltip[hidden] { display: none; }
 .workspace-entry.search-result .workspace-path-hint { display: block; margin-top: 2px; color: var(--faint); font: 11px/1.35 var(--mono); overflow-wrap: anywhere; white-space: normal; }
 .workspace-entry.search-result:hover .workspace-path-hint, .workspace-entry.search-result.selected .workspace-path-hint { color: currentColor; }
 .workspace-entry.selected { color: var(--text); background: #1b3140; }
@@ -779,6 +783,10 @@ body { color: var(--text); }
 .git-commit-file, .git-pending-file { min-height: 38px; border-radius: 6px; background: var(--panel-soft); }
 .git-commit-file:hover, .git-pending-file:hover { background: color-mix(in srgb, var(--blue) 8%, var(--panel-soft)); }
 .git-pending-file.active { background: color-mix(in srgb, var(--blue) 12%, var(--panel)); box-shadow: inset 3px 0 0 var(--blue); }
+.git-file-label { display: flex; flex: 1 1 auto; align-items: baseline; gap: 8px; min-width: 0; }
+/* The folder gives up width long before the name does. */
+.git-file-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.git-file-where { flex: 1 100 0; min-width: 0; overflow: hidden; color: var(--muted); font: 11px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .git-diff-output { border: 1px solid var(--line); border-radius: 7px; color: var(--text-soft); background: var(--panel-soft); }
 .commit-dialog { border-color: var(--line-strong); border-radius: 12px; background: var(--panel); box-shadow: 0 24px 70px rgba(39, 54, 70, .22); }
 .commit-dialog::backdrop { background: rgba(35, 47, 60, .35); backdrop-filter: blur(4px); }

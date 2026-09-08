@@ -1440,6 +1440,17 @@ function selectGitCommit(hash, file = null) {
   if (nativeInvoke) void sendContextRequest('git.commit.diff', { repositoryPath: workspaceRootPath, commit: hash, ...(file ? { file } : {}) }, 'git-diff').catch((error) => notify(error instanceof Error ? error.message : 'Unable to load commit diff.'));
 }
 
+/** The row answers "which file" before "where": a path that runs out of width
+    truncates the folders, never the name and extension the reader came for. The
+    whole path stays one hover away. */
+function gitFileLabelMarkup(file) {
+  const path = workspaceGitRelativePath(file?.path);
+  const segments = pathSegments(path);
+  const name = segments.at(-1) ?? path;
+  const where = segments.slice(0, -1).join('/');
+  return `<span class="git-file-status">${escapeHTML(String(file?.status ?? ''))}</span><span class="git-file-label"><code class="git-file-name">${escapeHTML(name)}</code>${where ? `<small class="git-file-where">${escapeHTML(where)}</small>` : ''}</span>`;
+}
+
 function renderPendingGitChanges(result) {
   const status = document.getElementById('git-pending-status');
   const files = document.getElementById('git-pending-files');
@@ -1461,7 +1472,7 @@ function renderPendingGitChanges(result) {
   if (count) count.textContent = query && pendingGitFiles.length ? `${visibleFiles.length} of ${pendingGitFiles.length}` : changedLabel;
   if (fileName) fileName.textContent = selectedPendingGitFile ?? 'Select a file';
   if (files) files.innerHTML = visibleFiles.length
-    ? visibleFiles.map((file) => `<button class="git-pending-file${file.path === selectedPendingGitFile ? ' active' : ''}" type="button" data-git-pending-file="${escapeHTML(file.path)}"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></button>`).join('')
+    ? visibleFiles.map((file) => `<button class="git-pending-file${file.path === selectedPendingGitFile ? ' active' : ''}" type="button" data-git-pending-file="${escapeHTML(file.path)}" title="${escapeHTML(workspaceGitRelativePath(file.path))}">${gitFileLabelMarkup(file)}</button>`).join('')
     : `<div class="git-empty-state">${pendingGitFiles.length ? 'No files match this filter.' : 'No changes pending.'}</div>`;
   if (!pendingGitFiles.length) renderDiffOutput(diff, null, 'No pending changes.');
   else if (!visibleFiles.length) renderDiffOutput(diff, null, 'No files match this filter.');
@@ -3759,7 +3770,77 @@ function decorateWorkspaceTree() {
     entry.title = label;
     if (baseLabel) entry.setAttribute('aria-label', `${baseLabel} — ${label}`);
   });
+  // A repaint mid-hover must not hand the native tooltip back to the row the
+  // pointer is already resting on.
+  parkNativeWorkspaceTitle(workspaceTooltipEntry);
 }
+
+/* An IDE names the file once the pointer has rested on it, which is what a row
+   truncated to the sidebar's width cannot say for itself. The native tooltip
+   cannot be delayed and already carries the row's Git state, so the state moves
+   into this one and the attribute is parked while the pointer sits on the row. */
+const workspaceTooltipDelay = 1500;
+let workspaceTooltipTimer = null;
+let workspaceTooltipEntry = null;
+
+function parkNativeWorkspaceTitle(entry) {
+  if (!entry?.hasAttribute('title')) return;
+  entry.dataset.parkedTitle = entry.getAttribute('title');
+  entry.removeAttribute('title');
+}
+
+function restoreNativeWorkspaceTitle(entry) {
+  if (!entry?.dataset.parkedTitle) return;
+  entry.setAttribute('title', entry.dataset.parkedTitle);
+  delete entry.dataset.parkedTitle;
+}
+
+/** The file's own name with its extension, never the path: the tree already
+    shows where the row lives, and a search result spells its folders out. */
+function showWorkspaceTooltip(entry, x, y) {
+  const tooltip = document.getElementById('workspace-tooltip');
+  const name = pathBaseName(entry?.dataset.filePath ?? '');
+  if (!tooltip || !name || !entry.isConnected) return;
+  const state = entry.dataset.workspaceState;
+  const note = state ? workspaceStateLabels[state] ?? '' : '';
+  tooltip.innerHTML = `<strong>${escapeHTML(name)}</strong>${note ? `<small>${escapeHTML(note)}</small>` : ''}`;
+  tooltip.hidden = false;
+  // Measured before it is placed, so a row near an edge keeps the whole name on screen.
+  const box = tooltip.getBoundingClientRect();
+  const left = Math.min(Math.max(8, x + 14), Math.max(8, window.innerWidth - box.width - 8));
+  const below = y + 20;
+  tooltip.style.left = `${Math.round(left)}px`;
+  tooltip.style.top = `${Math.round(Math.max(8, below + box.height > window.innerHeight ? y - box.height - 12 : below))}px`;
+}
+
+function hideWorkspaceTooltip() {
+  clearTimeout(workspaceTooltipTimer);
+  workspaceTooltipTimer = null;
+  restoreNativeWorkspaceTitle(workspaceTooltipEntry);
+  workspaceTooltipEntry = null;
+  const tooltip = document.getElementById('workspace-tooltip');
+  if (tooltip) tooltip.hidden = true;
+}
+
+document.addEventListener('pointerover', (event) => {
+  // Touch and pen have no resting pointer to wait for.
+  if (event.pointerType && event.pointerType !== 'mouse') return;
+  const entry = event.target?.closest?.('#workspace-tree .workspace-entry.file');
+  // Crossing the glyph and the name of the same row is not a new hover.
+  if (entry && entry === workspaceTooltipEntry) return;
+  hideWorkspaceTooltip();
+  if (!entry) return;
+  workspaceTooltipEntry = entry;
+  parkNativeWorkspaceTitle(entry);
+  const { clientX, clientY } = event;
+  workspaceTooltipTimer = setTimeout(() => showWorkspaceTooltip(entry, clientX, clientY), workspaceTooltipDelay);
+});
+document.addEventListener('pointerout', (event) => {
+  if (workspaceTooltipEntry && event.relatedTarget?.closest?.('#workspace-tree .workspace-entry.file') !== workspaceTooltipEntry) hideWorkspaceTooltip();
+});
+document.addEventListener('pointerdown', hideWorkspaceTooltip);
+document.addEventListener('scroll', hideWorkspaceTooltip, true);
+window.addEventListener('blur', hideWorkspaceTooltip);
 
 async function searchWorkspaceFiles(query) {
   const tree = document.getElementById('workspace-tree');
