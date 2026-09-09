@@ -1430,21 +1430,29 @@ test("the document window carries an editor and none of the shell", () => {
 });
 
 test("a tab dragged out of the window becomes its own window", () => {
-  // There is no "dropped outside" event: a drag only reports that nothing
-  // inside took it, so the cursor is compared against the window's own bounds.
-  assert.match(main, /draggable \? ' draggable="true"' : ''/);
+  // The webview's own drag ended with an animation and nothing else: what it
+  // reports about a drop that left the window cannot be relied on. A captured
+  // pointer keeps sending the release past the window edge, which is the one
+  // fact this gesture needs.
+  assert.match(main, /data-document-drag-id="\$\{escapeHTML\(record\.id\)\}"/);
+  assert.doesNotMatch(main, /draggable="true"/);
+  assert.match(main, /documentTabStrip\?\.addEventListener\('pointerdown'/);
+  assert.match(main, /tab\.setPointerCapture\?\.\(event\.pointerId\);/);
+  assert.match(main, /documentTabStrip\?\.addEventListener\('pointerup', finishTabDrag\);/);
   assert.match(main, /record\.kind === 'text' && record\.state === 'ready'/);
-  assert.match(main, /documentTabStrip\?\.addEventListener\('dragend'/);
-  assert.match(main, /if \(!documentId \|\| event\.dataTransfer\?\.dropEffect !== 'none'\) return;/);
+  // A press that never travelled is a click, not a drag.
+  assert.match(main, /if \(!state\.dragging \|\| event\?\.type === 'pointercancel'\) return;/);
+  assert.match(main, /const travelled = Math\.hypot/);
+  // There is still no "dropped outside" event: the release is compared against
+  // the window's bounds, in the units the window actually reports.
   assert.match(main, /async function droppedOutsideWindow/);
-  // Screen coordinates are CSS pixels and the window reports physical ones.
   assert.match(main, /const x = event\.screenX \* scale;/);
   assert.match(main, /currentWindow\.scaleFactor\(\)/);
-  // Bounds it cannot read mean no detach: losing a tab by accident is worse
-  // than a gesture that does nothing.
-  assert.match(main, /console\.warn\('Window bounds unavailable:', error\);\s*\n\s*return false;/);
+  // Bounds it cannot read mean no detach, and it says so rather than failing
+  // silently: losing a tab by accident is worse than a gesture that does nothing.
+  assert.match(main, /notify\('Assay could not tell where the tab was dropped, so it stayed put\.'\);/);
   // Any tab can leave, not only the one in front.
   assert.match(main, /async function detachDocument\(documentId\)/);
   assert.match(main, /if \(documentId && documentId !== activeDocumentId\) await activateDocumentTab\(documentId\);/);
-  assert.match(styles, /\.document-tab\[draggable="true"\] \{ cursor: grab; \}/);
+  assert.match(styles, /\.document-tab\[data-document-drag-id\] \{ cursor: grab; user-select: none; \}/);
 });
