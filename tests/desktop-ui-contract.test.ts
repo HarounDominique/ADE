@@ -1349,3 +1349,11 @@ test("an install with no Project says so instead of naming one", () => {
   // A Project that is gone empties the shell rather than leaving a ghost.
   assert.match(main, /if \(response\.error\.code === 'PROJECT_NOT_FOUND'\)/);
 });
+
+test("the context pills sit on the same line as the controls beside them", () => {
+  // The bar carries a definite height, which makes the `stretch` it inherits
+  // inert: the box was placed at the start of a taller topbar, so Project, Task
+  // and branch rode ten pixels above the run controls next to them.
+  const bar = styles.match(/\.git-context-bar \{ height: 42px;[^}]*\}/)?.[0] ?? "";
+  assert.match(bar, /align-self: center/);
+});
