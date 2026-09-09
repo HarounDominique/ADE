@@ -161,6 +161,12 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       if (!projectId) {
         return { id: request.id, error: { code: "INVALID_PARAMS", message: "projectId is required" } };
       }
+      /** A Project that is not registered is a named condition, not a generic
+          failure: the shell has to be able to tell "this one is gone" from
+          "the request broke" and clear itself rather than keep a ghost. */
+      if (!store.getProject(projectId)) {
+        return { id: request.id, error: { code: "PROJECT_NOT_FOUND", message: `Project not found: ${projectId}` } };
+      }
       return { id: request.id, result: getProjectSnapshot(store, projectId) };
     }
     if (request.method === "runtime.status") {

@@ -4,20 +4,21 @@
  */
 export const projectSnapshot = {
   project: {
-    id: 'ade',
-    name: 'ADE',
-    description: 'Agentic Development Environment',
-    /** A fixture must not carry a path that looks real: this one reached a
-        process spawn as its working directory and failed there. */
+    id: '',
+    name: '',
+    description: '',
+    /** A fixture must not carry anything that looks real: a path here reached a
+        process spawn as its working directory and failed there, and a name here
+        made a fresh install look like it had a Project open when it had none. */
     repositoryPath: '',
-    branch: 'master',
-    workingTree: 'clean',
+    branch: null,
+    workingTree: 'unknown',
   },
   metrics: {
-    activeTasks: 2,
-    inReview: 1,
+    activeTasks: 0,
+    inReview: 0,
     services: { active: 0, declared: 0 },
     lastShip: null,
   },
-  sync: { state: 'ready', label: 'Synced just now' },
+  sync: { state: 'stale', label: 'Loading…' },
 };

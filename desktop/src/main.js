@@ -135,6 +135,8 @@ let gitHistoryRequestPath = null;
 let gitDiffRequestPath = null;
 let registeredProjects = [];
 let projectCatalogLoaded = false;
+/** The Project the environment names, honoured only if it is registered. */
+let preferredProjectId = null;
 let gitBranches = [];
 let gitHistoryCommits = [];
 let selectedGitCommit = null;
@@ -950,10 +952,14 @@ function renderSnapshot(snapshot) {
       below it. The control cannot show it whole, so it says it on rest. */
   const repositoryButton = document.getElementById('repository-context-button');
   if (repositoryButton) repositoryButton.dataset.hoverTitle = activeProject.repositoryPath ?? '';
+  /** No Project is a state the shell can be in, not a Project called something.
+      A fresh install has none, and saying so is what points the operator at
+      Projects instead of at a workbench that is not attached to anything. */
+  const hasProject = Boolean(activeProject.id && activeProject.repositoryPath);
   const values = {
-    'project-name': activeProject.name,
-    'project-description': activeProject.description ?? 'Local Assay project',
-    'project-branch': currentBranch,
+    'project-name': hasProject ? activeProject.name : 'No project',
+    'project-description': hasProject ? (activeProject.description ?? 'Local Assay project') : 'Register a folder in Projects to begin.',
+    'project-branch': hasProject ? currentBranch : '—',
     'working-tree-state': snapshot.project.workingTree,
     'active-task-count': snapshot.metrics.activeTasks,
     'review-count': snapshot.metrics.inReview,
@@ -966,16 +972,17 @@ function renderSnapshot(snapshot) {
     if (element) element.textContent = value;
   });
   const statusBranch = document.getElementById('status-branch-name');
-  if (statusBranch) statusBranch.textContent = currentBranch;
+  if (statusBranch) statusBranch.textContent = hasProject ? currentBranch : '—';
   const repositoryName = document.getElementById('current-repository-name');
-  if (repositoryName) repositoryName.textContent = activeProject.name;
+  if (repositoryName) repositoryName.textContent = hasProject ? activeProject.name : 'No project';
   const branchName = document.getElementById('current-branch-name');
-  if (branchName) branchName.textContent = currentBranch;
+  if (branchName) branchName.textContent = hasProject ? currentBranch : '—';
   const branchButton = document.getElementById('branch-context-button');
   if (branchButton) {
-    branchButton.disabled = !hasGit;
-    branchButton.setAttribute('aria-disabled', String(!hasGit));
-    branchButton.title = hasGit ? 'Switch local branch' : 'This project is not a Git repository';
+    const branchable = hasProject && hasGit;
+    branchButton.disabled = !branchable;
+    branchButton.setAttribute('aria-disabled', String(!branchable));
+    branchButton.title = !hasProject ? 'No Project is open' : hasGit ? 'Switch local branch' : 'This project is not a Git repository';
   }
   const terminalCwd = document.getElementById('terminal-cwd');
   if (terminalCwd) terminalCwd.textContent = activeProject.repositoryPath;
@@ -4483,14 +4490,16 @@ async function connectSidecar(snapshot) {
   });
   let recoveryAttempted = false;
   const requestSnapshot = async () => {
-    const configuredProjectId = await invoke('project_id');
-    activeProjectId = configuredProjectId;
+    /** Which Project to open is answered by what is registered, not by a name
+        the shell assumed. Asking for a Project that does not exist is what left
+        a fresh install showing the startup fixture as though it were open. */
+    preferredProjectId = (await invoke('project_id')) || null;
     await sendContextRequest('project.list', {}, 'projects');
-    await requestProjectSnapshot(configuredProjectId);
     await invoke('sidecar_request', {
       request: JSON.stringify({ id: `runtime-${Date.now()}`, method: 'runtime.status' }),
     });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `providers-${Date.now()}`, method: 'providers.inspect' }) });
+    if (!activeProject.repositoryPath) return;
     await invoke('sidecar_request', { request: JSON.stringify({ id: `services-${Date.now()}`, method: 'service.list', params: { repositoryPath: activeProject.repositoryPath } }) });
     requestAgentSessions(activeProject.repositoryPath);
     /** The catalog can only be asked for once the sidecar exists, so the first
@@ -4544,6 +4553,19 @@ async function connectSidecar(snapshot) {
           if (feedback) feedback.textContent = `${selectedProvider ?? 'The agent'} failed this turn: ${response.error.message}`;
         }
         if (contextPurpose === 'remove-project') pendingProjectRemovals.delete(String(response.id));
+        /** The Project this snapshot was for is not registered any more: the
+            shell empties instead of keeping the last one on screen. */
+        if (response.error.code === 'PROJECT_NOT_FOUND') {
+          const requested = pendingSnapshotProjects.get(String(response.id));
+          if (!requested || requested === activeProjectId) {
+            activeProject = mergeActiveProject({}, projectSnapshot.project);
+            activeProjectId = '';
+            workspaceRootPath = '';
+            renderSnapshot(projectSnapshot);
+            setSyncState('ready', 'No project registered');
+          }
+          return;
+        }
         if (contextPurpose === 'projects') {
           projectCatalogLoaded = false;
           const menu = document.getElementById('repository-context-menu');
@@ -4639,6 +4661,15 @@ async function connectSidecar(snapshot) {
         projectCatalogLoaded = true;
         renderRepositoryMenu();
         renderProjectsList();
+        /** Nothing is open yet: the environment's choice if it is registered,
+            otherwise the first Project there is. An empty catalog opens
+            nothing, and the shell says so instead of naming a Project that was
+            never registered. */
+        if (!activeProject.repositoryPath) {
+          const opening = registeredProjects.find((project) => project.id === preferredProjectId) ?? registeredProjects[0];
+          if (opening) await switchProjectFromContext(opening);
+          else { renderSnapshot(projectSnapshot); setSyncState('ready', 'No project registered'); }
+        }
         return;
       }
       if (contextPurpose === 'register-project' && response.result?.id) {

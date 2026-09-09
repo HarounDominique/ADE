@@ -834,9 +834,16 @@ fn select_project_directory() -> Result<Option<String>, String> {
     Ok((!path.is_empty()).then_some(path))
 }
 
+/// Which Project the shell should open, when the operator's environment names
+/// one. It used to answer "ade" whatever the store held, so a fresh install
+/// asked for a Project that did not exist and the window filled with the
+/// startup fixture's name instead of saying it had none. An empty answer means
+/// "you decide from what is registered".
 #[tauri::command]
 fn project_id() -> String {
-    std::env::var("ADE_PROJECT_ID").unwrap_or_else(|_| "ade".to_string())
+    std::env::var("ADE_PROJECT_ID")
+        .map(|value| value.trim().to_string())
+        .unwrap_or_default()
 }
 
 #[tauri::command]
