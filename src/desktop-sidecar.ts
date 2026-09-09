@@ -326,6 +326,15 @@ export async function runDesktopSidecar(): Promise<void> {
             .then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { checkpointId: result.checkpoint.id, taskId: result.checkpoint.taskId, commit: result.checkpoint.commit, restored: result.restored, removed: result.removed, undoCommit: result.previousCommit } })}\n`))
             .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: checkpointError(error) })}\n`));
         }
+      } else if (request.method === "agent.usage") {
+        const { sessionId, taskId } = request.params ?? {};
+        if (!sessionId && !taskId) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "sessionId or taskId is required" } })}\n`);
+        else {
+          /** Null travels where a total would be: a conversation nobody priced
+              is unknown, and unknown is not zero. */
+          const usage = sessionId ? store.agentSessionUsageTotals(sessionId) : store.taskUsageTotals(taskId!);
+          process.stdout.write(`${JSON.stringify({ id: request.id, result: { ...(sessionId ? { sessionId } : { taskId }), usage: usage ?? null } })}\n`);
+        }
       } else if (request.method === "agent.pressure") {
         const provider = request.params?.provider;
         if (!provider) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "provider is required" } })}\n`);

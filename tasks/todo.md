@@ -322,11 +322,12 @@ Auditoría de origen: [product-gap-audit](../docu/knowledge/product-gap-audit.md
   - Files: `src/application/agents/turn-checkpoint.ts`, `src/application/agents/task-checkpoints.ts`, `src/persistence/sqlite-store.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `tests/turn-checkpoint.test.ts`.
   - Abierto: las referencias `refs/ade/checkpoints/` no se podan, y el delta del turno —que ahora sería calculable contra la foto— sigue sin calcularse.
 
-- [ ] Task: Mostrar el coste del trabajo agéntico (G7)
-  - Spec: [SPEC-agent-runtime.md](../docu/specs/SPEC-agent-runtime.md#turn-accounting) · ADR: [0040-agent-turn-accounting](../docu/adr/0040-agent-turn-accounting.md)
+- [x] Task: Mostrar el coste del trabajo agéntico (G7)
+  - Spec: [SPEC-agent-runtime.md](../docu/specs/SPEC-agent-runtime.md#turn-accounting) · ADR: [0040-agent-turn-accounting](../docu/adr/0040-agent-turn-accounting.md) · [0049-turn-cost-read-where-the-work-is](../docu/adr/0049-turn-cost-read-where-the-work-is.md)
   - Acceptance: la conversación y la Task pueden decir qué consumieron por turno y en total, distinguiendo cache; una sesión sin contabilidad se muestra como desconocida y nunca como cero.
-  - Verify: `npm test`, revisión manual de Agents.
-  - Files: `desktop/src/main.js`, `src/desktop-sidecar.ts`, `tests/`.
+  - Verify: `npm test` (307 tests TypeScript, seis nuevos sobre totales de sesión y de Task: cache separada, turno sin precio, mezcla de turnos con y sin coste, y ausencia frente a cero).
+  - Files: `src/persistence/sqlite-store.ts`, `src/application/task-detail.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `desktop/src/index.html`, `desktop/src/styles.css`, `tests/agent-usage-totals.test.ts`.
+  - Abierto: OpenCode sigue sin exponer consumo en su seam, de modo que sus conversaciones se leen como no contabilizadas.
 
 - [ ] Task: Resolver distribución y actualización del `.app` (G8)
   - Spec: [SPEC-cross-platform-support.md](../docu/specs/SPEC-cross-platform-support.md)

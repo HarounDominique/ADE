@@ -112,6 +112,10 @@ let agentPromptHistoryIndex = -1;
 let agentPromptHistoryDraft = '';
 let agentPromptHistoryKey = null;
 let agentRailCollapsed = false;
+/** What this conversation has consumed, or null when no turn of it was ever
+    accounted for -- which is not the same as zero. */
+let agentSessionUsage = null;
+let agentUsageRequestId = null;
 const agentGroupExpansion = new Map();
 const agentPromptHistoryByConversation = new Map();
 const runtimeEvents = [];
@@ -2810,8 +2814,7 @@ function agentTraceMarkup(message) {
   const facts = [
     trace.provider ? `${trace.provider}${trace.model ? ` · ${trace.model}` : ''}` : '',
     typeof trace.durationMs === 'number' ? `${Math.max(1, Math.round(trace.durationMs / 1000))}s` : '',
-    trace.usage ? `${formatTokens(trace.usage.inputTokens + trace.usage.cacheReadInputTokens + trace.usage.cacheCreationInputTokens)} in · ${formatTokens(trace.usage.outputTokens)} out` : '',
-    typeof trace.usage?.costUsd === 'number' ? `$${trace.usage.costUsd.toFixed(4)}` : '',
+    ...(trace.usage ? usageParts(trace.usage) : []),
   ].filter(Boolean);
   if (!facts.length && !activity && !files) return '';
   /** A turn that answered from what it already knew has nothing to unfold. An
@@ -2972,6 +2975,58 @@ function agentPressureDial(kind, label, percent, hint) {
   return `<div class="agent-pressure-dial${known ? '' : ' unknown'}" data-pressure="${kind}" tabindex="0" role="img" aria-label="${escapeHTML(title)}" title="${escapeHTML(title)}"><span class="agent-pressure-ring"${style} aria-hidden="true"></span><span class="agent-pressure-copy" aria-hidden="true"><strong>${escapeHTML(value)}</strong><small>${escapeHTML(label)}</small></span></div>`;
 }
 
+/** Tokens read from or written to the provider's cache are not tokens the
+    operator paid full price for, so they are said apart rather than folded
+    into the input figure. */
+function usageParts(usage) {
+  const cached = (usage.cacheReadInputTokens ?? 0) + (usage.cacheCreationInputTokens ?? 0);
+  return [
+    `${formatTokens(usage.inputTokens ?? 0)} in`,
+    `${formatTokens(usage.outputTokens ?? 0)} out`,
+    cached ? `${formatTokens(cached)} cached` : '',
+    typeof usage.costUsd === 'number' ? `$${usage.costUsd.toFixed(4)}` : '',
+  ].filter(Boolean);
+}
+
+/** A conversation nobody priced reads as unknown. Rendering it as zero would
+    claim OpenCode work was free, which is the one thing the accounting must
+    never say. */
+function usageSummary(usage, { turns = true } = {}) {
+  if (!usage) return null;
+  const parts = usageParts(usage);
+  const counted = turns && usage.turns ? [`${usage.turns} turn${usage.turns === 1 ? '' : 's'}`, ...parts] : parts;
+  return counted.join(' · ');
+}
+
+function usageTitle(usage) {
+  if (!usage) return 'No turn of this conversation reported what it consumed.';
+  const cost = typeof usage.costUsd === 'number'
+    ? `$${usage.costUsd.toFixed(4)} declared${usage.turnsWithCost < usage.turns ? ` for ${usage.turnsWithCost} of ${usage.turns} turns` : ''}`
+    : 'no cost declared by the provider';
+  return `${usage.inputTokens} input · ${usage.outputTokens} output · ${usage.cacheReadInputTokens} cache read · ${usage.cacheCreationInputTokens} cache write · ${cost}`;
+}
+
+function renderAgentUsage() {
+  const host = document.getElementById('agent-usage');
+  if (!host) return;
+  const summary = usageSummary(agentSessionUsage);
+  host.textContent = summary ?? (activeAgentSessionId ? 'Spend not reported by this agent' : 'Spend unknown');
+  host.title = usageTitle(agentSessionUsage);
+  host.dataset.known = summary ? 'true' : 'false';
+}
+
+/** Asked for when a conversation opens and again when a turn ends, because a
+    turn is the unit that gets accounted for. */
+function requestAgentUsage(sessionId = activeAgentSessionId) {
+  agentSessionUsage = null;
+  if (!nativeInvoke || !sessionId) { renderAgentUsage(); return; }
+  const requestId = `agent-usage-${Date.now()}`;
+  agentUsageRequestId = requestId;
+  renderAgentUsage();
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: requestId, method: 'agent.usage', params: { sessionId } }) })
+    .catch((error) => console.warn('Agent usage unavailable:', error));
+}
+
 function renderAgentPressure() {
   const host = document.getElementById('agent-pressure');
   if (!host) return;
@@ -3088,6 +3143,7 @@ function selectAgentSession(sessionId) {
   renderAgentMessages([]);
   requestAgentMessages(session.id);
   requestAgentPressure(session.provider, session.id);
+  requestAgentUsage(session.id);
 }
 
 function resumeAgentConversation(sessionId, provider) {
@@ -3590,6 +3646,7 @@ function startNewAgentSession() {
   // A conversation with no turns yet has no context of its own; the account's
   // plan windows are still the operator's to see.
   requestAgentPressure(selectedProvider, null);
+  requestAgentUsage(null);
   document.getElementById('agent-prompt-input')?.focus();
 }
 
@@ -3885,7 +3942,10 @@ function renderTaskDetail(detail) {
   const evidence = detail.runtimeEvidence.length
     ? `<ul class="task-trace-list">${detail.runtimeEvidence.slice(0, 12).map((item) => `<li><strong>${escapeHTML(item.type)}</strong> · ${escapeHTML(item.summary)}<small>${escapeHTML(new Date(item.at).toLocaleString())}${item.sessionId ? ` · ${escapeHTML(item.sessionId)}` : ''}</small></li>`).join('')}</ul>`
     : '<p class="task-trace-empty">No persisted runtime activity for this Task.</p>';
-  const markup = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p>${taskGovernanceMarkup(detail)}<h3 class="task-trace-heading">Checkpoints</h3>${taskCheckpointsMarkup(detail)}<h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
+  /** What the Task cost, where the Task is judged. A Task whose turns nobody
+      priced says so; it is never shown as free. */
+  const usage = usageSummary(detail.usage);
+  const markup = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p class="task-detail-usage" title="${escapeHTML(usageTitle(detail.usage))}"><strong>Agent spend:</strong> ${escapeHTML(usage ?? 'not reported for this Task')}</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p>${taskGovernanceMarkup(detail)}<h3 class="task-trace-heading">Checkpoints</h3>${taskCheckpointsMarkup(detail)}<h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
   taskDetailMarkup.set(task.id, markup);
   panel.innerHTML = markup;
 }
@@ -4718,6 +4778,15 @@ async function connectSidecar(snapshot) {
         applyAgentPressure(response.result);
         return;
       }
+      if (response.id && String(response.id) === String(agentUsageRequestId) && response.result) {
+        // A late answer for a conversation the operator has already left would
+        // price the wrong one, so only the conversation asked about is priced.
+        if (!activeAgentSessionId || response.result.sessionId === activeAgentSessionId) {
+          agentSessionUsage = response.result.usage ?? null;
+          renderAgentUsage();
+        }
+        return;
+      }
       if (response.type === 'agent.activity' && pendingAgentTurn && String(response.id) === String(activeAgentRequestId)) {
         pendingAgentTurn.activity.push(response.item);
         renderAgentMessages(agentRenderedMessages);
@@ -4800,6 +4869,10 @@ async function connectSidecar(snapshot) {
         if (turnState) { turnState.textContent = 'READY'; turnState.dataset.state = 'ready'; }
         requestAgentSessions(workspaceRootPath);
         requestAgentMessages(activeAgentSessionId);
+        // The turn is the unit that gets accounted for, so the total is asked
+        // for again as soon as one ends.
+        requestAgentUsage(activeAgentSessionId);
+        if (activeAgentTaskId && activeAgentTaskId === selectedTaskId) requestTaskDetail(activeAgentTaskId);
         return;
       }
       if (response.result?.agentRuntime) {
@@ -5038,7 +5111,7 @@ function showView(view) {
   mainContent?.classList.toggle('version-control-focus', view === 'changes');
   if (mainContent) mainContent.scrollTop = 0;
   if (view === 'changes') requestVersionControlData(workspaceRootPath);
-  if (view === 'agents') { requestAgentSessions(workspaceRootPath); requestAgentPressure(); }
+  if (view === 'agents') { requestAgentSessions(workspaceRootPath); requestAgentPressure(); requestAgentUsage(); }
 }
 
 function notify(message) {

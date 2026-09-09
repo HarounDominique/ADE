@@ -525,7 +525,9 @@ test("a finished answer can be unfolded into what produced it", () => {
   // The summary advertises what is inside rather than saying only "Trace".
   assert.match(main, /\$\{trace\.activity\.length\} action/);
   assert.match(main, /Files touched/);
-  assert.match(main, /trace\.usage\.inputTokens \+ trace\.usage\.cacheReadInputTokens/);
+  // The turn's usage is stated in the same shape everywhere it is read, with
+  // cache told apart from what was paid for at full price.
+  assert.match(main, /\.\.\.\(trace\.usage \? usageParts\(trace\.usage\) : \[\]\)/);
   // A disclosure, so it opens with the keyboard as well as the pointer.
   assert.match(styles, /\.agent-trace > summary \{ display: flex;/);
   assert.match(styles, /\.agent-trace\[open\] \.agent-trace-summary-label::before \{ transform: rotate\(90deg\); \}/);
@@ -1231,4 +1233,26 @@ test("a writing turn's way back is offered where the Task is judged", () => {
   assert.match(main, /if \(response\.type === 'agent\.checkpoint'\)/);
   assert.match(main, /if \(!response\.available\) notify\(`No checkpoint for this turn/);
   assert.match(main, /function requestTaskDetail/);
+});
+
+test("what a turn cost is read where the work is, and silence is not zero", () => {
+  // Every turn had been recorded in agent_turn_usage since ADR-0040 and no
+  // surface read it: the conversation and the Task could not say what they had
+  // spent.
+  assert.match(main, /function usageParts/);
+  assert.match(main, /cached` : ''/);
+  // Cache is told apart from input rather than folded into it.
+  assert.doesNotMatch(main, /trace\.usage\.inputTokens \+ trace\.usage\.cacheReadInputTokens/);
+  assert.match(main, /\.\.\.\(trace\.usage \? usageParts\(trace\.usage\) : \[\]\)/);
+  // The conversation total lives under the dials that say what is left.
+  assert.match(html, /<p class="agent-usage" id="agent-usage">Spend unknown<\/p>/);
+  assert.match(main, /function renderAgentUsage/);
+  assert.match(main, /method: 'agent\.usage', params: \{ sessionId \}/);
+  // A conversation or Task nobody priced says so; it is never rendered as free.
+  assert.match(main, /'Spend not reported by this agent'/);
+  assert.match(main, /escapeHTML\(usage \?\? 'not reported for this Task'\)/);
+  assert.match(main, /host\.dataset\.known = summary \? 'true' : 'false'/);
+  assert.match(styles, /\.agent-usage\[data-known="false"\] \{ color: var\(--faint\)/);
+  // A turn is the unit that gets accounted for, so a turn ending refreshes it.
+  assert.match(main, /requestAgentUsage\(activeAgentSessionId\);/);
 });

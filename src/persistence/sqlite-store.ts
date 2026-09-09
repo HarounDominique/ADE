@@ -71,6 +71,10 @@ export type AgentTurnTrace = {
 
 export type AgentMessage = { id: string; sessionId: string; role: "user" | "assistant" | "system"; content: string; createdAt: string; trace?: AgentTurnTrace };
 export type AgentTurnUsage = { id: string; sessionId: string; provider: string; model?: string; inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; costUsd?: number; createdAt: string };
+/** What a conversation or a Task consumed, summed from the turns that reported
+    it. A provider that reports nothing leaves no rows and therefore no totals:
+    the absence of a measurement is not a measurement of zero. */
+export type UsageTotals = { turns: number; inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; costUsd?: number; turnsWithCost: number; providers: readonly string[]; models: readonly string[] };
 export type TerminalHistorySession = { id: string; projectId: string; provider: "claude" | "codex" | "opencode"; title: string; transcript: string; truncated: boolean; startedAt: string; endedAt: string; providerSessionId?: string | undefined };
 
 export class AdeStore {
@@ -547,6 +551,38 @@ export class AdeStore {
     const row = this.db.prepare(`SELECT COALESCE(SUM(input_tokens), 0) AS inputTokens, COALESCE(SUM(output_tokens), 0) AS outputTokens, COALESCE(SUM(cache_read_input_tokens), 0) AS cacheReadInputTokens, COALESCE(SUM(cache_creation_input_tokens), 0) AS cacheCreationInputTokens, COALESCE(SUM(cost_usd), 0) AS costUsd FROM agent_turn_usage WHERE session_id = ?`).get(sessionId);
     const totals = row as { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; costUsd: number };
     return { inputTokens: totals.inputTokens, outputTokens: totals.outputTokens, cacheReadInputTokens: totals.cacheReadInputTokens, cacheCreationInputTokens: totals.cacheCreationInputTokens, costUsd: totals.costUsd };
+  }
+
+  /** What a conversation consumed in total. Undefined -- not zero -- when no
+      turn of it was ever accounted for, so a surface can say "unknown" instead
+      of claiming a conversation was free. */
+  agentSessionUsageTotals(sessionId: string): UsageTotals | undefined {
+    return this.usageTotals("WHERE session_id = ?", [sessionId]);
+  }
+
+  /** The same question asked of a Task, across every conversation held under
+      it: what has this piece of work cost so far. */
+  taskUsageTotals(taskId: string): UsageTotals | undefined {
+    return this.usageTotals("WHERE session_id IN (SELECT id FROM agent_sessions WHERE task_id = ?)", [taskId]);
+  }
+
+  private usageTotals(where: string, parameters: readonly string[]): UsageTotals | undefined {
+    const row = this.db.prepare(`SELECT COUNT(*) AS turns, COUNT(cost_usd) AS turnsWithCost, COALESCE(SUM(input_tokens), 0) AS inputTokens, COALESCE(SUM(output_tokens), 0) AS outputTokens, COALESCE(SUM(cache_read_input_tokens), 0) AS cacheReadInputTokens, COALESCE(SUM(cache_creation_input_tokens), 0) AS cacheCreationInputTokens, SUM(cost_usd) AS costUsd FROM agent_turn_usage ${where}`).get(...parameters) as { turns: number; turnsWithCost: number; inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; costUsd: number | null };
+    if (!row || !row.turns) return undefined;
+    const named = this.db.prepare(`SELECT DISTINCT provider, model FROM agent_turn_usage ${where}`).all(...parameters) as Array<{ provider: string; model: string | null }>;
+    return {
+      turns: Number(row.turns),
+      turnsWithCost: Number(row.turnsWithCost),
+      inputTokens: Number(row.inputTokens),
+      outputTokens: Number(row.outputTokens),
+      cacheReadInputTokens: Number(row.cacheReadInputTokens),
+      cacheCreationInputTokens: Number(row.cacheCreationInputTokens),
+      /** A cost only exists when a provider declared one; summing nulls as zero
+          would turn "not priced" into "free". */
+      ...(row.turnsWithCost && typeof row.costUsd === "number" ? { costUsd: row.costUsd } : {}),
+      providers: [...new Set(named.map((item) => item.provider))],
+      models: [...new Set(named.map((item) => item.model).filter((model): model is string => Boolean(model)))],
+    };
   }
 
   /** What a provider last said about its own limits, and what a conversation

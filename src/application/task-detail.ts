@@ -20,6 +20,9 @@ export function getTaskDetail(store: AdeStore, taskId: string) {
     /** The ways back a writing turn left behind, where the work is judged. */
     checkpoints: store.listTaskCheckpoints(taskId),
     agentSessions: store.listAgentSessions(taskId),
+    /** What the Task has consumed across its conversations. Undefined when no
+        turn was accounted for, so the surface says unknown rather than zero. */
+    usage: store.taskUsageTotals(taskId) ?? null,
   };
 }
 
