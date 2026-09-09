@@ -1622,10 +1622,10 @@ body { color: var(--text); }
    the lighter tone, because something that floats has to differ from what it
    floats over. */
 /* A tab can be carried out of the window, so it says so under the pointer and
-   fades while it is being carried. */
-.document-tab[draggable="true"] { cursor: grab; }
-.document-tab[draggable="true"]:active { cursor: grabbing; }
-.document-tab[draggable="true"]:has(.document-tab-button:active) { opacity: .75; }
+   fades while it is being carried. The label must not be selectable: a text
+   selection under a held pointer is what the webview would drag instead. */
+.document-tab[data-document-drag-id] { cursor: grab; user-select: none; }
+.document-tab[data-document-drag-id].carrying { cursor: grabbing; opacity: .6; }
 /* A document in a window of its own: the editor, a header that says which file
    it is and whether it is saved, and nothing else of the shell. */
 .detached-editor { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100vh; background: var(--bg); }
