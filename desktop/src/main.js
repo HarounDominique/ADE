@@ -931,7 +931,7 @@ function renderSnapshot(snapshot) {
   const values = {
     'project-name': activeProject.name,
     'project-description': activeProject.description ?? 'Local Assay project',
-    'project-path': activeProject.repositoryPath,
+    'project-path': activeProject.repositoryPath || 'No Project selected',
     'project-branch': currentBranch,
     'working-tree-state': snapshot.project.workingTree,
     'active-task-count': snapshot.metrics.activeTasks,
@@ -1115,8 +1115,17 @@ function toggleGitContextMenu(kind) {
     renderTaskContextMenu();
   } else {
     menu.innerHTML = '<p class="git-context-empty">Loading branches…</p>';
-    void sendContextRequest('git.workspace', { repositoryPath: document.getElementById('project-path')?.textContent }, 'branches');
+    void sendContextRequest('git.workspace', { repositoryPath: activeRepositoryPath() }, 'branches');
   }
+}
+
+/** The one place that answers "which repository is Assay working on". The
+    header label is not that answer: it is text for a human, and the moment it
+    was read as a path a placeholder travelled into a process spawn as its
+    working directory. An answer of null means no Project, not an empty path. */
+function activeRepositoryPath() {
+  const candidate = workspaceRootPath ?? '';
+  return candidate.startsWith('/') || /^[A-Za-z]:[\\/]/.test(candidate) ? candidate : null;
 }
 
 async function switchProjectFromContext(project) {
@@ -1160,7 +1169,7 @@ async function switchProjectFromContext(project) {
 }
 
 async function switchBranchFromContext(branch) {
-  const path = document.getElementById('project-path')?.textContent;
+  const path = activeRepositoryPath();
   if (!nativeInvoke || !path || !branch) return;
   closeGitContextMenus();
   setSyncState('stale', `Switching to ${branch}…`);
@@ -3442,7 +3451,7 @@ function acceptConfirmation() {
 }
 
 function openWorktreeDialog() {
-  const repositoryPath = document.getElementById('project-path')?.textContent ?? '';
+  const repositoryPath = activeRepositoryPath() ?? '';
   const taskSuffix = selectedTaskId ? selectedTaskId.toLowerCase().replace(/[^a-z0-9-]/g, '-') : 'ade-next';
   const branch = document.getElementById('worktree-branch');
   const path = document.getElementById('worktree-path');
@@ -3622,6 +3631,10 @@ function sendAgentPrompt(event) {
   const taskId = activeAgentSessionId ? (agentSessions.find((session) => session.id === activeAgentSessionId)?.taskId ?? null) : (selectedTaskId ?? null);
   if (!prompt) return;
   if (!providerIsAvailable(provider)) { notify('Selected agent provider is unavailable.'); return; }
+  /** A turn runs inside a repository. Without one there is no working directory
+      to give the provider, and the failure would surface as the CLI not being
+      found rather than as the Project not being chosen. */
+  if (!activeRepositoryPath()) { notify('Select a Project before sending a prompt.'); return; }
   const permissions = [...document.querySelectorAll('#agent-prompt-form input[type="checkbox"]:checked')].map((item) => item.value);
   selectedProvider = provider;
   selectedAgentModel = model;
@@ -4523,7 +4536,7 @@ async function connectSidecar(snapshot) {
         return;
       }
       if (contextPurpose === 'switch-branch' && response.result?.operation === 'branch.switch') {
-        const path = document.getElementById('project-path')?.textContent;
+        const path = activeRepositoryPath();
         if (path) await refreshGitWorkspace(path, nativeInvoke);
         gitCommitNeedsPush = false;
         gitUnpushedCommitCount = 0;
@@ -4664,7 +4677,7 @@ async function connectSidecar(snapshot) {
         activeServiceId = response.result.serviceId;
         renderServiceStatus(response.result);
         notify(`Local service ${response.result.status.toLowerCase()}.`);
-        nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `services-${Date.now()}`, method: 'service.list', params: { repositoryPath: document.getElementById('project-path')?.textContent } }) });
+        nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `services-${Date.now()}`, method: 'service.list', params: { repositoryPath: activeRepositoryPath() } }) });
         return;
       }
       if (Array.isArray(response.result) && response.result[0]?.command && response.result[0]?.status) {
@@ -4812,7 +4825,7 @@ async function createTaskFromUI(intent) {
     request: JSON.stringify({
       id: `create-${taskId}`,
       method: 'task.create',
-      params: { taskId, intent, projectId: activeProjectId, repositoryPath: document.getElementById('project-path')?.textContent },
+      params: { taskId, intent, projectId: activeProjectId, repositoryPath: activeRepositoryPath() },
     }),
   });
   notify(`Created ${taskId}.`);
@@ -4996,7 +5009,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     if (!nativeInvoke) { notify('Local services require the sidecar.'); return; }
     const method = item.dataset.action === 'start-service' ? 'service.start' : 'service.stop';
     const params = method === 'service.start'
-      ? { repositoryPath: document.getElementById('project-path')?.textContent }
+      ? { repositoryPath: activeRepositoryPath() }
       : { serviceId: activeServiceId };
     nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params }) }).catch((error) => { notify('Local service action failed.'); console.warn(error); });
     return;
@@ -5012,7 +5025,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     window.clearTimeout(workspaceSearchTimer);
     workspaceSearchToken += 1;
     setWorkspaceSearchLoading(false);
-    loadWorkspaceTree(document.getElementById('project-path')?.textContent, nativeInvoke);
+    loadWorkspaceTree(activeRepositoryPath(), nativeInvoke);
     return;
   }
   if (item.dataset.action === 'toggle-sidebar') {
@@ -5037,7 +5050,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'refresh-git') {
-    refreshGitWorkspace(document.getElementById('project-path')?.textContent, nativeInvoke);
+    refreshGitWorkspace(activeRepositoryPath(), nativeInvoke);
     return;
   }
   if (item.dataset.action === 'refresh-version-control') {
@@ -5087,7 +5100,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'refresh-knowledge') {
-    const repositoryPath = document.getElementById('project-path')?.textContent;
+    const repositoryPath = activeRepositoryPath();
     const taskId = selectedTaskId;
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile.changed', params: { repositoryPath, ...(taskId && taskId !== '—' ? { taskId } : {}) } }) });
     return;
@@ -5149,7 +5162,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
       copy: intent ? `ADE runs it on the active Project as “${intent}”.` : 'Assay runs it on the active Project and its current branch.',
       confirmLabel: 'Run',
     }, () => {
-      nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => {
+      nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: activeRepositoryPath(), intent, actor: 'human', reason: `Confirmed in ADE Git workspace`, confirmed: true } }) }).then(() => {
         notify(`${method} completed.`);
         const taskId = selectedTaskId;
         if (taskId) nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-ops-${Date.now()}`, method: 'task.git.operations', params: { taskId } }) });
@@ -5166,7 +5179,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
       notify('Opening documentation requires the local desktop runtime.');
       return;
     }
-    const repositoryPath = document.getElementById('project-path')?.textContent;
+    const repositoryPath = activeRepositoryPath();
     nativeInvoke('open_document', { repositoryPath, relativePath: `docu/specs/${item.dataset.document}` }).then(() => notify('Documentation opened.')).catch((error) => {
       notify('Unable to open documentation.');
       console.warn('Documentation unavailable:', error);
@@ -5257,7 +5270,7 @@ document.getElementById('worktree-form')?.addEventListener('submit', (event) => 
   const path = document.getElementById('worktree-path')?.value.trim();
   if (!branch || !path) { notify('Enter a branch and an absolute path for the worktree.'); return; }
   document.getElementById('worktree-dialog')?.close();
-  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-worktree-${Date.now()}`, method: 'git.worktree.create', params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: document.getElementById('project-path')?.textContent, branch, worktreePath: path, actor: 'human', reason: 'Confirmed in Assay Git workspace', confirmed: true } }) }).catch((error) => { notify('Worktree creation failed.'); console.warn(error); });
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-worktree-${Date.now()}`, method: 'git.worktree.create', params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: activeRepositoryPath(), branch, worktreePath: path, actor: 'human', reason: 'Confirmed in Assay Git workspace', confirmed: true } }) }).catch((error) => { notify('Worktree creation failed.'); console.warn(error); });
 });
 document.getElementById('confirm-dialog')?.addEventListener('close', () => { pendingConfirmation = null; });
 document.addEventListener('click', (event) => {
@@ -5386,7 +5399,7 @@ document.addEventListener('click', (event) => {
   if (serviceButton) {
     if (!nativeInvoke) { notify('Local services require the sidecar.'); return; }
     const method = serviceButton.dataset.serviceAction === 'start' ? 'service.start' : 'service.stop';
-    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { serviceId: serviceButton.dataset.serviceId, repositoryPath: document.getElementById('project-path')?.textContent } }) }).catch((error) => { notify('Local service action failed.'); console.warn(error); });
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { serviceId: serviceButton.dataset.serviceId, repositoryPath: activeRepositoryPath() } }) }).catch((error) => { notify('Local service action failed.'); console.warn(error); });
     return;
   }
   const resumeButton = event.target.closest('[data-resume-session]');

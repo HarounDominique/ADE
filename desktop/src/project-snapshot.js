@@ -7,7 +7,9 @@ export const projectSnapshot = {
     id: 'ade',
     name: 'ADE',
     description: 'Agentic Development Environment',
-    repositoryPath: 'Project root',
+    /** A fixture must not carry a path that looks real: this one reached a
+        process spawn as its working directory and failed there. */
+    repositoryPath: '',
     branch: 'master',
     workingTree: 'clean',
   },

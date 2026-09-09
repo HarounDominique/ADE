@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const html = readFileSync(new URL("../desktop/src/index.html", import.meta.url), "utf8");
 const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../desktop/src/styles.css", import.meta.url), "utf8");
+const snapshot = readFileSync(new URL("../desktop/src/project-snapshot.js", import.meta.url), "utf8");
 const components = readFileSync(new URL("../desktop/src/components.css", import.meta.url), "utf8");
 const desktopBuild = readFileSync(new URL("../desktop/build.mjs", import.meta.url), "utf8");
 const sidecarBuild = readFileSync(new URL("../scripts/build-desktop-sidecar.mjs", import.meta.url), "utf8");
@@ -459,6 +460,19 @@ test("a run can stand as the build or tests gate, and editing it does not drop t
   assert.match(main, /set\('run-config-verifies', configuration\?\.verifies \?\? ''\);/);
   // A verification run cites the Task it ran under; without one no gate claims it.
   assert.match(main, /configuration\.verifies && selectedTaskId \? \{ taskId: selectedTaskId \} : \{\}/);
+});
+
+test("the repository is state, never the label a human reads", () => {
+  // The header label doubled as the repository path, so the fixture's
+  // placeholder travelled into a process spawn as its working directory and
+  // failed there as if the CLI were missing.
+  assert.doesNotMatch(main, /getElementById\('project-path'\)\?\.textContent/);
+  assert.match(main, /function activeRepositoryPath/);
+  assert.match(main, /'project-path': activeProject\.repositoryPath \|\| 'No Project selected'/);
+  assert.match(snapshot, /repositoryPath: ''/);
+  assert.doesNotMatch(snapshot, /repositoryPath: 'Project root'/);
+  // A turn without a Project says so, instead of failing as a missing CLI.
+  assert.match(main, /Select a Project before sending a prompt/);
 });
 
 test("a finished turn chimes, and a turn the operator stopped does not", () => {
