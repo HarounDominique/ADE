@@ -126,3 +126,13 @@ test("Codex pressure survives the older event shape and reports nothing when abs
   assert.equal(extractCodexPressure({ type: "turn.completed" }), undefined);
   assert.equal(extractCodexPressure("not an event"), undefined);
 });
+
+test("a turn that reports only its total still fills the context dial", () => {
+  // `exec --json` sends no plan windows and no context size: the turn's own
+  // usage is all there is, so the dial shows tokens without a percentage
+  // rather than nothing at all.
+  const pressure = extractCodexPressure({ type: "turn.completed", usage: { input_tokens: 15_806, cached_input_tokens: 9_984, output_tokens: 13 } });
+  assert.equal(pressure?.context?.usedTokens, 15_819);
+  assert.equal(pressure?.context?.windowTokens, undefined);
+  assert.equal(pressure?.session, undefined);
+});

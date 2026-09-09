@@ -228,6 +228,10 @@ function findCodexTokenCount(value: unknown, depth = 0): Record<string, unknown>
   if (!value || typeof value !== "object" || depth > 6) return undefined;
   const node = value as Record<string, unknown>;
   if (node.rate_limits || node.model_context_window || node.last_token_usage) return node;
+  /** `exec --json` reports no plan windows and no context size: what a turn put
+      in the window arrives once, in `turn.completed`. Reading it means the
+      context dial says how much was used even when nothing says of how much. */
+  if (node.type === "turn.completed" && node.usage && typeof node.usage === "object") return { last_token_usage: node.usage };
   for (const child of Object.values(node)) {
     const found = findCodexTokenCount(child, depth + 1);
     if (found) return found;
