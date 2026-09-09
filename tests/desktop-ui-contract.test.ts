@@ -7,6 +7,8 @@ const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "u
 const styles = readFileSync(new URL("../desktop/src/styles.css", import.meta.url), "utf8");
 const snapshot = readFileSync(new URL("../desktop/src/project-snapshot.js", import.meta.url), "utf8");
 const components = readFileSync(new URL("../desktop/src/components.css", import.meta.url), "utf8");
+const codeEditor = readFileSync(new URL("../desktop/src/code-editor.js", import.meta.url), "utf8");
+const paths = readFileSync(new URL("../desktop/src/paths.js", import.meta.url), "utf8");
 const desktopBuild = readFileSync(new URL("../desktop/build.mjs", import.meta.url), "utf8");
 const sidecarBuild = readFileSync(new URL("../scripts/build-desktop-sidecar.mjs", import.meta.url), "utf8");
 const smokeBundle = readFileSync(new URL("../scripts/smoke-desktop-bundle.mjs", import.meta.url), "utf8");
@@ -185,7 +187,9 @@ test("the shell never assumes a path separator", () => {
   // backslash and every hardcoded "/" silently fails a comparison.
   assert.doesNotMatch(main, /split\('\/'\)/);
   assert.doesNotMatch(main, /startsWith\(`\$\{workspaceRootPath\}\//);
-  assert.match(main, /const pathSegments = \(value\) =>/);
+  // The helpers moved to a module a second window can import; the rule they
+  // encode did not move.
+  assert.match(paths, /export const pathSegments = \(value\) =>/);
   assert.match(main, /function pathInsideRoot/);
   for (const script of [sidecarBuild, smokeBundle]) {
     assert.match(script, /fileURLToPath/);
@@ -785,19 +789,25 @@ test("document editor fills its viewport and exposes save state", () => {
   assert.match(html, /id="discard-file"/);
   assert.match(styles, /\.document-content \.cm-editor \{ height: 100%;/);
   assert.match(styles, /\.document-content \.cm-gutters/);
-  assert.match(main, /from 'codemirror'/);
-  assert.match(main, /defaultHighlightStyle/);
+  // The editing surface lives apart from the shell that hosts it.
+  assert.match(codeEditor, /from 'codemirror'/);
+  assert.match(main, /function codeEditor\(\) \{/);
+  assert.match(codeEditor, /defaultHighlightStyle/);
   assert.match(main, /function formatActiveDocument/);
   assert.match(main, /prettier\.format/);
-  assert.match(main, /Mod-s/);
-  assert.match(main, /from '@codemirror\/lang-cpp'/);
-  assert.match(main, /from '@codemirror\/lang-java'/);
-  assert.match(main, /from '@codemirror\/lang-php'/);
-  assert.match(main, /monaco-editor\/esm\/vs\/editor\/editor\.api\.js/);
-  assert.match(main, /function initializeMonacoEditor/);
-  assert.match(main, /monacoLanguageDefinitions/);
-  assert.match(main, /setModelLanguage/);
-  assert.match(main, /editor-engine-hidden/);
+  assert.match(codeEditor, /Mod-s/);
+  // The surface only reports; saving stays the shell's decision.
+  assert.match(main, /onSave: \(\) => \{ void saveActiveDocument\(\); \}/);
+  assert.match(codeEditor, /from '@codemirror\/lang-cpp'/);
+  assert.match(codeEditor, /from '@codemirror\/lang-java'/);
+  assert.match(codeEditor, /from '@codemirror\/lang-php'/);
+  assert.match(codeEditor, /monaco-editor\/esm\/vs\/editor\/editor\.api\.js/);
+  assert.match(codeEditor, /function initializeMonacoEditor/);
+  // The shell no longer reaches into either engine: one surface answers for both.
+  assert.doesNotMatch(main, /monacoEditor|codeEditorView|activeEditorEngine/);
+  assert.match(codeEditor, /monacoLanguageDefinitions/);
+  assert.match(codeEditor, /setModelLanguage/);
+  assert.match(codeEditor, /editor-engine-hidden/);
 });
 
 test("Markdown opens rendered and keeps one control back to its source", () => {
@@ -837,7 +847,7 @@ test("dark theme keeps a dedicated night-evidence palette", () => {
   assert.match(darkTheme, /--bg: #0f1724/);
   assert.match(darkTheme, /--panel: #1a2a3b/);
   assert.match(darkTheme, /--cyan: #69d5c8/);
-  assert.match(main, /editor\.background': '#142333'/);
+  assert.match(codeEditor, /editor\.background': '#142333'/);
   assert.match(main, /const terminalPalettes = \{/);
   assert.match(main, /dark: \{\s*background: '#141a22'/);
 });
@@ -867,11 +877,12 @@ test("desktop shell scopes knowledge, dialogs and tabs to their actual work", ()
 });
 
 test("heavy editor modules load only when a matching action needs them", () => {
-  assert.match(main, /async function loadMonaco\(\)/);
-  assert.match(main, /import\('monaco-editor\/esm\/vs\/editor\/editor\.api\.js'\)/);
+  assert.match(codeEditor, /export async function loadMonaco\(\)/);
+  assert.match(codeEditor, /import\('monaco-editor\/esm\/vs\/editor\/editor\.api\.js'\)/);
   assert.match(main, /async function loadPrettier\(\)/);
   assert.match(main, /import\('prettier\/standalone'\)/);
   assert.doesNotMatch(main, /^import \* as monaco/m);
+  assert.doesNotMatch(codeEditor, /^import \* as monaco/m);
   assert.match(desktopBuild, /splitting: true/);
   assert.match(html, /href="\/main\.css"/);
 });

@@ -3,25 +3,8 @@ import { mergeActiveProject } from './project-context.js';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
-import { basicSetup } from 'codemirror';
-import { javascript } from '@codemirror/lang-javascript';
-import { cpp } from '@codemirror/lang-cpp';
-import { java } from '@codemirror/lang-java';
-import { php } from '@codemirror/lang-php';
-import { python } from '@codemirror/lang-python';
-import { rust } from '@codemirror/lang-rust';
-import { css } from '@codemirror/lang-css';
-import { html } from '@codemirror/lang-html';
-import { json } from '@codemirror/lang-json';
-import { markdown } from '@codemirror/lang-markdown';
-import { sql } from '@codemirror/lang-sql';
-import { xml } from '@codemirror/lang-xml';
-import { yaml } from '@codemirror/lang-yaml';
-import { HighlightStyle, bracketMatching, indentOnInput, syntaxHighlighting } from '@codemirror/language';
-import { tags } from '@lezer/highlight';
-import { EditorState, Compartment, Prec } from '@codemirror/state';
-import { EditorView, keymap } from '@codemirror/view';
-import { indentWithTab } from '@codemirror/commands';
+import { createCodeEditorSurface, formatterParserForPath, languageLabelForPath } from './code-editor.js';
+import { fileExtension, pathBaseName, pathSegments } from './paths.js';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 const panels = [...document.querySelectorAll('.view')];
@@ -158,14 +141,10 @@ let gitUnpushedCommitCount = 0;
 let historyCommitsCollapsed = false;
 let historyFilesCollapsed = false;
 let changesFilesCollapsed = false;
-let codeEditorView = null;
-let monacoEditor = null;
-let monaco = null;
-let monacoLoader = null;
 let prettierLoader = null;
-let activeEditorEngine = 'codemirror';
-const codeEditorLanguage = new Compartment();
-const codeEditorHighlight = new Compartment();
+/** The editing surface this window owns, built when there is somewhere to put
+    it. A second window builds its own. */
+let editorSurface = null;
 const pendingContextRequests = new Map();
 const pendingAgentSessionPaths = new Map();
 const pendingAgentMessageSessions = new Map();
@@ -176,77 +155,6 @@ const pendingToolchainInspectionPaths = new Map();
 const taskDetailMarkup = new Map();
 const pendingProjectRemovals = new Map();
 
-function configureMonacoThemes() {
-  if (!monaco) return;
-  monaco.editor.defineTheme('ade-dark', {
-  base: 'vs-dark',
-  inherit: true,
-  rules: [],
-  colors: {
-    'editor.background': '#142333',
-    'editor.foreground': '#edf4f7',
-    'editorLineNumber.foreground': '#64798d',
-    'editorLineNumber.activeForeground': '#c4d2dc',
-    'editor.lineHighlightBackground': '#203348',
-    'editor.selectionBackground': '#315a82',
-    'editorCursor.foreground': '#69d5c8',
-    'editorIndentGuide.background': '#2f4357',
-  },
-  });
-  monaco.editor.defineTheme('ade-light', {
-  base: 'vs',
-  inherit: true,
-  rules: [],
-  colors: {
-    'editor.background': '#edf3f8',
-    'editor.foreground': '#152231',
-    'editorLineNumber.foreground': '#8393a3',
-    'editorLineNumber.activeForeground': '#2865b1',
-    'editor.lineHighlightBackground': '#e3edf5',
-    'editor.selectionBackground': '#b9d5ee',
-    'editorCursor.foreground': '#0e827b',
-    'editorIndentGuide.background': '#c6d2de',
-  },
-  });
-}
-
-async function loadMonaco() {
-  if (monaco) return monaco;
-  if (!monacoLoader) {
-    monacoLoader = Promise.all([
-      import('monaco-editor/esm/vs/editor/editor.api.js'),
-      import('monaco-editor/esm/vs/basic-languages/cpp/cpp.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/csharp/csharp.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/dart/dart.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/dockerfile/dockerfile.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/elixir/elixir.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/fsharp/fsharp.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/go/go.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/graphql/graphql.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/java/java.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/kotlin/kotlin.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/lua/lua.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/objective-c/objective-c.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/perl/perl.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/php/php.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/powershell/powershell.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/protobuf/protobuf.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/python/python.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/r/r.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/rust/rust.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/scala/scala.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/shell/shell.contribution.js'),
-      import('monaco-editor/esm/vs/basic-languages/swift/swift.contribution.js'),
-    ]).then(([editor]) => {
-      monaco = editor;
-      configureMonacoThemes();
-      applyMonacoTheme(document.documentElement.dataset.theme);
-      return monaco;
-    });
-  }
-  return monacoLoader;
-}
 
 async function loadPrettier() {
   if (!prettierLoader) {
@@ -265,7 +173,7 @@ async function loadPrettier() {
 }
 
 function applyMonacoTheme(theme) {
-  if (monaco) monaco.editor.setTheme(theme === 'light' ? 'ade-light' : 'ade-dark');
+  editorSurface?.applyTheme(theme);
 }
 
 /** Terminal palettes.  Only four colours were defined before, so the sixteen
@@ -299,66 +207,8 @@ const terminalPalettes = {
   },
 };
 
-/** Editor syntax palettes.  CodeMirror's defaultHighlightStyle is written for a
-    white page -- it paints names in pure blue and comments in near-black -- so
-    in dark mode a Java class or field sank into the background and could not be
-    read. Each theme now gets its own style, built from the product's tokens and
-    checked against every panel-soft background the skins use: nothing here
-    falls below 5:1, comfortably past the 4.5:1 minimum for body-size text.
-
-    The two palettes assign the same hue to the same role, so a file keeps its
-    shape across a theme switch: purple for keywords, green for types, blue for
-    the name being defined, red for strings, amber for numbers and annotations. */
-const codeHighlightPalettes = {
-  dark: {
-    keyword: '#c9b0ff', string: '#f3a3aa', number: '#f2cc85', comment: '#8ba2b6',
-    type: '#7cd9a5', name: '#cfdae4', definition: '#8fb9ff', callee: '#6fdccf',
-    property: '#95e9de', meta: '#f2cc85', operator: '#a6b8c8', invalid: '#ff9aa2',
-  },
-  light: {
-    keyword: '#6f48a6', string: '#ab3d47', number: '#8a5d11', comment: '#566878',
-    type: '#167646', name: '#243544', definition: '#1d4fa8', callee: '#0b6b65',
-    property: '#0f6d68', meta: '#8a5d11', operator: '#4a5c6e', invalid: '#a32b2b',
-  },
-};
-
-function codeHighlightStyle(theme) {
-  const palette = codeHighlightPalettes[theme === 'light' ? 'light' : 'dark'];
-  return HighlightStyle.define([
-    { tag: [tags.keyword, tags.modifier, tags.controlKeyword, tags.operatorKeyword, tags.self, tags.null, tags.atom, tags.bool], color: palette.keyword },
-    { tag: [tags.string, tags.special(tags.string), tags.regexp], color: palette.string },
-    { tag: [tags.escape, tags.character], color: palette.number },
-    { tag: [tags.number, tags.integer, tags.float, tags.unit], color: palette.number },
-    { tag: [tags.comment, tags.lineComment, tags.blockComment, tags.docComment], color: palette.comment, fontStyle: 'italic' },
-    { tag: [tags.typeName, tags.className, tags.namespace, tags.standard(tags.typeName)], color: palette.type },
-    { tag: [tags.variableName, tags.labelName], color: palette.name },
-    { tag: [tags.definition(tags.variableName), tags.definition(tags.propertyName)], color: palette.definition },
-    { tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.macroName], color: palette.callee },
-    { tag: [tags.propertyName, tags.attributeName], color: palette.property },
-    { tag: [tags.meta, tags.annotation, tags.processingInstruction, tags.definitionKeyword, tags.moduleKeyword], color: palette.meta },
-    { tag: [tags.operator, tags.punctuation, tags.separator, tags.bracket, tags.derefOperator], color: palette.operator },
-    { tag: [tags.tagName], color: palette.type },
-    { tag: [tags.heading], color: palette.definition, fontWeight: '600' },
-    { tag: [tags.link, tags.url], color: palette.callee, textDecoration: 'underline' },
-    { tag: [tags.emphasis], fontStyle: 'italic' },
-    { tag: [tags.strong], fontWeight: '600' },
-    { tag: [tags.strikethrough], textDecoration: 'line-through' },
-    { tag: [tags.invalid], color: palette.invalid },
-  ]);
-}
-
-/** basicSetup already installs defaultHighlightStyle, and the first extension
-    in the list wins, so simply adding ours after it changed nothing on screen.
-    Prec.highest puts the theme's style in front of the bundled one. */
-function codeHighlightExtension(theme) {
-  return Prec.highest(syntaxHighlighting(codeHighlightStyle(theme), { fallback: true }));
-}
-
 function applyCodeEditorTheme(theme) {
-  if (!codeEditorView) return;
-  codeEditorView.dispatch({
-    effects: codeEditorHighlight.reconfigure(codeHighlightExtension(theme)),
-  });
+  editorSurface?.applyTheme(theme);
 }
 
 /** The active theme, readable before any terminal exists: a terminal created
@@ -1643,11 +1493,6 @@ function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 }
 
-/** Paths arrive from Tauri spelled the way the platform spells them, so Windows
-    sends `\`. Nothing in the shell may assume a separator: every split and every
-    prefix test goes through these, which accept either. */
-const pathSegments = (value) => String(value ?? '').split(/[\\/]+/).filter(Boolean);
-const pathBaseName = (value) => pathSegments(value).at(-1) ?? '';
 
 function pathInsideRoot(filePath, root = workspaceRootPath) {
   if (!filePath || !root) return false;
@@ -1680,167 +1525,7 @@ function setDocumentHeader({ title, path, kind, externalDisabled = true }) {
   if (externalButton) externalButton.disabled = externalDisabled;
 }
 
-const codeLanguageDefinitions = [
-  { label: 'JavaScript', extensions: ['js', 'mjs', 'cjs', 'jsx'], language: () => javascript({ jsx: true }) },
-  { label: 'TypeScript', extensions: ['ts', 'mts', 'cts', 'tsx'], language: () => javascript({ jsx: true, typescript: true }) },
-  { label: 'C++', extensions: ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx'], language: () => cpp() },
-  { label: 'Java', extensions: ['java'], language: () => java() },
-  { label: 'PHP', extensions: ['php'], language: () => php() },
-  { label: 'Python', extensions: ['py', 'pyw'], language: () => python() },
-  { label: 'Rust', extensions: ['rs'], language: () => rust() },
-  { label: 'CSS', extensions: ['css', 'scss'], language: () => css() },
-  { label: 'HTML', extensions: ['html', 'htm'], language: () => html() },
-  { label: 'JSON', extensions: ['json', 'jsonc'], language: () => json() },
-  { label: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd'], language: () => markdown() },
-  { label: 'SQL', extensions: ['sql'], language: () => sql() },
-  { label: 'XML', extensions: ['xml', 'svg', 'xsl', 'xsd'], language: () => xml() },
-  { label: 'YAML', extensions: ['yml', 'yaml'], language: () => yaml() },
-];
 
-const monacoLanguageDefinitions = [
-  { label: 'C', extensions: ['c', 'h'], monacoLanguage: 'c' },
-  { label: 'C#', extensions: ['cs', 'csx', 'cake'], monacoLanguage: 'csharp' },
-  { label: 'Dart', extensions: ['dart'], monacoLanguage: 'dart' },
-  { label: 'Dockerfile', fileNames: ['dockerfile', 'containerfile'], monacoLanguage: 'dockerfile' },
-  { label: 'Elixir', extensions: ['ex', 'exs'], monacoLanguage: 'elixir' },
-  { label: 'F#', extensions: ['fs', 'fsi', 'fsx', 'fsscript'], monacoLanguage: 'fsharp' },
-  { label: 'Go', extensions: ['go'], monacoLanguage: 'go' },
-  { label: 'GraphQL', extensions: ['graphql', 'gql'], monacoLanguage: 'graphql' },
-  { label: 'Kotlin', extensions: ['kt', 'kts'], monacoLanguage: 'kotlin' },
-  { label: 'Lua', extensions: ['lua'], monacoLanguage: 'lua' },
-  { label: 'Objective-C', extensions: ['m', 'mm'], monacoLanguage: 'objective-c' },
-  { label: 'Perl', extensions: ['pl', 'pm', 'pod'], monacoLanguage: 'perl' },
-  { label: 'PowerShell', extensions: ['ps1', 'psm1', 'psd1'], monacoLanguage: 'powershell' },
-  { label: 'Protocol Buffers', extensions: ['proto'], monacoLanguage: 'proto' },
-  { label: 'R', extensions: ['r', 'R'], monacoLanguage: 'r' },
-  { label: 'Ruby', extensions: ['rb', 'rake', 'gemspec'], monacoLanguage: 'ruby' },
-  { label: 'Scala', extensions: ['scala', 'sc'], monacoLanguage: 'scala' },
-  { label: 'Shell', extensions: ['sh', 'bash', 'zsh', 'fish'], monacoLanguage: 'shell' },
-  { label: 'Swift', extensions: ['swift'], monacoLanguage: 'swift' },
-];
-
-const formatterParsers = {
-  js: 'babel', mjs: 'babel', cjs: 'babel', jsx: 'babel',
-  ts: 'typescript', mts: 'typescript', cts: 'typescript', tsx: 'typescript',
-  json: 'json-stringify', jsonc: 'json', css: 'css', scss: 'scss',
-  html: 'html', htm: 'html', md: 'markdown', markdown: 'markdown', mdown: 'markdown', mkd: 'markdown', yaml: 'yaml', yml: 'yaml',
-};
-
-function fileExtension(filePath = '') {
-  return pathBaseName(filePath).toLowerCase().split('.').at(-1) ?? '';
-}
-
-function definitionMatchesPath(definition, filePath) {
-  const extension = fileExtension(filePath);
-  const fileName = pathBaseName(filePath).toLowerCase();
-  return definition.extensions?.includes(extension) || definition.fileNames?.some((name) => name.toLowerCase() === fileName);
-}
-
-function editorDefinitionForPath(filePath) {
-  return codeLanguageDefinitions.find((definition) => definitionMatchesPath(definition, filePath))
-    ?? monacoLanguageDefinitions.find((definition) => definitionMatchesPath(definition, filePath));
-}
-
-function languageLabelForPath(filePath) {
-  return editorDefinitionForPath(filePath)?.label ?? 'Plain text';
-}
-
-function formatterParserForPath(filePath) {
-  return formatterParsers[fileExtension(filePath)] ?? null;
-}
-
-function initializeCodeEditor() {
-  const parent = document.getElementById('document-content');
-  if (!parent || codeEditorView) return;
-  codeEditorView = new EditorView({
-    state: EditorState.create({
-      doc: '',
-      extensions: [
-        basicSetup,
-        codeEditorLanguage.of([]),
-        codeEditorHighlight.of(codeHighlightExtension(document.documentElement.dataset.theme)),
-        bracketMatching(),
-        indentOnInput(),
-        EditorView.lineWrapping,
-        keymap.of([
-          indentWithTab,
-          { key: 'Mod-s', run: () => { void saveActiveDocument(); return true; } },
-        ]),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) updateDocumentEditState();
-        }),
-      ],
-    }),
-    parent,
-  });
-}
-
-async function initializeMonacoEditor() {
-  const parent = document.getElementById('document-content');
-  if (!parent) return null;
-  await loadMonaco();
-  if (monacoEditor) return monacoEditor;
-  monacoEditor = monaco.editor.create(parent, {
-    value: '',
-    language: 'plaintext',
-    theme: document.documentElement.dataset.theme === 'light' ? 'ade-light' : 'ade-dark',
-    automaticLayout: true,
-    minimap: { enabled: false },
-    lineNumbers: 'on',
-    scrollBeyondLastLine: false,
-    wordWrap: 'off',
-    renderWhitespace: 'selection',
-    tabSize: 2,
-    insertSpaces: true,
-    fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    fontSize: 13,
-    lineHeight: 19,
-    padding: { top: 14, bottom: 24 },
-    scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
-  });
-  monacoEditor.onDidChangeModelContent(() => updateDocumentEditState());
-  monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { void saveActiveDocument(); });
-  return monacoEditor;
-}
-
-function showEditorEngine(engine) {
-  const parent = document.getElementById('document-content');
-  if (!parent) return;
-  parent.querySelector('.cm-editor')?.classList.toggle('editor-engine-hidden', engine !== 'codemirror');
-  parent.querySelector('.monaco-editor')?.classList.toggle('editor-engine-hidden', engine !== 'monaco');
-}
-
-async function setCodeEditorContent(content = '', filePath = '', focus = false) {
-  const definition = editorDefinitionForPath(filePath);
-  if (definition?.monacoLanguage) {
-    await initializeMonacoEditor();
-    if (!monacoEditor) return;
-    monacoEditor.setValue(content);
-    const model = monacoEditor.getModel();
-    if (model) monaco.editor.setModelLanguage(model, definition.monacoLanguage);
-    activeEditorEngine = 'monaco';
-    showEditorEngine(activeEditorEngine);
-    if (focus) monacoEditor.focus();
-    return;
-  }
-  initializeCodeEditor();
-  if (!codeEditorView) return;
-  const current = codeEditorView.state.doc.toString();
-  const language = definition?.language;
-  codeEditorView.dispatch({
-    changes: { from: 0, to: current.length, insert: content },
-    effects: codeEditorLanguage.reconfigure(language ? language() : []),
-  });
-  activeEditorEngine = 'codemirror';
-  showEditorEngine(activeEditorEngine);
-  if (focus) codeEditorView.focus();
-}
-
-function codeEditorValue() {
-  return activeEditorEngine === 'monaco'
-    ? monacoEditor?.getValue() ?? ''
-    : codeEditorView?.state.doc.toString() ?? '';
-}
 
 function updateDocumentEditState() {
   const editor = document.getElementById('document-content');
@@ -1901,32 +1586,45 @@ function documentTabByPath(filePath) {
     out, so its value and caret are folded back into the record first. Without
     this, the unsaved work of every tab but the last would be the editor's to
     lose. */
+/** The window's own surface, built the first time a document needs one. The
+    shell keeps talking about documents; the surface answers for the editor. */
+function codeEditor() {
+  const parent = document.getElementById('document-content');
+  if (!parent) return null;
+  if (!editorSurface) {
+    editorSurface = createCodeEditorSurface({
+      parent,
+      onChange: () => updateDocumentEditState(),
+      onSave: () => { void saveActiveDocument(); },
+    });
+  }
+  return editorSurface;
+}
+
+async function setCodeEditorContent(content = '', filePath = '', focus = false) {
+  await codeEditor()?.setContent(content, filePath, focus);
+}
+
+function codeEditorValue() {
+  return codeEditor()?.value() ?? '';
+}
+
 function captureActiveDocumentBuffer() {
   const record = documentTabById(activeDocumentId);
   if (!record || record.state !== 'ready' || record.kind !== 'text') return;
   record.buffer = codeEditorValue();
   record.dirty = record.buffer !== record.original;
-  if (activeEditorEngine === 'monaco') {
-    record.caret = monacoEditor?.getPosition() ?? null;
-    record.scrollTop = monacoEditor?.getScrollTop() ?? 0;
-  } else if (codeEditorView) {
-    record.caret = codeEditorView.state.selection.main.head;
-    record.scrollTop = codeEditorView.scrollDOM.scrollTop;
+  const view = editorSurface?.captureViewState();
+  if (view) {
+    record.caret = view.caret;
+    record.scrollTop = view.scrollTop;
   }
 }
 
 function restoreDocumentCaret(record) {
   if (record.caret === null || record.caret === undefined) return;
   try {
-    if (activeEditorEngine === 'monaco' && monacoEditor) {
-      if (typeof record.caret === 'object') monacoEditor.setPosition(record.caret);
-      monacoEditor.setScrollTop(record.scrollTop ?? 0);
-      return;
-    }
-    if (!codeEditorView || typeof record.caret !== 'number') return;
-    const anchor = Math.min(record.caret, codeEditorView.state.doc.length);
-    codeEditorView.dispatch({ selection: { anchor } });
-    codeEditorView.scrollDOM.scrollTop = record.scrollTop ?? 0;
+    editorSurface?.restoreViewState({ caret: record.caret, scrollTop: record.scrollTop ?? 0 });
   } catch { /* The file may have been shortened outside Assay since. */ }
 }
 
@@ -1986,7 +1684,7 @@ async function renderActiveDocument({ focus = false } = {}) {
   // document when it is showing, the editor when it is not.
   if (isText && focus) {
     if (markdownPreviewVisible()) document.getElementById('document-preview')?.focus();
-    else (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
+    else editorSurface?.focus();
   }
 }
 
@@ -2481,7 +2179,7 @@ async function toggleMarkdownPreview() {
   await syncMarkdownPreview();
   updateDocumentEditState();
   if (record.preview) document.getElementById('document-preview')?.focus();
-  else (activeEditorEngine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
+  else editorSurface?.focus();
 }
 
 /** A relative link in a document is a path from the document, so it resolves
