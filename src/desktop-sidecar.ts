@@ -24,6 +24,7 @@ import { getGitStatus } from "./application/git/git-status.js";
 import { findReferenceImpact } from "./application/knowledge/reference-impact.js";
 import { runNativeSkill } from "./application/skills/run-skill.js";
 import { askGateEvidenceType, askGateSummary, evaluateAskGate } from "./application/gates/ask-gate.js";
+import { captureTurnChangeSet } from "./application/agents/capture-turn-change-set.js";
 import { askBriefing, composeAgentPrompt } from "./application/structural-context/ask-briefing.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
@@ -832,7 +833,21 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     if (usage) store.saveAgentTurnUsage({ id: `agent-${request.id}-usage`, sessionId: session.id, provider, ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), ...usage, createdAt: new Date().toISOString() });
     let files: readonly import("./ports/agent-runtime.js").FileDiff[] = [];
     try { files = await runtime.diff(session); } catch { /* A provider may not expose a diff for this turn. */ }
-    process.stdout.write(`${JSON.stringify({ id: request.id, result: { sessionId: session.id, provider, status: "COMPLETED", output, activity, files, ...(usage ? { usage } : {}), pressure: readAgentPressure(store, provider, session.id) } })}\n`);
+    /** A turn that changed the repository under a Task enters the governance
+        pipeline whichever provider ran it: the ChangeSet, the evidence and the
+        Task's own progress no longer depend on `task.run` and OpenCode. */
+    const capture = taskId
+      ? await captureTurnChangeSet(store, {
+          taskId,
+          sessionId: session.id,
+          directory: params.repositoryPath!,
+          turnId: String(request.id),
+          provider,
+          ...(typeof params.model === "string" && params.model ? { model: params.model } : {}),
+          runtimeDiff: files,
+        }).catch((error: unknown) => { process.stderr.write(`change capture failed: ${error instanceof Error ? error.message : String(error)}\n`); return undefined; })
+      : undefined;
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: { sessionId: session.id, provider, status: "COMPLETED", output, activity, files, ...(usage ? { usage } : {}), ...(capture ? { changeSetId: capture.changeSet.id, taskStatus: capture.taskStatus } : {}), pressure: readAgentPressure(store, provider, session.id) } })}\n`);
   })().catch((error: unknown) => {
     if (active.aborted) {
       const session = active.session;
@@ -1067,12 +1082,18 @@ function startTaskRun(store: AdeStore, request: DesktopRequest): void {
   runtimeStatus.activeTaskId = taskId;
   runtimeStatus.lastError = null;
   process.stdout.write(`${JSON.stringify({ id: request.id, result: { accepted: true, taskId, status: "RUNNING" } })}\n`);
-  void runSpike(new OpenCodeHttpRuntime(process.env.OPENCODE_URL), {
+  /** The Implementer is whichever provider the caller asked for. Hardwiring
+      OpenCode here kept the whole pipeline reachable by one runtime only. */
+  const requested = request.params?.provider;
+  const provider = requested === "claude" || requested === "codex" ? requested : "opencode";
+  const runtime = provider === "claude" ? new ClaudeCliRuntime() : provider === "codex" ? new CodexCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+  void runSpike(runtime, {
     taskId,
     directory: task.repositoryPath,
     intent: task.intent,
     store,
     existingTask: true,
+    ...(request.params?.grantedPermissions ? { grantedPermissions: request.params.grantedPermissions } : {}),
     onEvent: (event) => {
       runtimeStatus.lastEventAt = new Date().toISOString();
       const payload = event.payload as { type?: string; sessionID?: string; properties?: Record<string, unknown> };

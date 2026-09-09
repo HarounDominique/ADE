@@ -1,6 +1,6 @@
 import { Task } from "../domain/task.js";
 import { captureGitChanges, type GitChanges } from "../adapters/git-changes.js";
-import type { AgentRuntimePort, RuntimeEvent } from "../ports/agent-runtime.js";
+import type { AgentPermission, AgentRuntimePort, RuntimeEvent } from "../ports/agent-runtime.js";
 import { createChangeSet, type ChangeSet } from "../domain/change-set.js";
 import { AdeStore } from "../persistence/sqlite-store.js";
 import { createTask, getTask } from "./tasks/task-commands.js";
@@ -18,7 +18,7 @@ export type SpikeResult = {
 
 export async function runSpike(
   runtime: AgentRuntimePort,
-  input: { taskId: string; directory: string; intent: string; agent?: string; signal?: AbortSignal; store?: AdeStore; existingTask?: boolean; onEvent?: (event: RuntimeEvent) => void },
+  input: { taskId: string; directory: string; intent: string; agent?: string; grantedPermissions?: readonly AgentPermission[]; signal?: AbortSignal; store?: AdeStore; existingTask?: boolean; onEvent?: (event: RuntimeEvent) => void },
 ): Promise<SpikeResult> {
   const task = input.store && input.existingTask
     ? getTask(input.store, input.taskId)
@@ -38,6 +38,9 @@ export async function runSpike(
   await runtime.prompt(session, {
     text: input.intent,
     ...(input.agent ? { agent: input.agent } : {}),
+    /** A CLI runtime writes nothing without permission, so an Implementer run
+        that is not told what it may do can only read. */
+    ...(input.grantedPermissions ? { grantedPermissions: input.grantedPermissions } : {}),
   });
   const events = await eventPromise;
   const diff = await runtime.diff(session);

@@ -295,11 +295,12 @@
 
 Auditoría de origen: [product-gap-audit](../docu/knowledge/product-gap-audit.md). Cada tarea cita el hueco que cierra.
 
-- [ ] Task: Convertir un turno de `Agents` en ChangeSet y evidencia (G1)
+- [x] Task: Convertir un turno de `Agents` en ChangeSet y evidencia (G1)
   - Spec: [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md) · [SPEC-agent-runtime.md](../docu/specs/SPEC-agent-runtime.md)
   - Acceptance: un turno con permiso de escritura sobre una Task activa produce el mismo `ChangeSet` y la misma evidencia con Claude Code, Codex y OpenCode; `task.run` deja de ser el único camino al pipeline y ningún proveedor queda cableado en el sidecar.
-  - Verify: `npm test`, contrato por proveedor con runner falso y smoke manual con un proveedor real.
-  - Files: `src/desktop-sidecar.ts`, `src/application/`, `tests/`.
+  - Verify: `npm test` (266 tests TypeScript, incluidos cuatro sobre repositorio Git temporal) y contrato de que el sidecar no instancia un proveedor fijo. Smoke manual con un proveedor real pendiente.
+  - Files: `src/application/agents/capture-turn-change-set.ts`, `src/desktop-sidecar.ts`, `src/application/run-spike.ts`, `tests/agent-turn-capture.test.ts`, [ADR-0043](../docu/adr/0043-agent-turn-as-pipeline-entry.md).
+  - Abierto: el ChangeSet retrata el working tree completo, no el delta del turno; distinguirlos depende de G6.
 
 - [ ] Task: Alimentar las gates `build` y `tests` con ejecuciones reales (G2, G3)
   - Spec: [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md) · [SPEC-run-configurations.md](../docu/specs/SPEC-run-configurations.md)

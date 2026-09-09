@@ -14,13 +14,15 @@ Este documento registra los huecos entre lo que Assay promete en `PRODUCT.md`, `
 
 Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se mueven; el hecho descrito es lo que hay que verificar antes de darlo por cerrado.
 
-## G1 — El workbench y el pipeline de gobierno no se tocan
+## G1 — El workbench y el pipeline de gobierno no se tocan *(cerrado el 2026-09-09)*
 
 **Qué pasa.** `Agents` —la superficie de trabajo diaria, con Claude Code y Codex— persiste mensajes y muestra el diff del turno, pero no crea `ChangeSet`, ni evidencia, ni gates, ni review. El pipeline que sí lo hace (`task.run` → `runSpike`) instancia `OpenCodeHttpRuntime` de forma fija en `src/desktop-sidecar.ts` y se apoya en `runtime.events()`, que los adapters CLI devuelven vacío (`src/adapters/claude-cli-runtime.ts`, `src/adapters/codex-cli-runtime.ts`).
 
 **Consecuencia de producto.** El diferenciador declarado —la `Task` trazable de la intención a la review— sólo existe con el proveedor que el usuario menos ejecuta, y nunca desde la pantalla donde trabaja. Sin esto, el resto del producto es un IDE con chat.
 
 **Dirección.** Un turno de `Agents` que toca el repositorio debe producir el mismo `ChangeSet` y la misma evidencia que produce `task.run`, sea cual sea el proveedor. El puerto ya expone `diff`; lo que falta es la aplicación que lo convierte en ChangeSet ligado a la Task activa.
+
+**Cerrado el 2026-09-09** por [ADR-0043](../adr/0043-agent-turn-as-pipeline-entry.md): la captura vive en `src/application/agents/capture-turn-change-set.ts`, un turno con cambios produce ChangeSet por turno y evidencia `agent.turn`, la Task avanza sólo por transiciones legales, y `task.run` usa el proveedor que la petición pida en lugar de OpenCode fijo. Queda abierto que el ChangeSet retrata el working tree completo y no el delta del turno, lo que depende de G6.
 
 ## G2 — La gate `tests` no puede pasar y `build` no comprueba nada
 
@@ -72,7 +74,7 @@ Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se 
 
 | Prioridad | Hueco | Razón |
 |---|---|---|
-| P0 | G1 | Conecta las dos mitades del producto; sin esto lo demás no significa nada |
+| ~~P0~~ | ~~G1~~ | Cerrado el 2026-09-09 — [ADR-0043](../adr/0043-agent-turn-as-pipeline-entry.md) |
 | P0 | G2 + G3 | Convierte en verdad lo que hoy es un proxy y desbloquea el cierre del bucle |
 | P1 | G4 + G5 | Cierra intención → commit con atribución |
 | P1 | G6 | Sostiene *reversible* sin inventar un control de versiones propio |

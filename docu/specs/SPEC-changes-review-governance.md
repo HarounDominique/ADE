@@ -34,6 +34,8 @@ Las gates se evalúan en orden, pero un fallo puede reentrar en la fase que lo n
 | `human-approval` | actor humano, decisión y razón | BUILD, REVIEW o RECONCILE |
 | `commit` | aprobación previa y referencia al ChangeSet | SHIP |
 
+El pipeline tiene dos entradas equivalentes: `task.run`, que ejecuta al Implementer sobre la intención de la Task con el proveedor que la petición pida, y un turno de `Agents` asociado a una Task. Un turno que deja cambios en el repositorio produce un `ChangeSet` propio —identificado por turno, de modo que dos turnos son dos ChangeSets— y evidencia `agent.turn`; un turno que sólo leyó no produce ninguno, porque un ChangeSet vacío satisfaría una gate sin que nadie haya construido nada. La Task avanza a `IMPLEMENTED` sólo por transiciones permitidas y permanece donde está cuando no hay camino legal. El contrato está en [ADR-0043](../adr/0043-agent-turn-as-pipeline-entry.md).
+
 **Hueco abierto (2026-09-08):** `tests` exige evidencia de tipo `verification` que hoy ningún productor escribe, y `build` se resuelve por la existencia de un `ChangeSet` en lugar de por una ejecución. Con la policy por defecto eso deja la aprobación humana permanentemente bloqueada. El inventario y la dirección de arreglo están en [product-gap-audit](../knowledge/product-gap-audit.md#g2--la-gate-tests-no-puede-pasar-y-build-no-comprueba-nada); hasta cerrarlo, esta sección describe el contrato buscado, no el comportamiento vigente.
 
 Una gate tiene estados `pending`, `passed`, `failed` o `waived`. Sólo una policy explícita permite `waived`, siempre con actor, motivo y evidencia. `failed` no destruye el ChangeSet ni la evidencia anterior. La aplicación debe impedir `SHIP` si alguna gate requerida no está en `passed` o `waived` conforme a policy.

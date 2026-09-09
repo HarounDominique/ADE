@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -558,4 +559,16 @@ test("plan windows belong to the agent and context to the conversation", () => {
   assert.equal(claude.weekly, undefined);
   assert.equal(claude.context?.usedTokens, 40_000);
   store.close();
+});
+
+test("the Implementer is the provider the caller asked for, not a wired-in one", () => {
+  const sidecar = readFileSync(new URL("../src/desktop-sidecar.ts", import.meta.url), "utf8");
+  // task.run instantiated OpenCode inline, which kept the governance pipeline
+  // reachable by one runtime only.
+  assert.doesNotMatch(sidecar, /runSpike\(new OpenCodeHttpRuntime/);
+  assert.match(sidecar, /const provider = requested === "claude" \|\| requested === "codex" \? requested : "opencode";/);
+  // A CLI Implementer writes nothing unless the run says what it may do.
+  assert.match(sidecar, /grantedPermissions: request\.params\.grantedPermissions/);
+  // And a turn under a Task captures its own ChangeSet, whoever ran it.
+  assert.match(sidecar, /await captureTurnChangeSet\(store, \{/);
 });
