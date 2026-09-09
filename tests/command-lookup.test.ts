@@ -34,11 +34,26 @@ test("a bare command is looked up on the PATH, which a desktop launch barely has
 });
 
 test("a missing program is reported with every place ADE looked", () => {
-  const error = missingCommandError(new Error("spawn /Applications/Whatever ENOENT"), "Codex", "ADE_CODEX_COMMAND", ["codex", "/opt/homebrew/bin/codex"]);
-  assert.match(error.message, /Codex was not found or could not be run/);
+  const error = missingCommandError(new Error("spawn /Applications/Whatever ENOENT"), "Codex", "ADE_CODEX_COMMAND", ["codex", "/opt/homebrew/bin/codex"], { command: "/Applications/Whatever", cwd: "/definitely/not/here" });
+  assert.match(error.message, /Codex could not be run/);
   assert.match(error.message, /codex, \/opt\/homebrew\/bin\/codex/);
   assert.match(error.message, /set ADE_CODEX_COMMAND/);
+  // ENOENT is also what the system says when the working directory is gone, or
+  // when it refuses a binary that is plainly there: the report tells them apart.
+  assert.match(error.message, /Chosen binary: \/Applications\/Whatever \(missing\)/);
+  assert.match(error.message, /Working directory: \/definitely\/not\/here \(missing\)/);
+  assert.match(error.message, /System said: spawn \/Applications\/Whatever ENOENT/);
   // Any other failure is the provider's to explain, not ADE's to rewrite.
-  const other = missingCommandError(new Error("Command failed (1): boom"), "Codex", "ADE_CODEX_COMMAND", ["codex"]);
+  const other = missingCommandError(new Error("Command failed (1): boom"), "Codex", "ADE_CODEX_COMMAND", ["codex"], {});
   assert.equal(other.message, "Command failed (1): boom");
+});
+
+test("a binary that is there but cannot be used is reported as such", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ade-lookup-perm-"));
+  const tool = join(directory, "tool");
+  await writeFile(tool, "#!/bin/sh\nexit 0\n");
+  await chmod(tool, 0o644);
+  const error = missingCommandError(new Error("spawn ENOENT"), "Codex", "ADE_CODEX_COMMAND", [tool], { command: tool, cwd: directory });
+  assert.match(error.message, /present but this process may not use it/);
+  assert.match(error.message, /Working directory: .*\(present and permitted\)/);
 });

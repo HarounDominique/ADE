@@ -127,8 +127,8 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
 
   /** A turn that cannot find its CLI says where ADE looked, so the operator can
       install it or point ADE at it instead of reading a bare ENOENT. */
-  private describeMissing(error: unknown): Error {
-    return missingCommandError(error, "Claude Code", "ADE_CLAUDE_COMMAND", claudeSearchPath());
+  private describeMissing(error: unknown, cwd?: string): Error {
+    return missingCommandError(error, "Claude Code", "ADE_CLAUDE_COMMAND", claudeSearchPath(), { command: this.command, ...(cwd ? { cwd } : {}) });
   }
 
   private runPromptCommand(args: string[], cwd: string, onEvent?: (event: RuntimeEvent) => void): Promise<{ stdout: string }> {
@@ -138,7 +138,7 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
     }
     const command = startSafeCommand(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024, onStdout: jsonl.push });
     this.activeChild = command.child;
-    return command.completion.catch((error: unknown) => { throw this.describeMissing(error); }).finally(() => {
+    return command.completion.catch((error: unknown) => { throw this.describeMissing(error, cwd); }).finally(() => {
       jsonl.flush();
       if (this.activeChild === command.child) this.activeChild = undefined;
     });
