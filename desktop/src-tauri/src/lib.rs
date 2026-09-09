@@ -538,10 +538,17 @@ const UNSEARCHED_DIRECTORIES: [&str; 2] = [".git", "node_modules"];
 /// says so rather than pretending it found everything there was.
 const SEARCH_RESULT_LIMIT: usize = 200;
 
+/// One spelling for both sides of a comparison: lowercase, and separators the
+/// way the operator types them rather than the way the platform stores them.
+fn forward_slashed(value: &str) -> String {
+    value.to_lowercase().replace('\\', "/")
+}
+
 fn search_directory_from_root(
     root: PathBuf,
     needle: String,
 ) -> Result<Vec<DirectoryEntry>, String> {
+    let needle = forward_slashed(&needle);
     let mut entries = Vec::new();
     collect_matching_files(&root, 0, &needle, &mut entries)?;
     // A file whose *name* matches is what was being looked for; one that
@@ -549,7 +556,7 @@ fn search_directory_from_root(
     // first kind comes first, and shallower before deeper, so the limit cuts
     // the least useful matches rather than an arbitrary slice.
     entries.sort_by_key(|entry| {
-        let named = !entry.name.to_lowercase().contains(&needle);
+        let named = !forward_slashed(&entry.name).contains(&needle);
         (named, entry.depth, entry.path.to_lowercase())
     });
     entries.truncate(SEARCH_RESULT_LIMIT);
@@ -574,7 +581,10 @@ fn collect_matching_files(
         let entry_path = entry.path();
         let file_type = entry.file_type().map_err(|error| error.to_string())?;
         if file_type.is_dir() {
-            if UNSEARCHED_DIRECTORIES.contains(&entry.file_name().to_string_lossy().as_ref()) {
+            // Windows spells its directories however they were created, so the
+            // comparison is made in one case rather than in the one on disk.
+            let folder = entry.file_name().to_string_lossy().to_lowercase();
+            if UNSEARCHED_DIRECTORIES.contains(&folder.as_str()) {
                 continue;
             }
             collect_matching_files(&entry_path, depth + 1, needle, entries)?;
@@ -585,7 +595,10 @@ fn collect_matching_files(
         }
         let name = entry.file_name().to_string_lossy().into_owned();
         let path = entry_path.to_string_lossy().into_owned();
-        if format!("{name} {path}").to_lowercase().contains(needle) {
+        // The operator types the separator they read, and on Windows the path
+        // is spelled with the other one. Both sides are compared in the same
+        // spelling so `src/main` finds `src\main` there as it does here.
+        if forward_slashed(&format!("{name} {path}")).contains(needle) {
             entries.push(DirectoryEntry {
                 name,
                 path,
@@ -1338,6 +1351,25 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].name, "index.ts");
         assert_eq!(entries[1].name, "index-helper.ts");
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn search_directory_matches_a_path_typed_with_either_separator() {
+        let root = fixture_root("search-directory-separators");
+        fs::create_dir_all(root.join("src/domain")).expect("create nested source");
+        fs::write(root.join("src/domain/task.ts"), "task").expect("create file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select project");
+
+        // The operator types the separator they read. On Windows the path on
+        // disk is spelled with the other one, and this is the same query there.
+        for query in ["src/domain", "SRC/Domain", "src\\domain"] {
+            let entries = search_directory_in(&workspace, &root.to_string_lossy(), query)
+                .expect("search files");
+            assert_eq!(entries.len(), 1, "query {query} should find the file");
+            assert_eq!(entries[0].name, "task.ts");
+        }
         fs::remove_dir_all(root).expect("remove fixture");
     }
 

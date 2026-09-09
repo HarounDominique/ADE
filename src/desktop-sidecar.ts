@@ -345,7 +345,7 @@ export async function runDesktopSidecar(): Promise<void> {
           process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "checkpointId, actor and reason are required" } })}\n`);
         } else {
           void restoreTaskCheckpoint(store, { checkpointId: params.checkpointId, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true })
-            .then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { checkpointId: result.checkpoint.id, taskId: result.checkpoint.taskId, commit: result.checkpoint.commit, restored: result.restored, removed: result.removed, undoCommit: result.previousCommit } })}\n`))
+            .then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { checkpointId: result.checkpoint.id, taskId: result.checkpoint.taskId, commit: result.checkpoint.commit, restored: result.restored, removed: result.removed, ...(result.locked.length ? { locked: result.locked } : {}), undoCommit: result.previousCommit } })}\n`))
             .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: checkpointError(error) })}\n`));
         }
       } else if (request.method === "app.update.check") {

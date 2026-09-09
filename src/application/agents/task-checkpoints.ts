@@ -42,7 +42,7 @@ export async function captureTurnCheckpoint(
 export async function restoreTaskCheckpoint(
   store: AdeStore,
   input: { checkpointId: string; actor: string; reason: string; confirmed: boolean },
-): Promise<{ checkpoint: TaskCheckpoint; removed: readonly string[]; restored: number; previousCommit: string }> {
+): Promise<{ checkpoint: TaskCheckpoint; removed: readonly string[]; locked: readonly string[]; restored: number; previousCommit: string }> {
   const checkpoint = store.getTaskCheckpoint(input.checkpointId);
   if (!checkpoint) throw new CheckpointBlockedError(`No checkpoint matches ${input.checkpointId}`);
   if (!input.confirmed) throw new CheckpointBlockedError("Restoring a checkpoint discards the current working tree and needs an explicit confirmation");
@@ -81,10 +81,10 @@ export async function restoreTaskCheckpoint(
     taskId: checkpoint.taskId,
     ...(checkpoint.sessionId ? { sessionId: checkpoint.sessionId } : {}),
     type: "checkpoint.restore",
-    summary: `Restored the working tree to ${checkpoint.label}${result.removed.length ? `, removing ${result.removed.length} file${result.removed.length === 1 ? "" : "s"}` : ""}`,
+    summary: `Restored the working tree to ${checkpoint.label}${result.removed.length ? `, removing ${result.removed.length} file${result.removed.length === 1 ? "" : "s"}` : ""}${result.locked?.length ? `; ${result.locked.length} could not be removed because another program holds them` : ""}`,
     at: restoredAt,
     policy: policy.evidence,
   }));
   store.pruneRuntimeEvidence(checkpoint.taskId, policy.evidence.maxItems);
-  return { checkpoint, removed: result.removed, restored: result.restored, previousCommit: result.previous.commit };
+  return { checkpoint, removed: result.removed, locked: result.locked ?? [], restored: result.restored, previousCommit: result.previous.commit };
 }

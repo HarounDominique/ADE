@@ -10,6 +10,8 @@ const components = readFileSync(new URL("../desktop/src/components.css", import.
 const codeEditor = readFileSync(new URL("../desktop/src/code-editor.js", import.meta.url), "utf8");
 const paths = readFileSync(new URL("../desktop/src/paths.js", import.meta.url), "utf8");
 const nativeShell = readFileSync(new URL("../desktop/src-tauri/src/lib.rs", import.meta.url), "utf8");
+const checkpointModule = readFileSync(new URL("../src/application/agents/turn-checkpoint.ts", import.meta.url), "utf8");
+const releaseScript = readFileSync(new URL("../scripts/package-desktop-release.mjs", import.meta.url), "utf8");
 const editorWindow = readFileSync(new URL("../desktop/src/editor-window.js", import.meta.url), "utf8");
 const editorWindowHtml = readFileSync(new URL("../desktop/src/editor-window.html", import.meta.url), "utf8");
 const editorCapability = JSON.parse(readFileSync(new URL("../desktop/src-tauri/capabilities/editor-window.json", import.meta.url), "utf8")) as { windows: string[]; permissions: string[] };
@@ -196,6 +198,11 @@ test("the shell never assumes a path separator", () => {
   // encode did not move.
   assert.match(paths, /export const pathSegments = \(value\) =>/);
   assert.match(main, /function pathInsideRoot/);
+  // The rule reaches every window and every module that spells a file name.
+  for (const module of [editorWindow, codeEditor]) {
+    assert.doesNotMatch(module, /split\('\/'\)/);
+    assert.match(module, /from '\.\/paths\.js'/);
+  }
   for (const script of [sidecarBuild, smokeBundle]) {
     assert.match(script, /fileURLToPath/);
     assert.doesNotMatch(script, /\/private\/tmp/);
@@ -1466,13 +1473,33 @@ test("the Explorer filter searches the operator's files, not their dependencies"
   // 64,574 files, of which 63,733 are .git and node_modules — and the tree then
   // tried to draw every match. The filter looked like it had stopped working.
   assert.match(nativeShell, /const UNSEARCHED_DIRECTORIES: \[&str; 2\] = \[".git", "node_modules"\];/);
-  assert.match(nativeShell, /if UNSEARCHED_DIRECTORIES\.contains\(&entry\.file_name\(\)\.to_string_lossy\(\)\.as_ref\(\)\) \{\s*\n\s*continue;/);
+  assert.match(nativeShell, /if UNSEARCHED_DIRECTORIES\.contains\(&folder\.as_str\(\)\) \{\s*\n\s*continue;/);
   assert.match(nativeShell, /const SEARCH_RESULT_LIMIT: usize = 200;/);
   assert.match(nativeShell, /entries\.truncate\(SEARCH_RESULT_LIMIT\);/);
   // A name match is what was being looked for; a path match is its neighbour.
-  assert.match(nativeShell, /let named = !entry\.name\.to_lowercase\(\)\.contains\(&needle\);/);
+  assert.match(nativeShell, /let named = !forward_slashed\(&entry\.name\)\.contains\(&needle\);/);
   // A list that quietly ends would read as "there is nothing else".
   assert.match(main, /const capped = matches\.length >= workspaceSearchLimit;/);
   assert.match(main, /First \$\{workspaceSearchLimit\} matches\. Narrow the filter to see the rest\./);
   assert.match(styles, /\.workspace-search-capped \{/);
+});
+
+test("what this session added behaves the same on Windows as on macOS", () => {
+  // The seven platform boundaries are declared in SPEC-cross-platform-support;
+  // these are the places the new work could have quietly added an eighth.
+  // A search compares both sides in one spelling, so a typed "src/main" finds
+  // "src\main" where that is how the platform stores it.
+  assert.match(nativeShell, /fn forward_slashed\(value: &str\) -> String \{/);
+  assert.ok(nativeShell.includes(`value.to_lowercase().replace('\\\\', "/")`), "the search should compare separators in one spelling");
+  assert.match(nativeShell, /let needle = forward_slashed\(&needle\);/);
+  // Windows spells a directory however it was created, so the skip list is
+  // compared in one case.
+  assert.match(nativeShell, /let folder = entry\.file_name\(\)\.to_string_lossy\(\)\.to_lowercase\(\);/);
+  // Windows will not delete a file another program holds open, and a restore
+  // that stopped at the first one would leave neither state.
+  assert.match(checkpointModule, /const locked: string\[\] = \[\];/);
+  assert.match(checkpointModule, /catch \{ locked\.push\(path\); \}/);
+  assert.match(main, /held open by another program and stayed/);
+  // The one artifact that is macOS-only refuses elsewhere instead of pretending.
+  assert.match(releaseScript, /if \(process\.platform !== 'darwin'\)/);
 });
