@@ -1357,3 +1357,21 @@ test("the context pills sit on the same line as the controls beside them", () =>
   const bar = styles.match(/\.git-context-bar \{ height: 42px;[^}]*\}/)?.[0] ?? "";
   assert.match(bar, /align-self: center/);
 });
+
+test("every workbench stands on the same ground", () => {
+  // Projects rendered on the ground colour while Agents, Editor and Version
+  // control sat on a lighter panel or on the chrome tone, so the same
+  // application changed shade depending on which entry was clicked.
+  assert.match(styles, /\.agents-workspace \{[^}]*background: var\(--bg\)/);
+  assert.match(styles, /\.agent-session-rail, \.agent-thread \{[^}]*background: var\(--bg\)/);
+  assert.match(styles, /\.document-viewer-panel \{[^}]*background: var\(--bg\)/);
+  assert.match(styles, /\.changes-workspace \{[^}]*background: var\(--bg\)/);
+  assert.match(styles, /\.git-commit-list \{ background: var\(--bg\); \}/);
+  assert.match(styles, /\.pending-files-pane \{[^}]*background: var\(--bg\)/);
+  // What floats still differs from what it floats over, and the chrome keeps
+  // its own tone: sidebar, terminal dock and status bar are not workbenches.
+  assert.match(styles, /\.git-context-menu \{[^}]*background: var\(--panel\)/);
+  assert.match(styles, /\.task-dialog \{[^}]*background: var\(--panel\)/);
+  assert.match(styles, /\.sidebar \{[^}]*background: var\(--chrome\)/);
+  assert.match(styles, /\.status-bar \{[^}]*background: var\(--chrome\)/);
+});
