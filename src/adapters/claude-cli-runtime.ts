@@ -2,9 +2,34 @@ import { type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt, TurnUsage, ProviderPressure, UsageWindow } from "../ports/agent-runtime.js";
 import { executeGit } from "./git-command.js";
+import { firstRunnable, missingCommandError } from "./command-lookup.js";
 import { startSafeCommand } from "./safe-command.js";
 
-export const defaultClaudeCommand = process.env.ADE_CLAUDE_COMMAND ?? "claude";
+/** An app launched from the Dock inherits launchd's minimal PATH, not the
+    shell's, so a bare `claude` can be unreachable exactly where the operator
+    runs it. The command is resolved against the places it is installed rather
+    than assumed to be on the PATH. */
+const claudeCandidates = (): readonly string[] => {
+  if (process.platform === "win32") return ["claude.exe", "claude"];
+  const home = process.env.HOME ?? "";
+  return [
+    "claude",
+    "/opt/homebrew/bin/claude",
+    "/usr/local/bin/claude",
+    ...(home ? [`${home}/.claude/local/claude`, `${home}/.local/bin/claude`] : []),
+  ];
+};
+
+export function resolveClaudeCommand(): string {
+  return process.env.ADE_CLAUDE_COMMAND ?? firstRunnable(claudeCandidates()) ?? "claude";
+}
+
+/** What ADE looked for, so "not found" can be read instead of guessed at. */
+export function claudeSearchPath(): readonly string[] {
+  return process.env.ADE_CLAUDE_COMMAND ? [process.env.ADE_CLAUDE_COMMAND] : claudeCandidates();
+}
+
+export const defaultClaudeCommand = resolveClaudeCommand();
 
 type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number; shell?: boolean; onStdout?: (text: string) => void }) => Promise<{ stdout: string }>;
 
@@ -15,7 +40,7 @@ export const executeClaudeCommand = execute;
 export class ClaudeCliRuntime implements AgentRuntimePort {
   private activeChild: ChildProcess | undefined;
 
-  constructor(private readonly command = defaultClaudeCommand, private readonly runner: CommandRunner = execute) {}
+  constructor(private readonly command = resolveClaudeCommand(), private readonly runner: CommandRunner = execute) {}
 
   async health(): Promise<{ healthy: boolean; version?: string }> {
     try {
@@ -100,6 +125,12 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
     return stdout;
   }
 
+  /** A turn that cannot find its CLI says where ADE looked, so the operator can
+      install it or point ADE at it instead of reading a bare ENOENT. */
+  private describeMissing(error: unknown): Error {
+    return missingCommandError(error, "Claude Code", "ADE_CLAUDE_COMMAND", claudeSearchPath());
+  }
+
   private runPromptCommand(args: string[], cwd: string, onEvent?: (event: RuntimeEvent) => void): Promise<{ stdout: string }> {
     const jsonl = createJsonlEventEmitter((event) => onEvent?.({ type: "claude.event", payload: event }));
     if (this.runner !== execute) {
@@ -107,7 +138,7 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
     }
     const command = startSafeCommand(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024, onStdout: jsonl.push });
     this.activeChild = command.child;
-    return command.completion.finally(() => {
+    return command.completion.catch((error: unknown) => { throw this.describeMissing(error); }).finally(() => {
       jsonl.flush();
       if (this.activeChild === command.child) this.activeChild = undefined;
     });

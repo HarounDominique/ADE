@@ -30,6 +30,10 @@ Fakes por capacidad, contract tests por adapter, detección de binario/endpoint 
 - Ask first: conceder por ejecución `write_code`, `run_commands` o `network`; `read_project` y `write_docs` se rigen por el alcance del Project.
 - Never: copiar tokens a SQLite, logs, prompts persistidos o ChangeSets.
 
+## Command resolution
+
+Codex y Claude Code se localizan resolviendo candidatos en orden —variable de entorno, `PATH`, rutas de instalación conocidas y, para Codex en macOS, el binario de ChatGPT al final—, aceptando sólo el que exista y sea ejecutable por el proceso. Depender del `PATH` no basta: una aplicación abierta desde el escritorio hereda el `PATH` mínimo del sistema. Si ningún candidato sirve, el turno falla con el inventario de lo que se buscó y la variable con la que apuntar al binario, nunca con un `ENOENT` mudo.
+
 ## Usage and context pressure
 
 Cada proveedor declara lo que sabe de su propio consumo mediante `ProviderPressure`: los tokens que la última petición dejó en la ventana de contexto —cache incluida, porque sigue ocupándola—, el tamaño de esa ventana cuando lo publica, y las ventanas de plan de sesión y semana con su porcentaje gastado. Codex las publica todas en `token_count`; Claude Code publica el consumo del turno pero no sus ventanas de plan en modo `--print`; OpenCode no publica ninguna. Lo que un proveedor no reporta se transmite ausente, y la shell lo muestra como desconocido en lugar de estimarlo. Véase [ADR-0041](../adr/0041-agent-pressure-dials.md).

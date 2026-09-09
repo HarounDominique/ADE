@@ -3,15 +3,42 @@ import { randomUUID } from "node:crypto";
 import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, SessionHandle, StructuredPrompt, TurnUsage, ProviderPressure, UsageWindow } from "../ports/agent-runtime.js";
 import { executeGit } from "./git-command.js";
 import { startSafeCommand } from "./safe-command.js";
+import { firstRunnable, missingCommandError } from "./command-lookup.js";
 
-// ChatGPT's bundled Codex binary has a stable location on macOS only. On
-// Windows uses the .exe explicitly: calling the extensionless `codex` makes
+// Codex is installed in several ways and ADE owns none of them, so the command
+// is resolved rather than assumed: the environment override first, then a
+// `codex` the PATH can reach, then the places installers are known to use, and
+// ChatGPT's bundled copy last -- a binary inside another application's bundle
+// is the least stable of the lot, and macOS may refuse to execute it at all.
+// Windows names the `.exe` explicitly: calling the extensionless `codex` makes
 // Node route through cmd.exe, which splits a natural-language prompt into
-// separate command arguments. Linux keeps the PATH command spelling.
-const platformCodexCommand = process.platform === "darwin"
-  ? "/Applications/ChatGPT.app/Contents/Resources/codex"
-  : process.platform === "win32" ? "codex.exe" : "codex";
-export const defaultCodexCommand = process.env.ADE_CODEX_COMMAND ?? platformCodexCommand;
+// separate command arguments.
+const codexCandidates = (): readonly string[] => {
+  if (process.platform === "win32") return ["codex.exe", "codex"];
+  const home = process.env.HOME ?? "";
+  const installed = [
+    "/opt/homebrew/bin/codex",
+    "/usr/local/bin/codex",
+    ...(home ? [`${home}/.codex/bin/codex`, `${home}/.local/bin/codex`] : []),
+  ];
+  return process.platform === "darwin"
+    ? ["codex", ...installed, "/Applications/ChatGPT.app/Contents/Resources/codex"]
+    : ["codex", ...installed];
+};
+
+export function resolveCodexCommand(): string {
+  const override = process.env.ADE_CODEX_COMMAND;
+  if (override) return override;
+  return firstRunnable(codexCandidates()) ?? codexCandidates().at(-1)!;
+}
+
+/** What ADE looked for, so a failure to find Codex can be read instead of
+    guessed at. */
+export function codexSearchPath(): readonly string[] {
+  return process.env.ADE_CODEX_COMMAND ? [process.env.ADE_CODEX_COMMAND] : codexCandidates();
+}
+
+export const defaultCodexCommand = resolveCodexCommand();
 
 type CommandRunner = (command: string, args: string[], options: { cwd: string; maxBuffer: number; shell?: boolean; onStdout?: (text: string) => void }) => Promise<{ stdout: string }>;
 
@@ -22,7 +49,7 @@ export const executeCodexCommand = execute;
 export class CodexCliRuntime implements AgentRuntimePort {
   private activeChild: ChildProcess | undefined;
 
-  constructor(private readonly command = defaultCodexCommand, private readonly runner: CommandRunner = execute) {}
+  constructor(private readonly command = resolveCodexCommand(), private readonly runner: CommandRunner = execute) {}
 
   async health(): Promise<{ healthy: boolean; version?: string }> {
     try { const { stdout } = await this.runner(this.command, ["--version"], { cwd: process.cwd(), maxBuffer: 4 * 1024 * 1024 }); return { healthy: true, version: stdout.trim() }; }
@@ -82,6 +109,12 @@ export class CodexCliRuntime implements AgentRuntimePort {
     return stdout;
   }
 
+  /** A turn that cannot find its CLI says where ADE looked, so the operator can
+      install it or point ADE at it instead of reading a bare ENOENT. */
+  private describeMissing(error: unknown): Error {
+    return missingCommandError(error, "Codex", "ADE_CODEX_COMMAND", codexSearchPath());
+  }
+
   private runPromptCommand(args: string[], cwd: string, onEvent?: (event: RuntimeEvent) => void): Promise<{ stdout: string }> {
     const jsonl = createJsonlEventEmitter((event) => onEvent?.({ type: "codex.event", payload: event }));
     if (this.runner !== execute) {
@@ -89,7 +122,7 @@ export class CodexCliRuntime implements AgentRuntimePort {
     }
     const command = startSafeCommand(this.command, args, { cwd, maxBuffer: 4 * 1024 * 1024, onStdout: jsonl.push });
     this.activeChild = command.child;
-    return command.completion.finally(() => {
+    return command.completion.catch((error: unknown) => { throw this.describeMissing(error); }).finally(() => {
       jsonl.flush();
       if (this.activeChild === command.child) this.activeChild = undefined;
     });
