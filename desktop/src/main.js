@@ -3931,7 +3931,7 @@ function taskGovernanceMarkup(detail) {
   return `<div class="task-governance">
     <button class="button secondary" type="button" data-action="approve" data-task-id="${escapeHTML(task.id)}" title="${escapeHTML(approveHint)}"${approvable && !shipBlockers.length ? '' : ' disabled'}>Approve</button>
     <button class="button primary" type="button" data-action="ship" data-task-id="${escapeHTML(task.id)}" data-task-intent="${escapeHTML(task.intent)}" title="${escapeHTML(shipHint)}"${approved && !shipBlockers.length ? '' : ' disabled'}>Ship</button>
-    <button class="text-button" type="button" data-action="rereview" data-task-id="${escapeHTML(task.id)}" title="Ask for a fresh independent review of the latest ChangeSet">Re-review</button>
+    <button class="text-button" type="button" data-action="rereview" data-task-id="${escapeHTML(task.id)}" title="Ask for a fresh independent review of the latest ChangeSet, run by the selected agent">Re-review</button>
     <span class="task-governance-hint">${escapeHTML(approved ? shipHint : approveHint)}</span>
   </div>`;
 }
@@ -5526,7 +5526,9 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   if (item.dataset.action === 'rereview') {
     if (!nativeInvoke) { notify('Re-review requires the local sidecar.'); return; }
     const taskId = item.dataset.taskId ?? selectedTaskId;
-    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `rereview-${taskId}-${Date.now()}`, method: 'task.rereview', params: { taskId, reason: 'Human requested a fresh independent review', actor: 'human' } }) }).then(() => notify('Re-review started.')).catch((error) => { notify('Re-review unavailable.'); console.warn(error); });
+    /** The review runs on the provider the operator is working with; the
+        sidecar falls back to the one that did this Task's turns. */
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `rereview-${taskId}-${Date.now()}`, method: 'task.rereview', params: { taskId, provider: selectedProvider, reason: 'Human requested a fresh independent review', actor: 'human' } }) }).then(() => notify(`Re-review started with ${selectedProvider}.`)).catch((error) => { notify('Re-review unavailable.'); console.warn(error); });
     return;
   }
   const messages = { approve: 'Approval is protected by the required gates.', learn: 'Runtime documentation is coming next.' };

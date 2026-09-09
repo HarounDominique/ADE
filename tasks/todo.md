@@ -360,8 +360,12 @@ Huecos de producto detectados al revisar Assay contra `PRODUCT.md` con el backlo
   - Files: `src/domain/task.ts`, `src/persistence/sqlite-store.ts`, `src/application/tasks/task-commands.ts`, `src/application/review-change-set.ts`, `src/adapters/opencode-reviewer.ts`, `src/application/structural-context/ask-briefing.ts`, `src/desktop-sidecar.ts`, `desktop/src/`, `tests/task-acceptance.test.ts`.
   - Abierto: el reviewer no dice todavía qué criterio incumple cada finding.
 
-- [ ] Task: Revisar con el proveedor que el operador tenga
+- [x] Task: Revisar con el proveedor que el operador tenga
+  - Spec: [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md#review-and-finding-contract) · ADR: [0052-review-runs-on-the-operators-provider](../docu/adr/0052-review-runs-on-the-operators-provider.md)
   - Acceptance: la review deja de exigir OpenCode; `ReviewerPort` se resuelve por proveedor como ya hace el turno, y una gate `agent-review` es alcanzable con Claude o Codex.
+  - Verify: `npm test` (328 tests TypeScript, siete nuevos: review CLI con JSON envuelto en prosa, transcript JSONL de Codex, salida estructurada de OpenCode por el mismo contrato, respuesta ilegible rechazada, prompt sin criterios y elección de proveedor).
+  - Files: `src/adapters/review-contract.ts`, `src/adapters/cli-reviewer.ts`, `src/adapters/provider-runtime.ts`, `src/adapters/opencode-reviewer.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `tests/cli-reviewer.test.ts`.
+  - Abierto: un finding no dice todavía qué criterio de aceptación incumple.
 
 - [ ] Task: Dar a Assay configuración de usuario
   - Acceptance: existe una superficie de ajustes persistida fuera de `localStorage`; el tono, el modelo por defecto y el feed de actualización viven ahí, y desbloquea las preferencias que hoy congelan capacidades.

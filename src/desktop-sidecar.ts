@@ -6,15 +6,15 @@ import type { TaskStatus } from "./domain/task.js";
 import { AdeStore } from "./persistence/sqlite-store.js";
 import { getProjectSnapshot } from "./application/project-snapshot.js";
 import { OpenCodeHttpRuntime } from "./adapters/opencode-http-runtime.js";
-import { CodexCliRuntime, extractCodexPressure, extractCodexUsage } from "./adapters/codex-cli-runtime.js";
-import { ClaudeCliRuntime, extractClaudePressure, extractClaudeText, extractClaudeUsage } from "./adapters/claude-cli-runtime.js";
+import { extractCodexPressure, extractCodexUsage } from "./adapters/codex-cli-runtime.js";
+import { extractClaudePressure, extractClaudeText, extractClaudeUsage } from "./adapters/claude-cli-runtime.js";
 import { runSpike } from "./application/run-spike.js";
 import { createRuntimeEvidence } from "./domain/runtime-evidence.js";
 import { getRuntimeHistory, getTaskDetail } from "./application/task-detail.js";
 import { getChangeReview } from "./application/change-review-read-model.js";
 import { approveTaskFromStore } from "./application/tasks/approval-from-store.js";
 import { ShipBlockedError, shipTaskFromStore } from "./application/tasks/ship-from-store.js";
-import { OpenCodeReviewer } from "./adapters/opencode-reviewer.js";
+import { createAgentRuntime, createReviewer, isAgentProvider, type AgentProvider } from "./adapters/provider-runtime.js";
 import { reviewChangeSet } from "./application/review-change-set.js";
 import { LocalProcess } from "./adapters/local-process.js";
 import { ServiceManager, type ServiceDefinition } from "./application/local-runtime/service-manager.js";
@@ -406,7 +406,7 @@ export async function runDesktopSidecar(): Promise<void> {
         const params = request.params;
         if (!params?.skillId || !params.intent || !params.repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "skillId, intent and repositoryPath are required" } })}\n`);
         else {
-          const runtime = params.provider === "codex" ? new CodexCliRuntime() : params.provider === "claude" ? new ClaudeCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+          const runtime = createAgentRuntime(isAgentProvider(params.provider) ? params.provider : "opencode");
           let sessionId: string | undefined;
           let createdAt: string | undefined;
           const persist = (id: string, status: string) => store.saveAgentSession({ id, ...(params.taskId ? { taskId: params.taskId } : {}), provider: params.provider ?? "opencode", directory: params.repositoryPath!, status, createdAt: createdAt ?? new Date().toISOString() });
@@ -607,7 +607,7 @@ export async function runDesktopSidecar(): Promise<void> {
 async function enrichTerminalHistoryTitle(store: AdeStore, params: DesktopRequest["params"]): Promise<void> {
   if (!params?.sessionId || !params.provider || !params.repositoryPath || !params.transcript) return;
   const provider = params.provider as TerminalAgentProvider;
-  const runtime = provider === "claude" ? new ClaudeCliRuntime() : provider === "codex" ? new CodexCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+  const runtime = createAgentRuntime(provider);
   const model = provider === "claude" ? "haiku" : provider === "codex" ? "gpt-5.6-luna" : undefined;
   try {
     const session = await runtime.createSession({ directory: params.repositoryPath, title: "Terminal history title" });
@@ -782,6 +782,15 @@ function stopLocalService(request: DesktopRequest): void {
   void serviceManager.stop(serviceId).then((status) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { serviceId, status } })}\n`));
 }
 
+/** A review runs on the provider the operator asked for, or failing that on
+    the one that has been doing this Task's work. Defaulting to OpenCode is what
+    made the deciding gate reachable by a single runtime. */
+export function reviewProvider(store: AdeStore, taskId: string, requested?: string): AgentProvider {
+  if (isAgentProvider(requested)) return requested;
+  const lastSession = store.listAgentSessions(taskId).find((session) => isAgentProvider(session.provider));
+  return isAgentProvider(lastSession?.provider) ? lastSession.provider : "opencode";
+}
+
 function startTaskRereview(store: AdeStore, request: DesktopRequest): void {
   const taskId = request.params?.taskId;
   const task = taskId ? store.rehydrateTask(taskId) : undefined;
@@ -795,8 +804,8 @@ function startTaskRereview(store: AdeStore, request: DesktopRequest): void {
     return;
   }
   const changeSet: ChangeSet = { id: persisted.id, taskId: persisted.taskId, sessionId: persisted.sessionId, directory: persisted.directory, capturedAt: persisted.capturedAt, runtimeDiff: JSON.parse(persisted.runtimeDiff) as ChangeSet["runtimeDiff"], git: { status: persisted.gitStatus, patch: persisted.gitPatch, untracked: JSON.parse(persisted.untracked) as string[] } };
-  process.stdout.write(`${JSON.stringify({ id: request.id, result: { accepted: true, taskId, status: "REVIEWING" } })}\n`);
-  void reviewChangeSet(new OpenCodeReviewer(new OpenCodeHttpRuntime(process.env.OPENCODE_URL)), { task, changeSet, store, reason: request.params.reason, actor: request.params.actor }).then((review) => process.stdout.write(`${JSON.stringify({ type: "review.completed", taskId, review })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ type: "review.failed", taskId, error: error instanceof Error ? error.message : String(error) })}\n`));
+  process.stdout.write(`${JSON.stringify({ id: request.id, result: { accepted: true, taskId, provider: reviewProvider(store, taskId, request.params?.provider), status: "REVIEWING" } })}\n`);
+  void reviewChangeSet(createReviewer(reviewProvider(store, taskId, request.params?.provider)), { task, changeSet, store, reason: request.params.reason, actor: request.params.actor }).then((review) => process.stdout.write(`${JSON.stringify({ type: "review.completed", taskId, review })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ type: "review.failed", taskId, error: error instanceof Error ? error.message : String(error) })}\n`));
 }
 
 async function checkRuntimeHealth(request: DesktopRequest): Promise<void> {
@@ -864,7 +873,7 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
   const active: ActiveAgentPrompt = { ...(params.projectId ? { projectId: params.projectId } : {}), aborted: false };
   activeAgentPrompts.set(operationId, active);
   void (async () => {
-    const runtime = provider === "codex" ? new CodexCliRuntime() : provider === "claude" ? new ClaudeCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+    const runtime = createAgentRuntime(provider);
     active.runtime = runtime;
     const existingSession = params.sessionId ? store.getAgentSession(params.sessionId) : undefined;
     if (existingSession && existingSession.provider !== provider) throw new Error("Choose New conversation before changing agent provider");
@@ -1229,8 +1238,8 @@ function startTaskRun(store: AdeStore, request: DesktopRequest): void {
   /** The Implementer is whichever provider the caller asked for. Hardwiring
       OpenCode here kept the whole pipeline reachable by one runtime only. */
   const requested = request.params?.provider;
-  const provider = requested === "claude" || requested === "codex" ? requested : "opencode";
-  const runtime = provider === "claude" ? new ClaudeCliRuntime() : provider === "codex" ? new CodexCliRuntime() : new OpenCodeHttpRuntime(process.env.OPENCODE_URL);
+  const provider = isAgentProvider(requested) ? requested : "opencode";
+  const runtime = createAgentRuntime(provider);
   void runSpike(runtime, {
     taskId,
     directory: task.repositoryPath,

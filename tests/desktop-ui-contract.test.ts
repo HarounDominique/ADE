@@ -1300,3 +1300,11 @@ test("a Task says what done means before work starts, and where it is judged", (
   // The packaged smoke states a bar too, because its Task becomes READY.
   assert.match(smokeBundle, /acceptanceCriteria: \["smoke-result\.txt exists in the repository root"\]/);
 });
+
+test("re-review runs on the operator's agent, not on a single wired-in one", () => {
+  // The gate that decides whether work passes was reachable by OpenCode alone,
+  // so an operator working with Claude or Codex could produce changes the
+  // product could never review.
+  assert.match(main, /method: 'task\.rereview', params: \{ taskId, provider: selectedProvider,/);
+  assert.match(main, /notify\(`Re-review started with \$\{selectedProvider\}\.`\)/);
+});

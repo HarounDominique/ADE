@@ -568,7 +568,10 @@ test("the Implementer is the provider the caller asked for, not a wired-in one",
   // task.run instantiated OpenCode inline, which kept the governance pipeline
   // reachable by one runtime only.
   assert.doesNotMatch(sidecar, /runSpike\(new OpenCodeHttpRuntime/);
-  assert.match(sidecar, /const provider = requested === "claude" \|\| requested === "codex" \? requested : "opencode";/);
+  assert.match(sidecar, /const provider = isAgentProvider\(requested\) \? requested : "opencode";/);
+  // One factory answers "which runtime is this provider" for every seam, so a
+  // provider cannot be supported for turns and unsupported for review.
+  assert.doesNotMatch(sidecar, /new ClaudeCliRuntime\(\)|new CodexCliRuntime\(\)/);
   // A CLI Implementer writes nothing unless the run says what it may do.
   assert.match(sidecar, /grantedPermissions: request\.params\.grantedPermissions/);
   // And a turn under a Task captures its own ChangeSet, whoever ran it.

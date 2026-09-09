@@ -50,6 +50,8 @@ Restaurar un checkpoint devuelve el working tree exactamente a esa foto —borra
 
 ## Review and finding contract
 
+El Reviewer existe para cada proveedor soportado, no sólo para OpenCode: `ReviewerPort` tiene una implementación sobre la salida estructurada de OpenCode y otra sobre los CLI de Claude Code y Codex, con un único contrato de schema, prompt y validación, de modo que una review se lee igual venga de donde venga y una respuesta que no es una review falla en vez de inventarse. Revisa el proveedor que el operador pida y, si no lo dice, el que ha estado haciendo el trabajo de esa Task. La independencia es de contexto —el reviewer ve evidencia e intención, nunca la conversación del implementer— y su turno no concede permisos, de modo que no puede arreglar lo que juzga. La decisión vive en [ADR-0052](../adr/0052-review-runs-on-the-operators-provider.md).
+
 El Reviewer recibe intención, los criterios de aceptación que la Task declara —con la instrucción de que un criterio incumplido es un finding, y diciéndole explícitamente cuándo no hay ninguno en vez de fingir un listón—, ChangeSet y evidencia fresca. Cada Finding debe contener severidad, claim, evidencia, ubicación opcional y acción. Las acciones `fix` y `assign` mantienen abierta la Task; `accept-risk` requiere actor humano cuando la severidad es `high` o `critical`; `dismiss` requiere razón. Un re-review crea una nueva Review relacionada con el mismo `taskId` y el ChangeSet corregido.
 
 ## Project Structure

@@ -105,7 +105,7 @@ Una sesión real puede ejecutar una Task sobre un repositorio local, emitir even
 
 - La integración inicial es HTTP local contra OpenCode; no se introduce SDK ni proceso hijo como dependencia del dominio.
 - Las credenciales pertenecen al runtime/provider y no se almacenan en ADE DB; la configuración segura del entorno queda fuera de este módulo.
-- Todo runtime futuro debe soportar, como mínimo, sesiones por directorio, prompt, eventos o señal de finalización, abort y diff; la salida estructurada es obligatoria para implementar `ReviewerPort`.
+- Todo runtime futuro debe soportar, como mínimo, sesiones por directorio, prompt, eventos o señal de finalización, abort y diff. La salida estructurada deja de ser obligatoria para implementar `ReviewerPort`: basta con que el proveedor sepa devolver el JSON pedido en su respuesta —estructurado, en texto o dentro de su transcript—, según [ADR-0052](../adr/0052-review-runs-on-the-operators-provider.md).
 
 ## Open Questions
 
