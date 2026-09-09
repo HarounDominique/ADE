@@ -1429,39 +1429,33 @@ test("the document window carries an editor and none of the shell", () => {
   assert.match(desktopBuild, /cpSync\('src\/editor-window\.html', 'dist\/editor-window\.html'\)/);
 });
 
-test("a tab dragged out of the window becomes its own window", () => {
-  // Two earlier attempts failed in this webview: the HTML drag animated the tab
-  // and reported nothing usable, and pointer events never arrived at all. Mouse
-  // events are what it sends, and macOS keeps routing them to the window that
-  // took the press until the button is released.
-  assert.match(main, /data-document-drag-id="\$\{escapeHTML\(record\.id\)\}"/);
-  assert.doesNotMatch(main, /draggable="true"/);
-  assert.doesNotMatch(main, /addEventListener\('pointerdown'[^)]*\)[\s\S]{0,200}data-document-drag-id/);
+test("a tab carried off the strip becomes its own window", () => {
+  // Three attempts are worth remembering: the HTML drag reported nothing usable
+  // about a drop that left the window, pointer events never arrived at all, and
+  // mouse events are what this WebView sends.
   assert.match(main, /documentTabStrip\?\.addEventListener\('mousedown'/);
   assert.match(main, /document\.addEventListener\('mouseup', finishTabDrag, true\);/);
-  assert.match(main, /document\.removeEventListener\('mouseup', finishTabDrag, true\);/);
+  assert.doesNotMatch(main, /draggable="true"/);
+  assert.doesNotMatch(main, /addEventListener\('pointerdown', \(event\) => \{\s*\n\s*if \(event\.button/);
+  // Leaving the strip is the gesture; the window's own bounds are not the test.
+  assert.match(main, /function droppedOffTheStrip/);
+  assert.match(main, /documentTabStrip\?\.getBoundingClientRect\(\)/);
+  assert.doesNotMatch(main, /scaleFactor\(\)/);
+  // Something follows the cursor, because the native drag image left with the
+  // approach that did not work.
+  assert.match(main, /ghost\.className = 'tab-ghost';/);
+  assert.match(main, /state\.ghost\?\.remove\(\);/);
+  assert.match(main, /ghost\.classList\.toggle\('leaving', droppedOffTheStrip/);
+  assert.match(styles, /\.tab-ghost \{ position: fixed;/);
+  assert.match(styles, /\.tab-ghost\.leaving \.tab-ghost-hint \{ display: inline; \}/);
+  // A press that never travelled is a click, not a drag.
+  assert.match(main, /if \(!state\.dragging\) return;/);
+  assert.match(main, /Math\.hypot\(event\.clientX - tabDragState\.startX/);
   // Every tab can be picked up. Whether it can go is answered when it lands,
   // because a tab that refuses to be lifted teaches the operator nothing.
   assert.match(main, /if \(record && record\.state !== 'ready'\) \{ notify\(`\$\{record\.name\} is still being read\.`\); return; \}/);
   assert.match(main, /if \(record && record\.kind !== 'text'\) \{ notify\(`\$\{record\.name\} cannot be edited in its own window\.`\); return; \}/);
-  // Otherwise the webview starts its own drag, or a text selection, over ours.
-  assert.match(main, /event\.preventDefault\(\);\s*\n\s*tabDragState = \{/);
-  // A press that never travelled is a click, not a drag.
-  assert.match(main, /if \(!state\.dragging\) return;/);
-  assert.match(main, /Math\.hypot\(event\.clientX - tabDragState\.startX/);
-  // A release outside the window may carry no coordinates, so the last place
-  // the cursor was seen stands in for it.
-  assert.match(main, /const screenX = Number\.isFinite\(event\?\.screenX\) && event\.screenX !== 0 \? event\.screenX : state\.screenX;/);
-  // There is still no "dropped outside" event: the release is compared against
-  // the window's bounds, in the units the window actually reports.
-  assert.match(main, /async function droppedOutsideWindow/);
-  assert.match(main, /const x = screenX \* scale;/);
-  assert.match(main, /currentWindow\.scaleFactor\(\)/);
-  // Bounds it cannot read mean no detach, and it says so rather than failing
-  // silently: losing a tab by accident is worse than a gesture that does nothing.
-  assert.match(main, /notify\('Assay could not tell where the tab was dropped, so it stayed put\.'\);/);
   // Any tab can leave, not only the one in front.
   assert.match(main, /async function detachDocument\(documentId\)/);
   assert.match(main, /if \(documentId && documentId !== activeDocumentId\) await activateDocumentTab\(documentId\);/);
-  assert.match(styles, /\.document-tab\[data-document-drag-id\] \{ cursor: grab; user-select: none; \}/);
 });

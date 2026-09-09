@@ -5730,35 +5730,58 @@ documentTabStrip?.addEventListener('click', (event) => {
   const tab = event.target.closest('[data-document-tab-id]');
   if (tab) void activateDocumentTab(tab.dataset.documentTabId);
 });
-/** Dragging a tab out of the window opens it in a window of its own.
+/** Dragging a tab off the strip opens it in a window of its own.
 
-    Two earlier attempts failed in this webview and are worth naming, because
-    both looked correct. The HTML drag animated the tab and then reported
-    nothing usable when the drop landed outside. Pointer events never arrived
-    at all -- the same clicks that select a tab were being delivered, so the
-    gesture was listening for something this WebView does not send.
+    Three attempts are worth naming so they are not repeated. The HTML drag
+    animated the tab and reported nothing usable about a drop that left the
+    window. Pointer events never arrived at all -- the same clicks that select a
+    tab were being delivered, so the gesture was listening for something this
+    WebView does not send. Mouse events are what it sends, and macOS keeps
+    routing them to the window that took the press until the button is
+    released, so the release arrives wherever the cursor ended up.
 
-    Mouse events are what it does send. macOS routes them to the window that
-    received the press until the button is released, so the release still
-    arrives after the cursor has left the window, which is the one fact this
-    gesture needs. The listeners live on the document rather than the strip,
-    because by then the cursor is nowhere near it.
-
-    There is still no "dropped outside" event: the release position is compared
-    against the window's own bounds. If those cannot be read, nothing happens --
-    losing a tab to an accidental gesture is worse than a gesture that does
-    nothing -- and it says so instead of failing silently. */
+    What carries the tab is drawn here rather than by the webview: the native
+    drag image came for free with the first attempt and left with it, and a
+    gesture with nothing under the cursor reads as a gesture that is not
+    happening. */
 let tabDragState = null;
 const tabDragThreshold = 6;
 
+/** Leaving the strip is the whole gesture. Anywhere else -- the editor, another
+    panel, the desktop, a second monitor -- means the same thing: this file
+    wants a window. The margin keeps a sloppy horizontal drag inside the strip
+    from being read as leaving it. */
+const tabStripMargin = 8;
+
+function droppedOffTheStrip(x, y) {
+  const strip = documentTabStrip?.getBoundingClientRect();
+  if (!strip || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+  return x < strip.left - tabStripMargin || x > strip.right + tabStripMargin
+    || y < strip.top - tabStripMargin || y > strip.bottom + tabStripMargin;
+}
+
+function moveTabGhost(state, event) {
+  if (!state.ghost) return;
+  state.ghost.style.transform = `translate(${event.clientX + 12}px, ${event.clientY + 12}px)`;
+  state.ghost.classList.toggle('leaving', droppedOffTheStrip(event.clientX, event.clientY));
+}
+
 function trackTabDrag(event) {
   if (!tabDragState) return;
-  tabDragState.screenX = event.screenX;
-  tabDragState.screenY = event.screenY;
-  if (tabDragState.dragging) return;
-  if (Math.hypot(event.clientX - tabDragState.startX, event.clientY - tabDragState.startY) < tabDragThreshold) return;
-  tabDragState.dragging = true;
-  tabDragState.tab.classList.add('carrying');
+  tabDragState.clientX = event.clientX;
+  tabDragState.clientY = event.clientY;
+  if (!tabDragState.dragging) {
+    if (Math.hypot(event.clientX - tabDragState.startX, event.clientY - tabDragState.startY) < tabDragThreshold) return;
+    tabDragState.dragging = true;
+    tabDragState.tab.classList.add('carrying');
+    const ghost = document.createElement('div');
+    ghost.className = 'tab-ghost';
+    ghost.innerHTML = `<span class="tab-ghost-name"></span><span class="tab-ghost-hint">New window</span>`;
+    ghost.querySelector('.tab-ghost-name').textContent = documentTabById(tabDragState.documentId)?.name ?? 'File';
+    document.body.append(ghost);
+    tabDragState.ghost = ghost;
+  }
+  moveTabGhost(tabDragState, event);
 }
 
 function finishTabDrag(event) {
@@ -5768,15 +5791,14 @@ function finishTabDrag(event) {
   document.removeEventListener('mouseup', finishTabDrag, true);
   if (!state) return;
   state.tab.classList.remove('carrying');
+  state.ghost?.remove();
   // A press that never travelled is a click, and clicking a tab selects it.
   if (!state.dragging) return;
   /** A release outside the window can report no coordinates of its own, so the
       last place the cursor was seen stands in for it. */
-  const screenX = Number.isFinite(event?.screenX) && event.screenX !== 0 ? event.screenX : state.screenX;
-  const screenY = Number.isFinite(event?.screenY) && event.screenY !== 0 ? event.screenY : state.screenY;
-  void droppedOutsideWindow(screenX, screenY).then((outside) => {
-    if (outside) void detachDocument(state.documentId);
-  });
+  const x = Number.isFinite(event?.clientX) && event.clientX !== 0 ? event.clientX : state.clientX;
+  const y = Number.isFinite(event?.clientY) && event.clientY !== 0 ? event.clientY : state.clientY;
+  if (droppedOffTheStrip(x, y)) void detachDocument(state.documentId);
 }
 
 documentTabStrip?.addEventListener('mousedown', (event) => {
@@ -5785,31 +5807,10 @@ documentTabStrip?.addEventListener('mousedown', (event) => {
   if (!tab) return;
   // Otherwise the webview starts a text selection, or its own drag, over ours.
   event.preventDefault();
-  tabDragState = { documentId: tab.dataset.documentDragId, startX: event.clientX, startY: event.clientY, screenX: event.screenX, screenY: event.screenY, tab, dragging: false };
+  tabDragState = { documentId: tab.dataset.documentDragId, startX: event.clientX, startY: event.clientY, clientX: event.clientX, clientY: event.clientY, tab, dragging: false, ghost: null };
   document.addEventListener('mousemove', trackTabDrag, true);
   document.addEventListener('mouseup', finishTabDrag, true);
 });
-
-async function droppedOutsideWindow(screenX, screenY) {
-  const currentWindow = window.__TAURI__?.window?.getCurrentWindow?.();
-  if (!currentWindow || !Number.isFinite(screenX) || !Number.isFinite(screenY)) return false;
-  try {
-    const [position, size, scale] = await Promise.all([
-      currentWindow.outerPosition(),
-      currentWindow.outerSize(),
-      currentWindow.scaleFactor(),
-    ]);
-    // Screen coordinates arrive in CSS pixels and the window reports physical
-    // ones, which are the same number only at a scale factor of 1.
-    const x = screenX * scale;
-    const y = screenY * scale;
-    return x < position.x || y < position.y || x > position.x + size.width || y > position.y + size.height;
-  } catch (error) {
-    notify('Assay could not tell where the tab was dropped, so it stayed put.');
-    console.warn('Window bounds unavailable:', error);
-    return false;
-  }
-}
 
 // Middle click closes a tab, as it does in the editors this strip borrows from.
 documentTabStrip?.addEventListener('auxclick', (event) => {
