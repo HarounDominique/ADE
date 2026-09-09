@@ -1621,11 +1621,20 @@ body { color: var(--text); }
    now share the ground colour; menus, dialogs, inputs and raised toolbars keep
    the lighter tone, because something that floats has to differ from what it
    floats over. */
-/* A tab can be carried out of the window, so it says so under the pointer and
-   fades while it is being carried. The label must not be selectable: a text
-   selection under a held pointer is what the webview would drag instead. */
+/* A tab can be carried off the strip, so it says so under the pointer, fades
+   in place, and something follows the cursor: the webview's own drag image
+   came with an approach that did not work, and a gesture with nothing under
+   the cursor reads as a gesture that is not happening. The label must not be
+   selectable either — a text selection under a held pointer is what the
+   webview would rather drag. */
 .document-tab[data-document-drag-id] { cursor: grab; user-select: none; }
-.document-tab[data-document-drag-id].carrying { cursor: grabbing; opacity: .6; }
+.document-tab[data-document-drag-id].carrying { cursor: grabbing; opacity: .45; }
+.tab-ghost { position: fixed; top: 0; left: 0; z-index: 40; display: flex; align-items: center; gap: 8px; padding: 6px 11px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--panel-raised); box-shadow: 0 10px 24px #0006; color: var(--text-soft); font-size: 12px; pointer-events: none; }
+.tab-ghost-name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The hint only appears where releasing would actually do something. */
+.tab-ghost-hint { display: none; color: var(--blue); font: 11px var(--mono); text-transform: uppercase; letter-spacing: .05em; }
+.tab-ghost.leaving { border-color: var(--blue); }
+.tab-ghost.leaving .tab-ghost-hint { display: inline; }
 /* A document in a window of its own: the editor, a header that says which file
    it is and whether it is saved, and nothing else of the shell. */
 .detached-editor { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100vh; background: var(--bg); }
