@@ -118,6 +118,11 @@ const runtimeEvents = [];
 let activeView = 'projects';
 let pendingGitRefreshInFlight = false;
 let pendingGitRequestPath = null;
+/** History and commit diffs belong to the repository that was active when they
+    were asked for. A late answer from a Project the operator has already left
+    must be discarded, not rendered against the new one. */
+let gitHistoryRequestPath = null;
+let gitDiffRequestPath = null;
 let registeredProjects = [];
 let projectCatalogLoaded = false;
 let gitBranches = [];
@@ -1139,6 +1144,11 @@ async function switchProjectFromContext(project) {
     workspaceRootPath = context.repositoryPath;
     activeGitBranch = context.branch;
     gitBranches = [];
+    /** A commit belongs to the repository it was read from: keeping the
+        selection across a Project change asks the new one for an object it
+        never had. */
+    selectedGitCommit = null;
+    gitHistoryCommits = [];
     selectedPendingGitFile = null;
     gitCommitNeedsPush = false;
     gitUnpushedCommitCount = 0;
@@ -1446,6 +1456,7 @@ function selectGitCommit(hash, file = null) {
   selectedGitCommit = commit;
   renderGitHistory(gitHistoryCommits);
   renderGitCommitDetail(commit, null);
+  gitDiffRequestPath = workspaceRootPath;
   if (nativeInvoke) void sendContextRequest('git.commit.diff', { repositoryPath: workspaceRootPath, commit: hash, ...(file ? { file } : {}) }, 'git-diff').catch((error) => notify(error instanceof Error ? error.message : 'Unable to load commit diff.'));
 }
 
@@ -1523,6 +1534,7 @@ function requestVersionControlData(path = workspaceRootPath) {
   }
   document.getElementById('git-history-status')?.replaceChildren(document.createTextNode('Loading history…'));
   document.getElementById('git-pending-status')?.replaceChildren(document.createTextNode('Loading pending changes…'));
+  gitHistoryRequestPath = path;
   void sendContextRequest('git.history', { repositoryPath: path }, 'git-history').catch((error) => notify(error instanceof Error ? error.message : 'Unable to load commit history.'));
   requestPendingGitChanges(path, { showLoading: true });
 }
@@ -4468,6 +4480,10 @@ async function connectSidecar(snapshot) {
         return;
       }
       if (contextPurpose === 'git-history' && Array.isArray(response.result)) {
+        /** A history that arrived after the Project changed describes commits
+            the current repository does not have; selecting one of them asks Git
+            for an object that is not there. */
+        if (gitHistoryRequestPath !== workspaceRootPath) return;
         renderGitHistory(response.result);
         gitUnpushedCommitCount = response.result.filter((commit) => commit.unpushed).length;
         gitCommitNeedsPush = gitUnpushedCommitCount > 0;
@@ -4499,7 +4515,7 @@ async function connectSidecar(snapshot) {
         renderAgentMessages(response.result);
         return;
       }
-      if (contextPurpose === 'git-diff' && response.result?.commit && selectedGitCommit?.hash === response.result.commit) {
+      if (contextPurpose === 'git-diff' && gitDiffRequestPath === workspaceRootPath && response.result?.commit && selectedGitCommit?.hash === response.result.commit) {
         renderGitCommitDetail(selectedGitCommit, response.result.diff);
         return;
       }

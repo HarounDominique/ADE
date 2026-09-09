@@ -475,6 +475,17 @@ test("the repository is state, never the label a human reads", () => {
   assert.match(main, /Select a Project before sending a prompt/);
 });
 
+test("a commit belongs to the repository it was read from", () => {
+  // Switching Project kept the previous repository's selected commit, and the
+  // new one was asked for an object it never had: "fatal: bad object".
+  assert.match(main, /selectedGitCommit = null;\n    gitHistoryCommits = \[\];/);
+  // A history or diff that arrives after the Project changed is discarded
+  // rather than rendered against the new repository.
+  assert.match(main, /let gitHistoryRequestPath = null;/);
+  assert.match(main, /if \(gitHistoryRequestPath !== workspaceRootPath\) return;/);
+  assert.match(main, /contextPurpose === 'git-diff' && gitDiffRequestPath === workspaceRootPath/);
+});
+
 test("a finished turn chimes, and a turn the operator stopped does not", () => {
   assert.match(html, /id="agent-sound-toggle"[^>]*data-action="toggle-agent-sound"/);
   assert.match(main, /function playAgentTurnChime/);
