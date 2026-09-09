@@ -374,3 +374,21 @@ Huecos de producto detectados al revisar Assay contra `PRODUCT.md` con el backlo
   - Files: `src/persistence/sqlite-store.ts`, `src/application/settings/settings.ts`, `src/desktop-sidecar.ts`, `desktop/src/index.html`, `desktop/src/main.js`, `desktop/src/styles.css`, `tests/user-settings.test.ts`.
   - Abierto: no hay preferencia por Project, y el aviso remoto sigue frenado por sus dos fronteras de plataforma, ya no por falta de configuración.
 
+## Editor en varias ventanas — 2026-09-09
+
+Pregunta del operador: separar un tab del Editor a su propia ventana, para trabajar con varios monitores. Troceado para pagar lo frágil al final, no al principio.
+
+- [x] Task: Dar al editor una superficie que cualquier ventana pueda pedir (1a)
+  - Acceptance: CodeMirror, Monaco, el cambio entre motores, el tema y el caret viven en un módulo con estado propio por instancia; la shell habla de documentos y delega el editor; el comportamiento del Editor no cambia.
+  - Verify: `npm test` (336 tests TypeScript, con los contratos del editor apuntando ya al módulo y uno nuevo que prohíbe a la shell tocar los motores), `npm --prefix desktop run build`. Comprobación manual del Editor en el `.app` pendiente.
+  - Files: `desktop/src/code-editor.js`, `desktop/src/paths.js`, `desktop/src/main.js`, `tests/desktop-ui-contract.test.ts`.
+
+- [ ] Task: Abrir un fichero del Editor en su propia ventana (1b)
+  - Acceptance: una acción del tab mueve —no clona— el documento a una ventana propia con su editor completo; un buffer sin guardar no se pierde; cerrar la ventana devuelve el fichero; la capability nombra la ventana nueva y las pestañas persistidas no se pisan entre ventanas.
+  - Verify: `npm test` y comprobación manual sobre dos monitores.
+  - Files: `desktop/src/editor-window.*`, `desktop/build.mjs`, `desktop/src-tauri/capabilities/`, `desktop/src/main.js`.
+
+- [ ] Task: Separar un tab arrastrándolo fuera de la ventana (2)
+  - Acceptance: soltar un tab fuera de la ventana abre la ventana del paso 1b; soltarlo dentro no cambia nada.
+  - Bloqueado por: 1b. No hay evento de "soltado fuera": se deduce en `dragend` comparando el cursor con el rect de la ventana, y es lo único de esta serie que hay que ajustar por plataforma.
+
