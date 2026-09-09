@@ -199,7 +199,9 @@ test("desktop sidecar process answers over stdin/stdout", async () => {
   const response = JSON.parse(output.toString()) as { id: string; error: { code: string } };
 
   assert.equal(response.id, "process-1");
-  assert.equal(response.error.code, "REQUEST_FAILED");
+  // A Project that is not registered is its own condition, so the shell can
+  // empty itself instead of treating it as a request that broke.
+  assert.equal(response.error.code, "PROJECT_NOT_FOUND");
   child.kill();
   await once(child, "close");
   rmSync(directory, { recursive: true, force: true });
