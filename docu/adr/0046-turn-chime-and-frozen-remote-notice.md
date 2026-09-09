@@ -50,3 +50,7 @@ Rechazado: un asset más que empaquetar, cargar y mantener para dos notas.
 - Quien trabaja con sonido desactivado en el sistema no recibe aviso alguno; es aceptable mientras el aviso remoto siga congelado, y deja de serlo cuando se retome.
 - El tono no distingue éxito de fallo. La pantalla sí, y es donde está quien lo oye.
 - El aviso remoto sigue siendo el alcance real de «me voy de casa», y esta decisión no lo sustituye.
+
+## Update — 2026-09-09
+
+El bloqueo por «no existe configuración de usuario en ADE» queda levantado por [ADR-0053](0053-user-settings-live-in-ades-store.md): las preferencias del operador viven en el store y el sidecar puede leerlas. Lo que sigue frenando el aviso remoto son las dos fronteras de plataforma que añade el correo, no la falta de dónde declararlo.

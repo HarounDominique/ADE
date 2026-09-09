@@ -42,7 +42,7 @@ macOS tiene artefacto instalable. `npm run desktop:release` construye el bundle 
 
 Junto al artefacto se escribe `latest.json` con producto, versión, fecha, notas y, por artefacto, plataforma, arquitectura, fichero, tamaño y `sha256`. Es el mismo fichero que la aplicación lee al arrancar para comparar su versión con la publicada.
 
-Assay avisa de que existe una versión más reciente y ahí termina: no descarga, no se reemplaza y no ejecuta nada. Sin conexión, sin publicar o con un manifiesto ilegible se dice como tal y nunca como "al día". El feed por defecto es un asset de release del repositorio y se sustituye con `ADE_UPDATE_FEED_URL`. La decisión vive en [ADR-0050](../adr/0050-installable-artifact-and-update-notice.md).
+Assay avisa de que existe una versión más reciente y ahí termina: no descarga, no se reemplaza y no ejecuta nada. Sin conexión, sin publicar o con un manifiesto ilegible se dice como tal y nunca como "al día". El feed por defecto es un asset de release del repositorio. La precedencia es explícita: lo que pida la petición, luego lo que el operador haya configurado en sus preferencias ([ADR-0053](../adr/0053-user-settings-live-in-ades-store.md)), luego `ADE_UPDATE_FEED_URL`, luego el valor por defecto; vacío significa que este install no pregunta a nadie. La decisión vive en [ADR-0050](../adr/0050-installable-artifact-and-update-notice.md).
 
 El artefacto no está firmado ni notarizado; una instalación limpia verá la advertencia de Gatekeeper. Windows y Linux siguen sin artefacto propio: el script lo dice y falla en vez de fingir soporte.
 

@@ -1308,3 +1308,20 @@ test("re-review runs on the operator's agent, not on a single wired-in one", () 
   assert.match(main, /method: 'task\.rereview', params: \{ taskId, provider: selectedProvider,/);
   assert.match(main, /notify\(`Re-review started with \$\{selectedProvider\}\.`\)/);
 });
+
+test("preferences belong to the operator and live where the sidecar can read them", () => {
+  // Every preference lived in the webview's storage, invisible to the sidecar,
+  // which is why the remote notice and a configurable release feed were stuck.
+  assert.match(html, /id="settings-dialog"/);
+  assert.match(html, /data-action="open-settings"/);
+  assert.match(html, /id="settings-turn-chime"/);
+  assert.match(html, /id="settings-update-feed"/);
+  assert.match(main, /method: 'settings\.read'/);
+  assert.match(main, /method: 'settings\.write', params: \{ settings: patch \}/);
+  // The chime and the default model now write to the store as well.
+  assert.match(main, /void saveUserSettings\(\{ turnChime: enabled \}\)/);
+  assert.match(main, /void saveUserSettings\(\{ defaultModels:/);
+  // What this webview already remembered is carried over once, not reset.
+  assert.match(main, /function migrateLocalPreferences/);
+  assert.match(main, /if \(migration\) void saveUserSettings\(migration\)/);
+});

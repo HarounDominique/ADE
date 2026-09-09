@@ -28,6 +28,7 @@ import { askGateEvidenceType, askGateSummary, evaluateAskGate } from "./applicat
 import { captureTurnChangeSet } from "./application/agents/capture-turn-change-set.js";
 import { CheckpointBlockedError, captureTurnCheckpoint, restoreTaskCheckpoint } from "./application/agents/task-checkpoints.js";
 import { checkForUpdate } from "./application/release/update-check.js";
+import { readSettings, writeSettings, type UserSettings } from "./application/settings/settings.js";
 import { turnWrites } from "./application/agents/turn-checkpoint.js";
 import { askBriefing, composeAgentPrompt } from "./application/structural-context/ask-briefing.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
@@ -55,7 +56,7 @@ import { resolveProviderSessionId } from "./application/terminal-history/provide
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
+  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; settings?: Partial<UserSettings>; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
 };
 
 export type DesktopResponse = {
@@ -142,7 +143,7 @@ function backfillTerminalConversationIds(store: AdeStore, projectId: string, rep
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.acceptance', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'terminal.history.list', 'terminal.history.get', 'terminal.history.save', 'terminal.history.delete', 'service.status', 'skills.list'].includes(request.method)) {
+    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.acceptance', 'task.advance', 'settings.read', 'settings.write', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'terminal.history.list', 'terminal.history.get', 'terminal.history.save', 'terminal.history.delete', 'service.status', 'skills.list'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.list") {
@@ -229,6 +230,13 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       const taskId = request.params?.taskId;
       if (!taskId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId is required" } };
       return { id: request.id, result: request.method === "task.detail" ? getTaskDetail(store, taskId) : request.method === "runtime.history" ? getRuntimeHistory(store, taskId) : getChangeReview(store, taskId) };
+    }
+    if (request.method === "settings.read") {
+      return { id: request.id, result: readSettings(store) };
+    }
+    if (request.method === "settings.write") {
+      if (!request.params?.settings) return { id: request.id, error: { code: "INVALID_PARAMS", message: "settings are required" } };
+      return { id: request.id, result: writeSettings(store, request.params.settings) };
     }
     if (request.method === "task.acceptance") {
       const { taskId, acceptanceCriteria, reason, actor } = request.params ?? {};
@@ -341,7 +349,11 @@ export async function runDesktopSidecar(): Promise<void> {
           /** Assay says a newer version exists; it never fetches or replaces
               itself. The feed is a release asset of the project, and the
               operator can point it elsewhere with ADE_UPDATE_FEED_URL. */
-          void checkForUpdate({ currentVersion: params.currentVersion, ...(params.feedUrl !== undefined ? { feedUrl: params.feedUrl } : process.env.ADE_UPDATE_FEED_URL !== undefined ? { feedUrl: process.env.ADE_UPDATE_FEED_URL } : {}) })
+          /** The operator's own feed wins over the environment, and both over
+              the default: an install can be pointed at a private release or at
+              nobody at all. */
+          const configuredFeed = params.feedUrl ?? readSettings(store).updateFeedUrl ?? process.env.ADE_UPDATE_FEED_URL;
+          void checkForUpdate({ currentVersion: params.currentVersion, ...(configuredFeed !== undefined ? { feedUrl: configuredFeed } : {}) })
             .then((update) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { update } })}\n`))
             .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "UPDATE_CHECK_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
         }

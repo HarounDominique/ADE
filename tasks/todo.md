@@ -367,6 +367,10 @@ Huecos de producto detectados al revisar Assay contra `PRODUCT.md` con el backlo
   - Files: `src/adapters/review-contract.ts`, `src/adapters/cli-reviewer.ts`, `src/adapters/provider-runtime.ts`, `src/adapters/opencode-reviewer.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `tests/cli-reviewer.test.ts`.
   - Abierto: un finding no dice todavía qué criterio de aceptación incumple.
 
-- [ ] Task: Dar a Assay configuración de usuario
+- [x] Task: Dar a Assay configuración de usuario
+  - Spec: [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md) · ADR: [0053-user-settings-live-in-ades-store](../docu/adr/0053-user-settings-live-in-ades-store.md)
   - Acceptance: existe una superficie de ajustes persistida fuera de `localStorage`; el tono, el modelo por defecto y el feed de actualización viven ahí, y desbloquea las preferencias que hoy congelan capacidades.
+  - Verify: `npm test` (333 tests TypeScript, cinco nuevos sobre defaults, escritura parcial que no borra lo demás, limpieza de un modelo por defecto, trimado del feed y el seam del sidecar).
+  - Files: `src/persistence/sqlite-store.ts`, `src/application/settings/settings.ts`, `src/desktop-sidecar.ts`, `desktop/src/index.html`, `desktop/src/main.js`, `desktop/src/styles.css`, `tests/user-settings.test.ts`.
+  - Abierto: no hay preferencia por Project, y el aviso remoto sigue frenado por sus dos fronteras de plataforma, ya no por falta de configuración.
 

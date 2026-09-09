@@ -1609,6 +1609,11 @@ body { color: var(--text); }
    as quiet as the rest of the status bar until there is something to say. */
 .status-version { color: var(--faint); }
 .status-version[data-update="true"] { color: var(--amber); }
+/* Preferences: a dialog, not a view, because they are read rarely and changed
+   rarely, and none of them needs the whole window. */
+.settings-check { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; color: var(--text-soft); font-size: 12px; }
+.settings-dialog input[type="url"] { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--text); background: var(--panel); font: 12px var(--mono); }
+.settings-defaults { margin: 12px 0 0; color: var(--faint); font-size: 12px; }
 /* What done means, stated where the work is judged. */
 .task-acceptance-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .task-acceptance-list { margin: 0 0 10px; padding-left: 18px; color: var(--text-soft); font-size: 12px; }

@@ -116,6 +116,10 @@ let agentRailCollapsed = false;
     accounted for -- which is not the same as zero. */
 let agentSessionUsage = null;
 let agentUsageRequestId = null;
+/** The operator's preferences as the store holds them. The shell renders from
+    this rather than from its own copy, so a preference has one home. */
+let userSettings = { turnChime: true, defaultModels: {} };
+let settingsRequestId = null;
 let appVersion = null;
 let appUpdateRequestId = null;
 const agentGroupExpansion = new Map();
@@ -2521,7 +2525,12 @@ function providerIsAvailable(providerId) {
     a default set or changed later. */
 const agentDefaultModelStorageKey = 'ade-agent-default-model';
 let agentDefaultModels = {};
-try { agentDefaultModels = JSON.parse(localStorage.getItem(agentDefaultModelStorageKey) ?? '{}') ?? {}; } catch { agentDefaultModels = {}; }
+/** What this webview remembered before preferences had a home in the store.
+    Read once, to be carried over. */
+function readLocalDefaultModels() {
+  try { return JSON.parse(localStorage.getItem(agentDefaultModelStorageKey) ?? '{}') ?? {}; } catch { return {}; }
+}
+agentDefaultModels = readLocalDefaultModels();
 
 function defaultModelForProvider(providerId) {
   const stored = agentDefaultModels[providerId];
@@ -2534,7 +2543,11 @@ function defaultModelForProvider(providerId) {
 function setDefaultModelForProvider(providerId, modelId) {
   if (modelId) agentDefaultModels[providerId] = modelId;
   else delete agentDefaultModels[providerId];
+  userSettings = { ...userSettings, defaultModels: { ...agentDefaultModels } };
+  /** The store is the home; the webview copy stays only so the choice survives
+      a session that starts before the sidecar answers. */
   try { localStorage.setItem(agentDefaultModelStorageKey, JSON.stringify(agentDefaultModels)); } catch { /* Persistence is optional. */ }
+  void saveUserSettings({ defaultModels: { ...agentDefaultModels, ...(modelId ? {} : { [providerId]: '' }) } });
 }
 
 /** Marking a default never rewrites the open conversation: it is the starting
@@ -3076,7 +3089,9 @@ function readAgentSoundPreference() {
 
 function setAgentSoundEnabled(enabled) {
   agentSoundEnabled = enabled;
+  userSettings = { ...userSettings, turnChime: enabled };
   try { localStorage.setItem(agentSoundStorageKey, enabled ? 'on' : 'off'); } catch { /* A private window keeps the default. */ }
+  void saveUserSettings({ turnChime: enabled });
   renderAgentSoundToggle();
   notify(enabled ? 'A finished turn will chime.' : 'Turn chime silenced.');
 }
@@ -4813,6 +4828,12 @@ async function connectSidecar(snapshot) {
         applyAgentPressure(response.result);
         return;
       }
+      if (response.id && String(response.id) === String(settingsRequestId) && response.result?.defaultModels) {
+        const migration = migrateLocalPreferences(response.result);
+        applyUserSettings(response.result);
+        if (migration) void saveUserSettings(migration);
+        return;
+      }
       if (response.id && String(response.id) === String(appUpdateRequestId) && response.result?.update) {
         renderAppVersion(appVersion, response.result.update);
         // Being told once is enough; the status bar keeps saying it afterwards.
@@ -5062,6 +5083,7 @@ async function connectSidecar(snapshot) {
     });
     await invoke('sidecar_start');
     await requestSnapshot();
+    await requestUserSettings(invoke);
     void checkForAppUpdate(invoke);
   } catch (error) {
     setSyncState('failed', 'Local snapshot unavailable');
@@ -5084,6 +5106,60 @@ function renderAppVersion(version, update) {
     : update?.status === 'UNREACHABLE' ? `Could not reach the release feed: ${update.message}`
     : update?.status === 'UNCONFIGURED' ? 'No release feed is configured for this install'
     : `Assay ${version} is the newest published version`;
+}
+
+/** Preferences live in Assay's store, not in the webview's: they survive a
+    reinstall and the sidecar can read them, which is what a capability needs in
+    order to depend on one. Anything already chosen in this webview moves there
+    the first time, so nobody has to set it twice. */
+function applyUserSettings(settings) {
+  userSettings = { turnChime: settings?.turnChime !== false, defaultModels: settings?.defaultModels ?? {}, ...(settings?.updateFeedUrl ? { updateFeedUrl: settings.updateFeedUrl } : {}) };
+  agentSoundEnabled = userSettings.turnChime;
+  agentDefaultModels = { ...userSettings.defaultModels };
+  renderAgentSoundToggle();
+  renderModelSelection();
+}
+
+function requestUserSettings(invoke = nativeInvoke) {
+  if (!invoke) return Promise.resolve();
+  const requestId = `settings-read-${Date.now()}`;
+  settingsRequestId = requestId;
+  return invoke('sidecar_request', { request: JSON.stringify({ id: requestId, method: 'settings.read' }) })
+    .catch((error) => console.warn('Preferences unavailable:', error));
+}
+
+function saveUserSettings(patch) {
+  if (!nativeInvoke) { notify('Preferences need the local sidecar.'); return Promise.resolve(); }
+  const requestId = `settings-write-${Date.now()}`;
+  settingsRequestId = requestId;
+  return nativeInvoke('sidecar_request', { request: JSON.stringify({ id: requestId, method: 'settings.write', params: { settings: patch } }) })
+    .catch((error) => { notify('Preferences could not be saved.'); console.warn(error); });
+}
+
+/** What this webview had already remembered is carried over once, so upgrading
+    does not silently reset the chime or the default models. */
+function migrateLocalPreferences(stored) {
+  const patch = {};
+  const localChime = readAgentSoundPreference();
+  if (stored?.turnChime !== false && localChime === false) patch.turnChime = false;
+  const localModels = readLocalDefaultModels();
+  if (Object.keys(localModels).length && !Object.keys(stored?.defaultModels ?? {}).length) patch.defaultModels = localModels;
+  return Object.keys(patch).length ? patch : null;
+}
+
+function openSettingsDialog() {
+  const dialog = document.getElementById('settings-dialog');
+  if (!dialog?.showModal) { notify('Preferences need a dialog that is unavailable.'); return; }
+  const chime = document.getElementById('settings-turn-chime');
+  const feed = document.getElementById('settings-update-feed');
+  const defaults = document.getElementById('settings-default-models');
+  if (chime) chime.checked = userSettings.turnChime;
+  if (feed) feed.value = userSettings.updateFeedUrl ?? '';
+  const models = Object.entries(userSettings.defaultModels ?? {});
+  if (defaults) defaults.textContent = models.length
+    ? `Default models: ${models.map(([provider, model]) => `${provider} · ${model}`).join(', ')}. Change them from the Model menu.`
+    : 'No default model set. Mark one from the Model menu in a conversation.';
+  dialog.showModal();
 }
 
 async function checkForAppUpdate(invoke) {
@@ -5499,6 +5575,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     });
     return;
   }
+  if (item.dataset.action === 'open-settings') {
+    openSettingsDialog();
+    return;
+  }
   if (item.dataset.action === 'edit-acceptance' || item.dataset.action === 'cancel-acceptance') {
     const host = document.querySelector(`[data-task-acceptance="${CSS.escape(item.dataset.taskId ?? '')}"]`);
     const form = host?.querySelector('.task-acceptance-form');
@@ -5557,6 +5637,14 @@ document.getElementById('terminal-history-dialog')?.addEventListener('close', ()
 document.getElementById('repository-context-button')?.addEventListener('click', () => toggleGitContextMenu('repository'));
 document.getElementById('task-context-button')?.addEventListener('click', () => toggleGitContextMenu('task'));
 document.getElementById('branch-context-button')?.addEventListener('click', () => toggleGitContextMenu('branch'));
+document.getElementById('settings-form')?.addEventListener('submit', (event) => {
+  // A dialog form submits on Cancel too; only the Save button writes.
+  if (event.submitter?.value === 'cancel') return;
+  const turnChime = document.getElementById('settings-turn-chime')?.checked !== false;
+  const updateFeedUrl = document.getElementById('settings-update-feed')?.value.trim() ?? '';
+  void saveUserSettings({ turnChime, updateFeedUrl }).then(() => notify('Preferences saved.'));
+});
+
 /** Changing what done means is a decision the Task records, so it goes through
     the sidecar with a reason rather than being edited in place. */
 document.addEventListener('submit', (event) => {

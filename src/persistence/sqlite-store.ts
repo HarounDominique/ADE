@@ -159,6 +159,11 @@ export class AdeStore {
         at TEXT NOT NULL,
         metadata TEXT
       );
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS task_checkpoints (
         id TEXT PRIMARY KEY,
         task_id TEXT NOT NULL REFERENCES tasks(id),
@@ -517,6 +522,19 @@ export class AdeStore {
 
   /** One row per completed turn. A turn the provider did not account for has
       no row: an absent cost is not a free one. */
+  /** The operator's preferences, kept where the sidecar can read them. What
+      the webview stores is invisible to everything but the webview. */
+  getSetting(key: string): unknown {
+    const row = this.db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+    if (!row) return undefined;
+    try { return JSON.parse(row.value) as unknown; } catch { return undefined; }
+  }
+
+  setSetting(key: string, value: unknown, updatedAt = new Date().toISOString()): void {
+    this.db.prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at")
+      .run(key, JSON.stringify(value), updatedAt);
+  }
+
   saveTaskCheckpoint(input: Omit<TaskCheckpoint, "createdAt"> & { createdAt?: string }): void {
     this.db.prepare(`INSERT INTO task_checkpoints (id, task_id, session_id, provider, directory, ref, commit_hash, label, files, created_at, restored_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET restored_at = excluded.restored_at`)
       .run(input.id, input.taskId, input.sessionId ?? null, input.provider ?? null, input.directory, input.ref, input.commit, input.label, input.files, input.createdAt ?? new Date().toISOString(), input.restoredAt ?? null);
