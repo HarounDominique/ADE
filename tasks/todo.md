@@ -395,6 +395,6 @@ Pregunta del operador: separar un tab del Editor a su propia ventana, para traba
   - Acceptance: soltar un tab fuera de la ventana abre la ventana del paso 1b; soltarlo dentro no cambia nada.
   - Verify: `npm test` (339 tests TypeScript, uno nuevo sobre el gesto, la escala del monitor y la negativa a separar sin límites legibles), `npm --prefix desktop run build`. Comprobación manual sobre dos monitores pendiente.
   - Files: `desktop/src/main.js`, `desktop/src/styles.css`.
-  - Hallazgo: el arrastre HTML del webview animaba la pestaña y no entregaba nada al soltar fuera de la ventana; el gesto pasa a seguirse con eventos de puntero capturados, como los divisores de paneles.
+  - Hallazgo: dos intentos fallaron antes de acertar. El arrastre HTML del webview animaba la pestaña y no entregaba nada al soltar fuera; los eventos de puntero no llegaban. El gesto se sigue con eventos de ratón. Además el atributo que lo habilitaba estaba condicionado al estado del documento, y una pestaña restaurada se queda en `pending` hasta que se mira: ahora cualquier pestaña se levanta y la negativa se explica al soltar.
   - Abierto: sólo se ha ejercitado en macOS; el gesto es lo único de esta serie que puede necesitar ajuste por plataforma.
 
