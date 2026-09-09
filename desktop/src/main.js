@@ -128,6 +128,9 @@ let projectCatalogLoaded = false;
 let gitBranches = [];
 let gitHistoryCommits = [];
 let selectedGitCommit = null;
+/** Which file of the selected commit the diff is showing. Without it the list
+    gave no sign of what the reader was looking at. */
+let selectedGitCommitFile = null;
 let selectedPendingGitFile = null;
 let gitHistoryFilter = '';
 let pendingGitFilter = '';
@@ -933,10 +936,13 @@ function renderSnapshot(snapshot) {
   activeVersionControl = activeProject.versionControl ?? activeVersionControl;
   const hasGit = activeVersionControl !== 'none';
   const currentBranch = hasGit ? (activeGitBranch ?? activeProject.branch ?? 'detached') : 'No Git';
+  /** The path lives where the Project is chosen, not repeated in the panel
+      below it. The control cannot show it whole, so it says it on rest. */
+  const repositoryButton = document.getElementById('repository-context-button');
+  if (repositoryButton) repositoryButton.dataset.hoverTitle = activeProject.repositoryPath ?? '';
   const values = {
     'project-name': activeProject.name,
     'project-description': activeProject.description ?? 'Local Assay project',
-    'project-path': activeProject.repositoryPath || 'No Project selected',
     'project-branch': currentBranch,
     'working-tree-state': snapshot.project.workingTree,
     'active-task-count': snapshot.metrics.activeTasks,
@@ -991,7 +997,7 @@ function renderProjectsList() {
     const isActive = project.id === activeProjectId;
     const versionControl = project.versionControl === 'none' ? 'No Git' : 'Git';
     const canRemove = !isActive || registeredProjects.length > 1;
-    return `<div class="project-list-item${isActive ? ' active' : ''}"><button class="project-list-select" type="button" data-project-id="${escapeHTML(project.id)}"><span class="project-list-icon" aria-hidden="true">${isActive ? '●' : '○'}</span><span class="project-list-copy"><strong>${escapeHTML(project.name)}</strong><small>${escapeHTML(project.repositoryPath)}</small></span><span class="project-list-vcs">${versionControl}</span><span class="project-list-arrow" aria-hidden="true">→</span></button><button class="project-list-remove" type="button" data-remove-project-id="${escapeHTML(project.id)}" aria-label="Remove ${escapeHTML(project.name)} from Assay" title="Remove from Assay"${canRemove ? '' : ' disabled'}>×</button></div>`;
+    return `<div class="project-list-item${isActive ? ' active' : ''}"><button class="project-list-select" type="button" data-project-id="${escapeHTML(project.id)}" data-hover-title="${escapeHTML(project.repositoryPath)}">${activeMarkMarkup(isActive, 'Active Project')}<span class="project-list-copy"><strong>${escapeHTML(project.name)}</strong><small>${escapeHTML(project.repositoryPath)}</small></span><span class="project-list-vcs">${versionControl}</span><span class="project-list-arrow" aria-hidden="true">→</span></button><button class="project-list-remove" type="button" data-remove-project-id="${escapeHTML(project.id)}" aria-label="Remove ${escapeHTML(project.name)} from Assay" title="Remove from Assay"${canRemove ? '' : ' disabled'}>×</button></div>`;
   }).join('');
   if (status) status.textContent = `${registeredProjects.length} project${registeredProjects.length === 1 ? '' : 's'}`;
 }
@@ -1022,7 +1028,7 @@ function renderRepositoryMenu() {
   const menu = document.getElementById('repository-context-menu');
   if (!menu) return;
   menu.innerHTML = registeredProjects.length
-    ? registeredProjects.map((project) => `<button class="git-context-option${project.id === activeProjectId ? ' selected' : ''}" type="button" role="menuitem" data-project-id="${escapeHTML(project.id)}"><span class="git-option-mark" aria-hidden="true">${project.id === activeProjectId ? '✓' : ''}</span><span><strong>${escapeHTML(project.name)}</strong><small>${escapeHTML(project.repositoryPath)}</small></span></button>`).join('')
+    ? registeredProjects.map((project) => `<button class="git-context-option${project.id === activeProjectId ? ' selected' : ''}" type="button" role="menuitem" data-project-id="${escapeHTML(project.id)}" data-hover-title="${escapeHTML(project.repositoryPath)}">${selectedMarkMarkup(project.id === activeProjectId)}<span><strong>${escapeHTML(project.name)}</strong><small>${escapeHTML(project.repositoryPath)}</small></span></button>`).join('')
     : '<p class="git-context-empty">No registered repositories.</p>';
 }
 
@@ -1030,7 +1036,7 @@ function renderBranchMenu() {
   const menu = document.getElementById('branch-context-menu');
   if (!menu) return;
   menu.innerHTML = gitBranches.length
-    ? gitBranches.map((branch) => `<button class="git-context-option${branch === document.getElementById('current-branch-name')?.textContent ? ' selected' : ''}" type="button" role="menuitem" data-branch-name="${escapeHTML(branch)}"><span class="git-option-mark" aria-hidden="true">${branch === document.getElementById('current-branch-name')?.textContent ? '✓' : ''}</span><span><strong>${escapeHTML(branch)}</strong></span></button>`).join('')
+    ? gitBranches.map((branch) => `<button class="git-context-option${branch === document.getElementById('current-branch-name')?.textContent ? ' selected' : ''}" type="button" role="menuitem" data-branch-name="${escapeHTML(branch)}">${selectedMarkMarkup(branch === document.getElementById('current-branch-name')?.textContent)}<span><strong>${escapeHTML(branch)}</strong></span></button>`).join('')
     : '<p class="git-context-empty">No local branches found.</p>';
 }
 
@@ -1055,7 +1061,7 @@ function renderTaskContextMenu() {
   if (!menu) return;
   const tasks = visibleTaskContextItems();
   menu.innerHTML = tasks.length
-    ? tasks.map((task) => `<button class="git-context-option${task.id === selectedTaskId ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${task.id === selectedTaskId}" data-task-context-id="${escapeHTML(task.id)}"><span class="git-option-mark" aria-hidden="true">${task.id === selectedTaskId ? '✓' : ''}</span><span><strong>${escapeHTML(task.intent)}</strong><small>${escapeHTML(task.id)} · ${escapeHTML(task.status.replaceAll('_', ' '))}</small></span></button>`).join('')
+    ? tasks.map((task) => `<button class="git-context-option${task.id === selectedTaskId ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${task.id === selectedTaskId}" data-task-context-id="${escapeHTML(task.id)}" data-hover-title="${escapeHTML(task.intent)}">${selectedMarkMarkup(task.id === selectedTaskId)}<span><strong>${escapeHTML(task.intent)}</strong><small>${escapeHTML(task.id)} · ${escapeHTML(task.status.replaceAll('_', ' '))}</small></span></button>`).join('')
     : '<p class="git-context-empty">No tasks in this Project.</p>';
 }
 
@@ -1148,6 +1154,7 @@ async function switchProjectFromContext(project) {
         selection across a Project change asks the new one for an object it
         never had. */
     selectedGitCommit = null;
+    selectedGitCommitFile = null;
     gitHistoryCommits = [];
     selectedPendingGitFile = null;
     gitCommitNeedsPush = false;
@@ -1413,27 +1420,42 @@ function formatGitDate(value) {
 }
 
 function renderGitCommitDetail(commit, diff = null) {
-  const hash = document.getElementById('git-commit-hash');
   const title = document.getElementById('git-commit-title');
   const meta = document.getElementById('git-commit-meta');
+  const fileName = document.getElementById('git-commit-file-name');
   const count = document.getElementById('git-commit-files-count');
   const files = document.getElementById('git-commit-files');
   const output = document.getElementById('git-commit-diff');
   if (!commit) {
-    if (hash) hash.textContent = 'No commit selected';
     if (title) title.textContent = 'Select a commit';
     if (meta) meta.textContent = 'Commit details will appear here.';
+    if (fileName) fileName.hidden = true;
     if (count) count.textContent = '—';
     if (files) files.innerHTML = '<div class="git-empty-state">Select a commit to inspect its files.</div>';
     renderDiffOutput(output, null, 'Select a commit to inspect its diff.');
     return;
   }
-  if (hash) hash.textContent = commit.shortHash;
   if (title) title.textContent = commit.subject;
-  if (meta) meta.textContent = `${commit.author} · ${formatGitDate(commit.date)} · ${commit.hash}${commit.unpushed ? ' · Not pushed to origin' : ''}`;
+  /** The subject is what identifies the commit here; the short hash, its author
+      and its date fit on one line beside it. The full forty characters said
+      nothing the short hash does not and cost a line of readable diff, so it
+      stays available on hover instead of occupying the header. */
+  if (meta) {
+    meta.textContent = `${commit.shortHash} · ${commit.author} · ${formatGitDate(commit.date)}${commit.unpushed ? ' · not pushed' : ''}`;
+    meta.title = commit.hash;
+  }
+  /** Which file the diff below belongs to, named where the reader is looking. */
+  if (fileName) {
+    const path = selectedGitCommitFile ?? '';
+    const name = pathBaseName(path);
+    fileName.hidden = !name;
+    fileName.innerHTML = name
+      ? `<strong>${escapeHTML(name)}</strong>${pathSegments(path).length > 1 ? `<small>${escapeHTML(pathSegments(path).slice(0, -1).join('/'))}</small>` : ''}`
+      : '';
+  }
   if (count) count.textContent = `${commit.files.length} file${commit.files.length === 1 ? '' : 's'}`;
   if (files) files.innerHTML = commit.files.length
-    ? commit.files.map((file) => `<button class="git-commit-file" type="button" data-git-commit-file="${escapeHTML(file.path)}" title="Show diff for ${escapeHTML(file.path)}"><span class="git-file-status">${escapeHTML(file.status)}</span><code>${escapeHTML(file.path)}</code></button>`).join('')
+    ? commit.files.map((file) => `<button class="git-commit-file${workspaceGitRelativePath(file.path) === selectedGitCommitFile ? ' active' : ''}" type="button" data-git-commit-file="${escapeHTML(file.path)}" aria-current="${workspaceGitRelativePath(file.path) === selectedGitCommitFile ? 'true' : 'false'}" title="${escapeHTML(workspaceGitRelativePath(file.path))}">${gitFileLabelMarkup(file)}</button>`).join('')
     : '<div class="git-empty-state">No file changes recorded.</div>';
   if (output) renderDiffOutput(output, diff, diff === null ? 'Loading commit diff…' : 'No textual diff for this commit.');
 }
@@ -1453,6 +1475,10 @@ function renderDiffOutput(output, diff, emptyMessage) {
 function selectGitCommit(hash, file = null) {
   const commit = gitHistoryCommits.find((candidate) => candidate.hash === hash);
   if (!commit) return;
+  /** A file selection belongs to its commit: moving to another one starts from
+      that commit's own diff rather than pointing at a path it may not contain. */
+  if (selectedGitCommit?.hash !== hash) selectedGitCommitFile = null;
+  if (file) selectedGitCommitFile = workspaceGitRelativePath(file);
   selectedGitCommit = commit;
   renderGitHistory(gitHistoryCommits);
   renderGitCommitDetail(commit, null);
@@ -2544,7 +2570,7 @@ function renderAgentPicker(kind) {
   const rows = options.map((option) => {
     const selected = option.value === current?.value;
     const detail = agentPickerDetail(kind, option.value);
-    const choose = `<button class="picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-picker-kind="${kind}" data-picker-value="${escapeHTML(option.value)}"${option.disabled ? ' disabled' : ''}><span class="git-option-mark" aria-hidden="true">${selected ? '✓' : ''}</span><span><strong>${escapeHTML(agentPickerLabel(option))}</strong>${detail ? `<small>${escapeHTML(detail)}</small>` : ''}</span></button>`;
+    const choose = `<button class="picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-picker-kind="${kind}" data-picker-value="${escapeHTML(option.value)}"${option.disabled ? ' disabled' : ''}>${selectedMarkMarkup(selected)}<span><strong>${escapeHTML(agentPickerLabel(option))}</strong>${detail ? `<small>${escapeHTML(detail)}</small>` : ''}</span></button>`;
     return `<div class="picker-row${selected ? ' selected' : ''}" role="none">${choose}${agentDefaultToggle(kind, option)}</div>`;
   }).join('');
   const note = kind === 'model' && options.some((option) => option.value)
@@ -3174,7 +3200,7 @@ function renderRunConfigurationMenu() {
     : '';
   const rows = runConfigurations.map((configuration) => {
     const selected = configuration.id === selectedRunConfigurationId;
-    return `<div class="picker-row${selected ? ' selected' : ''}" role="none"><button class="picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-run-configuration-id="${escapeHTML(configuration.id)}"><span class="git-option-mark" aria-hidden="true">${selected ? '✓' : ''}</span><span><strong>${escapeHTML(configuration.label)}</strong><small>${escapeHTML(runConfigurationDetail(configuration))}</small></span></button><button class="picker-edit" type="button" data-run-edit-id="${escapeHTML(configuration.id)}" aria-label="Edit ${escapeHTML(configuration.label)}" title="Edit ${escapeHTML(configuration.label)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="m14.5 5.5 4 4"/></svg></button></div>`;
+    return `<div class="picker-row${selected ? ' selected' : ''}" role="none"><button class="picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-run-configuration-id="${escapeHTML(configuration.id)}">${selectedMarkMarkup(selected)}<span><strong>${escapeHTML(configuration.label)}</strong><small>${escapeHTML(runConfigurationDetail(configuration))}</small></span></button><button class="picker-edit" type="button" data-run-edit-id="${escapeHTML(configuration.id)}" aria-label="Edit ${escapeHTML(configuration.label)}" title="Edit ${escapeHTML(configuration.label)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="m14.5 5.5 4 4"/></svg></button></div>`;
   }).join('');
   /** Detection proposes; it never writes. Each suggestion names the file it was
       read from, so the operator can check the offer instead of trusting it. */
@@ -3717,6 +3743,35 @@ function taskStatusTone(status) {
   return ['UNDER_REVIEW', 'READY_FOR_HUMAN', 'BLOCKED'].includes(status) ? 'review' : 'building';
 }
 
+/** The mark that says "this is the one you are working on". Drawn, not a
+    Unicode bullet: the system asks for real icons with an accessible name, and
+    the Project list and the Task list should say it the same way. */
+/** The selected row of a menu, drawn rather than typed: a `✓` character is a
+    glyph standing in for an icon, which the system rules out. */
+function selectedMarkMarkup(isSelected) {
+  return isSelected
+    ? '<svg class="git-option-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"/></svg>'
+    : '<span class="git-option-mark" aria-hidden="true"></span>';
+}
+
+function activeMarkMarkup(isActive, label) {
+  return isActive
+    ? `<svg class="active-mark" viewBox="0 0 16 16" role="img" aria-label="${escapeHTML(label)}"><circle cx="8" cy="8" r="6.25"/><circle class="active-mark-core" cx="8" cy="8" r="2.75"/></svg>`
+    : '<span class="active-mark placeholder" aria-hidden="true"></span>';
+}
+
+/** A bare time is only unambiguous today. Anything older says its date, so a
+    Task from last week cannot read as one from this morning. */
+function taskRowTimestamp(value) {
+  if (!value) return '—';
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return '—';
+  const sameDay = new Date().toDateString() === at.toDateString();
+  return sameDay
+    ? at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : at.toLocaleDateString([], { day: 'numeric', month: 'short' });
+}
+
 function renderProjectTasks(tasks) {
   const list = document.getElementById('project-task-list');
   if (!list) return;
@@ -3733,19 +3788,25 @@ function renderProjectTasks(tasks) {
       ? `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-run="true">${action[1]}</button>`
       : `<button class="task-action" data-task-id="${escapeHTML(task.id)}" data-task-next="${action[0]}">${action[1]}</button>` : '';
     const isCurrent = task.id === current;
-    const updated = task.updatedAt ? new Date(task.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+    const updated = taskRowTimestamp(task.updatedAt);
+    /** The intent is what a human reads; the id is how a machine finds it. The
+        row is ordered the way the Project list is: identity first, the
+        traceable string after it, quieter. */
     return `<article class="task-row${isCurrent ? ' current-task' : ''}">
       <button class="task-row-select" type="button" data-task-select="${escapeHTML(task.id)}" aria-current="${isCurrent ? 'true' : 'false'}" aria-expanded="${isCurrent ? 'true' : 'false'}" aria-controls="task-detail-${escapeHTML(task.id)}">
-        <span class="task-id">${escapeHTML(task.id)}</span>
-        <span class="task-row-intent">${escapeHTML(task.intent)}</span>
-        <span class="task-row-time">${escapeHTML(updated)}</span>
+        ${activeMarkMarkup(isCurrent, 'Active task')}
+        <span class="task-row-copy">
+          <span class="task-row-intent">${escapeHTML(task.intent)}</span>
+          <span class="task-row-id">${escapeHTML(task.id)}</span>
+        </span>
+        <time class="task-row-time"${task.updatedAt ? ` datetime="${escapeHTML(task.updatedAt)}"` : ''}>${escapeHTML(updated)}</time>
         <span class="task-status ${taskStatusTone(task.status)}">${status}</span>
         <svg class="task-row-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
       </button>
+      ${actionMarkup}
       <div class="task-row-detail" id="task-detail-${escapeHTML(task.id)}"${isCurrent ? '' : ' hidden'}>
         ${isCurrent ? (taskDetailMarkup.get(task.id) ?? '<p class="task-trace-empty">Loading task evidence…</p>') : ''}
       </div>
-      ${actionMarkup}
     </article>`;
   }).join('');
 }
@@ -4043,7 +4104,9 @@ function restoreNativeWorkspaceTitle(entry) {
     shows where the row lives, and a search result spells its folders out. */
 function showWorkspaceTooltip(entry, x, y) {
   const tooltip = document.getElementById('workspace-tooltip');
-  const name = pathBaseName(entry?.dataset.filePath ?? '');
+  /** A row of the tree says its own file name; anything else says what it
+      declares. One delay, one surface, whatever needs to speak on rest. */
+  const name = entry?.dataset.hoverTitle ?? pathBaseName(entry?.dataset.filePath ?? '');
   if (!tooltip || !name || !entry.isConnected) return;
   const state = entry.dataset.workspaceState;
   const note = state ? workspaceStateLabels[state] ?? '' : '';
@@ -4069,7 +4132,7 @@ function hideWorkspaceTooltip() {
 document.addEventListener('pointerover', (event) => {
   // Touch and pen have no resting pointer to wait for.
   if (event.pointerType && event.pointerType !== 'mouse') return;
-  const entry = event.target?.closest?.('#workspace-tree .workspace-entry.file');
+  const entry = event.target?.closest?.('#workspace-tree .workspace-entry.file, [data-hover-title]');
   // Crossing the glyph and the name of the same row is not a new hover.
   if (entry && entry === workspaceTooltipEntry) return;
   hideWorkspaceTooltip();
@@ -4080,7 +4143,7 @@ document.addEventListener('pointerover', (event) => {
   workspaceTooltipTimer = setTimeout(() => showWorkspaceTooltip(entry, clientX, clientY), workspaceTooltipDelay);
 });
 document.addEventListener('pointerout', (event) => {
-  if (workspaceTooltipEntry && event.relatedTarget?.closest?.('#workspace-tree .workspace-entry.file') !== workspaceTooltipEntry) hideWorkspaceTooltip();
+  if (workspaceTooltipEntry && event.relatedTarget?.closest?.('#workspace-tree .workspace-entry.file, [data-hover-title]') !== workspaceTooltipEntry) hideWorkspaceTooltip();
 });
 document.addEventListener('pointerdown', hideWorkspaceTooltip);
 document.addEventListener('scroll', hideWorkspaceTooltip, true);

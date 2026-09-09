@@ -82,7 +82,6 @@ test("agent terminal history is a modal that reopens native agent sessions", () 
 });
 
 test("desktop startup placeholders and platform label are not macOS-specific", () => {
-  assert.match(html, /id="project-path">Project root</);
   assert.match(html, /id="status-platform">Desktop</);
   assert.doesNotMatch(html, />macOS</);
 });
@@ -468,17 +467,45 @@ test("the repository is state, never the label a human reads", () => {
   // failed there as if the CLI were missing.
   assert.doesNotMatch(main, /getElementById\('project-path'\)\?\.textContent/);
   assert.match(main, /function activeRepositoryPath/);
-  assert.match(main, /'project-path': activeProject\.repositoryPath \|\| 'No Project selected'/);
+  // The panel no longer repeats a path the selector above it already owns; the
+  // selector cannot show it whole, so it says it on rest.
+  assert.doesNotMatch(html, /id="project-path"/);
+  assert.match(main, /repositoryButton\.dataset\.hoverTitle = activeProject\.repositoryPath \?\? '';/);
+  assert.match(html, /id="repository-context-button"[^>]*data-hover-title=""/);
+  // The menu rows truncate the same path, so they say it on rest too.
+  assert.match(main, /data-project-id="\$\{escapeHTML\(project\.id\)\}" data-hover-title="\$\{escapeHTML\(project\.repositoryPath\)\}"/);
+  assert.match(main, /data-task-context-id="\$\{escapeHTML\(task\.id\)\}" data-hover-title=/);
+  // The selected row of a menu is drawn, not a check character.
+  assert.match(main, /function selectedMarkMarkup/);
+  assert.doesNotMatch(main, /aria-hidden="true">\$\{[^}]*'✓'/);
   assert.match(snapshot, /repositoryPath: ''/);
   assert.doesNotMatch(snapshot, /repositoryPath: 'Project root'/);
   // A turn without a Project says so, instead of failing as a missing CLI.
   assert.match(main, /Select a Project before sending a prompt/);
 });
 
+test("a Task row leads with its intent and carries its action on the same line", () => {
+  // The id sat first and as loud as the intent, and the action stacked under
+  // the row, so three Tasks filled the pane and one control had two languages.
+  assert.match(main, /<span class="task-row-copy">\s*\n\s*<span class="task-row-intent">/);
+  assert.match(styles, /\.task-row-id \{[^}]*color: var\(--faint\)/);
+  assert.match(styles, /\.task-row \{ display: grid; grid-template-columns: minmax\(0, 1fr\) auto;/);
+  assert.match(styles, /\.task-row \.task-action \{ grid-column: 2;/);
+  assert.doesNotMatch(styles, /\.task-row \.task-action \{ margin: 0 13px 13px; \}/);
+  // One drawn mark says "this is the active one" in both lists; the Project
+  // list had been using Unicode bullets the design system bans.
+  assert.match(main, /function activeMarkMarkup/);
+  assert.match(main, /activeMarkMarkup\(isActive, 'Active Project'\)/);
+  assert.match(main, /activeMarkMarkup\(isCurrent, 'Active task'\)/);
+  assert.doesNotMatch(main, /isActive \? '●' : '○'/);
+  // A bare time only reads as today; anything older says its date.
+  assert.match(main, /function taskRowTimestamp/);
+});
+
 test("a commit belongs to the repository it was read from", () => {
   // Switching Project kept the previous repository's selected commit, and the
   // new one was asked for an object it never had: "fatal: bad object".
-  assert.match(main, /selectedGitCommit = null;\n    gitHistoryCommits = \[\];/);
+  assert.match(main, /selectedGitCommit = null;\n    selectedGitCommitFile = null;\n    gitHistoryCommits = \[\];/);
   // A history or diff that arrives after the Project changed is discarded
   // rather than rendered against the new repository.
   assert.match(main, /let gitHistoryRequestPath = null;/);
@@ -556,7 +583,19 @@ test("a changed file is named before it is located", () => {
   // The whole path is still one hover away, and it still addresses the diff.
   assert.match(main, /title="\$\{escapeHTML\(workspaceGitRelativePath\(file\.path\)\)\}"/);
   assert.match(main, /data-git-pending-file="\$\{escapeHTML\(file\.path\)\}"/);
-  assert.match(styles, /\.git-file-name \{ flex: 0 1 auto;/);
+  assert.match(styles, /\.git-file-name \{ flex: 0 1 auto;[^}]*font-weight: 600;/);
+  // History listed whole paths and gave no sign of which file the diff showed.
+  assert.match(main, /class="git-commit-file\$\{workspaceGitRelativePath\(file\.path\) === selectedGitCommitFile \? ' active' : ''\}"/);
+  assert.match(main, /\$\{gitFileLabelMarkup\(file\)\}<\/button>/);
+  assert.match(main, /if \(selectedGitCommit\?\.hash !== hash\) selectedGitCommitFile = null;/);
+  assert.match(styles, /\.git-commit-file\.active \{ color: var\(--text\);/);
+  // The commit header spent four lines on what one says, including forty
+  // characters of hash the short one already carried.
+  assert.match(html, /id="git-commit-file-name" hidden/);
+  assert.doesNotMatch(html, /id="git-commit-hash"/);
+  assert.match(main, /meta\.textContent = `\$\{commit\.shortHash\} · \$\{commit\.author\}/);
+  assert.match(main, /meta\.title = commit\.hash;/);
+  assert.match(styles, /\.git-commit-heading \{ display: flex;/);
   assert.match(styles, /\.git-file-where \{ flex: 1 100 0;/);
 });
 
@@ -1170,7 +1209,7 @@ test("adding a Project is a labelled button, not a bare glyph", () => {
   // The catalog's primary action wears the same component as New task, and
   // says what it does instead of leaving a plus sign to imply it.
   assert.match(html, /<button class="button primary compact" type="button" data-action="add-project">New project<\/button>/);
-  assert.match(html, /<button class="button primary" type="button" data-action="new-task"/);
+  assert.match(html, /<button class="button primary compact" type="button" data-action="new-task"/);
   assert.match(html, /class="button accent compact agent-new-session"/);
   assert.doesNotMatch(styles, /\.agent-new-session[^{]*\{[^}]*(background|border-radius|font):/);
 });
