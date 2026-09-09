@@ -334,7 +334,7 @@ test("desktop shell exposes the Git context bar and Explorer search affordance",
   assert.match(main, /select_project_directory/);
   assert.match(main, /project\.register/);
   assert.match(main, /mergeActiveProject\(activeProject, response\.result\.project\)/);
-  assert.match(main, /repositoryName\.textContent = hasProject \? activeProject\.name : 'No project'/);
+  assert.match(main, /repositoryName\.textContent = hasProject \? activeProject\.name : noneLabel/);
   assert.doesNotMatch(html, /class="breadcrumb"/);
   assert.match(main, /showView\('editor'\)/);
   assert.match(html, /data-action="add-project"/);
@@ -1333,8 +1333,15 @@ test("an install with no Project says so instead of naming one", () => {
   assert.match(snapshot, /id: '',\n\s*name: '',/);
   assert.doesNotMatch(snapshot, /name: 'ADE'/);
   assert.match(main, /const hasProject = Boolean\(activeProject\.id && activeProject\.repositoryPath\)/);
-  assert.match(main, /'project-name': hasProject \? activeProject\.name : 'No project'/);
-  assert.match(main, /repositoryName\.textContent = hasProject \? activeProject\.name : 'No project'/);
+  // Project, Task and branch say "none" with the same mark, so the context row
+  // does not read as three different kinds of empty.
+  assert.match(main, /const noneLabel = '—';/);
+  assert.match(html, /id="current-repository-name">—</);
+  assert.match(html, /id="current-task-name">—</);
+  assert.match(main, /name\.textContent = selected\?\.intent \?\? noneLabel/);
+  assert.doesNotMatch(main, /'No task'/);
+  assert.match(main, /'project-name': hasProject \? activeProject\.name : noneLabel/);
+  assert.match(main, /repositoryName\.textContent = hasProject \? activeProject\.name : noneLabel/);
   // Which Project opens comes from what is registered, not from a guess.
   assert.match(main, /preferredProjectId = \(await invoke\('project_id'\)\) \|\| null;/);
   assert.match(main, /const opening = registeredProjects\.find\(\(project\) => project\.id === preferredProjectId\) \?\? registeredProjects\[0\];/);

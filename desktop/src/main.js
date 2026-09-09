@@ -137,6 +137,11 @@ let registeredProjects = [];
 let projectCatalogLoaded = false;
 /** The Project the environment names, honoured only if it is registered. */
 let preferredProjectId = null;
+/** One mark for "there is none of these", the same in every context control:
+    the branch selector already read as an em dash with no branch, and Project
+    and Task spelling it out in words made the row look like three different
+    kinds of empty. */
+const noneLabel = '—';
 let gitBranches = [];
 let gitHistoryCommits = [];
 let selectedGitCommit = null;
@@ -957,9 +962,9 @@ function renderSnapshot(snapshot) {
       Projects instead of at a workbench that is not attached to anything. */
   const hasProject = Boolean(activeProject.id && activeProject.repositoryPath);
   const values = {
-    'project-name': hasProject ? activeProject.name : 'No project',
+    'project-name': hasProject ? activeProject.name : noneLabel,
     'project-description': hasProject ? (activeProject.description ?? 'Local Assay project') : 'Register a folder in Projects to begin.',
-    'project-branch': hasProject ? currentBranch : '—',
+    'project-branch': hasProject ? currentBranch : noneLabel,
     'working-tree-state': snapshot.project.workingTree,
     'active-task-count': snapshot.metrics.activeTasks,
     'review-count': snapshot.metrics.inReview,
@@ -972,11 +977,12 @@ function renderSnapshot(snapshot) {
     if (element) element.textContent = value;
   });
   const statusBranch = document.getElementById('status-branch-name');
-  if (statusBranch) statusBranch.textContent = hasProject ? currentBranch : '—';
+  if (statusBranch) statusBranch.textContent = hasProject ? currentBranch : noneLabel;
   const repositoryName = document.getElementById('current-repository-name');
-  if (repositoryName) repositoryName.textContent = hasProject ? activeProject.name : 'No project';
+  if (repositoryName) repositoryName.textContent = hasProject ? activeProject.name : noneLabel;
+  if (repositoryButton) repositoryButton.title = hasProject ? '' : 'No Project is open';
   const branchName = document.getElementById('current-branch-name');
-  if (branchName) branchName.textContent = hasProject ? currentBranch : '—';
+  if (branchName) branchName.textContent = hasProject ? currentBranch : noneLabel;
   const branchButton = document.getElementById('branch-context-button');
   if (branchButton) {
     const branchable = hasProject && hasGit;
@@ -1089,7 +1095,7 @@ function renderTaskContext() {
   selectedTaskIntent = selected?.intent ?? '';
   void syncDocumentScope();
   const name = document.getElementById('current-task-name');
-  if (name) name.textContent = selected?.intent ?? 'No task';
+  if (name) name.textContent = selected?.intent ?? noneLabel;
   const button = document.getElementById('task-context-button');
   if (button) {
     button.disabled = false;
