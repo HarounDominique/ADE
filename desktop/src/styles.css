@@ -555,6 +555,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .agent-session-selector { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .agent-session-list { display: grid; align-content: start; min-height: 0; overflow: auto; }
 #agent-session-rail-content { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 12px; }
+.agent-sound-toggle { display: grid; width: 28px; height: 28px; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 6px; color: var(--muted); background: transparent; }
+.agent-sound-toggle:hover { color: var(--text); background: var(--panel-soft); }
+.agent-sound-toggle svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.agent-sound-toggle .agent-sound-cross { display: none; }
+.agent-sound-toggle.is-silenced { color: var(--faint); }
+.agent-sound-toggle.is-silenced .agent-sound-wave { display: none; }
+.agent-sound-toggle.is-silenced .agent-sound-cross { display: inline; }
 .agent-pressure { display: flex; margin-top: auto; padding: 11px 12px 0; gap: 14px; border-top: 1px solid var(--line); }
 .agent-pressure-dial { position: relative; display: flex; align-items: center; gap: 7px; min-width: 0; outline: none; }
 .agent-pressure-ring { position: relative; display: block; width: 20px; height: 20px; flex: 0 0 auto; border-radius: 50%; background: conic-gradient(var(--cyan) var(--pressure-angle, 0deg), color-mix(in srgb, var(--text-soft) 22%, transparent) 0); }

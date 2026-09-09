@@ -332,3 +332,16 @@ Auditoría de origen: [product-gap-audit](../docu/knowledge/product-gap-audit.md
   - Acceptance: existe un artefacto instalable reproducible y la app puede informar de que hay una versión más reciente; la instalación deja de ser un reemplazo manual del bundle.
   - Verify: `npm run desktop:smoke` y una instalación limpia verificada en macOS.
   - Files: `desktop/src-tauri/`, `scripts/`, `docu/`.
+
+## Aviso al desarrollador — 2026-09-09
+
+- [x] Task: Avisar con un tono cuando un turno termina
+  - Spec: [SPEC-desktop-shell.md](../docu/specs/SPEC-desktop-shell.md#agents) · ADR: [0046-turn-chime-and-frozen-remote-notice](../docu/adr/0046-turn-chime-and-frozen-remote-notice.md)
+  - Acceptance: un turno completado o fallido emite un tono corto; uno detenido por el operador no; el tono está encendido por defecto, se silencia desde la cabecera y la preferencia sobrevive al reinicio.
+  - Verify: `npm test` (279 tests TypeScript) y comprobación manual en el `.app`.
+  - Files: `desktop/src/main.js`, `desktop/src/index.html`, `desktop/src/styles.css`, `tests/desktop-ui-contract.test.ts`.
+
+- [ ] Task: Aviso remoto al desarrollador (congelado)
+  - ADR: [0046-turn-chime-and-frozen-remote-notice](../docu/adr/0046-turn-chime-and-frozen-remote-notice.md)
+  - Alcance registrado: casilla de aviso por turno junto a los permisos —fuera de `grantedPermissions`—, correo por SMTP con la credencial en el keychain del sistema, webhook saliente como alternativa, y contenido mínimo: Project, Task, una frase y desenlace. Sin prompts, diffs ni salida salvo opt-in explícito.
+  - Bloqueado por: no existe configuración de usuario en ADE y el correo añade dos fronteras de plataforma a las siete declaradas en [SPEC-cross-platform-support](../docu/specs/SPEC-cross-platform-support.md#platform-boundary).

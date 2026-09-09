@@ -2917,6 +2917,66 @@ function requestAgentPressure(provider = selectedProvider, sessionId = activeAge
     .catch((error) => console.warn('Agent pressure unavailable:', error));
 }
 
+/* A turn can run for a quarter of an hour, and the operator should be free to
+   leave the window. A short chime says it ended without asking them to watch a
+   spinner. It is deliberately the whole of this: reading the answer is what the
+   screen is for, and a summary of a reply that is already on screen would be
+   work nobody asked for.
+
+   It does not sound for a turn the operator stopped: they were at the machine,
+   they made it stop, and telling them so is noise. */
+const agentSoundStorageKey = 'ade-agent-sound';
+let agentSoundEnabled = readAgentSoundPreference();
+let agentAudioContext = null;
+
+function readAgentSoundPreference() {
+  try { return localStorage.getItem(agentSoundStorageKey) !== 'off'; } catch { return true; }
+}
+
+function setAgentSoundEnabled(enabled) {
+  agentSoundEnabled = enabled;
+  try { localStorage.setItem(agentSoundStorageKey, enabled ? 'on' : 'off'); } catch { /* A private window keeps the default. */ }
+  renderAgentSoundToggle();
+  notify(enabled ? 'A finished turn will chime.' : 'Turn chime silenced.');
+}
+
+function renderAgentSoundToggle() {
+  const toggle = document.getElementById('agent-sound-toggle');
+  if (!toggle) return;
+  const label = agentSoundEnabled ? 'Chime when a turn finishes. Silence it.' : 'Turn chime is silenced. Sound it.';
+  toggle.setAttribute('aria-pressed', String(agentSoundEnabled));
+  toggle.setAttribute('aria-label', label);
+  toggle.title = label;
+  toggle.classList.toggle('is-silenced', !agentSoundEnabled);
+}
+
+/** Synthesised rather than shipped as a file: two short notes need no asset, no
+    decoding and no network, and stay audible over a busy desktop. */
+function playAgentTurnChime() {
+  if (!agentSoundEnabled) return;
+  try {
+    const Context = window.AudioContext ?? window.webkitAudioContext;
+    if (!Context) return;
+    agentAudioContext = agentAudioContext ?? new Context();
+    // The webview suspends the context until a gesture; sending the prompt was one.
+    if (agentAudioContext.state === 'suspended') void agentAudioContext.resume();
+    const start = agentAudioContext.currentTime;
+    for (const [index, frequency] of [660, 880].entries()) {
+      const oscillator = agentAudioContext.createOscillator();
+      const gain = agentAudioContext.createGain();
+      const at = start + index * 0.12;
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, at);
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.12, at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.11);
+      oscillator.connect(gain).connect(agentAudioContext.destination);
+      oscillator.start(at);
+      oscillator.stop(at + 0.12);
+    }
+  } catch (error) { console.warn('Turn chime unavailable:', error); }
+}
+
 function selectAgentSession(sessionId) {
   const session = agentSessions.find((candidate) => candidate.id === sessionId);
   if (!session) return;
@@ -4237,6 +4297,9 @@ async function connectSidecar(snapshot) {
       if (response.error) {
         if (String(response.id).startsWith('agent-prompt-')) {
           pendingAgentPromptProjects.delete(String(response.id));
+          // A turn that failed ended too, and waiting for a chime that never
+          // comes is worse than hearing one and finding an error.
+          if (!agentStopRequested) playAgentTurnChime();
           agentPromptRunning = false;
           clearPendingAgentTurn();
           activeAgentRequestId = null;
@@ -4573,6 +4636,7 @@ async function connectSidecar(snapshot) {
       if (response.result?.sessionId && response.result?.provider && response.result?.status === 'COMPLETED') {
         pendingAgentPromptProjects.delete(String(response.id));
         if (response.result.pressure) applyAgentPressure(response.result.pressure);
+        playAgentTurnChime();
         activeAgentSessionId = response.result.sessionId;
         agentPromptRunning = false;
         clearPendingAgentTurn();
@@ -4958,6 +5022,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   if (item.dataset.action === 'toggle-explorer') {
     if (explorerExpanded) void collapseExplorer();
     else void expandExplorer();
+    return;
+  }
+  if (item.dataset.action === 'toggle-agent-sound') {
+    setAgentSoundEnabled(!agentSoundEnabled);
     return;
   }
   if (item.dataset.action === 'toggle-agent-rail') {
@@ -5476,6 +5544,7 @@ document.getElementById('git-pending-filter')?.addEventListener('input', (event)
   renderPendingGitChanges({ files: pendingGitFiles });
 });
 restoreHistoryPaneLayout();
+renderAgentSoundToggle();
 restoreChangesPaneLayout();
 document.getElementById('agent-provider')?.addEventListener('change', (event) => {
   selectedProvider = event.target.value;

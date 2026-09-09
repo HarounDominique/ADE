@@ -461,6 +461,22 @@ test("a run can stand as the build or tests gate, and editing it does not drop t
   assert.match(main, /configuration\.verifies && selectedTaskId \? \{ taskId: selectedTaskId \} : \{\}/);
 });
 
+test("a finished turn chimes, and a turn the operator stopped does not", () => {
+  assert.match(html, /id="agent-sound-toggle"[^>]*data-action="toggle-agent-sound"/);
+  assert.match(main, /function playAgentTurnChime/);
+  // Synthesised, so the chime needs no asset, no decoding and no network.
+  assert.match(main, /window\.AudioContext \?\? window\.webkitAudioContext/);
+  assert.doesNotMatch(main, /new Audio\(/);
+  // It sounds when the turn completes and when it fails, never when the
+  // operator stopped it themselves.
+  assert.match(main, /if \(!agentStopRequested\) playAgentTurnChime\(\);/);
+  assert.match(main, /if \(response\.result\.pressure\) applyAgentPressure\(response\.result\.pressure\);\n        playAgentTurnChime\(\);/);
+  // On by default, silenceable, and the choice survives a restart.
+  assert.match(main, /const agentSoundStorageKey = 'ade-agent-sound';/);
+  assert.match(main, /localStorage\.getItem\(agentSoundStorageKey\) !== 'off'/);
+  assert.match(styles, /\.agent-sound-toggle\.is-silenced \.agent-sound-cross \{ display: inline; \}/);
+});
+
 test("Agents shows what the session, the week and the context have left", () => {
   assert.match(html, /id="agent-pressure" role="group"/);
   assert.match(main, /function renderAgentPressure/);
