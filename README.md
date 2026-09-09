@@ -1,28 +1,37 @@
 # Assay
 
-Assay es una workstation local-first para ingeniería de software agéntica: el humano define intención y restricciones, los agentes implementan, y el sistema hace visibles los cambios, la ejecución, la verificación y la revisión.
+Assay is a local-first workstation for agentic software engineering: the human states intent and constraints, agents implement, and the system makes the changes, the execution, the verification and the review visible.
 
-El nombre nombra la postura: un *assay* es la determinación de la composición y la pureza de una muestra. Lo que un agente afirma haber hecho no es autoridad sobre lo que hizo; el código, los tests y Git lo son. El repositorio y el binario conservan `ade` como identificador técnico, y la decisión está en [ADR-0032](docu/adr/0032-product-identity.md).
+The name states the posture: an *assay* is the determination of a sample's composition and purity. What an agent claims to have done is not authority over what it did; the code, the tests and Git are. The repository and the binary keep `ade` as their technical identifier, and the decision is recorded in [ADR-0032](docu/adr/0032-product-identity.md).
 
-Este repositorio comienza deliberadamente por la documentación. La documentación es la fuente de intención y arquitectura; Git conserva el estado e historial del código; ADE conserva la metadata operativa del workflow.
+This repository deliberately starts from documentation. Documentation is the source of intent and architecture; Git holds the state and history of the code; ADE holds the operational metadata of the workflow.
 
-## Documentación
+## Documentation
 
-- [Nexus de specs](docu/specs/SPEC-NEXUS.md)
-- [Specs de módulos](docu/specs/)
-- [Índice de documentación](docu/README.md)
+- [Spec nexus](docu/specs/SPEC-NEXUS.md)
+- [Module specs](docu/specs/)
+- [Documentation index](docu/README.md)
 - [ADRs](docu/adr/)
 
-## Estado
+## Status
 
-MVP CLI y vertical desktop operables: ADE puede registrar Projects, crear y avanzar Tasks, ejecutar el flujo Implementer/Reviewer con OpenCode, persistir ChangeSets/Reviews/evidencia/gates en SQLite y aplicar aprobación humana desde Changes. Runtime incluye lifecycle mínimo de servicios locales.
+The CLI MVP and the desktop vertical are operable: ADE can register Projects, create and advance Tasks, run the Implementer/Reviewer flow with OpenCode, persist ChangeSets, Reviews, evidence and gates in SQLite, and apply human approval from Changes. The runtime includes a minimal lifecycle for local services.
 
-v0.3 quedó cerrada en macOS: incluye workspace local con terminales PTY nativas, proveedores OpenCode, Codex y Claude Code con sesiones reanudables, skills instalables con permisos por ejecución, Git/GitHub enlazado a Tasks y documentación viva con reconciliación automática. La shell actual añade navegación lateral única redimensionable (190–720 px, acotada para conservar workbench), `Projects` como catálogo mínimo con alta y retirada segura de carpetas Git/No Git, `Editor` interno, `Agents` conversacional y `Version control` con historial, cambios, diff, commit local, push y fetch. `Agents` limita conversaciones al Project activo y las agrupa por Task/General; provider, modelo y permisos se eligen junto al composer, y el turno muestra respuesta incremental más acciones públicas verificables —sin razonamiento privado—. `↑`/`↓` recorren sólo los prompts guardados de la conversación activa. En `Version control`, `Changes` usa un split real de working tree y diff dominante; `History` permite contraer sus columnas auxiliares y restaurarlas desde cabeceras accesibles, mientras los diffs se adaptan en tiempo real al ancho disponible. La interfaz evita estados simulados: `Git workspace` aparece sólo en `Version control` y el grafo documental sólo en `Context`; Tasks, tabs y diálogos son navegables por teclado. CodeMirror sirve la ruta principal y Monaco/Prettier se cargan bajo demanda. La baseline vigente (2026-09-08) es `npm test` con 246 tests TypeScript y `cargo test` con 20 tests Rust. El estado operativo por tarea vive en [tasks/todo.md](tasks/todo.md); los límites y la evidencia de cierre están en [SPEC-v0.3](docu/specs/SPEC-v0.3.md), [SPEC-file-workspace](docu/specs/SPEC-file-workspace.md), [SPEC-agent-providers](docu/specs/SPEC-agent-providers.md) y [v0.3-close](docu/releases/v0.3-close.md).
+v0.3 closed on macOS: a local workspace with native PTY terminals, the OpenCode, Codex and Claude Code providers with resumable sessions, installable skills with per-run permissions, Git/GitHub linked to Tasks, and living documentation with automatic reconciliation. The current shell adds a single resizable sidebar (190–720 px, bounded so the workbench survives), `Projects` as a minimal catalogue that adds and safely stops tracking Git and non-Git folders, an internal `Editor`, a conversational `Agents` view and `Version control` with history, changes, diff, local commit, push and fetch. `Agents` scopes conversations to the active Project and groups them by Task and General; provider, model and permissions are chosen next to the composer, and a turn shows its incremental response plus verifiable public actions — never private reasoning. `↑`/`↓` walk only the prompts saved in the active conversation. In `Version control`, `Changes` uses a real split of working tree and dominant diff; `History` can collapse its auxiliary columns and restore them from accessible headers, while diffs reflow to the available width in real time. The interface avoids simulated state: `Git workspace` appears only in `Version control` and the documentation graph only in `Context`; Tasks, tabs and dialogs are keyboard navigable. CodeMirror serves the main path and Monaco/Prettier load on demand. The current baseline (2026-09-09) is `npm test` with 261 TypeScript tests and `cargo test` with 20 Rust tests. Per-task operational state lives in [tasks/todo.md](tasks/todo.md); the boundaries and closing evidence are in [SPEC-v0.3](docu/specs/SPEC-v0.3.md), [SPEC-file-workspace](docu/specs/SPEC-file-workspace.md), [SPEC-agent-providers](docu/specs/SPEC-agent-providers.md) and [v0.3-close](docu/releases/v0.3-close.md).
 
-La lista de `Agents` incluye OpenCode, Codex y Claude Code cuando sus comandos o servicios están disponibles localmente; las sesiones se reanudan sin copiar credenciales a ADE.
-La cabecera de la conversación permite seleccionar `Provider default` o un alias compatible con el provider activo, y marcar con una estrella el modelo por defecto de ese agente; el catálogo cambia al cambiar de conversación, el default sólo siembra las conversaciones nuevas y la selección se transmite al runtime.
+The `Agents` list includes OpenCode, Codex and Claude Code when their commands or services are available locally; sessions resume without copying credentials into ADE.
+The conversation header lets you pick `Provider default` or an alias the active provider accepts, and star that agent's default model; the catalogue changes with the conversation, the default only seeds new conversations, and the selection is passed to the runtime.
+Each conversation also carries three pressure dials — session window, weekly window and context — that show only what the provider itself reports and read as unknown when it reports nothing, per [ADR-0041](docu/adr/0041-agent-pressure-dials.md).
 
-## Quick start del spike
+### Known gaps
+
+The gap between what this README promises and what the code sustains is inventoried in [product-gap-audit](docu/knowledge/product-gap-audit.md), and the work is tracked in [tasks/todo.md](tasks/todo.md). Two of them are structural today: an `Agents` turn produces no ChangeSet, evidence or gates, and the `tests` gate waits on evidence nothing writes yet. Read that audit before trusting the governance flow end to end.
+
+## Platform support
+
+macOS is the verified platform. Windows and Linux are buildable — the CI matrix is green — and neither has a recorded manual smoke run. Every platform boundary and its degree of support is declared in [SPEC-cross-platform-support](docu/specs/SPEC-cross-platform-support.md#platform-boundary); no document here claims more than CI or a recorded smoke run supports.
+
+## Quick start
 
 ```bash
 npm install
@@ -30,75 +39,121 @@ npm run build
 npm test
 ```
 
-Con OpenCode instalado y sirviendo en `127.0.0.1:4096`:
+With OpenCode installed and serving on `127.0.0.1:4096`:
 
 ```bash
-npm run dev -- /ruta/al/repositorio "Inspect the repository and report its current state without editing files."
+npm run dev -- /path/to/repository "Inspect the repository and report its current state without editing files."
 ```
 
-Ver [Spike 001](docu/spikes/001-opencode-runtime.md) y [Spike 002](docu/spikes/002-independent-review.md) para contratos, resultados y limitaciones conocidas.
+See [Spike 001](docu/spikes/001-opencode-runtime.md) and [Spike 002](docu/spikes/002-independent-review.md) for contracts, results and known limitations.
 
-El flujo integrado se ejecuta con `npm run review -- /ruta/al/repositorio "Describe the task"` cuando OpenCode está sirviendo localmente.
+The integrated flow runs with `npm run review -- /path/to/repository "Describe the task"` while OpenCode is serving locally.
 
-El Editor interno usa CodeMirror 6 (MIT) como motor principal para resaltado sintáctico, gutter de líneas, plegado, búsqueda, indentación y edición. JavaScript/TypeScript, C++, Java, PHP, Python, Rust, CSS/SCSS, HTML, JSON, Markdown, SQL, XML y YAML usan sus paquetes oficiales; Monaco Editor (MIT) se activa automáticamente como fallback para C, C#, Go, Dart, Kotlin, Ruby, Swift, Scala, Lua, Shell, PowerShell, Objective-C, F#, Elixir, Perl, R, GraphQL, Protocol Buffers y Dockerfiles. La superficie de ADE sigue siendo única aunque cambie el motor por extensión. `Format` usa Prettier (MIT) para JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown y YAML; el alcance y el inventario de licencias están en [SPEC-file-workspace](docu/specs/SPEC-file-workspace.md) y [THIRD_PARTY_LICENSES](desktop/THIRD_PARTY_LICENSES.md).
+The internal Editor uses CodeMirror 6 (MIT) as its main engine for syntax highlighting, the line gutter, folding, search, indentation and editing. JavaScript/TypeScript, C++, Java, PHP, Python, Rust, CSS/SCSS, HTML, JSON, Markdown, SQL, XML and YAML use their official packages; Monaco Editor (MIT) is activated automatically as a fallback for C, C#, Go, Dart, Kotlin, Ruby, Swift, Scala, Lua, Shell, PowerShell, Objective-C, F#, Elixir, Perl, R, GraphQL, Protocol Buffers and Dockerfiles. ADE's surface stays the same even when the engine changes with the extension. `Format` uses Prettier (MIT) for JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown and YAML; the scope and the licence inventory are in [SPEC-file-workspace](docu/specs/SPEC-file-workspace.md) and [THIRD_PARTY_LICENSES](desktop/THIRD_PARTY_LICENSES.md).
 
-El control de ejecución también inspecciona de forma no destructiva los manifiestos del Project y propone configuraciones de build, test y lint para Node, Python, Maven/Gradle, Rust, Go y .NET. ADE delega en los toolchains instalados por el repositorio —no empaqueta compiladores—, muestra su disponibilidad y versión, y no ejecuta ni guarda una propuesta hasta que el operador la acepta. El contrato y sus límites están en [SPEC-run-configurations](docu/specs/SPEC-run-configurations.md) y la decisión en [ADR-0038](docu/adr/0038-external-project-toolchains.md).
+Run control also inspects the Project's manifests non-destructively and proposes build, test and lint configurations for Node, Python, Maven/Gradle, Rust, Go and .NET. ADE delegates to the toolchains the repository already installs — it bundles no compilers — shows their availability and version, and neither runs nor saves a proposal until the operator accepts it. The contract and its limits are in [SPEC-run-configurations](docu/specs/SPEC-run-configurations.md) and the decision in [ADR-0038](docu/adr/0038-external-project-toolchains.md).
 
-La CLI permite registrar Projects y operar Tasks sin UI:
+The CLI registers Projects and drives Tasks without the UI:
 
 ```bash
-npm run ade -- project register ade ADE /ruta/al/repositorio
+npm run ade -- project register ade ADE /path/to/repository
 npm run ade -- project snapshot ade
-npm run ade -- task create task-1 "Describe la tarea" ade /ruta/al/repositorio
+npm run ade -- task create task-1 "Describe the task" ade /path/to/repository
 npm run ade -- task advance task-1 READY "Acceptance criteria recorded"
-npm run ade -- review /ruta/al/repositorio "Describe la tarea"
+npm run ade -- review /path/to/repository "Describe the task"
 ```
 
-`project snapshot` es la lectura estructurada que consume la shell desktop mediante el sidecar JSON-RPC de Tauri.
+`project snapshot` is the structured read the desktop shell consumes through Tauri's JSON-RPC sidecar.
 
-## Gate estructural con ASK
+## Modules
 
-Assay no analiza código: consume evidencia estructural de [ASK Engine](https://github.com/HarounDominique/sourcecode) por contrato y la publica como la gate `structural-gate` de una Task. El diseño está en [SPEC-structural-gate](docu/specs/SPEC-structural-gate.md) y la decisión en [ADR-0037](docu/adr/0037-structural-gate-from-ask.md).
+ADE is specified as a nexus of modules. Each one owns a contract, declares what it depends on and is cited by id; the authoritative table, with status and build order, lives in [SPEC-NEXUS](docu/specs/SPEC-NEXUS.md#modules).
 
-Requisitos: ASK instalado (`pip install sourcecode`, comando `ask`) y la skill de Project instalada. `ADE_ASK_COMMAND` fuerza un ejecutable concreto cuando conviven varios entornos.
+| Module | Spec | Responsibility |
+| --- | --- | --- |
+| `project-task-workflow` | [SPEC-project-task-workflow](docu/specs/SPEC-project-task-workflow.md) | Projects, Tasks, conversations and states |
+| `development-workflow` | [SPEC-development-workflow](docu/specs/SPEC-development-workflow.md) | Adaptive transitions, workflow skills and execution modes |
+| `agent-runtime` | [SPEC-agent-runtime](docu/specs/SPEC-agent-runtime.md) | Sessions, implementer, reviewer and the runtime port |
+| `knowledge-docs` | [SPEC-knowledge-docs](docu/specs/SPEC-knowledge-docs.md) | Documentation, skills, context and drift |
+| `changes-review-governance` | [SPEC-changes-review-governance](docu/specs/SPEC-changes-review-governance.md) | ChangeSets, Git, gates, findings and approval |
+| `local-runtime` | [SPEC-local-runtime](docu/specs/SPEC-local-runtime.md) | Services, processes, terminal, logs and tests |
+| `desktop-shell` | [SPEC-desktop-shell](docu/specs/SPEC-desktop-shell.md) | Projects, Editor, navigation and the escape hatch |
+| `workspace-core` | [SPEC-workspace-core](docu/specs/SPEC-workspace-core.md) | Native terminal, local tree, files and workspace context |
+| `agent-providers` | [SPEC-agent-providers](docu/specs/SPEC-agent-providers.md) | Agent providers, licences, sessions and permissions |
+| `native-skills` | [SPEC-native-skills](docu/specs/SPEC-native-skills.md) | Skill catalogue, installation, versioning and execution |
+| `git-collaboration` | [SPEC-git-collaboration](docu/specs/SPEC-git-collaboration.md) | Local Git, GitHub, branches, worktrees and PRs |
+| `living-knowledge` | [SPEC-living-knowledge](docu/specs/SPEC-living-knowledge.md) | Reference graph, living specs, diagrams and reconciliation |
+| `file-workspace` | [SPEC-file-workspace](docu/specs/SPEC-file-workspace.md) | Internal text editor, safe read/write and external escape hatch |
+| `cross-platform-support` | [SPEC-cross-platform-support](docu/specs/SPEC-cross-platform-support.md) | Platform boundaries, matrix verification and degrees of support |
+| `run-configurations` | [SPEC-run-configurations](docu/specs/SPEC-run-configurations.md) | Project run and debug configurations, ports and per-run console |
+| `agent-terminal-history` | [SPEC-agent-terminal-history](docu/specs/SPEC-agent-terminal-history.md) | Agent terminal history, resume by id, titles and the dock popup |
+| `structural-gate` | [SPEC-structural-gate](docu/specs/SPEC-structural-gate.md) | External structural verdict (ASK) as a citable Task gate |
+
+## Built on
+
+Assay ships as a Tauri 2 shell with a TypeScript/Node sidecar, and it exists because of permissively licensed work by other people. The full inventory, with versions and sources, is in [THIRD_PARTY_LICENSES](desktop/THIRD_PARTY_LICENSES.md).
+
+| Component | Role in Assay | Licence |
+| --- | --- | --- |
+| [Tauri 2](https://github.com/tauri-apps/tauri) (`tauri`, `tauri-build`, `tauri-plugin-opener`) | Desktop shell, window, native commands and sidecar supervision | Apache-2.0 OR MIT |
+| [portable-pty](https://github.com/wezterm/wezterm/tree/main/pty) | Native PTY behind the terminal dock | MIT |
+| [serde / serde_json](https://github.com/serde-rs/json) | JSON-RPC protocol between shell and sidecar | MIT OR Apache-2.0 |
+| [xterm.js](https://github.com/xtermjs/xterm.js) (`@xterm/xterm`, `@xterm/addon-fit`) | Terminal surface | MIT |
+| [CodeMirror 6](https://github.com/codemirror/dev) and its `@codemirror/lang-*` packages | Main editor engine and language support | MIT |
+| [Monaco Editor](https://github.com/microsoft/monaco-editor) | Editor fallback for languages without a CodeMirror package | MIT |
+| [Prettier](https://github.com/prettier/prettier) | Explicit formatting for supported languages | MIT |
+| [markdown-it](https://github.com/markdown-it/markdown-it) | Markdown rendering in the Editor | MIT |
+| [esbuild](https://github.com/evanw/esbuild) | Shell bundling | MIT |
+| [TypeScript](https://github.com/microsoft/TypeScript) and [tsx](https://github.com/privatenumber/tsx) | Sidecar and CLI language and runner | Apache-2.0 · MIT |
+| [cross-spawn](https://github.com/moxystudio/node-cross-spawn) | Portable process spawning | MIT |
+| [postject](https://github.com/nodejs/postject) | Node SEA packaging of the sidecar | MIT |
+| [Node.js](https://github.com/nodejs/node) with its built-in SQLite | Sidecar runtime and operational persistence | MIT · SQLite is public domain |
+
+Assay also depends on tools it never bundles and never wraps: Git, the toolchains each Project declares, the agent CLIs ([OpenCode](https://github.com/sst/opencode), Codex and Claude Code, each under its own terms and authenticated by their own accounts) and [ASK Engine](https://github.com/HarounDominique/sourcecode) for the structural gate. None of them is redistributed here; ADE calls what the machine already has.
+
+## Structural gate with ASK
+
+Assay does not analyse code: it consumes structural evidence from [ASK Engine](https://github.com/HarounDominique/sourcecode) by contract and publishes it as a Task's `structural-gate`. The design is in [SPEC-structural-gate](docu/specs/SPEC-structural-gate.md) and the decision in [ADR-0037](docu/adr/0037-structural-gate-from-ask.md).
+
+Requirements: ASK installed (`pip install sourcecode`, command `ask`) and the Project skill installed. `ADE_ASK_COMMAND` forces a specific executable when several environments coexist.
 
 ```bash
-# 1. instalar la skill en el Project (una vez)
-#    equivale a skills.install con source ./skills/ask-gate.json
+# 1. install the skill in the Project (once)
+#    equivalent to skills.install with source ./skills/ask-gate.json
 ```
 
 ```json
-{"id":"i1","method":"skills.install","params":{"repositoryPath":"/ruta/al/proyecto","source":"/ruta/a/ADE/skills/ask-gate.json"}}
+{"id":"i1","method":"skills.install","params":{"repositoryPath":"/path/to/project","source":"/path/to/ADE/skills/ask-gate.json"}}
 ```
 
 ```json
-{"id":"g1","method":"gate.ask","params":{"repositoryPath":"/ruta/al/proyecto","since":"origin/main","taskId":"task-1","grantedPermissions":["run_commands"]}}
+{"id":"g1","method":"gate.ask","params":{"repositoryPath":"/path/to/project","since":"origin/main","taskId":"task-1","grantedPermissions":["run_commands"]}}
 ```
 
-La respuesta trae el veredicto, los componentes implicados, la versión de ASK y el comando exacto que se ejecutó:
+The response carries the verdict, the components involved, the ASK version and the exact command that ran:
 
 ```json
 {"gate":{"id":"structural-gate","status":"pending","evidenceIds":["structural-gate-task-1-..."],"failureReason":"ASK could not decide: verify"},
  "verdict":"UNVERIFIED","exitCode":2,"since":"origin/main","unverifiedComponents":["verify"],
  "tool":{"name":"ask","version":"5.9.30","buildCommit":"793177c"},
- "command":["pack","gate","/ruta/al/proyecto","--format","json","--compact","--since","origin/main"]}
+ "command":["pack","gate","/path/to/project","--format","json","--compact","--since","origin/main"]}
 ```
 
-| Veredicto ASK | Gate de Assay | Significado |
+| ASK verdict | Assay gate | Meaning |
 |---|---|---|
-| `PASS` | `passed` | ningún componente estableció bloqueo y todos pudieron decidir |
-| `BLOCK` | `failed` | un componente estableció un cambio bloqueante |
-| `UNVERIFIED` | `pending` | no se probó nada en ninguna dirección — nunca se convierte en `passed` |
+| `PASS` | `passed` | no component established a block and all of them could decide |
+| `BLOCK` | `failed` | a component established a blocking change |
+| `UNVERIFIED` | `pending` | nothing was proven either way — it never becomes `passed` |
 
-Sin `taskId` la llamada es una lectura. Con `taskId` el veredicto se persiste como evidencia `structural.gate.*` y aparece en `change.review`. La gate es **opt-in**: un Project la exige declarándola en `.ade/policy.json`.
+Without `taskId` the call is a read. With `taskId` the verdict is persisted as `structural.gate.*` evidence and appears in `change.review`. The gate is **opt-in**: a Project requires it by declaring it in `.ade/policy.json`.
 
 ```json
 {"requiredGates":["build","tests","agent-review","documentation-review","structural-gate","human-approval"]}
 ```
 
-### El agente usa ASK por su cuenta
+### The agent uses ASK on its own
 
-Cuando el Project es Java y `ask` está instalado, el turno del agente empieza con un briefing corto de capacidades — qué es ASK, los comandos que pagan y su frontera — y el agente decide si lo usa. Nada se ejecuta en su nombre.
+When the Project is Java and `ask` is installed, the agent's turn starts with a short capability briefing — what ASK is, the commands that pay off and its boundary — and the agent decides whether to use it. Nothing runs on its behalf.
 
 ```
 [ADE] This repository is Java/Spring (pom.xml, …). ASK Engine is installed as `ask`: it answers
@@ -110,6 +165,10 @@ before re-reading the tree file by file.
 …
 ```
 
-Un repositorio sin Java no recibe briefing, y Java que sólo vive en un fixture de tests no cuenta como repositorio Java. Se desactiva con `"structuralBriefing": false` en `.ade/policy.json`. El briefing no se persiste en la conversación: se guarda el prompt del operador.
+A repository without Java receives no briefing, and Java that only lives in a test fixture does not count as a Java repository. It is switched off with `"structuralBriefing": false` in `.ade/policy.json`. The briefing is not persisted in the conversation: the operator's prompt is what gets saved.
 
-Sin ASK instalado, `gate.ask` responde `ASK_UNAVAILABLE` con la instrucción de instalación; nunca una gate aprobada. ASK responde con solvencia en repositorios Java/Spring: en otros lenguajes el veredicto habitual es `UNVERIFIED`, que es exactamente lo que la gate publica.
+Without ASK installed, `gate.ask` answers `ASK_UNAVAILABLE` with the installation instruction; never an approved gate. ASK answers confidently in Java/Spring repositories: in other languages the usual verdict is `UNVERIFIED`, which is exactly what the gate publishes.
+
+## Licence
+
+Assay is released under the [MIT licence](LICENSE). Third-party components keep their own licences, listed in [THIRD_PARTY_LICENSES](desktop/THIRD_PARTY_LICENSES.md).
