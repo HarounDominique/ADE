@@ -527,12 +527,32 @@ fn search_directory_in(
     search_directory_from_root(root, query.trim().to_lowercase())
 }
 
+/// What a file search must never spend itself on. `.git` is Git's own storage
+/// and `node_modules` is a dependency tree: neither holds a file the operator
+/// opens to edit, and in this very repository they are 63,733 of the 64,574
+/// files on disk. Walking them made a one-letter query answer with tens of
+/// thousands of matches, which the tree then tried to draw.
+const UNSEARCHED_DIRECTORIES: [&str; 2] = [".git", "node_modules"];
+
+/// Enough matches to choose from, few enough to draw. A query that reaches it
+/// says so rather than pretending it found everything there was.
+const SEARCH_RESULT_LIMIT: usize = 200;
+
 fn search_directory_from_root(
     root: PathBuf,
     needle: String,
 ) -> Result<Vec<DirectoryEntry>, String> {
     let mut entries = Vec::new();
     collect_matching_files(&root, 0, &needle, &mut entries)?;
+    // A file whose *name* matches is what was being looked for; one that
+    // matches only through a directory in its path is a neighbour of it. The
+    // first kind comes first, and shallower before deeper, so the limit cuts
+    // the least useful matches rather than an arbitrary slice.
+    entries.sort_by_key(|entry| {
+        let named = !entry.name.to_lowercase().contains(&needle);
+        (named, entry.depth, entry.path.to_lowercase())
+    });
+    entries.truncate(SEARCH_RESULT_LIMIT);
     Ok(entries)
 }
 
@@ -554,6 +574,9 @@ fn collect_matching_files(
         let entry_path = entry.path();
         let file_type = entry.file_type().map_err(|error| error.to_string())?;
         if file_type.is_dir() {
+            if UNSEARCHED_DIRECTORIES.contains(&entry.file_name().to_string_lossy().as_ref()) {
+                continue;
+            }
             collect_matching_files(&entry_path, depth + 1, needle, entries)?;
             continue;
         }
@@ -1134,7 +1157,7 @@ pub fn run() {
 mod tests {
     use super::{
         list_directory_in, open_document_in, open_file_in, open_local_url, open_terminal_in,
-        project_context_for, search_directory_in,
+        project_context_for, search_directory_in, SEARCH_RESULT_LIMIT,
         read_file_in, start_terminal_pty, terminal_exec_in, write_file_in, SidecarSupervisor,
         WorkspaceRoot, MAX_FILE_PREVIEW_BYTES,
     };
@@ -1288,6 +1311,50 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "notes.md");
         assert_eq!(entries[0].kind, "file");
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn search_directory_skips_what_nobody_edits_and_leads_with_name_matches() {
+        let root = fixture_root("search-directory-noise");
+        fs::create_dir_all(root.join("node_modules/left-pad")).expect("create dependency");
+        fs::create_dir_all(root.join(".git/objects")).expect("create git storage");
+        fs::create_dir_all(root.join("src/deep/deeper")).expect("create nested source");
+        fs::write(root.join("node_modules/left-pad/index.js"), "dep").expect("create dependency file");
+        fs::write(root.join(".git/objects/index"), "object").expect("create git object");
+        fs::write(root.join("src/deep/deeper/index-helper.ts"), "deep").expect("create deep file");
+        fs::write(root.join("index.ts"), "shallow").expect("create shallow file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select project");
+
+        let entries = search_directory_in(&workspace, &root.to_string_lossy(), "index")
+            .expect("search files");
+
+        // A dependency tree and Git's own storage are not places a file is
+        // edited, and here they would have doubled the answer.
+        assert!(entries.iter().all(|entry| !entry.path.contains("node_modules")));
+        assert!(entries.iter().all(|entry| !entry.path.contains(".git")));
+        // The shallower name match leads; the deeper one follows.
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].name, "index.ts");
+        assert_eq!(entries[1].name, "index-helper.ts");
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn search_directory_stops_at_a_drawable_number_of_matches() {
+        let root = fixture_root("search-directory-limit");
+        fs::create_dir_all(&root).expect("create fixture");
+        for index in 0..(SEARCH_RESULT_LIMIT + 40) {
+            fs::write(root.join(format!("match-{index}.txt")), "x").expect("create file");
+        }
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select project");
+
+        let entries = search_directory_in(&workspace, &root.to_string_lossy(), "match")
+            .expect("search files");
+
+        assert_eq!(entries.len(), SEARCH_RESULT_LIMIT);
         fs::remove_dir_all(root).expect("remove fixture");
     }
 

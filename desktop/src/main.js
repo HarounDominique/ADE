@@ -43,6 +43,9 @@ let documentDirty = false;
 let explorerExpanded = false;
 let workspaceSearchToken = 0;
 let workspaceSearchTimer = null;
+/** What the native search stops at, so the tree can say the list was cut
+    rather than let it read as the whole answer. */
+const workspaceSearchLimit = 200;
 const terminalResizer = document.getElementById('terminal-resizer');
 const terminalSizeToggle = document.getElementById('terminal-size-toggle');
 const terminalDock = document.getElementById('terminal-dock-panel');
@@ -4079,7 +4082,13 @@ async function searchWorkspaceFiles(query) {
   try {
     const matches = await invoke('search_directory', { path: workspaceRootPath, query: needle });
     if (token !== workspaceSearchToken) return;
-    tree.innerHTML = matches.length ? matches.map((entry) => renderWorkspaceEntry(entry, '', { showPathHint: true })).join('') : '<li class="workspace-empty">No matching files.</li>';
+    /** The search stops at a number the tree can draw. A list that quietly ends
+        would read as "there is nothing else", which is a different answer. */
+    const capped = matches.length >= workspaceSearchLimit;
+    tree.innerHTML = matches.length
+      ? matches.map((entry) => renderWorkspaceEntry(entry, '', { showPathHint: true })).join('')
+        + (capped ? `<li class="workspace-search-capped">First ${workspaceSearchLimit} matches. Narrow the filter to see the rest.</li>` : '')
+      : '<li class="workspace-empty">No matching files.</li>';
     decorateWorkspaceTree();
     setWorkspaceSearchLoading(false);
   } catch (error) {
@@ -4111,7 +4120,7 @@ function scheduleWorkspaceFileSearch(query) {
   workspaceSearchTimer = window.setTimeout(() => {
     if (token !== workspaceSearchToken) return;
     void searchWorkspaceFiles(query);
-  }, 100);
+  }, 140);
 }
 
 async function renderCompactWorkspacePath(rootEntries, filePath, invoke) {
