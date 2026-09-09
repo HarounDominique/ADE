@@ -838,6 +838,7 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
       store.saveAgentSession({ id: session.id, ...(projectId ? { projectId } : {}), ...(taskId ? { taskId } : {}), provider, directory: params.repositoryPath!, title, ...(typeof params.model === "string" ? { model: params.model } : {}), status: "RUNNING", createdAt });
     }
     process.stdout.write(`${JSON.stringify({ type: "agent.started", id: request.id, sessionId: session.id, provider, taskId: taskId ?? null, title })}\n`);
+    const startedAtMs = Date.now();
     const eventTexts: string[] = [];
     const activity: Array<{ label: string; detail?: string; kind: "status" | "tool" }> = [];
     const streamState: AgentStreamState = { snapshots: new Map() };
@@ -846,8 +847,13 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     const recordAgentEvent = (event: import("./ports/agent-runtime.js").RuntimeEvent) => {
       const item = summarizeAgentActivity(event);
       if (item && !activity.some((candidate) => candidate.label === item.label && candidate.detail === item.detail)) {
-        activity.push(item);
-        process.stdout.write(`${JSON.stringify({ type: "agent.activity", id: request.id, sessionId: session.id, item })}\n`);
+        /** A provider announces a tool call before it knows what it is about and
+            again once it does. The second is the same action, better told, so it
+            replaces the first instead of standing beside it. */
+        const vague = item.detail ? activity.findIndex((candidate) => candidate.label === item.label && !candidate.detail) : -1;
+        if (vague >= 0) activity.splice(vague, 1, item);
+        else activity.push(item);
+        process.stdout.write(`${JSON.stringify({ type: "agent.activity", id: request.id, sessionId: session.id, item, ...(vague >= 0 ? { replaces: vague } : {}) })}\n`);
       }
       const delta = extractAgentOutputDelta(provider, event.payload, streamState);
       if (delta) process.stdout.write(`${JSON.stringify({ type: "agent.output", id: request.id, sessionId: session.id, text: delta })}\n`);
@@ -877,7 +883,6 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     store.saveAgentSession({ id: session.id, ...(projectId ? { projectId } : {}), ...(taskId ? { taskId } : {}), provider, directory: params.repositoryPath!, title, ...(typeof params.model === "string" ? { model: params.model } : {}), status: "COMPLETED", createdAt });
     store.saveAgentMessage({ id: `agent-${request.id}-user`, sessionId: session.id, role: "user", content: params.prompt!, createdAt });
     const output = provider === "codex" ? extractCodexText(rawOutput) : provider === "claude" ? extractClaudeText(rawOutput) : streamState.output?.trim() || eventTexts.join("\n\n").trim();
-    if (output) store.saveAgentMessage({ id: `agent-${request.id}-assistant`, sessionId: session.id, role: "assistant", content: output, createdAt: new Date().toISOString() });
     /** Routing a cheap turn to a cheap model is only worth doing once the turns
         are counted, so every completed turn records what the provider charged
         for it. A provider that reports nothing -- OpenCode today -- records
@@ -886,6 +891,26 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     if (usage) store.saveAgentTurnUsage({ id: `agent-${request.id}-usage`, sessionId: session.id, provider, ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), ...usage, createdAt: new Date().toISOString() });
     let files: readonly import("./ports/agent-runtime.js").FileDiff[] = [];
     try { files = await runtime.diff(session); } catch { /* A provider may not expose a diff for this turn. */ }
+    /** The answer is what the conversation reads; the trace is what makes it
+        checkable. Keeping them together is the whole point of the product, and
+        a transcript that remembers only the reply throws the evidence away. */
+    if (output) {
+      store.saveAgentMessage({
+        id: `agent-${request.id}-assistant`,
+        sessionId: session.id,
+        role: "assistant",
+        content: output,
+        createdAt: new Date().toISOString(),
+        trace: {
+          provider,
+          ...(typeof params.model === "string" && params.model ? { model: params.model } : {}),
+          durationMs: Date.now() - startedAtMs,
+          ...(activity.length ? { activity } : {}),
+          ...(files.length ? { files: files as ReadonlyArray<{ path?: string; additions?: number; deletions?: number }> } : {}),
+          ...(usage ? { usage } : {}),
+        },
+      });
+    }
     /** A turn that changed the repository under a Task enters the governance
         pipeline whichever provider ran it: the ChangeSet, the evidence and the
         Task's own progress no longer depend on `task.run` and OpenCode. */

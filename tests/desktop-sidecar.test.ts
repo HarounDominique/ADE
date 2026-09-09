@@ -586,3 +586,11 @@ test("what a conversation measured follows it to the id the provider gives it", 
   assert.equal(readAgentPressure(store, "claude", "claude-pending-abc").context, undefined);
   store.close();
 });
+
+test("a tool announced twice is one action, told the better way", () => {
+  const sidecar = readFileSync(new URL("../src/desktop-sidecar.ts", import.meta.url), "utf8");
+  // Claude Code announces a tool call before it knows the file and again once
+  // it does, which listed the same read twice: once blind, once with the path.
+  assert.match(sidecar, /const vague = item\.detail \? activity\.findIndex\(\(candidate\) => candidate\.label === item\.label && !candidate\.detail\) : -1;/);
+  assert.match(sidecar, /if \(vague >= 0\) activity\.splice\(vague, 1, item\);/);
+});

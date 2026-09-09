@@ -2765,6 +2765,36 @@ function pendingTurnMarkup() {
     <li class="agent-message agent-message-assistant agent-message-pending" aria-live="polite"><div class="agent-message-meta"><strong>${provider}</strong><span class="agent-thinking"><span class="agent-thinking-dot" aria-hidden="true"></span>${waiting}</span><time id="agent-turn-elapsed">0s</time></div>${agentStreamingOutputMarkup()}${agentActivityMarkup()}</li>`;
 }
 
+/** A finished turn keeps what it did, not only what it said. The reply is what
+    the conversation reads; unfolding it shows the commands, the files and the
+    cost that produced it, which is the evidence a developer needs and every
+    other CLI throws away when the spinner stops. */
+function agentTraceMarkup(message) {
+  const trace = message.trace;
+  if (!trace) return '';
+  const activity = (trace.activity ?? []).map((item) => `<li class="agent-activity-item agent-activity-${escapeHTML(item.kind ?? 'status')}"><span>${escapeHTML(item.label)}</span>${item.detail ? `<code>${escapeHTML(item.detail)}</code>` : ''}</li>`).join('');
+  const files = (trace.files ?? []).map((file) => `<li class="agent-trace-file"><code>${escapeHTML(pathBaseName(file.path ?? '') || file.path || 'file')}</code><small>${escapeHTML(pathSegments(file.path ?? '').slice(0, -1).join('/'))}</small><span class="agent-trace-diffstat">${typeof file.additions === 'number' ? `+${file.additions}` : ''} ${typeof file.deletions === 'number' ? `−${file.deletions}` : ''}</span></li>`).join('');
+  const facts = [
+    trace.provider ? `${trace.provider}${trace.model ? ` · ${trace.model}` : ''}` : '',
+    typeof trace.durationMs === 'number' ? `${Math.max(1, Math.round(trace.durationMs / 1000))}s` : '',
+    trace.usage ? `${formatTokens(trace.usage.inputTokens + trace.usage.cacheReadInputTokens + trace.usage.cacheCreationInputTokens)} in · ${formatTokens(trace.usage.outputTokens)} out` : '',
+    typeof trace.usage?.costUsd === 'number' ? `$${trace.usage.costUsd.toFixed(4)}` : '',
+  ].filter(Boolean);
+  if (!facts.length && !activity && !files) return '';
+  /** A turn that answered from what it already knew has nothing to unfold. An
+      expander that opens onto emptiness is worse than no expander: the facts
+      still belong to the answer, so they stay, flat. */
+  if (!activity && !files) return `<p class="agent-trace-flat">${escapeHTML(facts.join(' · '))}</p>`;
+  const counts = [
+    (trace.activity ?? []).length ? `${trace.activity.length} action${trace.activity.length === 1 ? '' : 's'}` : '',
+    (trace.files ?? []).length ? `${trace.files.length} file${trace.files.length === 1 ? '' : 's'}` : '',
+  ].filter(Boolean).join(' · ');
+  return `<details class="agent-trace"><summary><span class="agent-trace-summary-label">${escapeHTML(counts || 'Trace')}</span><span class="agent-trace-facts">${escapeHTML(facts.join(' · '))}</span></summary>
+    ${activity ? `<h4 class="agent-trace-heading">Activity</h4><ol class="agent-activity-trace">${activity}</ol>` : ''}
+    ${files ? `<h4 class="agent-trace-heading">Files touched</h4><ul class="agent-trace-files">${files}</ul>` : ''}
+  </details>`;
+}
+
 function renderAgentMessages(messages) {
   const list = document.getElementById('agent-message-list');
   if (!list) return;
@@ -2773,7 +2803,7 @@ function renderAgentMessages(messages) {
     list.innerHTML = '<li class="agent-empty-state">Send a prompt to begin.</li>';
     return;
   }
-  list.innerHTML = messages.map((message) => `<li class="agent-message agent-message-${escapeHTML(message.role)}"><div class="agent-message-meta"><strong>${escapeHTML(message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Agent' : 'Assay')}</strong><time>${escapeHTML(new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time><button class="agent-message-copy" type="button" data-copy-message="${escapeHTML(message.id)}" aria-label="Copy this message" title="Copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="agent-copy-label">Copy</span></button></div><div class="agent-message-content">${escapeHTML(message.content)}</div></li>`).join('');
+  list.innerHTML = messages.map((message) => `<li class="agent-message agent-message-${escapeHTML(message.role)}"><div class="agent-message-meta"><strong>${escapeHTML(message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Agent' : 'Assay')}</strong><time>${escapeHTML(new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time><button class="agent-message-copy" type="button" data-copy-message="${escapeHTML(message.id)}" aria-label="Copy this message" title="Copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="agent-copy-label">Copy</span></button></div><div class="agent-message-content">${escapeHTML(message.content)}</div>${agentTraceMarkup(message)}</li>`).join('');
   list.innerHTML += pendingTurnMarkup();
   list.scrollTop = list.scrollHeight;
 }

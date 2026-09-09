@@ -486,6 +486,24 @@ test("a commit belongs to the repository it was read from", () => {
   assert.match(main, /contextPurpose === 'git-diff' && gitDiffRequestPath === workspaceRootPath/);
 });
 
+test("a finished answer can be unfolded into what produced it", () => {
+  assert.match(main, /function agentTraceMarkup/);
+  // The reply is what the conversation reads; the trace is what makes it
+  // checkable, and it is kept rather than discarded when the spinner stops.
+  assert.match(main, /\$\{agentTraceMarkup\(message\)\}<\/li>/);
+  assert.match(main, /<details class="agent-trace">/);
+  // A turn that answered from what it knew has nothing to unfold, so it keeps
+  // the facts flat instead of offering an expander onto emptiness.
+  assert.match(main, /if \(!activity && !files\) return `<p class="agent-trace-flat">/);
+  // The summary advertises what is inside rather than saying only "Trace".
+  assert.match(main, /\$\{trace\.activity\.length\} action/);
+  assert.match(main, /Files touched/);
+  assert.match(main, /trace\.usage\.inputTokens \+ trace\.usage\.cacheReadInputTokens/);
+  // A disclosure, so it opens with the keyboard as well as the pointer.
+  assert.match(styles, /\.agent-trace > summary \{ display: flex;/);
+  assert.match(styles, /\.agent-trace\[open\] \.agent-trace-summary-label::before \{ transform: rotate\(90deg\); \}/);
+});
+
 test("a finished turn chimes, and a turn the operator stopped does not", () => {
   assert.match(html, /id="agent-sound-toggle"[^>]*data-action="toggle-agent-sound"/);
   assert.match(main, /function playAgentTurnChime/);

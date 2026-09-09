@@ -54,7 +54,19 @@ export type PersistedReview = {
 export type PersistedRuntimeEvidence = RuntimeEvidence;
 export type GitOperation = { id: string; taskId: string; operation: string; reference?: string; actor: string; reason: string; at: string; metadata?: string };
 export type AgentSession = { id: string; projectId?: string; taskId?: string; provider: string; directory: string; title?: string; model?: string; status: string; createdAt: string; updatedAt: string };
-export type AgentMessage = { id: string; sessionId: string; role: "user" | "assistant" | "system"; content: string; createdAt: string };
+/** What the turn did, kept with the answer it produced. A conversation that
+    only remembers the reply throws away the evidence a developer needs: which
+    commands ran, which files moved, what it cost. */
+export type AgentTurnTrace = {
+  provider?: string;
+  model?: string;
+  durationMs?: number;
+  activity?: ReadonlyArray<{ label: string; detail?: string; kind: string }>;
+  files?: ReadonlyArray<{ path?: string; additions?: number; deletions?: number }>;
+  usage?: { inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; costUsd?: number };
+};
+
+export type AgentMessage = { id: string; sessionId: string; role: "user" | "assistant" | "system"; content: string; createdAt: string; trace?: AgentTurnTrace };
 export type AgentTurnUsage = { id: string; sessionId: string; provider: string; model?: string; inputTokens: number; outputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; costUsd?: number; createdAt: string };
 export type TerminalHistorySession = { id: string; projectId: string; provider: "claude" | "codex" | "opencode"; title: string; transcript: string; truncated: boolean; startedAt: string; endedAt: string; providerSessionId?: string | undefined };
 
@@ -191,6 +203,7 @@ export class AdeStore {
     this.migrateChangeSets();
     this.migrateProjects();
     this.migrateAgentSessions();
+    this.migrateAgentMessages();
     this.migrateTerminalHistorySessions();
   }
 
@@ -198,6 +211,13 @@ export class AdeStore {
     const columns = this.db.prepare("PRAGMA table_info(tasks)").all() as Array<{ name: string }>;
     if (!columns.some((column) => column.name === "project_id")) this.db.exec("ALTER TABLE tasks ADD COLUMN project_id TEXT");
     if (!columns.some((column) => column.name === "repository_path")) this.db.exec("ALTER TABLE tasks ADD COLUMN repository_path TEXT");
+  }
+
+  /** Conversations recorded before the trace was kept simply have none, and
+      must stay readable rather than be rewritten. */
+  private migrateAgentMessages(): void {
+    const columns = this.db.prepare("PRAGMA table_info(agent_messages)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "trace")) this.db.exec("ALTER TABLE agent_messages ADD COLUMN trace TEXT");
   }
 
   private migrateAgentSessions(): void {
@@ -465,7 +485,8 @@ export class AdeStore {
   }
 
   saveAgentMessage(input: Omit<AgentMessage, "createdAt"> & { createdAt?: string }): void {
-    this.db.prepare(`INSERT INTO agent_messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content = excluded.content`).run(input.id, input.sessionId, input.role, input.content, input.createdAt ?? new Date().toISOString());
+    const trace = input.trace ? JSON.stringify(input.trace) : null;
+    this.db.prepare(`INSERT INTO agent_messages (id, session_id, role, content, created_at, trace) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content = excluded.content, trace = COALESCE(excluded.trace, agent_messages.trace)`).run(input.id, input.sessionId, input.role, input.content, input.createdAt ?? new Date().toISOString(), trace);
   }
 
   /** One row per completed turn. A turn the provider did not account for has
@@ -516,7 +537,12 @@ export class AdeStore {
   }
 
   listAgentMessages(sessionId: string): AgentMessage[] {
-    return this.db.prepare(`SELECT id, session_id AS sessionId, role, content, created_at AS createdAt FROM agent_messages WHERE session_id = ? ORDER BY created_at ASC, id ASC`).all(sessionId) as AgentMessage[];
+    const rows = this.db.prepare(`SELECT id, session_id AS sessionId, role, content, created_at AS createdAt, trace FROM agent_messages WHERE session_id = ? ORDER BY created_at ASC, id ASC`).all(sessionId) as Array<AgentMessage & { trace: string | null }>;
+    return rows.map(({ trace, ...message }) => {
+      if (!trace) return message;
+      /** A trace that cannot be read is not worth failing the conversation for. */
+      try { return { ...message, trace: JSON.parse(trace) as AgentTurnTrace }; } catch { return message; }
+    });
   }
 
   saveApproval(input: { taskId: string; actor: string; reason: string; at?: string }): void {

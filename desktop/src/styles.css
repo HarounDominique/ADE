@@ -555,6 +555,22 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .agent-session-selector { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .agent-session-list { display: grid; align-content: start; min-height: 0; overflow: auto; }
 #agent-session-rail-content { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 12px; }
+.agent-trace-flat { margin: 9px 0 0; color: var(--muted); font: 11px var(--mono); }
+.agent-trace { margin-top: 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel-soft); }
+.agent-trace > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; color: var(--muted); font: 11px var(--mono); cursor: pointer; list-style: none; }
+.agent-trace > summary::-webkit-details-marker { display: none; }
+.agent-trace > summary:hover, .agent-trace[open] > summary { color: var(--text-soft); }
+.agent-trace-summary-label::before { display: inline-block; margin-right: 6px; content: '▸'; transition: transform 140ms ease-out; }
+.agent-trace[open] .agent-trace-summary-label::before { transform: rotate(90deg); }
+.agent-trace-facts { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-trace-heading { margin: 10px 10px 5px; color: var(--muted); font: 10px var(--mono); font-weight: 600; text-transform: uppercase; }
+.agent-trace-files { margin: 0; padding: 0 10px 10px; list-style: none; }
+.agent-trace-file { display: flex; align-items: baseline; gap: 8px; min-width: 0; padding: 3px 0; font-size: 12px; }
+.agent-trace-file code { min-width: 0; overflow: hidden; color: var(--text-soft); text-overflow: ellipsis; white-space: nowrap; }
+.agent-trace-file small { min-width: 0; flex: 1 100 0; overflow: hidden; color: var(--faint); font: 10px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.agent-trace-diffstat { color: var(--muted); font: 10px var(--mono); white-space: nowrap; }
+.agent-trace .agent-activity-trace { margin: 0; padding: 0 10px 10px 26px; }
+@media (prefers-reduced-motion: reduce) { .agent-trace-summary-label::before { transition: none; } }
 .agent-sound-toggle { display: grid; width: 28px; height: 28px; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 6px; color: var(--muted); background: transparent; }
 .agent-sound-toggle:hover { color: var(--text); background: var(--panel-soft); }
 .agent-sound-toggle svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }

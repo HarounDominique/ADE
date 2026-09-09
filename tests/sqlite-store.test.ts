@@ -180,3 +180,35 @@ test("SQLite records what each agent turn cost and sums the session", () => {
   assert.deepEqual(store.agentSessionUsage("session-usage"), { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUsd: 0 });
   store.close();
 });
+
+test("an answer keeps what the turn did, and an older one stays readable without it", () => {
+  const store = new AdeStore();
+  store.saveAgentSession({ id: "session-trace", provider: "claude", directory: "/tmp/project", status: "COMPLETED", createdAt: "2026-09-09T10:00:00.000Z" });
+  store.saveAgentMessage({ id: "message-1", sessionId: "session-trace", role: "user", content: "Change the readme" });
+  store.saveAgentMessage({
+    id: "message-2",
+    sessionId: "session-trace",
+    role: "assistant",
+    content: "Done.",
+    trace: {
+      provider: "claude",
+      model: "opus",
+      durationMs: 12_000,
+      activity: [{ label: "Running command", detail: "npm test", kind: "tool" }],
+      files: [{ path: "README.md", additions: 3, deletions: 1 }],
+      usage: { inputTokens: 40, outputTokens: 120, cacheReadInputTokens: 2_400, cacheCreationInputTokens: 0, costUsd: 0.0125 },
+    },
+  });
+
+  const [prompt, answer] = store.listAgentMessages("session-trace");
+  // A conversation that remembers only the reply throws the evidence away.
+  assert.equal(answer?.trace?.activity?.[0]?.detail, "npm test");
+  assert.equal(answer?.trace?.files?.[0]?.additions, 3);
+  assert.equal(answer?.trace?.usage?.costUsd, 0.0125);
+  assert.equal(prompt?.trace, undefined);
+
+  // Editing the content later must not drop the trace it already carried.
+  store.saveAgentMessage({ id: "message-2", sessionId: "session-trace", role: "assistant", content: "Done, twice." });
+  assert.equal(store.listAgentMessages("session-trace")[1]?.trace?.model, "opus");
+  store.close();
+});
