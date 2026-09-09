@@ -1256,3 +1256,18 @@ test("what a turn cost is read where the work is, and silence is not zero", () =
   // A turn is the unit that gets accounted for, so a turn ending refreshes it.
   assert.match(main, /requestAgentUsage\(activeAgentSessionId\);/);
 });
+
+test("the app says which version it is and whether a newer one exists", () => {
+  // Installing was replacing a bundle by hand, and the app could not tell it
+  // was out of date because nothing ever asked.
+  assert.match(html, /<span class="status-version" id="status-version">Assay<\/span>/);
+  assert.match(main, /function renderAppVersion/);
+  assert.match(main, /method: 'app\.update\.check', params: \{ currentVersion: version \}/);
+  assert.match(main, /window\.__TAURI__\?\.app\?\.getVersion/);
+  assert.match(styles, /\.status-version\[data-update="true"\] \{ color: var\(--amber\)/);
+  // Saying it is the whole of it: the shell never downloads or replaces itself.
+  assert.doesNotMatch(main, /sidecar_request[^\n]*app\.update\.(install|download)/);
+  // Unreachable and unconfigured are said as themselves, not as being current.
+  assert.match(main, /Could not reach the release feed/);
+  assert.match(main, /No release feed is configured for this install/);
+});

@@ -2,3 +2,6 @@ node_modules/
 dist/
 .DS_Store
 .ade/*.db
+# Built installers and their manifest: artifacts, not sources. Anchored,
+# because a bare pattern would also swallow src/application/release.
+/release/

@@ -15,6 +15,7 @@
     "desktop:test": "npm test",
     "desktop:package": "npm run desktop:sidecar:build && npm --prefix desktop run tauri build",
     "desktop:package:app": "npm run desktop:sidecar:build && npm --prefix desktop run tauri build -- --bundles app",
+    "desktop:release": "node scripts/package-desktop-release.mjs",
     "desktop:smoke": "node scripts/smoke-desktop-bundle.mjs",
     "desktop:sidecar": "tsx src/desktop-sidecar.ts",
     "desktop:sidecar:build": "node scripts/build-desktop-sidecar.mjs"

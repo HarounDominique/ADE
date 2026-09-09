@@ -27,6 +27,7 @@ import { runNativeSkill } from "./application/skills/run-skill.js";
 import { askGateEvidenceType, askGateSummary, evaluateAskGate } from "./application/gates/ask-gate.js";
 import { captureTurnChangeSet } from "./application/agents/capture-turn-change-set.js";
 import { CheckpointBlockedError, captureTurnCheckpoint, restoreTaskCheckpoint } from "./application/agents/task-checkpoints.js";
+import { checkForUpdate } from "./application/release/update-check.js";
 import { turnWrites } from "./application/agents/turn-checkpoint.js";
 import { askBriefing, composeAgentPrompt } from "./application/structural-context/ask-briefing.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
@@ -54,7 +55,7 @@ import { resolveProviderSessionId } from "./application/terminal-history/provide
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
+  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
 };
 
 export type DesktopResponse = {
@@ -325,6 +326,17 @@ export async function runDesktopSidecar(): Promise<void> {
           void restoreTaskCheckpoint(store, { checkpointId: params.checkpointId, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true })
             .then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { checkpointId: result.checkpoint.id, taskId: result.checkpoint.taskId, commit: result.checkpoint.commit, restored: result.restored, removed: result.removed, undoCommit: result.previousCommit } })}\n`))
             .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: checkpointError(error) })}\n`));
+        }
+      } else if (request.method === "app.update.check") {
+        const params = request.params;
+        if (!params?.currentVersion) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "currentVersion is required" } })}\n`);
+        else {
+          /** Assay says a newer version exists; it never fetches or replaces
+              itself. The feed is a release asset of the project, and the
+              operator can point it elsewhere with ADE_UPDATE_FEED_URL. */
+          void checkForUpdate({ currentVersion: params.currentVersion, ...(params.feedUrl !== undefined ? { feedUrl: params.feedUrl } : process.env.ADE_UPDATE_FEED_URL !== undefined ? { feedUrl: process.env.ADE_UPDATE_FEED_URL } : {}) })
+            .then((update) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { update } })}\n`))
+            .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "UPDATE_CHECK_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
         }
       } else if (request.method === "agent.usage") {
         const { sessionId, taskId } = request.params ?? {};

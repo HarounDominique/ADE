@@ -36,9 +36,19 @@ La verificación de plataforma no se delega a la intuición ni a la lectura del 
 
 **Estado a 2026-09-06:** macOS `verificada` (secuencia local verde y aplicación arrancada a mano). Windows y Linux `construibles` (matriz verde el 2026-09-06, sin smoke manual). El PTY en Windows no está cubierto ni siquiera por la matriz.
 
+## Distribution and update
+
+macOS tiene artefacto instalable. `npm run desktop:release` construye el bundle y produce un `.dmg` con `hdiutil` —no con el `bundle_dmg.sh` de Tauri, que falla en este entorno— llevando dentro la aplicación y un enlace a `/Applications`: instalar es arrastrar, no reemplazar un bundle a mano. La versión sale de un único sitio, `desktop/src-tauri/tauri.conf.json`, y de ahí toman su nombre el artefacto y el manifiesto.
+
+Junto al artefacto se escribe `latest.json` con producto, versión, fecha, notas y, por artefacto, plataforma, arquitectura, fichero, tamaño y `sha256`. Es el mismo fichero que la aplicación lee al arrancar para comparar su versión con la publicada.
+
+Assay avisa de que existe una versión más reciente y ahí termina: no descarga, no se reemplaza y no ejecuta nada. Sin conexión, sin publicar o con un manifiesto ilegible se dice como tal y nunca como "al día". El feed por defecto es un asset de release del repositorio y se sustituye con `ADE_UPDATE_FEED_URL`. La decisión vive en [ADR-0050](../adr/0050-installable-artifact-and-update-notice.md).
+
+El artefacto no está firmado ni notarizado; una instalación limpia verá la advertencia de Gatekeeper. Windows y Linux siguen sin artefacto propio: el script lo dice y falla en vez de fingir soporte.
+
 ## Out of scope
 
-Empaquetado firmado y distribución por plataforma (`.dmg`, instalador MSI/NSIS, AppImage o paquetes de distribución), instaladores automáticos, actualización remota, soporte de arquitecturas distintas de x86-64 y ARM64 donde el runner no las ofrezca, y paridad visual pixel a pixel entre sistemas.
+Empaquetado firmado y notarizado, instaladores de Windows y Linux (MSI/NSIS, AppImage o paquetes de distribución), actualización automática —descarga y reemplazo del bundle por la propia aplicación—, publicación automatizada de releases, soporte de arquitecturas distintas de x86-64 y ARM64 donde el runner no las ofrezca, y paridad visual pixel a pixel entre sistemas.
 
 Tampoco entra abstraer Git: Assay seguirá invocando el `git` del sistema y exigiendo que esté en `PATH`.
 
@@ -51,6 +61,7 @@ Tampoco entra abstraer Git: Assay seguirá invocando el `git` del sistema y exig
 5. ⏳ Un smoke manual en Windows registra que la ventana abre, la terminal responde y el escape hatch abre fichero y terminal.
 6. ⏳ La autorización del workspace se comporta igual en las tres plataformas, incluidos los prefijos UNC de Windows.
 7. ✅ La documentación nombra el grado de soporte real de cada plataforma.
+8. ✅ macOS produce un artefacto instalable con un comando, con su `sha256` declarado, y la aplicación informa de que existe una versión más reciente sin actualizarse sola.
 
 ## Verification
 
@@ -59,6 +70,8 @@ npm run desktop:sidecar:build
 npm test
 cargo test --manifest-path desktop/src-tauri/Cargo.toml
 npm --prefix desktop run build
+npm run desktop:release   # macOS: bundle, .dmg y latest.json
+npm run desktop:smoke
 ```
 
 ## Open Questions

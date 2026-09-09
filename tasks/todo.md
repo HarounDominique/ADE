@@ -329,11 +329,12 @@ Auditoría de origen: [product-gap-audit](../docu/knowledge/product-gap-audit.md
   - Files: `src/persistence/sqlite-store.ts`, `src/application/task-detail.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `desktop/src/index.html`, `desktop/src/styles.css`, `tests/agent-usage-totals.test.ts`.
   - Abierto: OpenCode sigue sin exponer consumo en su seam, de modo que sus conversaciones se leen como no contabilizadas.
 
-- [ ] Task: Resolver distribución y actualización del `.app` (G8)
-  - Spec: [SPEC-cross-platform-support.md](../docu/specs/SPEC-cross-platform-support.md)
+- [x] Task: Resolver distribución y actualización del `.app` (G8)
+  - Spec: [SPEC-cross-platform-support.md](../docu/specs/SPEC-cross-platform-support.md#distribution-and-update) · ADR: [0050-installable-artifact-and-update-notice](../docu/adr/0050-installable-artifact-and-update-notice.md)
   - Acceptance: existe un artefacto instalable reproducible y la app puede informar de que hay una versión más reciente; la instalación deja de ser un reemplazo manual del bundle.
-  - Verify: `npm run desktop:smoke` y una instalación limpia verificada en macOS.
-  - Files: `desktop/src-tauri/`, `scripts/`, `docu/`.
+  - Verify: `npm test` (314 tests TypeScript, siete nuevos sobre orden de versiones, feed publicado, feed inalcanzable y forma del script), `npm run desktop:release` sobre el bundle real —`.dmg` montado y comprobado: `Assay.app` con su sidecar y enlace a `/Applications`— y `npm run desktop:smoke`.
+  - Files: `scripts/package-desktop-release.mjs`, `src/application/release/update-check.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `desktop/src/index.html`, `desktop/src/styles.css`, `package.json`, `tests/app-release.test.ts`.
+  - Abierto: el artefacto no está firmado ni notarizado, Windows y Linux siguen sin artefacto propio y publicar la release sigue siendo manual.
 
 ## Aviso al desarrollador — 2026-09-09
 

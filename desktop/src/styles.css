@@ -1605,6 +1605,10 @@ body { color: var(--text); }
 .task-row-detail { padding: 0 13px 13px; border-top: 1px solid var(--line); margin-top: -1px; }
 .task-row-detail[hidden] { display: none; }
 .task-detail-summary { margin: 12px 0 8px; color: var(--muted); font-size: 12px; }
+/* The installed version, and whether a newer one has been published. It stays
+   as quiet as the rest of the status bar until there is something to say. */
+.status-version { color: var(--faint); }
+.status-version[data-update="true"] { color: var(--amber); }
 .task-detail-usage { margin: 0 0 8px; color: var(--muted); font: 11px var(--mono); }
 .task-detail-usage strong { color: var(--text-soft); font-weight: 500; }
 /* The empty state is the whole list, not a card floating inside it. */

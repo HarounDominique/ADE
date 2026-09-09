@@ -76,11 +76,13 @@ Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se 
 
 **Cerrado el 2026-09-09** por [ADR-0049](../adr/0049-turn-cost-read-where-the-work-is.md): el consumo se lee por turno en su traza, por conversación bajo los diales del rail y por Task en su detalle, con la cache dicha aparte de la entrada. Una unidad sin contabilidad —OpenCode hoy— se muestra como desconocida y nunca como cero, y un total con turnos sin precio dice de cuántos turnos habla.
 
-## G8 — Instalar y actualizar es manual
+## G8 — Instalar y actualizar es manual *(cerrado el 2026-09-09)*
 
 **Qué pasa.** El `.dmg` sigue diferido por el fallo de `bundle_dmg.sh` del entorno y no hay mecanismo de actualización: instalar una versión nueva es reemplazar el bundle a mano en `/Applications`.
 
 **Consecuencia de producto.** Cada iteración cuesta una operación manual y no hay forma de saber, desde la app, si está desactualizada.
+
+**Cerrado el 2026-09-09** por [ADR-0050](../adr/0050-installable-artifact-and-update-notice.md): `npm run desktop:release` produce el `.dmg` con `hdiutil` —con enlace a `/Applications` dentro— y un `latest.json` con la versión y el `sha256`; la aplicación compara su versión con ese manifiesto al arrancar y avisa. No se actualiza sola: descargar e instalar sigue siendo del operador, y el artefacto no está firmado.
 
 ## Orden propuesto
 
@@ -91,7 +93,7 @@ Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se 
 | ~~P1~~ | ~~G4 + G5~~ | Cerrado el 2026-09-09 — [ADR-0045](../adr/0045-ship-the-approved-task.md) |
 | ~~P1~~ | ~~G6~~ | Cerrado el 2026-09-09 — [ADR-0048](../adr/0048-checkpoint-before-a-writing-turn.md) |
 | ~~P2~~ | ~~G7~~ | Cerrado el 2026-09-09 — [ADR-0049](../adr/0049-turn-cost-read-where-the-work-is.md) |
-| P2 | G8 | Fricción de distribución, no de producto |
+| ~~P2~~ | ~~G8~~ | Cerrado el 2026-09-09 — [ADR-0050](../adr/0050-installable-artifact-and-update-notice.md) |
 
 ## Fuera de alcance de esta auditoría
 
@@ -99,4 +101,4 @@ Retrieval semántico, cloud, colaboración en tiempo real, editor completo y enr
 
 ## Riesgo de documentación
 
-`PRODUCT.md` y `SPEC-NEXUS` describen el flujo completo como capacidad disponible. Con G1 a G5 cerrados el 2026-09-09 esa afirmación se sostiene de la intención al commit atribuido; con G6 cerrado el mismo día la reversibilidad del turno deja de depender de la disciplina del operador; y con G7 el coste del trabajo agéntico deja de ser invisible; lo que sigue abierto es la distribución (G8). En un producto cuyo argumento es la verificabilidad, esa distancia es el riesgo más caro del inventario y se corrige nombrándola, no parcheándola en silencio.
+`PRODUCT.md` y `SPEC-NEXUS` describen el flujo completo como capacidad disponible. Con G1 a G5 cerrados el 2026-09-09 esa afirmación se sostiene de la intención al commit atribuido; con G6 cerrado el mismo día la reversibilidad del turno deja de depender de la disciplina del operador; y con G7 el coste del trabajo agéntico deja de ser invisible; y con G8 instalar deja de ser un reemplazo manual del bundle; el inventario queda cerrado, con la firma del artefacto y la retención de checkpoints como trabajo declarado y no como hueco oculto. En un producto cuyo argumento es la verificabilidad, esa distancia es el riesgo más caro del inventario y se corrige nombrándola, no parcheándola en silencio.

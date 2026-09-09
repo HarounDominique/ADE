@@ -116,6 +116,8 @@ let agentRailCollapsed = false;
     accounted for -- which is not the same as zero. */
 let agentSessionUsage = null;
 let agentUsageRequestId = null;
+let appVersion = null;
+let appUpdateRequestId = null;
 const agentGroupExpansion = new Map();
 const agentPromptHistoryByConversation = new Map();
 const runtimeEvents = [];
@@ -4778,6 +4780,12 @@ async function connectSidecar(snapshot) {
         applyAgentPressure(response.result);
         return;
       }
+      if (response.id && String(response.id) === String(appUpdateRequestId) && response.result?.update) {
+        renderAppVersion(appVersion, response.result.update);
+        // Being told once is enough; the status bar keeps saying it afterwards.
+        if (response.result.update.status === 'UPDATE_AVAILABLE') notify(`Assay ${response.result.update.latestVersion} is available. This install is ${response.result.update.currentVersion}.`);
+        return;
+      }
       if (response.id && String(response.id) === String(agentUsageRequestId) && response.result) {
         // A late answer for a conversation the operator has already left would
         // price the wrong one, so only the conversation asked about is priced.
@@ -5021,10 +5029,40 @@ async function connectSidecar(snapshot) {
     });
     await invoke('sidecar_start');
     await requestSnapshot();
+    void checkForAppUpdate(invoke);
   } catch (error) {
     setSyncState('failed', 'Local snapshot unavailable');
     console.warn('Sidecar unavailable:', error);
   }
+}
+
+/** Assay says which version it is and whether a newer one has been published.
+    It does not download or replace itself: the artifact is installed by the
+    operator, and an application that rewrites its own bundle behind them is
+    not what this product is for. */
+function renderAppVersion(version, update) {
+  const host = document.getElementById('status-version');
+  if (!host) return;
+  const newer = update?.status === 'UPDATE_AVAILABLE';
+  host.textContent = newer ? `Assay ${version} · ${update.latestVersion} available` : `Assay ${version}`;
+  host.dataset.update = newer ? 'true' : 'false';
+  host.title = newer
+    ? `Assay ${update.latestVersion} has been published${update.artifact ? ` (${update.artifact.file}, sha256 ${update.artifact.sha256.slice(0, 12)}…)` : ''}${update.notes ? `\n${update.notes}` : ''}`
+    : update?.status === 'UNREACHABLE' ? `Could not reach the release feed: ${update.message}`
+    : update?.status === 'UNCONFIGURED' ? 'No release feed is configured for this install'
+    : `Assay ${version} is the newest published version`;
+}
+
+async function checkForAppUpdate(invoke) {
+  const version = await window.__TAURI__?.app?.getVersion?.().catch(() => null);
+  if (!version) return;
+  renderAppVersion(version, null);
+  if (!invoke) return;
+  const requestId = `app-update-${Date.now()}`;
+  appUpdateRequestId = requestId;
+  appVersion = version;
+  await invoke('sidecar_request', { request: JSON.stringify({ id: requestId, method: 'app.update.check', params: { currentVersion: version } }) })
+    .catch((error) => console.warn('Update check unavailable:', error));
 }
 
 async function createTaskFromUI(intent) {
