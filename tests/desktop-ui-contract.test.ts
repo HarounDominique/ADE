@@ -1430,23 +1430,32 @@ test("the document window carries an editor and none of the shell", () => {
 });
 
 test("a tab dragged out of the window becomes its own window", () => {
-  // The webview's own drag ended with an animation and nothing else: what it
-  // reports about a drop that left the window cannot be relied on. A captured
-  // pointer keeps sending the release past the window edge, which is the one
-  // fact this gesture needs.
+  // Two earlier attempts failed in this webview: the HTML drag animated the tab
+  // and reported nothing usable, and pointer events never arrived at all. Mouse
+  // events are what it sends, and macOS keeps routing them to the window that
+  // took the press until the button is released.
   assert.match(main, /data-document-drag-id="\$\{escapeHTML\(record\.id\)\}"/);
   assert.doesNotMatch(main, /draggable="true"/);
-  assert.match(main, /documentTabStrip\?\.addEventListener\('pointerdown'/);
-  assert.match(main, /tab\.setPointerCapture\?\.\(event\.pointerId\);/);
-  assert.match(main, /documentTabStrip\?\.addEventListener\('pointerup', finishTabDrag\);/);
-  assert.match(main, /record\.kind === 'text' && record\.state === 'ready'/);
+  assert.doesNotMatch(main, /addEventListener\('pointerdown'[^)]*\)[\s\S]{0,200}data-document-drag-id/);
+  assert.match(main, /documentTabStrip\?\.addEventListener\('mousedown'/);
+  assert.match(main, /document\.addEventListener\('mouseup', finishTabDrag, true\);/);
+  assert.match(main, /document\.removeEventListener\('mouseup', finishTabDrag, true\);/);
+  // Every tab can be picked up. Whether it can go is answered when it lands,
+  // because a tab that refuses to be lifted teaches the operator nothing.
+  assert.match(main, /if \(record && record\.state !== 'ready'\) \{ notify\(`\$\{record\.name\} is still being read\.`\); return; \}/);
+  assert.match(main, /if \(record && record\.kind !== 'text'\) \{ notify\(`\$\{record\.name\} cannot be edited in its own window\.`\); return; \}/);
+  // Otherwise the webview starts its own drag, or a text selection, over ours.
+  assert.match(main, /event\.preventDefault\(\);\s*\n\s*tabDragState = \{/);
   // A press that never travelled is a click, not a drag.
-  assert.match(main, /if \(!state\.dragging \|\| event\?\.type === 'pointercancel'\) return;/);
-  assert.match(main, /const travelled = Math\.hypot/);
+  assert.match(main, /if \(!state\.dragging\) return;/);
+  assert.match(main, /Math\.hypot\(event\.clientX - tabDragState\.startX/);
+  // A release outside the window may carry no coordinates, so the last place
+  // the cursor was seen stands in for it.
+  assert.match(main, /const screenX = Number\.isFinite\(event\?\.screenX\) && event\.screenX !== 0 \? event\.screenX : state\.screenX;/);
   // There is still no "dropped outside" event: the release is compared against
   // the window's bounds, in the units the window actually reports.
   assert.match(main, /async function droppedOutsideWindow/);
-  assert.match(main, /const x = event\.screenX \* scale;/);
+  assert.match(main, /const x = screenX \* scale;/);
   assert.match(main, /currentWindow\.scaleFactor\(\)/);
   // Bounds it cannot read mean no detach, and it says so rather than failing
   // silently: losing a tab by accident is worse than a gesture that does nothing.

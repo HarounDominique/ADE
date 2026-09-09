@@ -1796,6 +1796,11 @@ async function detachDocument(documentId) {
   const record = documentTabById(documentId ?? activeDocumentId);
   const filePath = record?.path ?? activeDocument?.path;
   if (!filePath) { notify('Open a file before moving it to its own window.'); return; }
+  /** Whether a file can go is decided here rather than by withholding the
+      gesture: a tab that refuses to be picked up teaches nothing, and a tab
+      still being read is a state that passes on its own in a moment. */
+  if (record && record.state !== 'ready') { notify(`${record.name} is still being read.`); return; }
+  if (record && record.kind !== 'text') { notify(`${record.name} cannot be edited in its own window.`); return; }
   const existing = detachedDocuments.get(filePath);
   if (existing) {
     /** Already open elsewhere: the operator is pointed at that window rather
@@ -1924,8 +1929,7 @@ function renderDocumentTabs() {
     // Delete closes the focused tab, which is how the close control stays
     // reachable without adding a second stop to the roving tab order.
     const hint = dirty ? `${location} — unsaved changes` : location;
-    const draggable = record.kind === 'text' && record.state === 'ready';
-    return `<div class="${classes}" role="presentation"${draggable ? ` data-document-drag-id="${escapeHTML(record.id)}"` : ''}><button class="document-tab-button" type="button" role="tab" id="document-tab-${escapeHTML(record.id)}" aria-selected="${active}" aria-controls="document-viewer-body" tabindex="${active ? '0' : '-1'}" data-document-tab-id="${escapeHTML(record.id)}" title="${hint}"><span class="document-tab-name">${name}</span>${where ? `<span class="document-tab-where">${escapeHTML(where)}</span>` : ''}</button><button class="document-tab-close" type="button" tabindex="-1" data-document-close-id="${escapeHTML(record.id)}" aria-label="Close ${name}${dirty ? ', discarding unsaved changes' : ''}" title="Close ${name}"><span class="document-tab-dot" aria-hidden="true"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>`;
+    return `<div class="${classes}" role="presentation" data-document-drag-id="${escapeHTML(record.id)}"><button class="document-tab-button" type="button" role="tab" id="document-tab-${escapeHTML(record.id)}" aria-selected="${active}" aria-controls="document-viewer-body" tabindex="${active ? '0' : '-1'}" data-document-tab-id="${escapeHTML(record.id)}" title="${hint}"><span class="document-tab-name">${name}</span>${where ? `<span class="document-tab-where">${escapeHTML(where)}</span>` : ''}</button><button class="document-tab-close" type="button" tabindex="-1" data-document-close-id="${escapeHTML(record.id)}" aria-label="Close ${name}${dirty ? ', discarding unsaved changes' : ''}" title="Close ${name}"><span class="document-tab-dot" aria-hidden="true"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>`;
   }).join('');
   updateDocumentTabsOverflow();
   decorateWorkspaceTree();
@@ -5728,12 +5732,17 @@ documentTabStrip?.addEventListener('click', (event) => {
 });
 /** Dragging a tab out of the window opens it in a window of its own.
 
-    This is tracked with pointer events rather than the webview's own drag: the
-    HTML drag ended with an animation and nothing else, because what `dragend`
-    reports about a drop that left the window is not something this webview can
-    be relied on for. A captured pointer keeps sending moves and the release
-    even once the cursor is past the window edge, which is exactly the fact the
-    gesture needs, and it is the same mechanism the panel resizers already use.
+    Two earlier attempts failed in this webview and are worth naming, because
+    both looked correct. The HTML drag animated the tab and then reported
+    nothing usable when the drop landed outside. Pointer events never arrived
+    at all -- the same clicks that select a tab were being delivered, so the
+    gesture was listening for something this WebView does not send.
+
+    Mouse events are what it does send. macOS routes them to the window that
+    received the press until the button is released, so the release still
+    arrives after the cursor has left the window, which is the one fact this
+    gesture needs. The listeners live on the document rather than the strip,
+    because by then the cursor is nowhere near it.
 
     There is still no "dropped outside" event: the release position is compared
     against the window's own bounds. If those cannot be read, nothing happens --
@@ -5742,42 +5751,48 @@ documentTabStrip?.addEventListener('click', (event) => {
 let tabDragState = null;
 const tabDragThreshold = 6;
 
-documentTabStrip?.addEventListener('pointerdown', (event) => {
+function trackTabDrag(event) {
+  if (!tabDragState) return;
+  tabDragState.screenX = event.screenX;
+  tabDragState.screenY = event.screenY;
+  if (tabDragState.dragging) return;
+  if (Math.hypot(event.clientX - tabDragState.startX, event.clientY - tabDragState.startY) < tabDragThreshold) return;
+  tabDragState.dragging = true;
+  tabDragState.tab.classList.add('carrying');
+}
+
+function finishTabDrag(event) {
+  const state = tabDragState;
+  tabDragState = null;
+  document.removeEventListener('mousemove', trackTabDrag, true);
+  document.removeEventListener('mouseup', finishTabDrag, true);
+  if (!state) return;
+  state.tab.classList.remove('carrying');
+  // A press that never travelled is a click, and clicking a tab selects it.
+  if (!state.dragging) return;
+  /** A release outside the window can report no coordinates of its own, so the
+      last place the cursor was seen stands in for it. */
+  const screenX = Number.isFinite(event?.screenX) && event.screenX !== 0 ? event.screenX : state.screenX;
+  const screenY = Number.isFinite(event?.screenY) && event.screenY !== 0 ? event.screenY : state.screenY;
+  void droppedOutsideWindow(screenX, screenY).then((outside) => {
+    if (outside) void detachDocument(state.documentId);
+  });
+}
+
+documentTabStrip?.addEventListener('mousedown', (event) => {
   if (event.button !== 0 || event.target.closest('[data-document-close-id]')) return;
   const tab = event.target.closest('[data-document-drag-id]');
   if (!tab) return;
-  tabDragState = { pointerId: event.pointerId, documentId: tab.dataset.documentDragId, startX: event.clientX, startY: event.clientY, tab, dragging: false };
-  tab.setPointerCapture?.(event.pointerId);
+  // Otherwise the webview starts a text selection, or its own drag, over ours.
+  event.preventDefault();
+  tabDragState = { documentId: tab.dataset.documentDragId, startX: event.clientX, startY: event.clientY, screenX: event.screenX, screenY: event.screenY, tab, dragging: false };
+  document.addEventListener('mousemove', trackTabDrag, true);
+  document.addEventListener('mouseup', finishTabDrag, true);
 });
 
-documentTabStrip?.addEventListener('pointermove', (event) => {
-  if (!tabDragState || event.pointerId !== tabDragState.pointerId) return;
-  if (tabDragState.dragging) return;
-  const travelled = Math.hypot(event.clientX - tabDragState.startX, event.clientY - tabDragState.startY);
-  if (travelled < tabDragThreshold) return;
-  tabDragState.dragging = true;
-  tabDragState.tab.classList.add('carrying');
-});
-
-const finishTabDrag = (event) => {
-  const state = tabDragState;
-  if (!state || (event?.pointerId !== undefined && event.pointerId !== state.pointerId)) return;
-  tabDragState = null;
-  state.tab.classList.remove('carrying');
-  state.tab.releasePointerCapture?.(state.pointerId);
-  // A press that never travelled is a click, and clicking a tab selects it.
-  if (!state.dragging || event?.type === 'pointercancel') return;
-  void droppedOutsideWindow(event).then((outside) => {
-    if (outside) void detachDocument(state.documentId);
-  });
-};
-
-documentTabStrip?.addEventListener('pointerup', finishTabDrag);
-documentTabStrip?.addEventListener('pointercancel', finishTabDrag);
-
-async function droppedOutsideWindow(event) {
+async function droppedOutsideWindow(screenX, screenY) {
   const currentWindow = window.__TAURI__?.window?.getCurrentWindow?.();
-  if (!currentWindow) return false;
+  if (!currentWindow || !Number.isFinite(screenX) || !Number.isFinite(screenY)) return false;
   try {
     const [position, size, scale] = await Promise.all([
       currentWindow.outerPosition(),
@@ -5786,8 +5801,8 @@ async function droppedOutsideWindow(event) {
     ]);
     // Screen coordinates arrive in CSS pixels and the window reports physical
     // ones, which are the same number only at a scale factor of 1.
-    const x = event.screenX * scale;
-    const y = event.screenY * scale;
+    const x = screenX * scale;
+    const y = screenY * scale;
     return x < position.x || y < position.y || x > position.x + size.width || y > position.y + size.height;
   } catch (error) {
     notify('Assay could not tell where the tab was dropped, so it stayed put.');
