@@ -9,6 +9,7 @@ const snapshot = readFileSync(new URL("../desktop/src/project-snapshot.js", impo
 const components = readFileSync(new URL("../desktop/src/components.css", import.meta.url), "utf8");
 const codeEditor = readFileSync(new URL("../desktop/src/code-editor.js", import.meta.url), "utf8");
 const paths = readFileSync(new URL("../desktop/src/paths.js", import.meta.url), "utf8");
+const nativeShell = readFileSync(new URL("../desktop/src-tauri/src/lib.rs", import.meta.url), "utf8");
 const editorWindow = readFileSync(new URL("../desktop/src/editor-window.js", import.meta.url), "utf8");
 const editorWindowHtml = readFileSync(new URL("../desktop/src/editor-window.html", import.meta.url), "utf8");
 const editorCapability = JSON.parse(readFileSync(new URL("../desktop/src-tauri/capabilities/editor-window.json", import.meta.url), "utf8")) as { windows: string[]; permissions: string[] };
@@ -1458,4 +1459,20 @@ test("a tab carried off the strip becomes its own window", () => {
   // Any tab can leave, not only the one in front.
   assert.match(main, /async function detachDocument\(documentId\)/);
   assert.match(main, /if \(documentId && documentId !== activeDocumentId\) await activateDocumentTab\(documentId\);/);
+});
+
+test("the Explorer filter searches the operator's files, not their dependencies", () => {
+  // A one-letter query walked the whole tree — in this repository that is
+  // 64,574 files, of which 63,733 are .git and node_modules — and the tree then
+  // tried to draw every match. The filter looked like it had stopped working.
+  assert.match(nativeShell, /const UNSEARCHED_DIRECTORIES: \[&str; 2\] = \[".git", "node_modules"\];/);
+  assert.match(nativeShell, /if UNSEARCHED_DIRECTORIES\.contains\(&entry\.file_name\(\)\.to_string_lossy\(\)\.as_ref\(\)\) \{\s*\n\s*continue;/);
+  assert.match(nativeShell, /const SEARCH_RESULT_LIMIT: usize = 200;/);
+  assert.match(nativeShell, /entries\.truncate\(SEARCH_RESULT_LIMIT\);/);
+  // A name match is what was being looked for; a path match is its neighbour.
+  assert.match(nativeShell, /let named = !entry\.name\.to_lowercase\(\)\.contains\(&needle\);/);
+  // A list that quietly ends would read as "there is nothing else".
+  assert.match(main, /const capped = matches\.length >= workspaceSearchLimit;/);
+  assert.match(main, /First \$\{workspaceSearchLimit\} matches\. Narrow the filter to see the rest\./);
+  assert.match(styles, /\.workspace-search-capped \{/);
 });

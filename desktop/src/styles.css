@@ -1621,6 +1621,8 @@ body { color: var(--text); }
    now share the ground colour; menus, dialogs, inputs and raised toolbars keep
    the lighter tone, because something that floats has to differ from what it
    floats over. */
+/* A search that was cut says so where the list ends. */
+.workspace-search-capped { padding: 8px 12px; color: var(--faint); font: 11px var(--mono); }
 /* A tab can be carried off the strip, so it says so under the pointer, fades
    in place, and something follows the cursor: the webview's own drag image
    came with an approach that did not work, and a gesture with nothing under
