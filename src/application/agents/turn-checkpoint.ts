@@ -64,6 +64,8 @@ export type CheckpointRestore = {
   commit: string;
   restored: number;
   removed: readonly string[];
+  /** Files the turn added that the filesystem would not let go of. */
+  locked?: readonly string[];
   previous: TurnCheckpoint;
 };
 
@@ -84,10 +86,24 @@ export async function restoreTurnCheckpoint(
     const checkpointFiles = new Set(splitZ(await git(["ls-tree", "-r", "-z", "--name-only", input.commit], directory)));
     const currentFiles = splitZ(await git(["ls-files", "-z", "-c", "-o", "--exclude-standard"], directory));
     const removed = currentFiles.filter((path) => !checkpointFiles.has(path));
-    for (const path of removed) await rm(join(directory, path), { force: true });
+    /** Windows refuses to delete a file another program holds open, and a
+        restore that stops at the first locked file leaves the tree in a state
+        that is neither the checkpoint nor what the turn produced. It removes
+        what it can, and names what it could not. */
+    const locked: string[] = [];
+    for (const path of removed) {
+      try { await rm(join(directory, path), { force: true }); }
+      catch { locked.push(path); }
+    }
     await git(["read-tree", input.commit], directory, indexFile);
     await git(["checkout-index", "-a", "-f"], directory, indexFile);
-    return { commit: input.commit, restored: checkpointFiles.size, removed, previous };
+    return {
+      commit: input.commit,
+      restored: checkpointFiles.size,
+      removed: removed.filter((path) => !locked.includes(path)),
+      ...(locked.length ? { locked } : {}),
+      previous,
+    };
   } catch (error: unknown) {
     throw new CheckpointUnavailableError(error instanceof Error ? error.message : String(error));
   } finally {

@@ -4847,7 +4847,10 @@ async function connectSidecar(snapshot) {
         return;
       }
       if (response.result?.checkpointId && response.result?.undoCommit) {
-        notify(`Working tree restored${response.result.removed?.length ? `, ${response.result.removed.length} file${response.result.removed.length === 1 ? '' : 's'} removed` : ''}.`);
+        /** A file another program holds open cannot be removed — common on
+            Windows — so the restore says what it could not undo rather than
+            reporting a clean one. */
+        notify(`Working tree restored${response.result.removed?.length ? `, ${response.result.removed.length} file${response.result.removed.length === 1 ? '' : 's'} removed` : ''}.${response.result.locked?.length ? ` ${response.result.locked.length} file${response.result.locked.length === 1 ? ' is' : 's are'} held open by another program and stayed.` : ''}`);
         requestTaskDetail(response.result.taskId);
         if (workspaceRootPath) void refreshGitWorkspace(workspaceRootPath, nativeInvoke);
         return;

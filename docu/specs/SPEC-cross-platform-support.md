@@ -10,7 +10,7 @@ macOS es hoy la plataforma verificada. Windows es objetivo de primer orden. Linu
 
 ## Platform boundary
 
-Assay toca el sistema operativo en siete sitios, y sólo en esos siete. Cualquier código nuevo que necesite un octavo es una señal de que la frontera se está filtrando.
+Assay toca el sistema operativo en nueve sitios, y sólo en esos nueve. Cualquier código nuevo que necesite un décimo es una señal de que la frontera se está filtrando. Las dos últimas se añadieron al revisar la paridad del trabajo de 2026-09-09: no eran fronteras nuevas del producto, eran dos sitios donde el código asumía macOS sin decirlo.
 
 1. **Escape hatch al escritorio.** Abrir un fichero, un documento o una terminal en la aplicación del sistema, y elegir una carpeta con el selector nativo. `open` y `osascript` en macOS, `cmd /C start` y un `FolderBrowserDialog` de PowerShell en Windows, `xdg-open` y `zenity` en Linux. Cancelar debe ser indistinguible de no elegir nada, aunque el selector de la plataforma lo comunique con un código de salida distinto de cero.
 2. **Shell interactiva del PTY.** Fuera de Windows, el `$SHELL` del usuario como sesión de login e interactiva, con `/bin/sh` como reserva cuando no está declarado o no existe; `cmd` en Windows. El PTY en sí es `portable_pty`, ya multiplataforma.
@@ -24,6 +24,10 @@ Assay toca el sistema operativo en siete sitios, y sólo en esos siete. Cualquie
 
 7. **Grafía de rutas en la shell.** Tauri devuelve rutas con el separador de la plataforma, así que ninguna comparación ni troceo puede asumir `/`. La shell las trata con helpers que aceptan ambos separadores; un `split('/')` o un prefijo con barra fija es un defecto, y un test de contrato lo impide.
 
+8. **Comparación de rutas escritas por una persona.** Un operador teclea el separador que lee, y en Windows la ruta en disco lleva el otro. Toda comparación entre lo tecleado y lo que el sistema almacena se hace en una sola grafía —minúsculas y `/`—, no en la del disco. Vale también para los nombres de directorio que la búsqueda salta: Windows los escribe como se crearon.
+
+9. **Borrado de ficheros que otro programa tiene abiertos.** Windows lo impide donde macOS lo permite. Una operación que borra varios ficheros —restaurar un checkpoint— borra los que puede y nombra los que no, en vez de detenerse en el primero y dejar el árbol en un estado que no es ni el de antes ni el de después.
+
 Queda además sin resolver la canonización de rutas del workspace en el lado nativo. `WorkspaceRoot::resolve` compara con `starts_with` sobre rutas canónicas, y en Windows la canonización produce prefijos UNC (`\\?\C:\…`). Está descrito en Open Questions porque no puede decidirse sin ejecutar en Windows.
 
 ## Verification strategy
@@ -33,6 +37,8 @@ La verificación de plataforma no se delega a la intuición ni a la lectura del 
 - **CI por matriz.** `windows-latest` y `ubuntu-latest` ejecutan la misma secuencia: instalar dependencias, construir el sidecar, `npm test`, compilar el bundle, `cargo test` y compilar el shell. macOS queda fuera de la matriz deliberadamente: es la plataforma de desarrollo, se verifica en local en cada cambio, y en un repositorio privado su runner se factura al décuplo de las plataformas que la matriz existe para cubrir.
 - **Lo que CI cubre y lo que no.** CI demuestra que compila, que los tests pasan y que el script de construcción del sidecar funciona en esa plataforma. No demuestra que la ventana abra, que el PTY se comporte ni que el escape hatch haga lo que promete: eso exige un smoke manual por plataforma.
 - **Grados de soporte.** Una plataforma es `verificada` cuando su secuencia está verde y existe un smoke manual registrado; `construible` cuando sólo lo está la secuencia; `no verificada` en cualquier otro caso. La documentación debe nombrar el grado, nunca insinuar más.
+
+El gesto de separar una pestaña arrastrándola se apoya en eventos de ratón y se juzga contra el rectángulo de la barra de pestañas, no contra los límites de la ventana, así que no depende de que el sistema siga enrutando el ratón más allá del borde. Está ejercitado en macOS.
 
 **Estado a 2026-09-06:** macOS `verificada` (secuencia local verde y aplicación arrancada a mano). Windows y Linux `construibles` (matriz verde el 2026-09-06, sin smoke manual). El PTY en Windows no está cubierto ni siquiera por la matriz.
 
@@ -54,7 +60,7 @@ Tampoco entra abstraer Git: Assay seguirá invocando el `git` del sistema y exig
 
 ## Acceptance criteria
 
-1. ⏳ Las siete fronteras de plataforma están detrás de `cfg(target_os)` o de una comprobación explícita, sin rutas ni comandos de un sistema concreto en el camino común. Seis lo están, incluidos el selector de carpetas y la grafía de rutas en la shell; la detección de proveedores sigue asumiendo la ruta de macOS y la canonización nativa sigue abierta.
+1. ⏳ Las nueve fronteras de plataforma están detrás de `cfg(target_os)` o de una comprobación explícita, sin rutas ni comandos de un sistema concreto en el camino común. Ocho lo están, incluidos el selector de carpetas y la grafía de rutas en la shell; la detección de proveedores sigue asumiendo la ruta de macOS y la canonización nativa sigue abierta.
 2. ✅ CI ejecuta la matriz en cada push y su resultado es visible; macOS se verifica en local por la decisión de coste registrada arriba.
 3. ✅ `windows-latest` compila el shell, construye el sidecar y pasa los tests Rust y TypeScript, con el test del PTY excluido en esa plataforma.
 4. ✅ `ubuntu-latest` hace lo mismo, sin exclusiones.
