@@ -1428,3 +1428,23 @@ test("the document window carries an editor and none of the shell", () => {
   assert.match(desktopBuild, /entryPoints: \['src\/main\.js', 'src\/editor-window\.js'\]/);
   assert.match(desktopBuild, /cpSync\('src\/editor-window\.html', 'dist\/editor-window\.html'\)/);
 });
+
+test("a tab dragged out of the window becomes its own window", () => {
+  // There is no "dropped outside" event: a drag only reports that nothing
+  // inside took it, so the cursor is compared against the window's own bounds.
+  assert.match(main, /draggable \? ' draggable="true"' : ''/);
+  assert.match(main, /record\.kind === 'text' && record\.state === 'ready'/);
+  assert.match(main, /documentTabStrip\?\.addEventListener\('dragend'/);
+  assert.match(main, /if \(!documentId \|\| event\.dataTransfer\?\.dropEffect !== 'none'\) return;/);
+  assert.match(main, /async function droppedOutsideWindow/);
+  // Screen coordinates are CSS pixels and the window reports physical ones.
+  assert.match(main, /const x = event\.screenX \* scale;/);
+  assert.match(main, /currentWindow\.scaleFactor\(\)/);
+  // Bounds it cannot read mean no detach: losing a tab by accident is worse
+  // than a gesture that does nothing.
+  assert.match(main, /console\.warn\('Window bounds unavailable:', error\);\s*\n\s*return false;/);
+  // Any tab can leave, not only the one in front.
+  assert.match(main, /async function detachDocument\(documentId\)/);
+  assert.match(main, /if \(documentId && documentId !== activeDocumentId\) await activateDocumentTab\(documentId\);/);
+  assert.match(styles, /\.document-tab\[draggable="true"\] \{ cursor: grab; \}/);
+});

@@ -390,7 +390,10 @@ Pregunta del operador: separar un tab del Editor a su propia ventana, para traba
   - Files: `desktop/src/editor-window.html`, `desktop/src/editor-window.js`, `desktop/src/main.js`, `desktop/src/index.html`, `desktop/src/styles.css`, `desktop/build.mjs`, `desktop/src-tauri/capabilities/`.
   - Abierto: la ventana suelta no formatea con Prettier ni renderiza Markdown; ambas siguen siendo de la ventana principal.
 
-- [ ] Task: Separar un tab arrastrándolo fuera de la ventana (2)
+- [x] Task: Separar un tab arrastrándolo fuera de la ventana (2)
+  - Spec: [SPEC-file-workspace.md](../docu/specs/SPEC-file-workspace.md#product-contract)
   - Acceptance: soltar un tab fuera de la ventana abre la ventana del paso 1b; soltarlo dentro no cambia nada.
-  - Bloqueado por: 1b. No hay evento de "soltado fuera": se deduce en `dragend` comparando el cursor con el rect de la ventana, y es lo único de esta serie que hay que ajustar por plataforma.
+  - Verify: `npm test` (339 tests TypeScript, uno nuevo sobre el gesto, la escala del monitor y la negativa a separar sin límites legibles), `npm --prefix desktop run build`. Comprobación manual sobre dos monitores pendiente.
+  - Files: `desktop/src/main.js`, `desktop/src/styles.css`.
+  - Abierto: sólo se ha ejercitado en macOS; el gesto es lo único de esta serie que puede necesitar ajuste por plataforma.
 

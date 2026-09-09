@@ -1784,7 +1784,16 @@ async function openFileInADE(filePath) {
 const detachedDocuments = new Map();
 
 async function detachActiveDocument() {
-  const record = documentTabById(activeDocumentId);
+  await detachDocument(activeDocumentId);
+}
+
+/** Any tab can be the one that leaves, not only the one in front. It is brought
+    forward first, because saving and the dirty state belong to the active
+    document and a file about to move deserves to be the one you are looking
+    at. */
+async function detachDocument(documentId) {
+  if (documentId && documentId !== activeDocumentId) await activateDocumentTab(documentId);
+  const record = documentTabById(documentId ?? activeDocumentId);
   const filePath = record?.path ?? activeDocument?.path;
   if (!filePath) { notify('Open a file before moving it to its own window.'); return; }
   const existing = detachedDocuments.get(filePath);
@@ -1915,7 +1924,8 @@ function renderDocumentTabs() {
     // Delete closes the focused tab, which is how the close control stays
     // reachable without adding a second stop to the roving tab order.
     const hint = dirty ? `${location} — unsaved changes` : location;
-    return `<div class="${classes}" role="presentation"><button class="document-tab-button" type="button" role="tab" id="document-tab-${escapeHTML(record.id)}" aria-selected="${active}" aria-controls="document-viewer-body" tabindex="${active ? '0' : '-1'}" data-document-tab-id="${escapeHTML(record.id)}" title="${hint}"><span class="document-tab-name">${name}</span>${where ? `<span class="document-tab-where">${escapeHTML(where)}</span>` : ''}</button><button class="document-tab-close" type="button" tabindex="-1" data-document-close-id="${escapeHTML(record.id)}" aria-label="Close ${name}${dirty ? ', discarding unsaved changes' : ''}" title="Close ${name}"><span class="document-tab-dot" aria-hidden="true"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>`;
+    const draggable = record.kind === 'text' && record.state === 'ready';
+    return `<div class="${classes}" role="presentation"${draggable ? ' draggable="true"' : ''} data-document-drag-id="${escapeHTML(record.id)}"><button class="document-tab-button" type="button" role="tab" id="document-tab-${escapeHTML(record.id)}" aria-selected="${active}" aria-controls="document-viewer-body" tabindex="${active ? '0' : '-1'}" data-document-tab-id="${escapeHTML(record.id)}" title="${hint}"><span class="document-tab-name">${name}</span>${where ? `<span class="document-tab-where">${escapeHTML(where)}</span>` : ''}</button><button class="document-tab-close" type="button" tabindex="-1" data-document-close-id="${escapeHTML(record.id)}" aria-label="Close ${name}${dirty ? ', discarding unsaved changes' : ''}" title="Close ${name}"><span class="document-tab-dot" aria-hidden="true"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>`;
   }).join('');
   updateDocumentTabsOverflow();
   decorateWorkspaceTree();
@@ -5716,6 +5726,52 @@ documentTabStrip?.addEventListener('click', (event) => {
   const tab = event.target.closest('[data-document-tab-id]');
   if (tab) void activateDocumentTab(tab.dataset.documentTabId);
 });
+/** Dragging a tab out of the window opens it in a window of its own. There is
+    no "dropped outside" event to listen for: what a drag reports is that
+    nothing inside accepted it, so the cursor is asked where it ended up and
+    compared against the window's own bounds. If those bounds cannot be read,
+    nothing happens -- detaching a file by accident is worse than a gesture that
+    does nothing. */
+let draggedDocumentId = null;
+
+documentTabStrip?.addEventListener('dragstart', (event) => {
+  const tab = event.target.closest('[data-document-drag-id]');
+  if (!tab) return;
+  draggedDocumentId = tab.dataset.documentDragId;
+  event.dataTransfer?.setData('text/plain', draggedDocumentId);
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+});
+
+documentTabStrip?.addEventListener('dragend', (event) => {
+  const documentId = draggedDocumentId;
+  draggedDocumentId = null;
+  // Something inside the window took the drop: that is not a request to leave.
+  if (!documentId || event.dataTransfer?.dropEffect !== 'none') return;
+  void droppedOutsideWindow(event).then((outside) => {
+    if (outside) void detachDocument(documentId);
+  });
+});
+
+async function droppedOutsideWindow(event) {
+  const currentWindow = window.__TAURI__?.window?.getCurrentWindow?.();
+  if (!currentWindow) return false;
+  try {
+    const [position, size, scale] = await Promise.all([
+      currentWindow.outerPosition(),
+      currentWindow.outerSize(),
+      currentWindow.scaleFactor(),
+    ]);
+    // Screen coordinates arrive in CSS pixels and the window reports physical
+    // ones, which are the same number only at a scale factor of 1.
+    const x = event.screenX * scale;
+    const y = event.screenY * scale;
+    return x < position.x || y < position.y || x > position.x + size.width || y > position.y + size.height;
+  } catch (error) {
+    console.warn('Window bounds unavailable:', error);
+    return false;
+  }
+}
+
 // Middle click closes a tab, as it does in the editors this strip borrows from.
 documentTabStrip?.addEventListener('auxclick', (event) => {
   const tab = event.button === 1 && event.target.closest('[data-document-tab-id]');
