@@ -302,11 +302,11 @@ Auditoría de origen: [product-gap-audit](../docu/knowledge/product-gap-audit.md
   - Files: `src/application/agents/capture-turn-change-set.ts`, `src/desktop-sidecar.ts`, `src/application/run-spike.ts`, `tests/agent-turn-capture.test.ts`, [ADR-0043](../docu/adr/0043-agent-turn-as-pipeline-entry.md).
   - Abierto: el ChangeSet retrata el working tree completo, no el delta del turno; distinguirlos depende de G6.
 
-- [ ] Task: Alimentar las gates `build` y `tests` con ejecuciones reales (G2, G3)
+- [x] Task: Alimentar las gates `build` y `tests` con ejecuciones reales (G2, G3)
   - Spec: [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md) · [SPEC-run-configurations.md](../docu/specs/SPEC-run-configurations.md)
   - Acceptance: una configuración de run marcada como verificación escribe `RuntimeEvidence` con código de salida y cola de salida acotada, ligada a la Task; `build` y `tests` pasan por esa evidencia y no por la existencia de un ChangeSet; una gate sin productor no es `required` por defecto.
-  - Verify: `npm test` con casos de éxito, fallo y ausencia de ejecución; revisión manual de Changes.
-  - Files: `src/application/change-review-read-model.ts`, `src/application/local-runtime/`, `src/desktop-sidecar.ts`, `tests/`.
+  - Verify: `npm test` (272 tests TypeScript) con casos de éxito, fallo, run detenido y ausencia de ejecución. Revisión manual de Changes pendiente.
+  - Files: `src/domain/run-configuration.ts`, `src/application/local-runtime/verification-evidence.ts`, `src/application/local-runtime/run-config.ts`, `src/application/local-runtime/run-detection.ts`, `src/application/change-review-read-model.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `tests/verification-gates.test.ts`, [ADR-0044](../docu/adr/0044-verification-gates-from-real-runs.md).
 
 - [ ] Task: Publicar el resultado aprobado como commit atribuido (G4, G5)
   - Spec: [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md) · [SPEC-git-collaboration.md](../docu/specs/SPEC-git-collaboration.md)

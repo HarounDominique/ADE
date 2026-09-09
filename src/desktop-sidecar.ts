@@ -36,6 +36,7 @@ import { loadRunConfigurations, saveRunConfigurations } from "./application/loca
 import { detectRunConfigurations } from "./application/local-runtime/run-detection.js";
 import { inspectProjectToolchains } from "./application/local-runtime/toolchain-inspection.js";
 import { RunManager, RunPortConflictError } from "./application/local-runtime/run-manager.js";
+import { appendVerificationOutput, isTerminalRunState, recordVerificationRun, type VerificationRun } from "./application/local-runtime/verification-evidence.js";
 import { LocalPortProbe } from "./adapters/local-port-probe.js";
 import type { ResolvedRunConfiguration, RunConfiguration } from "./domain/run-configuration.js";
 import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation, reconcileChangedDocumentation } from "./application/knowledge/reconcile.js";
@@ -80,6 +81,13 @@ let declaredServices: readonly ServiceDefinition[] = [];
 /** One supervisor per Project: a run belongs to the repository it was started
     from, and switching Project must not inherit another one's processes. */
 const runManagers = new Map<string, RunManager>();
+/** Runs the operator started as verification of a Task, kept until the process
+    ends: only then is there an exit code for a gate to cite. Declared before
+    the run starts and keyed by configuration, then keyed by session as soon as
+    the supervisor names one, because a fast command can finish before `start`
+    returns. */
+const pendingVerifications = new Map<string, VerificationRun>();
+const verificationRuns = new Map<string, VerificationRun>();
 type ActiveAgentPrompt = {
   projectId?: string;
   runtime?: import("./ports/agent-runtime.js").AgentRuntimePort;
@@ -521,7 +529,7 @@ export async function runDesktopSidecar(): Promise<void> {
       } else if (request.method === "run.list") {
         void listRunConfigurations(request);
       } else if (request.method === "run.start") {
-        void startRunConfiguration(request);
+        void startRunConfiguration(store, request);
       } else if (request.method === "run.stop") {
         void stopRunConfiguration(request);
       } else if (request.method === "run.detect") {
@@ -576,13 +584,30 @@ async function runCatalog(repositoryPath: string): Promise<readonly ResolvedRunC
   return loadRunConfigurations(join(repositoryPath, ".ade", "run.json"), services);
 }
 
-function runManagerFor(repositoryPath: string): RunManager {
+function runManagerFor(store: AdeStore, repositoryPath: string): RunManager {
   const existing = runManagers.get(repositoryPath);
   if (existing) return existing;
   const manager = new RunManager(new LocalProcess(), new LocalPortProbe(), {
     projectRoot: repositoryPath,
-    onOutput: (chunk) => process.stdout.write(`${JSON.stringify({ type: "run.output", repositoryPath, ...chunk })}\n`),
-    onSession: (session) => process.stdout.write(`${JSON.stringify({ type: "run.session", repositoryPath, session })}\n`),
+    onOutput: (chunk) => {
+      const run = verificationRuns.get(chunk.sessionId);
+      if (run) appendVerificationOutput(run, chunk.text);
+      process.stdout.write(`${JSON.stringify({ type: "run.output", repositoryPath, ...chunk })}\n`);
+    },
+    onSession: (session) => {
+      const declared = pendingVerifications.get(`${repositoryPath}::${session.configurationId}`);
+      if (declared && !verificationRuns.has(session.id)) {
+        pendingVerifications.delete(`${repositoryPath}::${session.configurationId}`);
+        verificationRuns.set(session.id, declared);
+      }
+      const run = verificationRuns.get(session.id);
+      if (run && isTerminalRunState(session)) {
+        verificationRuns.delete(session.id);
+        try { recordVerificationRun(store, run, session); }
+        catch (error: unknown) { process.stderr.write(`verification evidence failed: ${error instanceof Error ? error.message : String(error)}\n`); }
+      }
+      process.stdout.write(`${JSON.stringify({ type: "run.session", repositoryPath, session })}\n`);
+    },
   });
   runManagers.set(repositoryPath, manager);
   return manager;
@@ -648,15 +673,22 @@ async function saveRunConfigurationsFor(request: DesktopRequest): Promise<void> 
   }
 }
 
-async function startRunConfiguration(request: DesktopRequest): Promise<void> {
-  const { repositoryPath, configurationId, mode } = request.params ?? {};
+async function startRunConfiguration(store: AdeStore, request: DesktopRequest): Promise<void> {
+  const { repositoryPath, configurationId, mode, taskId } = request.params ?? {};
   if (!repositoryPath || !configurationId) {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and configurationId are required" } })}\n`);
     return;
   }
   try {
     const catalog = await runCatalog(repositoryPath);
-    const session = await runManagerFor(repositoryPath).start(catalog, configurationId, mode ?? "run");
+    const configuration = catalog.find((candidate) => candidate.id === configurationId);
+    const manager = runManagerFor(store, repositoryPath);
+    /** Registered before the run starts, because a fast command can finish
+        before `start` returns and the session event would find no run. */
+    if (configuration?.verifies && taskId) {
+      pendingVerifications.set(`${repositoryPath}::${configurationId}`, { taskId, repositoryPath, verifies: configuration.verifies, label: configuration.label, output: "" });
+    }
+    const session = await manager.start(catalog, configurationId, mode ?? "run");
     process.stdout.write(`${JSON.stringify({ id: request.id, result: session })}\n`);
   } catch (error: unknown) {
     const code = error instanceof RunPortConflictError ? "RUN_PORT_CONFLICT" : "RUN_FAILED";

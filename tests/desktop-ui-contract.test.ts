@@ -430,6 +430,17 @@ test("workspace tree expands directories lazily and keeps symlinks non-actionabl
   assert.match(main, /\[data-directory-path\]\.directory/);
 });
 
+test("a run can stand as the build or tests gate, and editing it does not drop that", () => {
+  assert.match(html, /id="run-config-verifies"/);
+  assert.match(html, /<option value="build">The build gate<\/option>/);
+  // The form rebuilds the configuration, so the role has to survive the trip.
+  assert.match(main, /const verifies = value\('run-config-verifies'\);/);
+  assert.match(main, /if \(kind === 'command' && \(verifies === 'build' \|\| verifies === 'tests'\)\) configuration\.verifies = verifies;/);
+  assert.match(main, /set\('run-config-verifies', configuration\?\.verifies \?\? ''\);/);
+  // A verification run cites the Task it ran under; without one no gate claims it.
+  assert.match(main, /configuration\.verifies && selectedTaskId \? \{ taskId: selectedTaskId \} : \{\}/);
+});
+
 test("Agents shows what the session, the week and the context have left", () => {
   assert.match(html, /id="agent-pressure" role="group"/);
   assert.match(main, /function renderAgentPressure/);

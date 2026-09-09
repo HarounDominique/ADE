@@ -85,6 +85,12 @@ Una configuración `kind: "service"` no recopia el comando: hereda `command`, `a
 
 `ports`, `env` y `cwd` admiten sustitución de variables `${projectRoot}` y `${port:<name>}` para que un compound pueda referirse al puerto real de otro miembro sin fijarlo dos veces.
 
+### Verification
+
+Una configuración de tipo `command` puede declarar `verifies: "build"` o `verifies: "tests"`. La detección lo propone sola para los comandos de build y de test de cada toolchain, y no para lint ni para un servidor de desarrollo; aceptar la propuesta es lo que la convierte en verificación del Project, y el diálogo de autoría permite ponerlo y quitarlo.
+
+Al arrancarla con una Task seleccionada, el resultado del proceso se publica como evidencia `verification.<qué>.pass|fail` con su código de salida y la cola de su salida, que es la que las gates `build` y `tests` leen ([SPEC-changes-review-governance](SPEC-changes-review-governance.md), [ADR-0044](../adr/0044-verification-gates-from-real-runs.md)). Sin Task seleccionada la ejecución sigue siendo una ejecución y ninguna gate la reclama. Un run detenido por el operador no escribe evidencia, porque no prueba nada en ninguna dirección. Una configuración de tipo `service` no puede declarar verificación: una gate cita algo que terminó.
+
 ## Debug boundary
 
 ADE no implementa un depurador en esta iteración. `Debug` arranca el proceso con la variante de depuración declarada, expone el puerto y el `attachHint`, y deja el attach al depurador externo del usuario —IDE, devtools del navegador o cliente DAP—. La shell no muestra breakpoints, pila ni variables, y no debe insinuar que lo hace: el botón se llama `Debug` porque arranca en modo depurable, y su tooltip lo dice con esas palabras.

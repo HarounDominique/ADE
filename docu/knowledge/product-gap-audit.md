@@ -24,7 +24,7 @@ Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se 
 
 **Cerrado el 2026-09-09** por [ADR-0043](../adr/0043-agent-turn-as-pipeline-entry.md): la captura vive en `src/application/agents/capture-turn-change-set.ts`, un turno con cambios produce ChangeSet por turno y evidencia `agent.turn`, la Task avanza sólo por transiciones legales, y `task.run` usa el proveedor que la petición pida en lugar de OpenCode fijo. Queda abierto que el ChangeSet retrata el working tree completo y no el delta del turno, lo que depende de G6.
 
-## G2 — La gate `tests` no puede pasar y `build` no comprueba nada
+## G2 — La gate `tests` no puede pasar y `build` no comprueba nada *(cerrado el 2026-09-09)*
 
 **Qué pasa.** `src/application/change-review-read-model.ts` da `tests` por pasada cuando existe evidencia de tipo `verification`, y ningún punto del código escribe ese tipo. La gate `build` se da por pasada por la mera existencia de un `ChangeSet`, que no es una build.
 
@@ -32,13 +32,17 @@ Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se 
 
 **Dirección.** `build` y `tests` deben venir de una ejecución real con código de salida y salida capturada, no de un proxy estructural. Una gate sin productor no debería ser `required` por defecto.
 
-## G3 — Assay ya sabe ejecutar build y tests, y no lo conecta
+**Cerrado el 2026-09-09** por [ADR-0044](../adr/0044-verification-gates-from-real-runs.md): las gates leen la evidencia `verification.<qué>.pass|fail` más reciente y una gate sin ejecución queda `pending`.
+
+## G3 — Assay ya sabe ejecutar build y tests, y no lo conecta *(cerrado el 2026-09-09)*
 
 **Qué pasa.** `run-configurations` detecta y ejecuta build, test y lint para Node, Python, Maven/Gradle, Rust, Go y .NET, con consola por ejecución (`src/application/local-runtime/`). Ni el código de salida ni la salida alimentan evidencia ni gates.
 
 **Consecuencia de producto.** El camino más corto y barato para arreglar G2 ya está construido y desconectado.
 
 **Dirección.** Una ejecución de configuración marcada como verificación escribe `RuntimeEvidence` con su código de salida y una cola de salida acotada, ligada a la Task activa; `build` y `tests` leen esa evidencia.
+
+**Cerrado el 2026-09-09**: `verifies` viaja en la configuración, la detección lo propone para build y test, y el sidecar escribe la evidencia al terminar el proceso.
 
 ## G4 — Aprobar no publica nada
 
@@ -75,7 +79,7 @@ Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se 
 | Prioridad | Hueco | Razón |
 |---|---|---|
 | ~~P0~~ | ~~G1~~ | Cerrado el 2026-09-09 — [ADR-0043](../adr/0043-agent-turn-as-pipeline-entry.md) |
-| P0 | G2 + G3 | Convierte en verdad lo que hoy es un proxy y desbloquea el cierre del bucle |
+| ~~P0~~ | ~~G2 + G3~~ | Cerrado el 2026-09-09 — [ADR-0044](../adr/0044-verification-gates-from-real-runs.md) |
 | P1 | G4 + G5 | Cierra intención → commit con atribución |
 | P1 | G6 | Sostiene *reversible* sin inventar un control de versiones propio |
 | P2 | G7 | El dato ya existe; falta lectura |
@@ -87,4 +91,4 @@ Retrieval semántico, cloud, colaboración en tiempo real, editor completo y enr
 
 ## Riesgo de documentación
 
-`PRODUCT.md` y `SPEC-NEXUS` describen el flujo completo como capacidad disponible. Mientras G2 siga abierto, esa afirmación excede lo que el código sostiene. En un producto cuyo argumento es la verificabilidad, esa distancia es el riesgo más caro del inventario y se corrige nombrándola, no parcheándola en silencio.
+`PRODUCT.md` y `SPEC-NEXUS` describen el flujo completo como capacidad disponible. Con G1, G2 y G3 cerrados el 2026-09-09 esa afirmación ya se sostiene para capturar cambios y verificarlos; lo que sigue abierto es publicar el resultado aprobado (G4, G5), la reversibilidad del turno (G6) y la lectura del coste (G7). En un producto cuyo argumento es la verificabilidad, esa distancia es el riesgo más caro del inventario y se corrige nombrándola, no parcheándola en silencio.

@@ -94,3 +94,24 @@ test("run configurations load from .ade/run.json", async () => {
   await writeFile(path, JSON.stringify({ runs: [] }), "utf8");
   await assert.rejects(loadRunConfigurations(path), /must contain a configurations array/);
 });
+
+test("a configuration may declare what it verifies, and a service may not", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ade-run-verifies-"));
+  const file = join(directory, "run.json");
+  await writeFile(file, JSON.stringify({ configurations: [
+    { id: "tests", label: "npm · test", kind: "command", command: "npm", args: ["test"], cwd: "${projectRoot}", verifies: "tests" },
+  ] }));
+  const [configuration] = await loadRunConfigurations(file, []);
+  assert.equal(configuration?.verifies, "tests");
+
+  await writeFile(file, JSON.stringify({ configurations: [
+    { id: "api", label: "API", kind: "service", service: "api", verifies: "tests" },
+  ] }));
+  // A gate cites something that finished; a service is meant to stay up.
+  await assert.rejects(loadRunConfigurations(file, [{ id: "api", command: "node", args: ["server.js"], cwd: directory }]), /long-running service cannot stand as verification/);
+
+  await writeFile(file, JSON.stringify({ configurations: [
+    { id: "lint", label: "npm · lint", kind: "command", command: "npm", args: ["run", "lint"], cwd: "${projectRoot}", verifies: "style" },
+  ] }));
+  await assert.rejects(loadRunConfigurations(file, []), /unknown verification: style/);
+});

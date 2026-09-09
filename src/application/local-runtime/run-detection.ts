@@ -94,6 +94,10 @@ function commandDraft(
   args: readonly string[],
   source: string,
 ): RunConfigurationDraft {
+  /** A proposal that builds or tests is proposed as verification too, so a
+      Project that accepts it gets gates backed by a real exit code instead of
+      by the existence of a ChangeSet. Lint stands for neither gate. */
+  const verifies = operation === "build" ? "build" as const : operation === "test" ? "tests" as const : undefined;
   return {
     id: toolchainId(projectRoot, directory, toolchain, operation),
     label: toolchainLabel(projectRoot, directory, toolchain, operation),
@@ -101,6 +105,7 @@ function commandDraft(
     command,
     args,
     cwd: cwdToken(projectRoot, directory),
+    ...(verifies ? { verifies } : {}),
     source,
   };
 }
@@ -137,6 +142,7 @@ async function detectNode(projectRoot: string, directory: string): Promise<reado
       command: "npm",
       args: ["run", script],
       cwd: cwdToken(projectRoot, directory),
+      ...(script === "build" ? { verifies: "build" as const } : script === "test" ? { verifies: "tests" as const } : {}),
       ...(script === runnable && port ? { ports: [port] } : {}),
       source: [prefix, "package.json"].filter(Boolean).join("/"),
     });

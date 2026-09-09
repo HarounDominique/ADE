@@ -49,6 +49,14 @@ function resolveOne(configuration: RunConfiguration, services: readonly ServiceD
   if (!label) throw new RunConfigurationError(id, "label", "a configuration requires a label");
   if (kind !== "command" && kind !== "service" && kind !== "compound") throw new RunConfigurationError(id, "kind", `unknown kind: ${String(kind)}`);
   assertNoSecretEnv(configuration);
+  if (configuration.verifies !== undefined && configuration.verifies !== "build" && configuration.verifies !== "tests") {
+    throw new RunConfigurationError(id, "verifies", `unknown verification: ${String(configuration.verifies)}`);
+  }
+  if (configuration.verifies && kind === "service") {
+    /** A gate cites something that finished. A service is meant to stay up, so
+        its exit code proves nothing about the code under it. */
+    throw new RunConfigurationError(id, "verifies", "a long-running service cannot stand as verification evidence");
+  }
   for (const port of configuration.ports ?? []) assertPort(id, port);
   if (configuration.debug) {
     assertPortNumber(id, "debug.port", configuration.debug.port);

@@ -116,6 +116,8 @@
           <input id="run-config-cwd" type="text" placeholder="${projectRoot}" data-run-field="command" />
           <label for="run-config-service" data-run-field="service">Service id</label>
           <input id="run-config-service" type="text" placeholder="api" data-run-field="service" />
+          <label for="run-config-verifies" data-run-field="command">Stands as</label>
+          <select id="run-config-verifies" data-run-field="command"><option value="">Just a run</option><option value="build">The build gate</option><option value="tests">The tests gate</option></select>
           <label for="run-config-ports" data-run-field="command">Ports</label>
           <input id="run-config-ports" type="text" placeholder="4200 http, 9000 tcp" data-run-field="command" />
           <label for="run-config-bind" data-run-field="command">Reachable from</label>

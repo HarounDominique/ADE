@@ -3099,6 +3099,7 @@ function openRunConfigDialog(configuration = null) {
   set('run-config-args', (configuration?.args ?? []).join(' '));
   set('run-config-cwd', configuration?.cwd ?? '${projectRoot}');
   set('run-config-service', configuration?.service);
+  set('run-config-verifies', configuration?.verifies ?? '');
   set('run-config-ports', (configuration?.ports ?? []).map((port) => `${port.port} ${port.protocol}`).join(', '));
   set('run-config-bind', configuration?.ports?.[0]?.bind ?? 'loopback');
   set('run-config-debug-args', (configuration?.debug?.args ?? []).join(' '));
@@ -3163,6 +3164,10 @@ function readRunConfigForm() {
   }
 
   const configuration = { id: editedRunConfigurationId ?? runConfigIdFor(label), label, kind };
+  /** What a run stands for is why a gate may cite it, so editing a detected
+      build or test configuration must not drop it on the way through the form. */
+  const verifies = value('run-config-verifies');
+  if (kind === 'command' && (verifies === 'build' || verifies === 'tests')) configuration.verifies = verifies;
   if (kind === 'compound') {
     configuration.members = [...document.querySelectorAll('#run-config-members input:checked')].map((input) => input.value);
     if (!configuration.members.length) return { error: 'A compound configuration needs at least one member.' };
@@ -3275,7 +3280,9 @@ function startRun(mode) {
       is confirmed per run rather than once in the file. */
   const exposed = (configuration.ports ?? []).filter((port) => port.bind === 'all');
   const send = () => {
-    void nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `run-start-${Date.now()}`, method: 'run.start', params: { repositoryPath: workspaceRootPath, configurationId: configuration.id, mode } }) })
+    /** A verification run cites the Task it was started under; without one it
+        is just a run, and no gate may claim it. */
+    void nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `run-start-${Date.now()}`, method: 'run.start', params: { repositoryPath: workspaceRootPath, configurationId: configuration.id, mode, ...(configuration.verifies && selectedTaskId ? { taskId: selectedTaskId } : {}) } }) })
       .catch((error) => { notify('Run failed to start.'); console.warn(error); });
   };
   if (!exposed.length) { send(); return; }

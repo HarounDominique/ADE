@@ -143,3 +143,16 @@ test("saving validates before writing and keeps unknown keys in the file", async
   const untouched = await loadRunConfigurations(path);
   assert.deepEqual(untouched.map((configuration) => configuration.id), ["client"]);
 });
+
+test("a proposal that builds or tests is proposed as verification", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ade-detect-verifies-"));
+  await writeFile(join(directory, "package.json"), JSON.stringify({ scripts: { dev: "vite", build: "vite build", test: "vitest run", lint: "eslint ." } }));
+
+  const drafts = await detectRunConfigurations(directory);
+  const byId = (needle: string) => drafts.find((draft) => draft.id.endsWith(needle));
+  assert.equal(byId("build")?.verifies, "build");
+  assert.equal(byId("test")?.verifies, "tests");
+  // Lint stands for neither required gate, and a dev server verifies nothing.
+  assert.equal(byId("lint")?.verifies, undefined);
+  assert.equal(byId("dev")?.verifies, undefined);
+});

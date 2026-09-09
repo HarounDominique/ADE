@@ -24,10 +24,17 @@ export type RunHealthcheck = {
   timeoutMs: number;
 };
 
+/** A run whose result ADE is willing to cite as a gate. The name says what the
+    evidence proves, not which command produced it: a Project decides whether
+    its `build` is Maven, Cargo or a script of its own. */
+export type RunVerification = "build" | "tests";
+
 export type RunConfiguration = {
   id: string;
   label: string;
   kind: "command" | "service" | "compound";
+  /** When set, finishing this run writes evidence the matching gate reads. */
+  verifies?: RunVerification;
   command?: string;
   args?: readonly string[];
   cwd?: string;
