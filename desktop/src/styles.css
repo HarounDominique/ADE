@@ -1621,6 +1621,17 @@ body { color: var(--text); }
    now share the ground colour; menus, dialogs, inputs and raised toolbars keep
    the lighter tone, because something that floats has to differ from what it
    floats over. */
+/* A document in a window of its own: the editor, a header that says which file
+   it is and whether it is saved, and nothing else of the shell. */
+.detached-editor { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100vh; background: var(--bg); }
+.detached-editor-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.detached-editor-identity { display: grid; min-width: 0; gap: 2px; }
+.detached-editor-identity strong { overflow: hidden; color: var(--text); font-size: 13px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.detached-editor-identity small { overflow: hidden; color: var(--faint); font: 11px var(--mono); text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.detached-editor-actions { display: flex; align-items: center; flex: 0 0 auto; gap: 8px; }
+.detached-editor-state { color: var(--amber); font: 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.detached-editor-content { min-height: 0; }
+.detached-editor-message { margin: 0; padding: 12px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 /* Preferences: a dialog, not a view, because they are read rarely and changed
    rarely, and none of them needs the whole window. */
 .settings-check { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; color: var(--text-soft); font-size: 12px; }

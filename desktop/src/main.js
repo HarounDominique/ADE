@@ -1519,10 +1519,13 @@ function setDocumentHeader({ title, path, kind, externalDisabled = true }) {
   const pathElement = document.getElementById('document-path');
   const kindElement = document.getElementById('document-kind');
   const externalButton = document.getElementById('open-file-external');
+  const detachButton = document.getElementById('detach-document');
   if (titleElement) titleElement.textContent = title;
   if (pathElement) pathElement.textContent = path;
   if (kindElement) kindElement.textContent = kind;
   if (externalButton) externalButton.disabled = externalDisabled;
+  /** A file can be moved to its own window exactly when there is one to move. */
+  if (detachButton) detachButton.disabled = externalDisabled;
 }
 
 
@@ -1738,6 +1741,14 @@ async function openFileInADE(filePath) {
     return;
   }
   showView('editor');
+  /** The file may have left for a window of its own; clicking it in the tree
+      brings that window forward instead of making a second owner. */
+  const detachedLabel = detachedDocuments.get(filePath);
+  if (detachedLabel) {
+    void window.__TAURI__?.window?.Window?.getByLabel?.(detachedLabel).then((found) => found?.setFocus());
+    notify(`${pathBaseName(filePath)} is open in its own window.`);
+    return;
+  }
   const existing = documentTabByPath(filePath);
   if (existing) {
     await activateDocumentTab(existing.id);
@@ -1764,6 +1775,73 @@ async function openFileInADE(filePath) {
   await loadDocumentRecord(record);
   persistOpenDocuments();
   scrollDocumentTabIntoView(record.id);
+}
+
+/** A file moved to a window of its own. It is a move and not a copy: two
+    windows holding the same buffer with their own dirty state is how unsaved
+    work disappears. Unsaved edits are written first, because the new window
+    reads the file from disk -- there is no other honest way to hand it over. */
+const detachedDocuments = new Map();
+
+async function detachActiveDocument() {
+  const record = documentTabById(activeDocumentId);
+  const filePath = record?.path ?? activeDocument?.path;
+  if (!filePath) { notify('Open a file before moving it to its own window.'); return; }
+  const existing = detachedDocuments.get(filePath);
+  if (existing) {
+    /** Already open elsewhere: the operator is pointed at that window rather
+        than given a second one for the same file. */
+    void window.__TAURI__?.window?.Window?.getByLabel?.(existing).then((found) => found?.setFocus());
+    notify(`${pathBaseName(filePath)} is already open in its own window.`);
+    return;
+  }
+  if (documentDirty || record?.dirty) {
+    requestConfirmation({
+      eyebrow: 'NEW WINDOW',
+      title: `Save ${pathBaseName(filePath)} before moving it?`,
+      copy: 'The new window reads the file from disk, so unsaved edits are written first.',
+      confirmLabel: 'Save and move',
+    }, async () => {
+      await saveActiveDocument();
+      await openDocumentWindow(filePath);
+    });
+    return;
+  }
+  await openDocumentWindow(filePath);
+}
+
+async function openDocumentWindow(filePath) {
+  const WebviewWindow = window.__TAURI__?.webviewWindow?.WebviewWindow;
+  if (!WebviewWindow) { notify('This build cannot open a second window.'); return; }
+  const label = `editor-${Date.now()}`;
+  try {
+    const created = new WebviewWindow(label, {
+      url: `editor-window.html?path=${encodeURIComponent(filePath)}`,
+      title: pathBaseName(filePath),
+      width: 900,
+      height: 700,
+      minWidth: 480,
+      minHeight: 320,
+    });
+    await new Promise((resolve, reject) => {
+      void created.once('tauri://created', resolve);
+      void created.once('tauri://error', reject);
+    });
+    detachedDocuments.set(filePath, label);
+    const record = openDocuments.find((entry) => entry.path === filePath);
+    if (record) await closeDocumentTabNow(record.id);
+    notify(`${pathBaseName(filePath)} moved to its own window.`);
+  } catch (error) {
+    notify('The file could not be opened in its own window.');
+    console.warn('Detached editor unavailable:', error);
+  }
+}
+
+/** When that window closes, the file comes back to the tab strip it left. */
+function reattachDocument(filePath) {
+  if (!filePath || !detachedDocuments.has(filePath)) return;
+  detachedDocuments.delete(filePath);
+  void openFileInADE(filePath);
 }
 
 function closeDocumentTab(id) {
@@ -4796,6 +4874,10 @@ async function connectSidecar(snapshot) {
         notify(`Sidecar: ${response.error.message}`);
       }
     });
+    /** A document window closing hands its file back to the tab strip. */
+    await listen('editor-window:closed', (event) => {
+      reattachDocument(event.payload?.path);
+    });
     await listen('sidecar:error', (event) => {
       setSyncState('failed', 'Sidecar disconnected');
       notify(`Sidecar error: ${event.payload}`);
@@ -5203,6 +5285,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     const repositoryPath = activeRepositoryPath();
     const taskId = selectedTaskId;
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile.changed', params: { repositoryPath, ...(taskId && taskId !== '—' ? { taskId } : {}) } }) });
+    return;
+  }
+  if (item.dataset.action === 'detach-document') {
+    void detachActiveDocument();
     return;
   }
   if (item.dataset.action === 'open-file-external') {
