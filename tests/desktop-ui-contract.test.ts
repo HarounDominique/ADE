@@ -9,6 +9,10 @@ const snapshot = readFileSync(new URL("../desktop/src/project-snapshot.js", impo
 const components = readFileSync(new URL("../desktop/src/components.css", import.meta.url), "utf8");
 const codeEditor = readFileSync(new URL("../desktop/src/code-editor.js", import.meta.url), "utf8");
 const paths = readFileSync(new URL("../desktop/src/paths.js", import.meta.url), "utf8");
+const editorWindow = readFileSync(new URL("../desktop/src/editor-window.js", import.meta.url), "utf8");
+const editorWindowHtml = readFileSync(new URL("../desktop/src/editor-window.html", import.meta.url), "utf8");
+const editorCapability = JSON.parse(readFileSync(new URL("../desktop/src-tauri/capabilities/editor-window.json", import.meta.url), "utf8")) as { windows: string[]; permissions: string[] };
+const defaultCapability = JSON.parse(readFileSync(new URL("../desktop/src-tauri/capabilities/default.json", import.meta.url), "utf8")) as { permissions: string[] };
 const desktopBuild = readFileSync(new URL("../desktop/build.mjs", import.meta.url), "utf8");
 const sidecarBuild = readFileSync(new URL("../scripts/build-desktop-sidecar.mjs", import.meta.url), "utf8");
 const smokeBundle = readFileSync(new URL("../scripts/smoke-desktop-bundle.mjs", import.meta.url), "utf8");
@@ -1385,4 +1389,42 @@ test("every workbench stands on the same ground", () => {
   assert.match(styles, /\.task-dialog \{[^}]*background: var\(--panel\)/);
   assert.match(styles, /\.sidebar \{[^}]*background: var\(--chrome\)/);
   assert.match(styles, /\.status-bar \{[^}]*background: var\(--chrome\)/);
+});
+
+test("a file can be moved to a window of its own, and moved is not copied", () => {
+  // Multi-monitor work needed a file out of the shell. What it must never mean
+  // is two windows holding the same buffer with their own dirty state.
+  assert.match(html, /data-action="detach-document" id="detach-document" disabled/);
+  assert.match(main, /async function detachActiveDocument/);
+  assert.match(main, /const detachedDocuments = new Map\(\);/);
+  assert.match(main, /if \(record\) await closeDocumentTabNow\(record\.id\);/);
+  // Unsaved work is written before the handover, because the new window reads
+  // the file from disk.
+  assert.match(main, /title: `Save \$\{pathBaseName\(filePath\)\} before moving it\?`/);
+  assert.match(main, /await saveActiveDocument\(\);\s*\n\s*await openDocumentWindow\(filePath\);/);
+  // The same file is never owned twice: the tree and the action both defer to
+  // the window that already has it, and closing it hands the file back.
+  assert.match(main, /const detachedLabel = detachedDocuments\.get\(filePath\);/);
+  assert.match(main, /function reattachDocument/);
+  assert.match(main, /await listen\('editor-window:closed'/);
+});
+
+test("the document window carries an editor and none of the shell", () => {
+  assert.match(editorWindow, /createCodeEditorSurface/);
+  assert.match(editorWindow, /invoke\('read_file', \{ path: filePath \}\)/);
+  assert.match(editorWindow, /invoke\('write_file', \{ path: filePath, content: surface\.value\(\) \}\)/);
+  // The webview never answers the browser's own confirm, so the unsaved
+  // question is asked in the page, with all three answers a person has.
+  assert.doesNotMatch(editorWindow, /window\.confirm/);
+  assert.match(editorWindow, /function askBeforeClosing/);
+  assert.match(editorWindowHtml, /value="discard">Close without saving/);
+  assert.match(editorWindowHtml, /value="save"[^>]*>Save and close/);
+  assert.match(editorWindow, /if \(answer === 'cancel'\) return;/);
+  // It has no reason to open further windows, and its capability says so.
+  assert.deepEqual(editorCapability.windows, ["editor-*"]);
+  assert.equal(editorCapability.permissions.includes("core:webview:allow-create-webview-window"), false);
+  assert.equal(defaultCapability.permissions.includes("core:webview:allow-create-webview-window"), true);
+  // And it is built: a page nobody bundles is a page nobody can open.
+  assert.match(desktopBuild, /entryPoints: \['src\/main\.js', 'src\/editor-window\.js'\]/);
+  assert.match(desktopBuild, /cpSync\('src\/editor-window\.html', 'dist\/editor-window\.html'\)/);
 });

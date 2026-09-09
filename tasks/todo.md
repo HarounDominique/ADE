@@ -383,10 +383,12 @@ Pregunta del operador: separar un tab del Editor a su propia ventana, para traba
   - Verify: `npm test` (336 tests TypeScript, con los contratos del editor apuntando ya al módulo y uno nuevo que prohíbe a la shell tocar los motores), `npm --prefix desktop run build`. Comprobación manual del Editor en el `.app` pendiente.
   - Files: `desktop/src/code-editor.js`, `desktop/src/paths.js`, `desktop/src/main.js`, `tests/desktop-ui-contract.test.ts`.
 
-- [ ] Task: Abrir un fichero del Editor en su propia ventana (1b)
+- [x] Task: Abrir un fichero del Editor en su propia ventana (1b)
+  - Spec: [SPEC-file-workspace.md](../docu/specs/SPEC-file-workspace.md#product-contract)
   - Acceptance: una acción del tab mueve —no clona— el documento a una ventana propia con su editor completo; un buffer sin guardar no se pierde; cerrar la ventana devuelve el fichero; la capability nombra la ventana nueva y las pestañas persistidas no se pisan entre ventanas.
-  - Verify: `npm test` y comprobación manual sobre dos monitores.
-  - Files: `desktop/src/editor-window.*`, `desktop/build.mjs`, `desktop/src-tauri/capabilities/`, `desktop/src/main.js`.
+  - Verify: `npm test` (338 tests TypeScript, dos nuevos: el traslado con su guardado previo y su vuelta, y la ventana con su capability acotada y su diálogo propio de cierre), `npm --prefix desktop run build`. Comprobación manual sobre dos monitores pendiente.
+  - Files: `desktop/src/editor-window.html`, `desktop/src/editor-window.js`, `desktop/src/main.js`, `desktop/src/index.html`, `desktop/src/styles.css`, `desktop/build.mjs`, `desktop/src-tauri/capabilities/`.
+  - Abierto: la ventana suelta no formatea con Prettier ni renderiza Markdown; ambas siguen siendo de la ventana principal.
 
 - [ ] Task: Separar un tab arrastrándolo fuera de la ventana (2)
   - Acceptance: soltar un tab fuera de la ventana abre la ventana del paso 1b; soltarlo dentro no cambia nada.

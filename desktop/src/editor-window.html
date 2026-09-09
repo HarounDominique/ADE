@@ -1,0 +1,31 @@
+<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="components.css" />
+<main class="detached-editor">
+  <header class="detached-editor-header">
+    <div class="detached-editor-identity">
+      <strong id="detached-name">Opening…</strong>
+      <small id="detached-path"></small>
+    </div>
+    <div class="detached-editor-actions">
+      <span class="document-kind" id="detached-kind">—</span>
+      <span class="detached-editor-state" id="detached-state" aria-live="polite"></span>
+      <button class="button secondary" type="button" id="detached-save" disabled>Save</button>
+      <button class="button secondary" type="button" id="detached-discard" disabled>Discard</button>
+    </div>
+  </header>
+  <div class="document-content detached-editor-content" id="detached-content" role="textbox" aria-multiline="true" aria-label="File contents"></div>
+  <p class="detached-editor-message" id="detached-message" hidden></p>
+</main>
+<dialog class="task-dialog detached-close-dialog" id="detached-close-dialog" aria-labelledby="detached-close-title">
+  <form method="dialog" id="detached-close-form">
+    <p class="eyebrow">UNSAVED CHANGES</p>
+    <h2 id="detached-close-title">Close this file?</h2>
+    <p class="dialog-copy" id="detached-close-copy">This window is the only place these changes exist.</p>
+    <div class="dialog-actions">
+      <button class="button" type="submit" value="cancel">Keep editing</button>
+      <button class="button danger" type="submit" value="discard">Close without saving</button>
+      <button class="button primary" type="submit" value="save" autofocus>Save and close</button>
+    </div>
+  </form>
+</dialog>
+<script type="module" src="editor-window.js"></script>
