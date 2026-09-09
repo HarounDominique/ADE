@@ -30,8 +30,8 @@ test("Claude Code CLI creates a resumable session and maps permissions", async (
   assert.equal(session.id, "claude-session");
   await runtime.prompt(session, { text: "Update the project", model: "sonnet", grantedPermissions: ["write_code", "run_commands", "network"] });
   assert.deepEqual(calls, [
-    ["--print", "--output-format", "stream-json", "--include-partial-messages", "--permission-mode", "default", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep", "--session-id", firstSessionId, "Read the project"],
-    ["--print", "--output-format", "stream-json", "--include-partial-messages", "--permission-mode", "acceptEdits", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep,Edit,Write,Bash,WebFetch,WebSearch", "--model", "sonnet", "--resume", "claude-session", "Update the project"],
+    ["--print", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--permission-mode", "default", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep", "--session-id", firstSessionId, "Read the project"],
+    ["--print", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--permission-mode", "acceptEdits", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep,Edit,Write,Bash,WebFetch,WebSearch", "--model", "sonnet", "--resume", "claude-session", "Update the project"],
   ]);
 });
 
@@ -114,4 +114,18 @@ test("Claude Code plan windows are read if the CLI ever reports them", () => {
   const pressure = extractClaudePressure({ type: "result", usage: { input_tokens: 10, output_tokens: 5 }, rate_limits: { five_hour: { used_percentage: 42.5 }, seven_day: { used_percentage: 8 } } });
   assert.equal(pressure?.session?.usedPercent, 42.5);
   assert.equal(pressure?.weekly?.usedPercent, 8);
+});
+
+test("stream-json is asked for the way the CLI accepts it", async () => {
+  // `--print --output-format stream-json` without `--verbose` is refused
+  // outright, so every turn failed the moment streaming was adopted.
+  const calls: string[][] = [];
+  const runtime = new ClaudeCliRuntime("claude", async (_command, args) => {
+    calls.push(args);
+    return { stdout: JSON.stringify({ result: "ok", session_id: "11111111-2222-3333-4444-555555555555" }) };
+  });
+  await runtime.prompt({ id: "claude-pending-11111111-2222-3333-4444-555555555555", directory: "/tmp" }, { text: "hi" });
+  const args = calls[0] ?? [];
+  assert.ok(args.includes("--verbose"), "stream-json in print mode requires --verbose");
+  assert.ok(args.indexOf("--verbose") > args.indexOf("stream-json"));
 });

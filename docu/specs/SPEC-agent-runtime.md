@@ -30,7 +30,7 @@ npm run review -- /ruta/al/repositorio "Describe the task"
 
 Con OpenCode sirviendo localmente: `opencode serve --hostname 127.0.0.1 --port 4096`. El adapter expone una API reproducible para health, crear sesión, enviar una Task, solicitar salida JSON estructurada, recibir streaming SSE, cancelar y obtener diff. El smoke test real está documentado en [Spike 001](../spikes/001-opencode-runtime.md#smoke-test-real) y la revisión independiente en [Spike 002](../spikes/002-independent-review.md#flujo-validado).
 
-Con Claude Code instalado, el smoke local del adapter puede comprobarse sin abrir una TUI: `claude --print --output-format stream-json --include-partial-messages --permission-mode default --permission-prompts none "Inspect the repository"`. La autenticación permanece en Claude Code y no forma parte de la configuración de ADE.
+Con Claude Code instalado, el smoke local del adapter puede comprobarse sin abrir una TUI: `claude --print --output-format stream-json --verbose --include-partial-messages --permission-mode default --permission-prompts none "Inspect the repository"`. La autenticación permanece en Claude Code y no forma parte de la configuración de ADE.
 
 ## Runtime contract
 

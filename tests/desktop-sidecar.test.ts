@@ -572,3 +572,17 @@ test("the Implementer is the provider the caller asked for, not a wired-in one",
   // And a turn under a Task captures its own ChangeSet, whoever ran it.
   assert.match(sidecar, /await captureTurnChangeSet\(store, \{/);
 });
+
+test("what a conversation measured follows it to the id the provider gives it", () => {
+  const store = new AdeStore();
+  store.saveAgentSession({ id: "claude-real", provider: "claude", directory: "/tmp/project", status: "COMPLETED", createdAt: "2026-09-09T10:00:00.000Z" });
+  // A CLI conversation is only named when its first turn ends, so the context
+  // measured while it ran is filed under the placeholder id.
+  persistAgentPressure(store, "claude", "claude-pending-abc", { context: { usedTokens: 19_881, windowTokens: 1_000_000 } });
+
+  store.renameAgentPressureSession("claude-pending-abc", "claude-real");
+
+  assert.equal(readAgentPressure(store, "claude", "claude-real").context?.usedTokens, 19_881);
+  assert.equal(readAgentPressure(store, "claude", "claude-pending-abc").context, undefined);
+  store.close();
+});

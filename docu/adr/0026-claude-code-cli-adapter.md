@@ -16,7 +16,7 @@ Accepted; salida incremental ampliada por [ADR-0039](0039-agent-live-streaming.m
 
 Se añade `ClaudeCliRuntime` como adapter de `AgentRuntimePort`. ADE detecta `claude --version` —o el comando configurado en `ADE_CLAUDE_COMMAND`— y lo ofrece en el selector `Agents` como `Claude Code`.
 
-Los prompts usan el modo no interactivo de Claude Code (`--print --output-format stream-json --include-partial-messages`) y cierran stdin. Las sesiones nuevas reciben un UUID con `--session-id`; el adapter captura el `session_id` emitido y las siguientes peticiones usan `--resume`. El resultado textual se extrae del evento final `result` y los `text_delta` públicos se entregan durante el turno, mientras los mensajes completos siguen persistidos únicamente en la metadata de ADE.
+Los prompts usan el modo no interactivo de Claude Code (`--print --output-format stream-json --verbose --include-partial-messages`; el CLI rechaza `stream-json` en modo `--print` sin `--verbose`) y cierran stdin. Las sesiones nuevas reciben un UUID con `--session-id`; el adapter captura el `session_id` emitido y las siguientes peticiones usan `--resume`. El resultado textual se extrae del evento final `result` y los `text_delta` públicos se entregan durante el turno, mientras los mensajes completos siguen persistidos únicamente en la metadata de ADE.
 
 Los permisos se traducen a la CLI por turno: el modo base es `default` con `Read`, `Glob` y `Grep`; conceder escritura habilita `acceptEdits` y `Edit`/`Write`; `run_commands` habilita `Bash`; `network` habilita `WebFetch` y `WebSearch`. El modo `plan` no se usa para lectura porque puede sustituir silenciosamente un modelo de menor tier. ADE no guarda tokens, cabeceras ni credenciales del proveedor.
 

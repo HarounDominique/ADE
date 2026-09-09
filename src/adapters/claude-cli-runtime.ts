@@ -82,6 +82,10 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
     const args = [
       "--print",
       "--output-format", "stream-json",
+      // The CLI refuses `--print --output-format stream-json` without it:
+      // "when using --print, --output-format=stream-json requires --verbose".
+      // Every Claude turn failed instantly until this was passed.
+      "--verbose",
       "--include-partial-messages",
       "--permission-mode", writable ? "acceptEdits" : "default",
       "--permission-prompts", "none",

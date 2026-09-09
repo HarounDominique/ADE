@@ -505,6 +505,16 @@ export class AdeStore {
     try { return { payload: JSON.parse(row.payload), updatedAt: row.updatedAt }; } catch { return undefined; }
   }
 
+  /** A CLI conversation is only named when its first turn ends, so what was
+      measured while it ran has to follow it to its real id or the dials would
+      read empty for the conversation that just reported them. */
+  renameAgentPressureSession(from: string, to: string): void {
+    const previous = this.getAgentPressure(`session:${from}`);
+    if (!previous) return;
+    this.saveAgentPressure(`session:${to}`, previous.payload, previous.updatedAt);
+    this.db.prepare("DELETE FROM agent_pressure WHERE id = ?").run(`session:${from}`);
+  }
+
   listAgentMessages(sessionId: string): AgentMessage[] {
     return this.db.prepare(`SELECT id, session_id AS sessionId, role, content, created_at AS createdAt FROM agent_messages WHERE session_id = ? ORDER BY created_at ASC, id ASC`).all(sessionId) as AgentMessage[];
   }

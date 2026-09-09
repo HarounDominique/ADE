@@ -4308,6 +4308,10 @@ async function connectSidecar(snapshot) {
           if (sendButton) sendButton.disabled = false;
           const turnState = document.getElementById('agent-turn-state');
           if (turnState) { turnState.textContent = 'ERROR'; turnState.dataset.state = 'error'; }
+          /** A turn that failed silently reads as one that hung. The provider's
+              own message is what tells the operator which of the two it was. */
+          const feedback = document.getElementById('agent-feedback');
+          if (feedback) feedback.textContent = `${selectedProvider ?? 'The agent'} failed this turn: ${response.error.message}`;
         }
         if (contextPurpose === 'remove-project') pendingProjectRemovals.delete(String(response.id));
         if (contextPurpose === 'projects') {

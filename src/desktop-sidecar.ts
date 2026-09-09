@@ -830,6 +830,9 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
       : await runtime.createSession({ directory: params.repositoryPath!, title: `ADE ${title}` });
     active.session = session;
     const isPendingCli = isPendingCliSession(provider, session.id);
+    /** A CLI session is named by the provider only when the turn ends, so
+        anything recorded while it ran is filed under the placeholder id. */
+    const pendingSessionId = session.id;
     const createdAt = new Date().toISOString();
     if (!isPendingCli) {
       store.saveAgentSession({ id: session.id, ...(projectId ? { projectId } : {}), ...(taskId ? { taskId } : {}), provider, directory: params.repositoryPath!, title, ...(typeof params.model === "string" ? { model: params.model } : {}), status: "RUNNING", createdAt });
@@ -886,6 +889,7 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
     /** A turn that changed the repository under a Task enters the governance
         pipeline whichever provider ran it: the ChangeSet, the evidence and the
         Task's own progress no longer depend on `task.run` and OpenCode. */
+    if (session.id !== pendingSessionId) store.renameAgentPressureSession(pendingSessionId, session.id);
     const capture = taskId
       ? await captureTurnChangeSet(store, {
           taskId,

@@ -470,6 +470,9 @@ test("a finished turn chimes, and a turn the operator stopped does not", () => {
   // It sounds when the turn completes and when it fails, never when the
   // operator stopped it themselves.
   assert.match(main, /if \(!agentStopRequested\) playAgentTurnChime\(\);/);
+  // A turn that failed silently reads as one that hung, so the chime is not the
+  // only thing that arrives: the provider's message does too.
+  assert.match(main, /failed this turn: \$\{response\.error\.message\}/);
   assert.match(main, /if \(response\.result\.pressure\) applyAgentPressure\(response\.result\.pressure\);\n        playAgentTurnChime\(\);/);
   // On by default, silenceable, and the choice survives a restart.
   assert.match(main, /const agentSoundStorageKey = 'ade-agent-sound';/);
