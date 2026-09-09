@@ -4550,6 +4550,20 @@ async function connectSidecar(snapshot) {
           requestRunConfigurations(workspaceRootPath);
           return;
         }
+        /** A background reading nobody asked for degrades to unknown instead of
+            interrupting: usage and the update check answer questions the shell
+            poses on its own, and a sidecar older than the shell -- an app still
+            running from a previous install -- does not know how to answer them.
+            Failing them as an operation the operator attempted is a lie. */
+        if (String(response.id) === String(agentUsageRequestId)) {
+          agentSessionUsage = null;
+          renderAgentUsage();
+          return;
+        }
+        if (String(response.id) === String(appUpdateRequestId)) {
+          renderAppVersion(appVersion, { status: 'UNREACHABLE', message: response.error.message });
+          return;
+        }
         const feedback = document.getElementById('agent-feedback');
         if (feedback) feedback.textContent = 'The operation needs attention.';
         if (contextPurpose === 'git-pending' && pendingGitRequestPath !== workspaceRootPath) requestPendingGitChanges(workspaceRootPath, { showLoading: true });
@@ -5042,7 +5056,7 @@ async function connectSidecar(snapshot) {
     not what this product is for. */
 function renderAppVersion(version, update) {
   const host = document.getElementById('status-version');
-  if (!host) return;
+  if (!host || !version) return;
   const newer = update?.status === 'UPDATE_AVAILABLE';
   host.textContent = newer ? `Assay ${version} · ${update.latestVersion} available` : `Assay ${version}`;
   host.dataset.update = newer ? 'true' : 'false';

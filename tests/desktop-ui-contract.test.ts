@@ -1271,3 +1271,15 @@ test("the app says which version it is and whether a newer one exists", () => {
   assert.match(main, /Could not reach the release feed/);
   assert.match(main, /No release feed is configured for this install/);
 });
+
+test("a reading the shell asked for on its own never becomes a failed operation", () => {
+  // Switching between past conversations raised the modal error dialog with
+  // "Unknown method: agent.usage" whenever the app was still running a sidecar
+  // older than the shell. Nothing the operator did had failed.
+  assert.match(main, /if \(String\(response\.id\) === String\(agentUsageRequestId\)\) \{\s*\n\s*agentSessionUsage = null;/);
+  assert.match(main, /if \(String\(response\.id\) === String\(appUpdateRequestId\)\) \{\s*\n\s*renderAppVersion\(appVersion, \{ status: 'UNREACHABLE'/);
+  // Both branches answer before the dialog, which stays for operations the
+  // operator actually attempted.
+  const errorBranch = main.slice(main.indexOf("if (String(response.id) === String(agentUsageRequestId))"), main.indexOf("showOperationError(response.error, contextPurpose)"));
+  assert.match(errorBranch, /return;/);
+});
