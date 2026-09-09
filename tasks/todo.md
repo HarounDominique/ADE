@@ -308,11 +308,12 @@ Auditoría de origen: [product-gap-audit](../docu/knowledge/product-gap-audit.md
   - Verify: `npm test` (272 tests TypeScript) con casos de éxito, fallo, run detenido y ausencia de ejecución. Revisión manual de Changes pendiente.
   - Files: `src/domain/run-configuration.ts`, `src/application/local-runtime/verification-evidence.ts`, `src/application/local-runtime/run-config.ts`, `src/application/local-runtime/run-detection.ts`, `src/application/change-review-read-model.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `tests/verification-gates.test.ts`, [ADR-0044](../docu/adr/0044-verification-gates-from-real-runs.md).
 
-- [ ] Task: Publicar el resultado aprobado como commit atribuido (G4, G5)
+- [x] Task: Publicar el resultado aprobado como commit atribuido (G4, G5)
   - Spec: [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md) · [SPEC-git-collaboration.md](../docu/specs/SPEC-git-collaboration.md)
   - Acceptance: existe un seam `ship` que sólo commitea con aprobación humana y gates requeridas en `passed`/`waived`; el commit de `Version control` envía `taskId` y queda registrado en la traza Git de la Task.
-  - Verify: `npm test` con casos de aprobación ausente y gate fallida; smoke sobre repositorio temporal.
-  - Files: `src/desktop-sidecar.ts`, `src/application/tasks/`, `desktop/src/main.js`, `tests/`.
+  - Verify: `npm test` (278 tests TypeScript) con aprobación ausente, gate fallida, árbol limpio y publicación completa sobre repositorio Git temporal.
+  - Files: `src/application/tasks/ship-from-store.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `desktop/src/styles.css`, `tests/task-ship.test.ts`, [ADR-0045](../docu/adr/0045-ship-the-approved-task.md).
+  - Hallazgo: el panel de gobernanza había desaparecido de la shell y `Approve`/`Re-review` eran inejecutables; recuperan superficie en el detalle de la Task.
 
 - [ ] Task: Dar punto de retorno a un turno con escritura (G6)
   - Spec: [SPEC-agent-providers.md](../docu/specs/SPEC-agent-providers.md) · [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md)

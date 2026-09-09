@@ -84,7 +84,7 @@ approve-task <task-id> --reason "acceptance confirmed"
 ship-task <task-id>
 ```
 
-`ship-task` no ejecuta `git commit` si falta aprobación humana, hay findings sin decisión o una gate requerida fallida.
+`ship-task` no ejecuta `git commit` si falta aprobación humana, hay findings sin decisión o una gate requerida fallida. El seam es `task.ship`: distingue el rechazo (`SHIP_BLOCKED`, el pipeline funcionando) del fallo, registra el commit como operación Git de la Task junto al estado de las gates que lo autorizaron, y deja el empuje a remoto como decisión aparte. Un commit hecho desde `Version control` con una Task seleccionada también entra en su traza. `Approve`, `Ship` y `Re-review` viven en el detalle de la Task, y un control bloqueado nombra la gate que lo bloquea en lugar de desaparecer ([ADR-0045](../adr/0045-ship-the-approved-task.md)).
 
 ## Code Style
 

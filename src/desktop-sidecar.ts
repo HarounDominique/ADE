@@ -13,6 +13,7 @@ import { createRuntimeEvidence } from "./domain/runtime-evidence.js";
 import { getRuntimeHistory, getTaskDetail } from "./application/task-detail.js";
 import { getChangeReview } from "./application/change-review-read-model.js";
 import { approveTaskFromStore } from "./application/tasks/approval-from-store.js";
+import { ShipBlockedError, shipTaskFromStore } from "./application/tasks/ship-from-store.js";
 import { OpenCodeReviewer } from "./adapters/opencode-reviewer.js";
 import { reviewChangeSet } from "./application/review-change-set.js";
 import { LocalProcess } from "./adapters/local-process.js";
@@ -305,6 +306,15 @@ export async function runDesktopSidecar(): Promise<void> {
         const repositoryPath = request.params?.repositoryPath;
         const sessions = store.listAgentSessionsForProject(request.params?.projectId, repositoryPath);
         process.stdout.write(`${JSON.stringify({ id: request.id, result: sessions })}\n`);
+      } else if (request.method === "task.ship") {
+        const params = request.params;
+        if (!params?.taskId || !params.intent || !params.actor || !params.reason) {
+          process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "taskId, intent, actor and reason are required" } })}\n`);
+        } else {
+          void shipTaskFromStore(store, { taskId: params.taskId, message: params.intent, ...(params.body ? { body: params.body } : {}), actor: params.actor, reason: params.reason })
+            .then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`))
+            .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: shipError(error) })}\n`));
+        }
       } else if (request.method === "agent.pressure") {
         const provider = request.params?.provider;
         if (!provider) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "provider is required" } })}\n`);
@@ -782,6 +792,14 @@ async function abortAgentPrompt(request: DesktopRequest): Promise<void> {
   } catch (error: unknown) {
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "AGENT_ABORT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
   }
+}
+
+/** A refusal to ship names what is missing, because the operator's next move
+    depends on which of the two it was. */
+function shipError(error: unknown): { code: string; message: string } {
+  const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof ShipBlockedError) return { code: "SHIP_BLOCKED", message };
+  return { code: "SHIP_FAILED", message };
 }
 
 function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {

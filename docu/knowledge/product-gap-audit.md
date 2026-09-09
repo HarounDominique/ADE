@@ -44,17 +44,21 @@ Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se 
 
 **Cerrado el 2026-09-09**: `verifies` viaja en la configuración, la detección lo propone para build y test, y el sidecar escribe la evidencia al terminar el proceso.
 
-## G4 — Aprobar no publica nada
+## G4 — Aprobar no publica nada *(cerrado el 2026-09-09)*
 
 **Qué pasa.** No existe un seam `ship`. `task.approve` persiste la aprobación humana y ahí termina; el commit se hace a mano desde `Version control`.
 
 **Consecuencia de producto.** La cadena `intención → commit` se rompe justo en el último eslabón, que es el que el usuario recordará.
 
-## G5 — El commit principal no se atribuye a la Task
+**Cerrado el 2026-09-09** por [ADR-0045](../adr/0045-ship-the-approved-task.md): `task.ship` commitea sólo con aprobación y gates en `passed`/`waived`, registra la operación contra la Task, y `Approve`/`Ship`/`Re-review` recuperan superficie en el detalle de la Task. Al cablearlo se descubrió que ese panel había desaparecido de la shell y que aprobar era inejecutable.
+
+## G5 — El commit principal no se atribuye a la Task *(cerrado el 2026-09-09)*
 
 **Qué pasa.** El envío de `git.commit.create` desde `Version control` no incluye `taskId` (`desktop/src/main.js`), y el sidecar sólo registra la operación Git contra la Task cuando ese parámetro llega (`src/desktop-sidecar.ts`).
 
 **Consecuencia de producto.** `PRODUCT.md` promete commits atribuidos a Tasks; el camino que el usuario usa a diario no los atribuye.
+
+**Cerrado el 2026-09-09**: el commit de `Version control` envía `taskId` cuando hay una Task seleccionada.
 
 ## G6 — Un turno con escritura no es reversible
 
@@ -80,7 +84,7 @@ Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se 
 |---|---|---|
 | ~~P0~~ | ~~G1~~ | Cerrado el 2026-09-09 — [ADR-0043](../adr/0043-agent-turn-as-pipeline-entry.md) |
 | ~~P0~~ | ~~G2 + G3~~ | Cerrado el 2026-09-09 — [ADR-0044](../adr/0044-verification-gates-from-real-runs.md) |
-| P1 | G4 + G5 | Cierra intención → commit con atribución |
+| ~~P1~~ | ~~G4 + G5~~ | Cerrado el 2026-09-09 — [ADR-0045](../adr/0045-ship-the-approved-task.md) |
 | P1 | G6 | Sostiene *reversible* sin inventar un control de versiones propio |
 | P2 | G7 | El dato ya existe; falta lectura |
 | P2 | G8 | Fricción de distribución, no de producto |
@@ -91,4 +95,4 @@ Retrieval semántico, cloud, colaboración en tiempo real, editor completo y enr
 
 ## Riesgo de documentación
 
-`PRODUCT.md` y `SPEC-NEXUS` describen el flujo completo como capacidad disponible. Con G1, G2 y G3 cerrados el 2026-09-09 esa afirmación ya se sostiene para capturar cambios y verificarlos; lo que sigue abierto es publicar el resultado aprobado (G4, G5), la reversibilidad del turno (G6) y la lectura del coste (G7). En un producto cuyo argumento es la verificabilidad, esa distancia es el riesgo más caro del inventario y se corrige nombrándola, no parcheándola en silencio.
+`PRODUCT.md` y `SPEC-NEXUS` describen el flujo completo como capacidad disponible. Con G1 a G5 cerrados el 2026-09-09 esa afirmación se sostiene de la intención al commit atribuido; lo que sigue abierto es la reversibilidad del turno (G6), la lectura del coste (G7) y la distribución (G8). En un producto cuyo argumento es la verificabilidad, esa distancia es el riesgo más caro del inventario y se corrige nombrándola, no parcheándola en silencio.

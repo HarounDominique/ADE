@@ -3635,6 +3635,46 @@ function renderProjectTasks(tasks) {
   }).join('');
 }
 
+/** Set while the commit dialog is publishing an approved Task rather than
+    committing the working tree, so one dialog serves both without pretending
+    they are the same action. */
+let shippingTaskId = null;
+
+function openShipDialog(taskId, intent) {
+  const dialog = document.getElementById('commit-dialog');
+  if (!taskId || !dialog?.showModal) { notify('This action needs a dialog that is unavailable.'); return; }
+  shippingTaskId = taskId;
+  const title = document.getElementById('commit-title');
+  const body = document.getElementById('commit-body');
+  if (title) title.value = intent ? `feat: ${intent}` : `chore: ship ${taskId}`;
+  if (body) body.value = `Ships Task ${taskId} after human approval.`;
+  dialog.showModal();
+  requestAnimationFrame(() => document.getElementById('commit-title')?.focus());
+}
+
+/** Approval and shipping are two separate decisions: one accepts the work, the
+    other publishes it. Both say why they are unavailable instead of vanishing,
+    so the gate that blocks them is legible. */
+function taskGovernanceMarkup(detail) {
+  const task = detail.task;
+  const failing = detail.gates.filter((gate) => gate.status !== 'passed' && gate.status !== 'waived').map((gate) => gate.id);
+  const approvable = task.status === 'READY_FOR_HUMAN';
+  const approved = detail.gates.some((gate) => gate.id === 'human-approval' && gate.status === 'passed');
+  const shipBlockers = failing.filter((gate) => gate !== 'human-approval');
+  const approveHint = approvable
+    ? (shipBlockers.length ? `Blocked by: ${shipBlockers.join(', ')}` : 'Accept this work as done')
+    : `Approval waits for the Task to be ready for a human, not ${String(task.status).replaceAll('_', ' ').toLowerCase()}`;
+  const shipHint = !approved ? 'Approve the Task before publishing it'
+    : shipBlockers.length ? `Blocked by: ${shipBlockers.join(', ')}`
+    : 'Commit the approved work and record it against this Task';
+  return `<div class="task-governance">
+    <button class="button secondary" type="button" data-action="approve" data-task-id="${escapeHTML(task.id)}" title="${escapeHTML(approveHint)}"${approvable && !shipBlockers.length ? '' : ' disabled'}>Approve</button>
+    <button class="button primary" type="button" data-action="ship" data-task-id="${escapeHTML(task.id)}" data-task-intent="${escapeHTML(task.intent)}" title="${escapeHTML(shipHint)}"${approved && !shipBlockers.length ? '' : ' disabled'}>Ship</button>
+    <button class="text-button" type="button" data-action="rereview" data-task-id="${escapeHTML(task.id)}" title="Ask for a fresh independent review of the latest ChangeSet">Re-review</button>
+    <span class="task-governance-hint">${escapeHTML(approved ? shipHint : approveHint)}</span>
+  </div>`;
+}
+
 function renderTaskDetail(detail) {
   const task = detail.task;
   const panel = document.getElementById(`task-detail-${task.id}`);
@@ -3653,7 +3693,7 @@ function renderTaskDetail(detail) {
   const evidence = detail.runtimeEvidence.length
     ? `<ul class="task-trace-list">${detail.runtimeEvidence.slice(0, 12).map((item) => `<li><strong>${escapeHTML(item.type)}</strong> · ${escapeHTML(item.summary)}<small>${escapeHTML(new Date(item.at).toLocaleString())}${item.sessionId ? ` · ${escapeHTML(item.sessionId)}` : ''}</small></li>`).join('')}</ul>`
     : '<p class="task-trace-empty">No persisted runtime activity for this Task.</p>';
-  const markup = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p><h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
+  const markup = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p>${taskGovernanceMarkup(detail)}<h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
   taskDetailMarkup.set(task.id, markup);
   panel.innerHTML = markup;
 }
@@ -4456,6 +4496,15 @@ async function connectSidecar(snapshot) {
         renderAgentMessages(agentRenderedMessages);
         return;
       }
+      if (String(response.id ?? '').startsWith('ship-')) {
+        shippingTaskId = null;
+        document.getElementById('commit-dialog')?.close();
+        if (response.error) { notify(response.error.code === 'SHIP_BLOCKED' ? response.error.message : 'Ship failed.'); return; }
+        notify('Task shipped and recorded against its Git trace.');
+        requestVersionControlData(workspaceRootPath);
+        void requestProjectSnapshot(activeProjectId, 'ship');
+        return;
+      }
       if (response.type === 'agent.pressure') {
         if (!activeAgentSessionId || response.sessionId === activeAgentSessionId) applyAgentPressure(response.pressure);
         return;
@@ -4930,6 +4979,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'open-commit-dialog') {
+    shippingTaskId = null;
     if (!nativeInvoke || activeVersionControl === 'none') { notify('Commit requires a Git Project.'); return; }
     const pendingStatus = document.getElementById('git-pending-status')?.textContent ?? '';
     if (pendingStatus === 'Working tree clean' || pendingStatus.startsWith('This Project')) { notify('There are no pending changes to commit.'); return; }
@@ -5051,12 +5101,19 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     });
     return;
   }
+  if (item.dataset.action === 'ship') {
+    if (!nativeInvoke) { notify('Shipping requires the local sidecar.'); return; }
+    openShipDialog(item.dataset.taskId, item.dataset.taskIntent ?? '');
+    return;
+  }
   if (item.dataset.action === 'approve') {
     if (!nativeInvoke) {
       notify('Approval requires the local sidecar.');
       return;
     }
-    const taskId = document.getElementById('changes-task-id')?.textContent;
+    /** The Task is the one whose detail carries the button: the review panel
+        this used to read from is no longer part of the shell. */
+    const taskId = item.dataset.taskId ?? selectedTaskId;
     nativeInvoke('sidecar_request', {
       request: JSON.stringify({ id: `approve-${taskId}-${Date.now()}`, method: 'task.approve', params: { taskId, reason: 'Human approval confirmed in Changes', actor: 'human' } }),
     }).then(() => {
@@ -5070,7 +5127,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'rereview') {
     if (!nativeInvoke) { notify('Re-review requires the local sidecar.'); return; }
-    const taskId = document.getElementById('changes-task-id')?.textContent;
+    const taskId = item.dataset.taskId ?? selectedTaskId;
     nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `rereview-${taskId}-${Date.now()}`, method: 'task.rereview', params: { taskId, reason: 'Human requested a fresh independent review', actor: 'human' } }) }).then(() => notify('Re-review started.')).catch((error) => { notify('Re-review unavailable.'); console.warn(error); });
     return;
   }
@@ -5107,9 +5164,19 @@ document.getElementById('git-commit-form')?.addEventListener('submit', (event) =
   const body = document.getElementById('commit-body')?.value.trim() ?? '';
   const pendingStatus = document.getElementById('git-pending-status')?.textContent ?? '';
   if (!title) { notify('Enter a commit title.'); return; }
-  if (pendingStatus === 'Working tree clean' || pendingStatus.startsWith('This Project')) { notify('There are no pending changes to commit.'); return; }
+  /** Shipping publishes an approved Task, so the gates decide whether there is
+      anything to publish; a plain commit is judged by the working tree. */
+  if (!shippingTaskId && (pendingStatus === 'Working tree clean' || pendingStatus.startsWith('This Project'))) { notify('There are no pending changes to commit.'); return; }
+  if (shippingTaskId) {
+    const taskId = shippingTaskId;
+    nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `ship-${taskId}-${Date.now()}`, method: 'task.ship', params: { taskId, intent: title, ...(body ? { body } : {}), reason: 'Approved Task shipped from Assay', actor: 'human' } }) })
+      .catch((error) => { notify('Ship failed.'); console.warn(error); });
+    return;
+  }
   setSyncState('stale', 'Creating local commit…');
-  void sendContextRequest('git.commit.create', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), reason: 'Local commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-local').catch((error) => notify(error instanceof Error ? error.message : 'Commit failed.'));
+  /** A commit made while a Task is selected belongs to that Task's trail; the
+      sidecar records the operation only when it is told which one. */
+  void sendContextRequest('git.commit.create', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), ...(selectedTaskId ? { taskId: selectedTaskId } : {}), reason: 'Local commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-local').catch((error) => notify(error instanceof Error ? error.message : 'Commit failed.'));
 });
 document.getElementById('worktree-form')?.addEventListener('submit', (event) => {
   event.preventDefault();

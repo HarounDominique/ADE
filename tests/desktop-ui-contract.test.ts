@@ -430,6 +430,26 @@ test("workspace tree expands directories lazily and keeps symlinks non-actionabl
   assert.match(main, /\[data-directory-path\]\.directory/);
 });
 
+test("approving and shipping a Task are two decisions, and both say why they are blocked", () => {
+  assert.match(main, /function taskGovernanceMarkup/);
+  assert.match(main, /data-action="approve" data-task-id=/);
+  assert.match(main, /data-action="ship" data-task-id=/);
+  // The approve action used to read a review panel the shell no longer has.
+  assert.doesNotMatch(main, /document\.getElementById\('changes-task-id'\)\?\.textContent/);
+  // A disabled control explains itself instead of vanishing.
+  assert.match(main, /Approve the Task before publishing it/);
+  assert.match(main, /`Blocked by: \$\{shipBlockers\.join\(', '\)\}`/);
+  assert.match(main, /method: 'task\.ship'/);
+  // Re-review was unreachable for the same reason, and belongs to the same row.
+  assert.match(main, /data-action="rereview" data-task-id=/);
+  // One dialog, two actions, never pretending they are the same one.
+  assert.match(main, /let shippingTaskId = null;/);
+  assert.match(main, /if \(shippingTaskId\) \{/);
+  // A commit made under a Task belongs to that Task's trail.
+  assert.match(main, /\.\.\.\(selectedTaskId \? \{ taskId: selectedTaskId \} : \{\}\)/);
+  assert.match(styles, /\.task-governance \{ display: flex;/);
+});
+
 test("a run can stand as the build or tests gate, and editing it does not drop that", () => {
   assert.match(html, /id="run-config-verifies"/);
   assert.match(html, /<option value="build">The build gate<\/option>/);
