@@ -60,11 +60,13 @@ Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se 
 
 **Cerrado el 2026-09-09**: el commit de `Version control` envía `taskId` cuando hay una Task seleccionada.
 
-## G6 — Un turno con escritura no es reversible
+## G6 — Un turno con escritura no es reversible *(cerrado el 2026-09-09)*
 
 **Qué pasa.** Un turno con `write_code` modifica el árbol sin punto de retorno propio. Deshacer es un trabajo manual de Git.
 
 **Consecuencia de producto.** El principio *Observable and reversible* queda sostenido sólo por Git y por la disciplina del usuario. Los checkpoints automáticos están fuera de alcance declarado; un checkpoint explícito por turno con escritura no lo está.
+
+**Cerrado el 2026-09-09** por [ADR-0048](../adr/0048-checkpoint-before-a-writing-turn.md): antes de un turno con `write_code`/`write_docs` sobre una Task, `src/application/agents/turn-checkpoint.ts` fotografía el working tree completo como commit sin rama bajo `refs/ade/checkpoints/`, sin tocar `HEAD`, la rama ni el índice del operador. La Task lista sus checkpoints y restaurar exige confirmación explícita, dejando a su vez un checkpoint del estado que descarta. Queda abierta la retención de esas referencias y el cálculo del delta del turno que ahora sería posible.
 
 ## G7 — El coste del trabajo agéntico es invisible
 
@@ -85,7 +87,7 @@ Cada hueco cita fichero y línea de la revisión del 2026-09-08. Las líneas se 
 | ~~P0~~ | ~~G1~~ | Cerrado el 2026-09-09 — [ADR-0043](../adr/0043-agent-turn-as-pipeline-entry.md) |
 | ~~P0~~ | ~~G2 + G3~~ | Cerrado el 2026-09-09 — [ADR-0044](../adr/0044-verification-gates-from-real-runs.md) |
 | ~~P1~~ | ~~G4 + G5~~ | Cerrado el 2026-09-09 — [ADR-0045](../adr/0045-ship-the-approved-task.md) |
-| P1 | G6 | Sostiene *reversible* sin inventar un control de versiones propio |
+| ~~P1~~ | ~~G6~~ | Cerrado el 2026-09-09 — [ADR-0048](../adr/0048-checkpoint-before-a-writing-turn.md) |
 | P2 | G7 | El dato ya existe; falta lectura |
 | P2 | G8 | Fricción de distribución, no de producto |
 
@@ -95,4 +97,4 @@ Retrieval semántico, cloud, colaboración en tiempo real, editor completo y enr
 
 ## Riesgo de documentación
 
-`PRODUCT.md` y `SPEC-NEXUS` describen el flujo completo como capacidad disponible. Con G1 a G5 cerrados el 2026-09-09 esa afirmación se sostiene de la intención al commit atribuido; lo que sigue abierto es la reversibilidad del turno (G6), la lectura del coste (G7) y la distribución (G8). En un producto cuyo argumento es la verificabilidad, esa distancia es el riesgo más caro del inventario y se corrige nombrándola, no parcheándola en silencio.
+`PRODUCT.md` y `SPEC-NEXUS` describen el flujo completo como capacidad disponible. Con G1 a G5 cerrados el 2026-09-09 esa afirmación se sostiene de la intención al commit atribuido; con G6 cerrado el mismo día la reversibilidad del turno deja de depender de la disciplina del operador; lo que sigue abierto es la lectura del coste (G7) y la distribución (G8). En un producto cuyo argumento es la verificabilidad, esa distancia es el riesgo más caro del inventario y se corrige nombrándola, no parcheándola en silencio.

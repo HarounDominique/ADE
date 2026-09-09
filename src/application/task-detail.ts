@@ -17,6 +17,8 @@ export function getTaskDetail(store: AdeStore, taskId: string) {
     runtimeEvidence: store.listRuntimeEvidence(taskId),
     gates: store.listGates(taskId),
     gitOperations: store.listGitOperations(taskId),
+    /** The ways back a writing turn left behind, where the work is judged. */
+    checkpoints: store.listTaskCheckpoints(taskId),
     agentSessions: store.listAgentSessions(taskId),
   };
 }

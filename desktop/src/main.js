@@ -1104,9 +1104,16 @@ function selectTaskContext(taskId) {
   renderTaskContext();
   renderAgentTaskSelection();
   closeGitContextMenus();
-  nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `detail-${task.id}-${Date.now()}`, method: 'task.detail', params: { taskId: task.id } }) });
+  requestTaskDetail(task.id);
   nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `git-ops-${task.id}-${Date.now()}`, method: 'task.git.operations', params: { taskId: task.id } }) });
   nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `review-${task.id}-${Date.now()}`, method: 'change.review', params: { taskId: task.id } }) });
+}
+
+/** The Task detail is read from the store, never patched in place: whatever
+    changed it -- a turn, a restore, an approval -- is asked for again. */
+function requestTaskDetail(taskId) {
+  if (!taskId) return;
+  nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `detail-${taskId}-${Date.now()}`, method: 'task.detail', params: { taskId } }) });
 }
 
 function toggleGitContextMenu(kind) {
@@ -3851,6 +3858,15 @@ function taskGovernanceMarkup(detail) {
   </div>`;
 }
 
+/** The way back a writing turn left behind. It lives where the work is judged
+    so the operator does not need a Git incantation to undo a turn, and it says
+    what going back would cost before asking whether to do it. */
+function taskCheckpointsMarkup(detail) {
+  const checkpoints = detail.checkpoints ?? [];
+  if (!checkpoints.length) return '<p class="task-trace-empty">No checkpoint yet. A turn allowed to write leaves one before it runs.</p>';
+  return `<ul class="task-trace-list task-checkpoint-list">${checkpoints.map((checkpoint) => `<li><strong>${escapeHTML(checkpoint.label)}</strong> · ${checkpoint.files} file${checkpoint.files === 1 ? '' : 's'}<small>${escapeHTML(new Date(checkpoint.createdAt).toLocaleString())} · ${escapeHTML(checkpoint.commit.slice(0, 12))}${checkpoint.restoredAt ? ` · restored ${escapeHTML(new Date(checkpoint.restoredAt).toLocaleString())}` : ''}</small><button class="text-button" type="button" data-action="restore-checkpoint" data-checkpoint-id="${escapeHTML(checkpoint.id)}" data-checkpoint-label="${escapeHTML(checkpoint.label)}" title="Put the working tree back as it was before this turn">Restore</button></li>`).join('')}</ul>`;
+}
+
 function renderTaskDetail(detail) {
   const task = detail.task;
   const panel = document.getElementById(`task-detail-${task.id}`);
@@ -3869,7 +3885,7 @@ function renderTaskDetail(detail) {
   const evidence = detail.runtimeEvidence.length
     ? `<ul class="task-trace-list">${detail.runtimeEvidence.slice(0, 12).map((item) => `<li><strong>${escapeHTML(item.type)}</strong> · ${escapeHTML(item.summary)}<small>${escapeHTML(new Date(item.at).toLocaleString())}${item.sessionId ? ` · ${escapeHTML(item.sessionId)}` : ''}</small></li>`).join('')}</ul>`
     : '<p class="task-trace-empty">No persisted runtime activity for this Task.</p>';
-  const markup = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p>${taskGovernanceMarkup(detail)}<h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
+  const markup = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p>${taskGovernanceMarkup(detail)}<h3 class="task-trace-heading">Checkpoints</h3>${taskCheckpointsMarkup(detail)}<h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
   taskDetailMarkup.set(task.id, markup);
   panel.innerHTML = markup;
 }
@@ -4707,6 +4723,14 @@ async function connectSidecar(snapshot) {
         renderAgentMessages(agentRenderedMessages);
         return;
       }
+      /** A turn allowed to write says whether it has a way back before it runs.
+          Having one is the expectation and stays quiet in the Task; not having
+          one is the exception the operator has to know about now. */
+      if (response.type === 'agent.checkpoint') {
+        if (!response.available) notify(`No checkpoint for this turn: ${response.message ?? 'the Project is not a Git repository'}.`);
+        else if (response.taskId && response.taskId === selectedTaskId) requestTaskDetail(response.taskId);
+        return;
+      }
       if (response.type === 'agent.started') {
         const pendingHistoryKey = pendingAgentTurn?.historyKey;
         if (pendingHistoryKey && pendingHistoryKey !== response.sessionId) {
@@ -4849,6 +4873,12 @@ async function connectSidecar(snapshot) {
       if (response.type === 'review.completed' || response.type === 'review.failed') {
         notify(response.type === 'review.completed' ? 'Re-review completed.' : `Re-review failed: ${response.error}`);
         nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `review-refresh-${Date.now()}`, method: 'change.review', params: { taskId: response.taskId } }) });
+        return;
+      }
+      if (response.result?.checkpointId && response.result?.undoCommit) {
+        notify(`Working tree restored${response.result.removed?.length ? `, ${response.result.removed.length} file${response.result.removed.length === 1 ? '' : 's'} removed` : ''}.`);
+        requestTaskDetail(response.result.taskId);
+        if (workspaceRootPath) void refreshGitWorkspace(workspaceRootPath, nativeInvoke);
         return;
       }
       if (response.result?.task?.history) {
@@ -5317,6 +5347,22 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
       notify('Approval blocked by required gates.');
       console.warn('Approval unavailable:', error);
     });
+    return;
+  }
+  if (item.dataset.action === 'restore-checkpoint') {
+    if (!nativeInvoke) { notify('Restoring a checkpoint requires the local sidecar.'); return; }
+    const checkpointId = item.dataset.checkpointId;
+    const label = item.dataset.checkpointLabel ?? 'this checkpoint';
+    /** Going back throws away everything written since, so it is asked once,
+        plainly, and never as a side effect of another action. */
+    requestConfirmation({
+      eyebrow: 'RESTORE',
+      title: 'Put the working tree back?',
+      copy: `Everything written since ${label} is discarded. Assay takes a checkpoint of the current tree first, so this is itself undoable.`,
+      confirmLabel: 'Restore',
+      tone: 'danger',
+    }, () => nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `checkpoint-restore-${checkpointId}-${Date.now()}`, method: 'task.checkpoint.restore', params: { checkpointId, actor: 'human', reason: `Restored ${label} from the Task`, confirmed: true } }) })
+      .catch((error) => { notify('Restore failed.'); console.warn(error); }));
     return;
   }
   if (item.dataset.action === 'rereview') {

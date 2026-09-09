@@ -79,9 +79,10 @@ function windowsGitCandidates(environment: NodeJS.ProcessEnv): readonly string[]
   ];
 }
 
-export async function executeGit(args: string[], options?: { cwd?: string }): Promise<{ stdout: string; stderr: string }> {
+export async function executeGit(args: string[], options?: { cwd?: string; env?: NodeJS.ProcessEnv }): Promise<{ stdout: string; stderr: string }> {
   try {
-    return await execFile(gitExecutable(), args, { encoding: "utf8", ...options });
+    const { env, ...rest } = options ?? {};
+    return await execFile(gitExecutable(), args, { encoding: "utf8", ...rest, ...(env ? { env: { ...process.env, ...env } } : {}) });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") throw new GitUnavailableError();
     throw error;

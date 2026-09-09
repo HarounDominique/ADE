@@ -26,6 +26,8 @@ import { findReferenceImpact } from "./application/knowledge/reference-impact.js
 import { runNativeSkill } from "./application/skills/run-skill.js";
 import { askGateEvidenceType, askGateSummary, evaluateAskGate } from "./application/gates/ask-gate.js";
 import { captureTurnChangeSet } from "./application/agents/capture-turn-change-set.js";
+import { CheckpointBlockedError, captureTurnCheckpoint, restoreTaskCheckpoint } from "./application/agents/task-checkpoints.js";
+import { turnWrites } from "./application/agents/turn-checkpoint.js";
 import { askBriefing, composeAgentPrompt } from "./application/structural-context/ask-briefing.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
@@ -52,7 +54,7 @@ import { resolveProviderSessionId } from "./application/terminal-history/provide
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
+  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
 };
 
 export type DesktopResponse = {
@@ -314,6 +316,15 @@ export async function runDesktopSidecar(): Promise<void> {
           void shipTaskFromStore(store, { taskId: params.taskId, message: params.intent, ...(params.body ? { body: params.body } : {}), actor: params.actor, reason: params.reason })
             .then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`))
             .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: shipError(error) })}\n`));
+        }
+      } else if (request.method === "task.checkpoint.restore") {
+        const params = request.params;
+        if (!params?.checkpointId || !params.actor || !params.reason) {
+          process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "checkpointId, actor and reason are required" } })}\n`);
+        } else {
+          void restoreTaskCheckpoint(store, { checkpointId: params.checkpointId, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true })
+            .then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result: { checkpointId: result.checkpoint.id, taskId: result.checkpoint.taskId, commit: result.checkpoint.commit, restored: result.restored, removed: result.removed, undoCommit: result.previousCommit } })}\n`))
+            .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: checkpointError(error) })}\n`));
         }
       } else if (request.method === "agent.pressure") {
         const provider = request.params?.provider;
@@ -796,6 +807,14 @@ async function abortAgentPrompt(request: DesktopRequest): Promise<void> {
 
 /** A refusal to ship names what is missing, because the operator's next move
     depends on which of the two it was. */
+/** A restore that is refused and one that breaks are different answers: the
+    first tells the operator what is missing, the second that Git failed. */
+function checkpointError(error: unknown): { code: string; message: string } {
+  const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof CheckpointBlockedError) return { code: "CHECKPOINT_BLOCKED", message };
+  return { code: "CHECKPOINT_RESTORE_FAILED", message };
+}
+
 function shipError(error: unknown): { code: string; message: string } {
   const message = error instanceof Error ? error.message : String(error);
   if (error instanceof ShipBlockedError) return { code: "SHIP_BLOCKED", message };
@@ -875,6 +894,24 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
         agent decides whether to use it, but it can no longer fail to know that
         the structural answer is one command away instead of a tree walk. The
         conversation persists the operator's prompt, never the briefing. */
+    /** Before the turn runs, not after: a turn allowed to write leaves the
+        working tree as the operator had it, kept as a Git object the Task can
+        point at. A Project without Git cannot hold one, and says so rather
+        than letting the operator believe there is a way back. */
+    if (taskId && turnWrites(params.grantedPermissions)) {
+      const checkpoint = await captureTurnCheckpoint(store, {
+        taskId,
+        ...(isPendingCli ? {} : { sessionId: session.id }),
+        provider,
+        directory: params.repositoryPath!,
+        turnId: String(request.id),
+        grantedPermissions: params.grantedPermissions ?? [],
+      }).catch((error: unknown) => {
+        process.stdout.write(`${JSON.stringify({ type: "agent.checkpoint", id: request.id, taskId, available: false, message: error instanceof Error ? error.message : String(error) })}\n`);
+        return undefined;
+      });
+      if (checkpoint) process.stdout.write(`${JSON.stringify({ type: "agent.checkpoint", id: request.id, taskId, available: true, checkpointId: checkpoint.id, commit: checkpoint.commit, files: checkpoint.files })}\n`);
+    }
     const briefing = await askBriefing({ repositoryPath: params.repositoryPath!, enabled: loadGatePolicy(params.repositoryPath).structuralBriefing }).catch(() => undefined);
     const rawOutput = await runtime.prompt(session, { text: composeAgentPrompt(briefing, params.prompt!), ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), grantedPermissions: params.grantedPermissions ?? [], ...(provider !== "opencode" ? { onEvent: recordAgentEvent } : {}) });
     await eventPromise;

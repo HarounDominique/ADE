@@ -75,6 +75,8 @@ Las ejecuciones Codex del sidecar son estrictamente no interactivas: ADE cierra 
 
 Los permisos del composer se traducen a cada CLI: Codex usa `--sandbox read-only`/`workspace-write` y `--search`; Claude Code usa `--permission-mode default` por defecto, `acceptEdits` al conceder escritura y una lista explícita de tools (`Read`, `Glob`, `Grep`, `Edit`, `Write`, `Bash`, `WebFetch`, `WebSearch`) según el turno. `run_commands` no concede escritura por sí solo. La distinción entre editar código y documentación se conserva como permiso de ADE, aunque ambos CLIs aplican sus propias granularidades.
 
+Conceder escritura tiene una consecuencia previa a la ejecución: antes de que el turno corra, ADE fotografía el working tree del Project y lo guarda como punto de retorno de la Task, según [SPEC-changes-review-governance](SPEC-changes-review-governance.md#changeset-and-checkpoint-contract) y [ADR-0048](../adr/0048-checkpoint-before-a-writing-turn.md). Un turno sin permiso de escritura no lo hace, y un Project sin Git avisa de que ese turno no tendrá vuelta atrás en lugar de dejarlo suponer.
+
 ## Agent workbench
 
 La [auditoría de ChatGPT Desktop](../knowledge/chatgpt-desktop-agents-audit.md) y el [ADR-0029](../adr/0029-chatgpt-inspired-agent-workbench.md) definen e implementan esta recuperación visual de sesiones, conservando el contrato de adaptadores, permisos, persistencia y borrado:

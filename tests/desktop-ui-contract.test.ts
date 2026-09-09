@@ -1213,3 +1213,22 @@ test("adding a Project is a labelled button, not a bare glyph", () => {
   assert.match(html, /class="button accent compact agent-new-session"/);
   assert.doesNotMatch(styles, /\.agent-new-session[^{]*\{[^}]*(background|border-radius|font):/);
 });
+
+test("a writing turn's way back is offered where the Task is judged", () => {
+  // A turn that could write had no restore point: the operator's only way back
+  // was a Git incantation ADE never mentioned.
+  assert.match(main, /function taskCheckpointsMarkup/);
+  assert.match(main, /<h3 class="task-trace-heading">Checkpoints<\/h3>\$\{taskCheckpointsMarkup\(detail\)\}/);
+  assert.match(main, /data-action="restore-checkpoint"/);
+  // Going back discards what the turn wrote, so it is confirmed explicitly and
+  // says that the restore is itself undoable.
+  assert.match(main, /if \(item\.dataset\.action === 'restore-checkpoint'\)/);
+  assert.match(main, /requestConfirmation\(\{\s*\n\s*eyebrow: 'RESTORE'/);
+  assert.match(main, /tone: 'danger',\s*\n\s*\}, \(\) => nativeInvoke\('sidecar_request', \{ request: JSON\.stringify\(\{ id: `checkpoint-restore/);
+  assert.match(main, /method: 'task\.checkpoint\.restore', params: \{ checkpointId, actor: 'human', reason: .*confirmed: true \}/);
+  // Having a checkpoint is the expectation and stays quiet; not having one is
+  // what the operator must hear before the turn writes.
+  assert.match(main, /if \(response\.type === 'agent\.checkpoint'\)/);
+  assert.match(main, /if \(!response\.available\) notify\(`No checkpoint for this turn/);
+  assert.match(main, /function requestTaskDetail/);
+});

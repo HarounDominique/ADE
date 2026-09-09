@@ -53,6 +53,9 @@ export type PersistedReview = {
 
 export type PersistedRuntimeEvidence = RuntimeEvidence;
 export type GitOperation = { id: string; taskId: string; operation: string; reference?: string; actor: string; reason: string; at: string; metadata?: string };
+/** The way back from a writing turn: the working tree as it stood before the
+    agent ran, kept as an unreferenced Git commit the Task can point at. */
+export type TaskCheckpoint = { id: string; taskId: string; sessionId?: string; provider?: string; directory: string; ref: string; commit: string; label: string; files: number; createdAt: string; restoredAt?: string };
 export type AgentSession = { id: string; projectId?: string; taskId?: string; provider: string; directory: string; title?: string; model?: string; status: string; createdAt: string; updatedAt: string };
 /** What the turn did, kept with the answer it produced. A conversation that
     only remembers the reply throws away the evidence a developer needs: which
@@ -150,6 +153,19 @@ export class AdeStore {
         reason TEXT NOT NULL,
         at TEXT NOT NULL,
         metadata TEXT
+      );
+      CREATE TABLE IF NOT EXISTS task_checkpoints (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL REFERENCES tasks(id),
+        session_id TEXT,
+        provider TEXT,
+        directory TEXT NOT NULL,
+        ref TEXT NOT NULL,
+        commit_hash TEXT NOT NULL,
+        label TEXT NOT NULL,
+        files INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        restored_at TEXT
       );
       CREATE TABLE IF NOT EXISTS agent_sessions (
         id TEXT PRIMARY KEY,
@@ -491,6 +507,26 @@ export class AdeStore {
 
   /** One row per completed turn. A turn the provider did not account for has
       no row: an absent cost is not a free one. */
+  saveTaskCheckpoint(input: Omit<TaskCheckpoint, "createdAt"> & { createdAt?: string }): void {
+    this.db.prepare(`INSERT INTO task_checkpoints (id, task_id, session_id, provider, directory, ref, commit_hash, label, files, created_at, restored_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET restored_at = excluded.restored_at`)
+      .run(input.id, input.taskId, input.sessionId ?? null, input.provider ?? null, input.directory, input.ref, input.commit, input.label, input.files, input.createdAt ?? new Date().toISOString(), input.restoredAt ?? null);
+  }
+
+  listTaskCheckpoints(taskId: string): TaskCheckpoint[] {
+    return this.db.prepare(`SELECT id, task_id AS taskId, session_id AS sessionId, provider, directory, ref, commit_hash AS "commit", label, files, created_at AS createdAt, restored_at AS restoredAt FROM task_checkpoints WHERE task_id = ? ORDER BY created_at DESC, id DESC`)
+      .all(taskId)
+      .map((row) => readTaskCheckpoint(row));
+  }
+
+  getTaskCheckpoint(id: string): TaskCheckpoint | undefined {
+    const row = this.db.prepare(`SELECT id, task_id AS taskId, session_id AS sessionId, provider, directory, ref, commit_hash AS "commit", label, files, created_at AS createdAt, restored_at AS restoredAt FROM task_checkpoints WHERE id = ?`).get(id);
+    return row ? readTaskCheckpoint(row) : undefined;
+  }
+
+  markTaskCheckpointRestored(id: string, at = new Date().toISOString()): void {
+    this.db.prepare("UPDATE task_checkpoints SET restored_at = ? WHERE id = ?").run(at, id);
+  }
+
   saveAgentTurnUsage(input: Omit<AgentTurnUsage, "createdAt"> & { createdAt?: string }): void {
     this.db.prepare(`INSERT INTO agent_turn_usage (id, session_id, provider, model, input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens, cost_usd, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET input_tokens = excluded.input_tokens, output_tokens = excluded.output_tokens, cache_read_input_tokens = excluded.cache_read_input_tokens, cache_creation_input_tokens = excluded.cache_creation_input_tokens, cost_usd = excluded.cost_usd`)
       .run(input.id, input.sessionId, input.provider, input.model ?? null, input.inputTokens, input.outputTokens, input.cacheReadInputTokens, input.cacheCreationInputTokens, input.costUsd ?? null, input.createdAt ?? new Date().toISOString());
@@ -572,4 +608,17 @@ export class AdeStore {
   close(): void {
     this.db.close();
   }
+}
+
+/** A checkpoint that was never restored has no restore time, and a session or
+    provider is optional because a checkpoint can also be taken by hand. */
+function readTaskCheckpoint(row: unknown): TaskCheckpoint {
+  const { sessionId, provider, restoredAt, files, ...rest } = row as Omit<TaskCheckpoint, "sessionId" | "provider" | "restoredAt" | "files"> & { sessionId: string | null; provider: string | null; restoredAt: string | null; files: number };
+  return {
+    ...rest,
+    files: Number(files),
+    ...(sessionId ? { sessionId } : {}),
+    ...(provider ? { provider } : {}),
+    ...(restoredAt ? { restoredAt } : {}),
+  };
 }

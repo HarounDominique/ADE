@@ -315,11 +315,12 @@ Auditoría de origen: [product-gap-audit](../docu/knowledge/product-gap-audit.md
   - Files: `src/application/tasks/ship-from-store.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `desktop/src/styles.css`, `tests/task-ship.test.ts`, [ADR-0045](../docu/adr/0045-ship-the-approved-task.md).
   - Hallazgo: el panel de gobernanza había desaparecido de la shell y `Approve`/`Re-review` eran inejecutables; recuperan superficie en el detalle de la Task.
 
-- [ ] Task: Dar punto de retorno a un turno con escritura (G6)
-  - Spec: [SPEC-agent-providers.md](../docu/specs/SPEC-agent-providers.md) · [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md)
+- [x] Task: Dar punto de retorno a un turno con escritura (G6)
+  - Spec: [SPEC-agent-providers.md](../docu/specs/SPEC-agent-providers.md) · [SPEC-changes-review-governance.md](../docu/specs/SPEC-changes-review-governance.md) · ADR: [0048-checkpoint-before-a-writing-turn](../docu/adr/0048-checkpoint-before-a-writing-turn.md)
   - Acceptance: un turno con `write_code`/`write_docs` deja un checkpoint restaurable antes de ejecutarse, visible desde la Task y reversible con confirmación explícita; no se crean commits en la rama del usuario sin pedirlo.
-  - Verify: `npm test`, smoke sobre repositorio temporal con cambios sin commitear.
-  - Files: `src/application/`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `tests/`.
+  - Verify: `npm test` (300 tests TypeScript, siete nuevos sobre repositorio Git temporal: foto sin tocar `HEAD`, índice ni rama; restauración de lo modificado, lo borrado y lo inventado; repositorio sin primer commit; confirmación obligatoria).
+  - Files: `src/application/agents/turn-checkpoint.ts`, `src/application/agents/task-checkpoints.ts`, `src/persistence/sqlite-store.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `tests/turn-checkpoint.test.ts`.
+  - Abierto: las referencias `refs/ade/checkpoints/` no se podan, y el delta del turno —que ahora sería calculable contra la foto— sigue sin calcularse.
 
 - [ ] Task: Mostrar el coste del trabajo agéntico (G7)
   - Spec: [SPEC-agent-runtime.md](../docu/specs/SPEC-agent-runtime.md#turn-accounting) · ADR: [0040-agent-turn-accounting](../docu/adr/0040-agent-turn-accounting.md)

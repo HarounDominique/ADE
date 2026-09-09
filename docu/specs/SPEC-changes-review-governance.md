@@ -44,7 +44,9 @@ Una gate tiene estados `pending`, `passed`, `failed` o `waived`. Sólo una polic
 
 Un ChangeSet inmutable vincula `taskId`, sesión Implementer, repositorio, diff del runtime, estado Git, patch, archivos no trackeados y timestamp. Cada nuevo ciclo de BUILD produce un nuevo ChangeSet; la Task conserva la secuencia y nunca se sobrescribe evidencia histórica.
 
-Un checkpoint es una referencia a un estado Git identificable (`commit`, branch o snapshot disponible) y a su ChangeSet. Restaurar un checkpoint requiere confirmación humana si puede descartar cambios no guardados. El MVP puede mostrar y persistir ChangeSets sin implementar todavía restauración automática.
+Un checkpoint es el working tree tal y como estaba antes de un turno con permiso de escritura, guardado como un objeto commit que ninguna rama apunta y sostenido por una referencia bajo `refs/ade/checkpoints/`. Incluye lo trackeado, lo staged y lo no trackeado que `.gitignore` no excluye, se toma con un índice temporal y no mueve `HEAD`, la rama ni el índice del operador: ADE no crea commits en la rama del usuario. Un turno de sólo lectura no deja checkpoint y un Project sin Git no puede tenerlo, y así se declara en vez de simularse.
+
+Restaurar un checkpoint devuelve el working tree exactamente a esa foto —borrando lo que el turno añadió y reescribiendo el resto—, exige confirmación humana explícita y toma antes un checkpoint del estado que va a descartar, de modo que la propia restauración es reversible. Los checkpoints se listan en la Task y una restauración queda registrada como operación Git y como evidencia de runtime. La decisión vive en [ADR-0048](../adr/0048-checkpoint-before-a-writing-turn.md).
 
 ## Review and finding contract
 
