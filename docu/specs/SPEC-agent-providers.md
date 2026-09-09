@@ -77,6 +77,8 @@ Los permisos del composer se traducen a cada CLI: Codex usa `--sandbox read-only
 
 Conceder escritura tiene una consecuencia previa a la ejecución: antes de que el turno corra, ADE fotografía el working tree del Project y lo guarda como punto de retorno de la Task, según [SPEC-changes-review-governance](SPEC-changes-review-governance.md#changeset-and-checkpoint-contract) y [ADR-0048](../adr/0048-checkpoint-before-a-writing-turn.md). Un turno sin permiso de escritura no lo hace, y un Project sin Git avisa de que ese turno no tendrá vuelta atrás en lugar de dejarlo suponer.
 
+Un turno sobre una Task lleva además los criterios de aceptación de esa Task, junto al briefing estructural: el trabajo se revisa contra esas líneas y pedirlo sin enseñarlas es pedir que se acierte un blanco oculto. La conversación sigue persistiendo sólo el prompt del operador.
+
 ## Agent workbench
 
 La [auditoría de ChatGPT Desktop](../knowledge/chatgpt-desktop-agents-audit.md) y el [ADR-0029](../adr/0029-chatgpt-inspired-agent-workbench.md) definen e implementan esta recuperación visual de sesiones, conservando el contrato de adaptadores, permisos, persistencia y borrado:

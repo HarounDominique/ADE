@@ -17,6 +17,7 @@ export async function runReviewFlow(
     taskId: string;
     directory: string;
     intent: string;
+    acceptanceCriteria?: readonly string[];
     agent?: string;
     signal?: AbortSignal;
     store: AdeStore;

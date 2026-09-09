@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Task } from "../src/domain/task.js";
 
 test("Task records reasoned transitions", () => {
-  const task = Task.create({ id: "task-1", intent: "Inspect the repository" });
+  const task = Task.create({ id: "task-1", intent: "Inspect the repository", acceptanceCriteria: ["The repository is inspected"] });
   task.transition("READY", "Intent and acceptance criteria are present", "human");
   task.transition("IN_PROGRESS", "Execution started", "ade");
 

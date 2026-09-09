@@ -9,7 +9,7 @@ test("ProjectSnapshot composes only the selected Project Tasks", () => {
   const store = new AdeStore();
   const project = Project.create({ id: "project-snapshot", name: "ADE", repositoryPath: "/tmp/ade" });
   store.saveProject(project, { path: "/tmp/ade", gitRoot: "/tmp/ade", branch: "main" });
-  const selected = Task.create({ id: "task-selected", intent: "Show this Task", projectId: project.id, repositoryPath: "/tmp/ade" });
+  const selected = Task.create({ id: "task-selected", intent: "Show this Task", projectId: project.id, repositoryPath: "/tmp/ade", acceptanceCriteria: ["The Task is listed"] });
   selected.transition("READY", "Intent accepted", "human");
   selected.transition("IN_PROGRESS", "Work started", "ade");
   store.saveTask(selected);
@@ -32,7 +32,7 @@ test("ProjectSnapshot reports review work and missing Projects clearly", () => {
   assert.throws(() => getProjectSnapshot(store, "missing"), /Project not found/);
   const project = Project.create({ id: "project-review", name: "Review", repositoryPath: "/tmp/review" });
   store.saveProject(project, { path: "/tmp/review", gitRoot: "/tmp/review", branch: "main" });
-  const task = Task.create({ id: "task-review", intent: "Review this", projectId: project.id });
+  const task = Task.create({ id: "task-review", intent: "Review this", projectId: project.id, acceptanceCriteria: ["The review is recorded"] });
   task.transition("READY", "Intent accepted", "human");
   task.transition("IN_PROGRESS", "Work started", "ade");
   task.transition("IMPLEMENTED", "Change captured", "ade");

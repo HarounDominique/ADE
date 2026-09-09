@@ -50,7 +50,7 @@ Restaurar un checkpoint devuelve el working tree exactamente a esa foto —borra
 
 ## Review and finding contract
 
-El Reviewer recibe intención, criterios, ChangeSet y evidencia fresca. Cada Finding debe contener severidad, claim, evidencia, ubicación opcional y acción. Las acciones `fix` y `assign` mantienen abierta la Task; `accept-risk` requiere actor humano cuando la severidad es `high` o `critical`; `dismiss` requiere razón. Un re-review crea una nueva Review relacionada con el mismo `taskId` y el ChangeSet corregido.
+El Reviewer recibe intención, los criterios de aceptación que la Task declara —con la instrucción de que un criterio incumplido es un finding, y diciéndole explícitamente cuándo no hay ninguno en vez de fingir un listón—, ChangeSet y evidencia fresca. Cada Finding debe contener severidad, claim, evidencia, ubicación opcional y acción. Las acciones `fix` y `assign` mantienen abierta la Task; `accept-risk` requiere actor humano cuando la severidad es `high` o `critical`; `dismiss` requiere razón. Un re-review crea una nueva Review relacionada con el mismo `taskId` y el ChangeSet corregido.
 
 ## Project Structure
 

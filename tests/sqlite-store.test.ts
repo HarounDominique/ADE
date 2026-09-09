@@ -10,7 +10,7 @@ import { Project } from "../src/domain/project.js";
 
 test("SQLite persists Task and its ChangeSet relationship", () => {
   const store = new AdeStore();
-  const task = Task.create({ id: "task-persisted", intent: "Capture a change" });
+  const task = Task.create({ id: "task-persisted", intent: "Capture a change", acceptanceCriteria: ["The change is captured"] });
   task.transition("READY", "Intent accepted", "human");
   store.saveTask(task);
   const changeSet = createChangeSet({
@@ -37,7 +37,7 @@ test("SQLite persists Project and rehydrates a Task with its history", () => {
   const project = Project.create({ id: "project-1", name: "ADE", repositoryPath: "/tmp/ade" });
   const repository = { path: "/tmp/ade", gitRoot: "/tmp/ade", branch: "main" };
   store.saveProject(project, repository);
-  const task = Task.create({ id: "task-project", intent: "Inspect", projectId: project.id, repositoryPath: project.repositoryPath });
+  const task = Task.create({ id: "task-project", intent: "Inspect", projectId: project.id, repositoryPath: project.repositoryPath, acceptanceCriteria: ["The repository is inspected"] });
   task.transition("READY", "Intent framed", "human");
   store.saveTask(task);
 

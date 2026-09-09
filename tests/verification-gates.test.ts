@@ -8,7 +8,7 @@ import { recordVerificationRun, appendVerificationOutput, type VerificationRun }
 import type { RunSession } from "../src/domain/run-configuration.js";
 
 function taskWithRepository(store: AdeStore, id: string) {
-  const task = createTask(store, { id, intent: "Change something", repositoryPath: "/tmp/ade-verification" });
+  const task = createTask(store, { id, intent: "Change something", repositoryPath: "/tmp/ade-verification", acceptanceCriteria: ["The change is verifiable"] });
   task.transition("READY", "Acceptance criteria recorded", "human");
   store.saveTask(task);
   return task;

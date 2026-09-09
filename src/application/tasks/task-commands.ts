@@ -3,7 +3,7 @@ import { AdeStore } from "../../persistence/sqlite-store.js";
 
 export function createTask(
   store: AdeStore,
-  input: { id: string; intent: string; projectId?: string; repositoryPath?: string; actor?: string },
+  input: { id: string; intent: string; projectId?: string; repositoryPath?: string; actor?: string; acceptanceCriteria?: readonly string[] },
 ): Task {
   const task = Task.create(input);
   store.saveTask(task);
@@ -13,6 +13,18 @@ export function createTask(
 export function getTask(store: AdeStore, id: string): Task {
   const task = store.rehydrateTask(id);
   if (!task) throw new Error(`Task not found: ${id}`);
+  return task;
+}
+
+/** What "done" means can be written after the intent and changed later, but
+    never silently: the Task records the decision like any other. */
+export function setTaskAcceptance(
+  store: AdeStore,
+  input: { id: string; criteria: readonly string[]; reason: string; actor?: string },
+): Task {
+  const task = getTask(store, input.id);
+  task.setAcceptance(input.criteria, input.reason, input.actor);
+  store.saveTask(task);
   return task;
 }
 

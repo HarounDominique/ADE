@@ -30,6 +30,7 @@ test("end-to-end flow persists Task, ChangeSet and Review", async () => {
     taskId: "task-e2e",
     directory,
     intent: "Create result.txt",
+    acceptanceCriteria: ["result.txt exists and holds the expected line"],
     store,
   });
 

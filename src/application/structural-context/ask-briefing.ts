@@ -94,6 +94,13 @@ export async function askBriefing(input: { repositoryPath: string; enabled?: boo
   return askBriefingText(stack);
 }
 
-export function composeAgentPrompt(briefing: string | undefined, prompt: string): string {
-  return briefing ? `${briefing}\n\n${prompt}` : prompt;
+export function composeAgentPrompt(briefing: string | undefined, prompt: string, acceptanceCriteria?: readonly string[]): string {
+  /** A turn under a Task carries what that Task calls done. The reviewer will
+      judge the change against exactly these lines, so an agent that has not
+      seen them is being asked to hit a target it was never shown. The
+      conversation still persists only the operator's prompt. */
+  const acceptance = acceptanceCriteria?.length
+    ? `Acceptance criteria for this Task, which this work will be reviewed against:\n${acceptanceCriteria.map((criterion, index) => `${index + 1}. ${criterion}`).join("\n")}`
+    : undefined;
+  return [briefing, acceptance, prompt].filter(Boolean).join("\n\n");
 }

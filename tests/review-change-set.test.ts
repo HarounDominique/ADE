@@ -20,7 +20,7 @@ function changeSet(id: string, changed: boolean) {
 }
 
 test("review pipeline uses fresh reviewer input and passes changed evidence", async () => {
-  const task = Task.create({ id: "task-review", intent: "Create a useful change" });
+  const task = Task.create({ id: "task-review", intent: "Create a useful change", acceptanceCriteria: ["The change is useful"] });
   task.transition("READY", "Intent accepted", "human");
   task.transition("IN_PROGRESS", "Implementation started", "ade");
   task.transition("IMPLEMENTED", "ChangeSet captured", "ade");
@@ -42,7 +42,7 @@ test("review pipeline uses fresh reviewer input and passes changed evidence", as
 });
 
 test("review pipeline turns missing evidence into an actionable finding", async () => {
-  const task = Task.create({ id: "task-review-2", intent: "Make a change" });
+  const task = Task.create({ id: "task-review-2", intent: "Make a change", acceptanceCriteria: ["The change is made"] });
   task.transition("READY", "Intent accepted", "human");
   task.transition("IN_PROGRESS", "Implementation started", "ade");
   task.transition("IMPLEMENTED", "ChangeSet captured", "ade");

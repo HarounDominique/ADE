@@ -20,6 +20,8 @@ Workspace → Project → Task
 
 `Project` referencia Repository, Worktree, Documents, Skills, Policies, Services y Commits. `Task` es el agregado raíz del trabajo; no se crea una Task por cada mensaje ni se hace que una conversación sea la identidad del trabajo.
 
+`Task` conserva intención y **criterios de aceptación**: una lista de afirmaciones comprobables que dicen qué significa "hecho". Una Task no pasa a `READY` sin al menos uno, porque `READY` es aceptar empezar el trabajo y todo lo que viene después —el turno del agente, el juicio del reviewer, las gates y la aprobación humana— es una comparación contra esa lista. Cambiarlos queda en el historial como `task.acceptance_changed`, con actor y razón, y la lista no puede vaciarse una vez escrita. Una Task guardada antes de esta decisión no tiene criterios, se lee igual y los pide la próxima vez que quiera pasar a `READY`. La decisión vive en [ADR-0051](../adr/0051-acceptance-criteria-belong-to-the-task.md).
+
 ## Project and Repository contract
 
 `Project` es la identidad estable que agrupa una carpeta local y su configuración de ADE. `Repository` representa el control de versiones detectado, que puede ser Git o ninguno. En v0.1 la relación era `Project 1 → 1 Repository` Git; la shell actual mantiene la misma relación operativa para carpetas `No Git`, pero `Task` sólo conserva `projectId` y `repositoryPath` como referencias y no incorpora lógica de Git ni crea branches automáticamente.

@@ -4,6 +4,8 @@ import { AdeStore } from "./persistence/sqlite-store.js";
 
 const directory = process.argv[2] ?? process.cwd();
 const intent = process.argv.slice(3).join(" ") || "Inspect the repository and report its current state without editing files.";
+// A spike Task is still a Task: it says what done means before it starts.
+const acceptanceCriteria = (process.env.ADE_ACCEPTANCE ?? "The intent above is satisfied and reported").split("\n");
 
 console.log(`Connecting to OpenCode at ${process.env.OPENCODE_URL ?? "http://127.0.0.1:4096"}`);
 console.log(`Directory: ${directory}`);
@@ -15,6 +17,7 @@ const result = await runSpike(runtime, {
   taskId: `spike-${Date.now()}`,
   directory,
   intent,
+  acceptanceCriteria,
   store,
 });
 

@@ -3894,6 +3894,25 @@ function openShipDialog(taskId, intent) {
   requestAnimationFrame(() => document.getElementById('commit-title')?.focus());
 }
 
+/** What the human said done means, read where the work is judged. It sits
+    immediately above the approval controls because approving is a comparison
+    against exactly this list. */
+function taskAcceptanceMarkup(task) {
+  const criteria = task.acceptanceCriteria ?? [];
+  const list = criteria.length
+    ? `<ul class="task-acceptance-list">${criteria.map((criterion) => `<li>${escapeHTML(criterion)}</li>`).join('')}</ul>`
+    : '<p class="task-trace-empty">No acceptance criteria yet. This Task cannot become READY until it says what done means.</p>';
+  return `<div class="task-acceptance" data-task-acceptance="${escapeHTML(task.id)}">
+    <div class="task-acceptance-heading"><h3 class="task-trace-heading">Acceptance</h3><button class="text-button" type="button" data-action="edit-acceptance" data-task-id="${escapeHTML(task.id)}">${criteria.length ? 'Edit' : 'Add'}</button></div>
+    ${list}
+    <form class="task-acceptance-form" data-task-id="${escapeHTML(task.id)}" hidden>
+      <label class="sr-only" for="task-acceptance-input-${escapeHTML(task.id)}">Acceptance criteria, one per line</label>
+      <textarea id="task-acceptance-input-${escapeHTML(task.id)}" rows="4" placeholder="One criterion per line">${escapeHTML(criteria.join('\n'))}</textarea>
+      <div class="task-acceptance-actions"><button class="button primary compact" type="submit">Save</button><button class="button compact" type="button" data-action="cancel-acceptance" data-task-id="${escapeHTML(task.id)}">Cancel</button></div>
+    </form>
+  </div>`;
+}
+
 /** Approval and shipping are two separate decisions: one accepts the work, the
     other publishes it. Both say why they are unavailable instead of vanishing,
     so the gate that blocks them is legible. */
@@ -3947,7 +3966,7 @@ function renderTaskDetail(detail) {
   /** What the Task cost, where the Task is judged. A Task whose turns nobody
       priced says so; it is never shown as free. */
   const usage = usageSummary(detail.usage);
-  const markup = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p class="task-detail-usage" title="${escapeHTML(usageTitle(detail.usage))}"><strong>Agent spend:</strong> ${escapeHTML(usage ?? 'not reported for this Task')}</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p>${taskGovernanceMarkup(detail)}<h3 class="task-trace-heading">Checkpoints</h3>${taskCheckpointsMarkup(detail)}<h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
+  const markup = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p class="task-detail-usage" title="${escapeHTML(usageTitle(detail.usage))}"><strong>Agent spend:</strong> ${escapeHTML(usage ?? 'not reported for this Task')}</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p>${taskAcceptanceMarkup(task)}${taskGovernanceMarkup(detail)}<h3 class="task-trace-heading">Checkpoints</h3>${taskCheckpointsMarkup(detail)}<h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
   taskDetailMarkup.set(task.id, markup);
   panel.innerHTML = markup;
 }
@@ -5079,7 +5098,13 @@ async function checkForAppUpdate(invoke) {
     .catch((error) => console.warn('Update check unavailable:', error));
 }
 
-async function createTaskFromUI(intent) {
+/** A textarea is how a human writes a list: one statement per line, blanks
+    ignored. */
+function readCriteriaLines(value) {
+  return String(value ?? '').split('\n').map((line) => line.trim()).filter(Boolean);
+}
+
+async function createTaskFromUI(intent, acceptanceCriteria) {
   if (!nativeInvoke) {
     notify('Task creation requires the local sidecar.');
     return;
@@ -5089,7 +5114,7 @@ async function createTaskFromUI(intent) {
     request: JSON.stringify({
       id: `create-${taskId}`,
       method: 'task.create',
-      params: { taskId, intent, projectId: activeProjectId, repositoryPath: activeRepositoryPath() },
+      params: { taskId, intent, acceptanceCriteria, projectId: activeProjectId, repositoryPath: activeRepositoryPath() },
     }),
   });
   notify(`Created ${taskId}.`);
@@ -5474,6 +5499,14 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     });
     return;
   }
+  if (item.dataset.action === 'edit-acceptance' || item.dataset.action === 'cancel-acceptance') {
+    const host = document.querySelector(`[data-task-acceptance="${CSS.escape(item.dataset.taskId ?? '')}"]`);
+    const form = host?.querySelector('.task-acceptance-form');
+    if (!form) return;
+    form.hidden = item.dataset.action === 'cancel-acceptance';
+    if (!form.hidden) form.querySelector('textarea')?.focus();
+    return;
+  }
   if (item.dataset.action === 'restore-checkpoint') {
     if (!nativeInvoke) { notify('Restoring a checkpoint requires the local sidecar.'); return; }
     const checkpointId = item.dataset.checkpointId;
@@ -5522,6 +5555,20 @@ document.getElementById('terminal-history-dialog')?.addEventListener('close', ()
 document.getElementById('repository-context-button')?.addEventListener('click', () => toggleGitContextMenu('repository'));
 document.getElementById('task-context-button')?.addEventListener('click', () => toggleGitContextMenu('task'));
 document.getElementById('branch-context-button')?.addEventListener('click', () => toggleGitContextMenu('branch'));
+/** Changing what done means is a decision the Task records, so it goes through
+    the sidecar with a reason rather than being edited in place. */
+document.addEventListener('submit', (event) => {
+  const form = event.target instanceof Element ? event.target.closest('.task-acceptance-form') : null;
+  if (!form) return;
+  event.preventDefault();
+  const taskId = form.dataset.taskId;
+  const acceptanceCriteria = readCriteriaLines(form.querySelector('textarea')?.value);
+  if (!nativeInvoke) { notify('Acceptance criteria need the local sidecar.'); return; }
+  if (!acceptanceCriteria.length) { notify('A Task needs at least one acceptance criterion.'); return; }
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `acceptance-${taskId}-${Date.now()}`, method: 'task.acceptance', params: { taskId, acceptanceCriteria, reason: 'Acceptance criteria changed by the operator', actor: 'human' } }) })
+    .then(() => { notify('Acceptance criteria recorded.'); requestTaskDetail(taskId); })
+    .catch((error) => { notify('Acceptance criteria could not be saved.'); console.warn(error); });
+});
 document.getElementById('git-commit-form')?.addEventListener('submit', (event) => {
   event.preventDefault();
   if (!nativeInvoke || activeVersionControl === 'none') { notify('Commit requires a Git Project.'); return; }
@@ -5889,11 +5936,15 @@ window.addEventListener('beforeunload', () => {
 taskForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const intent = taskIntent?.value.trim();
+  const acceptanceCriteria = readCriteriaLines(document.getElementById('task-acceptance')?.value);
   if (!intent) return;
+  /** A Task without a stated bar cannot become READY, so it is refused where
+      the operator can still fix it rather than three screens later. */
+  if (!acceptanceCriteria.length) { notify('Write at least one acceptance criterion.'); document.getElementById('task-acceptance')?.focus(); return; }
   const button = document.getElementById('create-task-button');
   if (button) button.disabled = true;
   try {
-    await createTaskFromUI(intent);
+    await createTaskFromUI(intent, acceptanceCriteria);
     taskForm.reset();
     taskDialog?.close();
   } catch (error) {

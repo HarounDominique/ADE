@@ -348,3 +348,21 @@ Auditoría de origen: [product-gap-audit](../docu/knowledge/product-gap-audit.md
   - ADR: [0046-turn-chime-and-frozen-remote-notice](../docu/adr/0046-turn-chime-and-frozen-remote-notice.md)
   - Alcance registrado: casilla de aviso por turno junto a los permisos —fuera de `grantedPermissions`—, correo por SMTP con la credencial en el keychain del sistema, webhook saliente como alternativa, y contenido mínimo: Project, Task, una frase y desenlace. Sin prompts, diffs ni salida salvo opt-in explícito.
   - Bloqueado por: no existe configuración de usuario en ADE y el correo añade dos fronteras de plataforma a las siete declaradas en [SPEC-cross-platform-support](../docu/specs/SPEC-cross-platform-support.md#platform-boundary).
+
+## Cierre del juicio verificable — 2026-09-09
+
+Huecos de producto detectados al revisar Assay contra `PRODUCT.md` con el backlog de `product-gap-audit` ya cerrado.
+
+- [x] Task: Dar a la Task un listón escrito antes de empezar
+  - Spec: [SPEC-project-task-workflow.md](../docu/specs/SPEC-project-task-workflow.md#domain-model) · ADR: [0051-acceptance-criteria-belong-to-the-task](../docu/adr/0051-acceptance-criteria-belong-to-the-task.md)
+  - Acceptance: la Task guarda criterios de aceptación comprobables; no pasa a `READY` sin al menos uno; los criterios llegan al turno del agente, al prompt del reviewer y al detalle donde se aprueba; cambiarlos queda en el historial.
+  - Verify: `npm test` (321 tests TypeScript, cinco nuevos sobre la puerta de `READY`, el registro del cambio, el round-trip con filas antiguas, el prompt del agente y el seam del sidecar).
+  - Files: `src/domain/task.ts`, `src/persistence/sqlite-store.ts`, `src/application/tasks/task-commands.ts`, `src/application/review-change-set.ts`, `src/adapters/opencode-reviewer.ts`, `src/application/structural-context/ask-briefing.ts`, `src/desktop-sidecar.ts`, `desktop/src/`, `tests/task-acceptance.test.ts`.
+  - Abierto: el reviewer no dice todavía qué criterio incumple cada finding.
+
+- [ ] Task: Revisar con el proveedor que el operador tenga
+  - Acceptance: la review deja de exigir OpenCode; `ReviewerPort` se resuelve por proveedor como ya hace el turno, y una gate `agent-review` es alcanzable con Claude o Codex.
+
+- [ ] Task: Dar a Assay configuración de usuario
+  - Acceptance: existe una superficie de ajustes persistida fuera de `localStorage`; el tono, el modelo por defecto y el feed de actualización viven ahí, y desbloquea las preferencias que hoy congelan capacidades.
+

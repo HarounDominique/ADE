@@ -115,7 +115,7 @@ try {
   if (process.env.ADE_SMOKE_OPENCODE === "1") {
     mkdirSync(repository, { recursive: true });
     if (spawnSync("git", ["init"], { cwd: repository }).status !== 0) throw new Error("Unable to initialize smoke repository");
-    await protocol.request({ id: "task-create", method: "task.create", params: { taskId: "bundle-task", intent: "Create smoke-result.txt containing exactly ADE smoke complete.", projectId: "bundle", repositoryPath: repository } });
+    await protocol.request({ id: "task-create", method: "task.create", params: { taskId: "bundle-task", intent: "Create smoke-result.txt containing exactly ADE smoke complete.", acceptanceCriteria: ["smoke-result.txt exists in the repository root"], projectId: "bundle", repositoryPath: repository } });
     await protocol.request({ id: "task-ready", method: "task.advance", params: { taskId: "bundle-task", next: "READY", reason: "Smoke task accepted", actor: "smoke" } });
     await protocol.request({ id: "task-run", method: "task.run", params: { taskId: "bundle-task" } });
     const completed = await protocol.waitFor("runtime.completed");

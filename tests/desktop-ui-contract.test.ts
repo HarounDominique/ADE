@@ -1283,3 +1283,20 @@ test("a reading the shell asked for on its own never becomes a failed operation"
   const errorBranch = main.slice(main.indexOf("if (String(response.id) === String(agentUsageRequestId))"), main.indexOf("showOperationError(response.error, contextPurpose)"));
   assert.match(errorBranch, /return;/);
 });
+
+test("a Task says what done means before work starts, and where it is judged", () => {
+  // The Task carried one free-text intent, and the reviewer, the gates and the
+  // human all judged against nothing written down.
+  assert.match(html, /<label for="task-acceptance">Acceptance criteria<\/label>/);
+  assert.match(html, /id="task-acceptance" rows="4"[^>]*required/);
+  assert.match(main, /if \(!acceptanceCriteria\.length\) \{ notify\('Write at least one acceptance criterion\.'\)/);
+  assert.match(main, /params: \{ taskId, intent, acceptanceCriteria, projectId: activeProjectId/);
+  // It is read immediately above the controls that judge against it.
+  assert.match(main, /\$\{taskAcceptanceMarkup\(task\)\}\$\{taskGovernanceMarkup\(detail\)\}/);
+  assert.match(main, /function taskAcceptanceMarkup/);
+  // Changing the bar is a recorded decision, not an edit in place.
+  assert.match(main, /method: 'task\.acceptance', params: \{ taskId, acceptanceCriteria, reason: /);
+  assert.match(styles, /\.task-acceptance-list \{/);
+  // The packaged smoke states a bar too, because its Task becomes READY.
+  assert.match(smokeBundle, /acceptanceCriteria: \["smoke-result\.txt exists in the repository root"\]/);
+});

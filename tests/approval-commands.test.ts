@@ -7,7 +7,7 @@ import { AdeStore } from "../src/persistence/sqlite-store.js";
 
 test("human approval completes a ready Task when required gates pass", () => {
   const store = new AdeStore();
-  const task = createTask(store, { id: "task-approval", intent: "Inspect" });
+  const task = createTask(store, { id: "task-approval", intent: "Inspect", acceptanceCriteria: ["The inspection is recorded"] });
   task.transition("READY", "Framed", "human");
   task.transition("IN_PROGRESS", "Started", "ade");
   task.transition("IMPLEMENTED", "Built", "ade");
@@ -27,7 +27,7 @@ test("human approval completes a ready Task when required gates pass", () => {
 
 test("approval does not mutate a Task when a required gate fails", () => {
   const store = new AdeStore();
-  const task = createTask(store, { id: "task-blocked-approval", intent: "Inspect" });
+  const task = createTask(store, { id: "task-blocked-approval", intent: "Inspect", acceptanceCriteria: ["The inspection is recorded"] });
   task.transition("READY", "Framed", "human");
   task.transition("IN_PROGRESS", "Started", "ade");
   task.transition("IMPLEMENTED", "Built", "ade");

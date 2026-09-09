@@ -18,13 +18,15 @@ export type SpikeResult = {
 
 export async function runSpike(
   runtime: AgentRuntimePort,
-  input: { taskId: string; directory: string; intent: string; agent?: string; grantedPermissions?: readonly AgentPermission[]; signal?: AbortSignal; store?: AdeStore; existingTask?: boolean; onEvent?: (event: RuntimeEvent) => void },
+  input: { taskId: string; directory: string; intent: string; acceptanceCriteria?: readonly string[]; agent?: string; grantedPermissions?: readonly AgentPermission[]; signal?: AbortSignal; store?: AdeStore; existingTask?: boolean; onEvent?: (event: RuntimeEvent) => void },
 ): Promise<SpikeResult> {
   const task = input.store && input.existingTask
     ? getTask(input.store, input.taskId)
     : input.store
-      ? createTask(input.store, { id: input.taskId, intent: input.intent, repositoryPath: input.directory })
-      : Task.create({ id: input.taskId, intent: input.intent, repositoryPath: input.directory });
+      ? createTask(input.store, { id: input.taskId, intent: input.intent, repositoryPath: input.directory, ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}) })
+      /** A Task this run invents still has to say what done means before it is
+          READY; the caller states it rather than the runner inventing a bar. */
+      : Task.create({ id: input.taskId, intent: input.intent, repositoryPath: input.directory, ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}) });
   if (!input.existingTask) task.transition("READY", "Spike accepted", "human");
   if (!(["READY", "CHANGES_REQUESTED", "BLOCKED"] as const).includes(task.currentStatus as "READY" | "CHANGES_REQUESTED" | "BLOCKED")) {
     throw new Error(`Task cannot start from ${task.currentStatus}`);

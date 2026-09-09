@@ -16,6 +16,7 @@ export async function reviewChangeSet(
   const output = await reviewer.review({
     taskId: input.task.id,
     intent: input.task.intent,
+    ...(input.task.acceptance().length ? { acceptanceCriteria: input.task.acceptance() } : {}),
     changeSet: input.changeSet,
   });
   const review = createReview({

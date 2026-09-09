@@ -1,7 +1,7 @@
 import { createInterface } from "node:readline";
 import { dirname, join } from "node:path";
 import { isSea } from "node:sea";
-import { advanceTask, createTask } from "./application/tasks/task-commands.js";
+import { advanceTask, createTask, setTaskAcceptance } from "./application/tasks/task-commands.js";
 import type { TaskStatus } from "./domain/task.js";
 import { AdeStore } from "./persistence/sqlite-store.js";
 import { getProjectSnapshot } from "./application/project-snapshot.js";
@@ -55,7 +55,7 @@ import { resolveProviderSessionId } from "./application/terminal-history/provide
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
+  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
 };
 
 export type DesktopResponse = {
@@ -142,7 +142,7 @@ function backfillTerminalConversationIds(store: AdeStore, projectId: string, rep
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'terminal.history.list', 'terminal.history.get', 'terminal.history.save', 'terminal.history.delete', 'service.status', 'skills.list'].includes(request.method)) {
+    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.acceptance', 'task.advance', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'terminal.history.list', 'terminal.history.get', 'terminal.history.save', 'terminal.history.delete', 'service.status', 'skills.list'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.list") {
@@ -230,6 +230,12 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       if (!taskId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId is required" } };
       return { id: request.id, result: request.method === "task.detail" ? getTaskDetail(store, taskId) : request.method === "runtime.history" ? getRuntimeHistory(store, taskId) : getChangeReview(store, taskId) };
     }
+    if (request.method === "task.acceptance") {
+      const { taskId, acceptanceCriteria, reason, actor } = request.params ?? {};
+      if (!taskId || !acceptanceCriteria?.length) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId and at least one acceptance criterion are required" } };
+      const task = setTaskAcceptance(store, { id: taskId, criteria: acceptanceCriteria, reason: reason ?? "Acceptance criteria recorded by the operator", ...(actor ? { actor } : {}) });
+      return { id: request.id, result: { id: task.id, status: task.currentStatus, acceptanceCriteria: task.acceptance() } };
+    }
     if (request.method === "task.approve") {
       const { taskId, reason, actor } = request.params ?? {};
       if (!taskId || !reason) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId and reason are required" } };
@@ -252,8 +258,9 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       intent,
       ...(projectId ? { projectId } : {}),
       ...(repositoryPath ? { repositoryPath } : {}),
+      ...(request.params?.acceptanceCriteria ? { acceptanceCriteria: request.params.acceptanceCriteria } : {}),
     });
-    return { id: request.id, result: { id: task.id, intent: task.intent, status: task.currentStatus, projectId: task.projectId ?? null } };
+    return { id: request.id, result: { id: task.id, intent: task.intent, status: task.currentStatus, projectId: task.projectId ?? null, acceptanceCriteria: task.acceptance() } };
   } catch (error) {
     return {
       id: request.id,
@@ -934,7 +941,7 @@ function startAgentPrompt(store: AdeStore, request: DesktopRequest): void {
       if (checkpoint) process.stdout.write(`${JSON.stringify({ type: "agent.checkpoint", id: request.id, taskId, available: true, checkpointId: checkpoint.id, commit: checkpoint.commit, files: checkpoint.files })}\n`);
     }
     const briefing = await askBriefing({ repositoryPath: params.repositoryPath!, enabled: loadGatePolicy(params.repositoryPath).structuralBriefing }).catch(() => undefined);
-    const rawOutput = await runtime.prompt(session, { text: composeAgentPrompt(briefing, params.prompt!), ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), grantedPermissions: params.grantedPermissions ?? [], ...(provider !== "opencode" ? { onEvent: recordAgentEvent } : {}) });
+    const rawOutput = await runtime.prompt(session, { text: composeAgentPrompt(briefing, params.prompt!, taskId ? store.rehydrateTask(taskId)?.acceptance() : undefined), ...(typeof params.model === "string" && params.model ? { model: params.model } : {}), grantedPermissions: params.grantedPermissions ?? [], ...(provider !== "opencode" ? { onEvent: recordAgentEvent } : {}) });
     await eventPromise;
     if (active.aborted) throw new Error("AGENT_TURN_ABORTED");
     if (isPendingCli && session.id.startsWith(`${provider}-pending-`)) throw new Error(`${provider} completed without reporting a resumable session id`);

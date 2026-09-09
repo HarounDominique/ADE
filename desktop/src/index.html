@@ -93,7 +93,10 @@
         <h2 id="new-task-dialog-title">Define the next intent</h2>
         <p class="dialog-copy" id="new-task-dialog-copy">The Task will be persisted in the local Assay metadata store.</p>
         <label for="task-intent">Intent</label>
-        <textarea id="task-intent" rows="4" placeholder="Describe what Assay should accomplish…" required></textarea>
+        <textarea id="task-intent" rows="3" placeholder="Describe what Assay should accomplish…" required></textarea>
+        <label for="task-acceptance">Acceptance criteria</label>
+        <p class="dialog-hint" id="task-acceptance-hint">One per line. The reviewer judges the change against these, and so do you.</p>
+        <textarea id="task-acceptance" rows="4" placeholder="The readme names the new command&#10;The command is covered by a test" aria-describedby="task-acceptance-hint" required></textarea>
         <div class="dialog-actions"><button class="button secondary" value="cancel">Cancel</button><button class="button primary" id="create-task-button" value="default">Create task</button></div>
       </form>
     </dialog>

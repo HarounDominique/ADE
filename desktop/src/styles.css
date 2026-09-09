@@ -1609,6 +1609,14 @@ body { color: var(--text); }
    as quiet as the rest of the status bar until there is something to say. */
 .status-version { color: var(--faint); }
 .status-version[data-update="true"] { color: var(--amber); }
+/* What done means, stated where the work is judged. */
+.task-acceptance-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.task-acceptance-list { margin: 0 0 10px; padding-left: 18px; color: var(--text-soft); font-size: 12px; }
+.task-acceptance-list li { margin: 0 0 3px; }
+.task-acceptance-form { display: grid; gap: 8px; margin: 0 0 12px; }
+.task-acceptance-form textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--text); background: var(--panel); font: 12px var(--mono); resize: vertical; }
+.task-acceptance-actions { display: flex; gap: 8px; }
+.dialog-hint { margin: 0 0 6px; color: var(--muted); font-size: 12px; }
 .task-detail-usage { margin: 0 0 8px; color: var(--muted); font: 11px var(--mono); }
 .task-detail-usage strong { color: var(--text-soft); font-weight: 500; }
 /* The empty state is the whole list, not a card floating inside it. */

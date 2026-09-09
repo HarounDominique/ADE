@@ -63,6 +63,9 @@ function buildReviewPrompt(input: ReviewInput): string {
     "Return only the requested JSON structure.",
     "",
     `Task intent: ${input.intent}`,
+    ...(input.acceptanceCriteria?.length
+      ? ["Acceptance criteria the change must satisfy:", ...input.acceptanceCriteria.map((criterion, index) => `${index + 1}. ${criterion}`), "Judge the change against these criteria; a criterion left unmet is a finding."]
+      : ["No acceptance criteria were recorded; judge only against the stated intent."]),
     `ChangeSet: ${input.changeSet.id}`,
     `Runtime diff: ${JSON.stringify(input.changeSet.runtimeDiff)}`,
     `Git status: ${input.changeSet.git.status}`,

@@ -28,7 +28,7 @@ test("v0.2 rehydrates Task, evidence, ChangeSet and Review after restart", async
     abort: async () => {},
   };
   const firstStore = new AdeStore(dbPath);
-  const result = await runReviewFlow(runtime, new EvidenceReviewer(), { taskId: "task-rehydrate", directory, intent: "Create result.txt", store: firstStore });
+  const result = await runReviewFlow(runtime, new EvidenceReviewer(), { taskId: "task-rehydrate", directory, intent: "Create result.txt", acceptanceCriteria: ["result.txt exists"], store: firstStore });
   firstStore.saveRuntimeEvidence({ id: "evidence-rehydrate", taskId: result.implementation.taskId, type: "test", at: new Date().toISOString(), summary: "verification persisted" });
   firstStore.close();
 

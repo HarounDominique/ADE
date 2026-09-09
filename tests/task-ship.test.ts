@@ -26,7 +26,7 @@ async function repositoryReadyToShip(store: AdeStore, taskId: string, { approve 
   await git("commit", "-qm", "docs: initial");
   await writeFile(join(directory, "README.md"), "changed by the agent\n");
 
-  const task = createTask(store, { id: taskId, intent: "Change the readme", repositoryPath: directory });
+  const task = createTask(store, { id: taskId, intent: "Change the readme", repositoryPath: directory, acceptanceCriteria: ["The readme states the change"] });
   task.transition("READY", "Acceptance criteria recorded", "human");
   task.transition("IN_PROGRESS", "Agent started", "ade");
   task.transition("IMPLEMENTED", "Agent captured a ChangeSet", "ade");

@@ -20,7 +20,7 @@ async function repositoryWithTask(store: AdeStore, taskId: string) {
   await writeFile(join(directory, "README.md"), "first\n");
   await git("add", "README.md");
   await git("commit", "-qm", "docs: initial");
-  const task = createTask(store, { id: taskId, intent: "Change something", repositoryPath: directory });
+  const task = createTask(store, { id: taskId, intent: "Change something", repositoryPath: directory, acceptanceCriteria: ["The change is captured"] });
   task.transition("READY", "Acceptance criteria recorded", "human");
   store.saveTask(task);
   return { directory, git };

@@ -10,6 +10,7 @@ export function getTaskDetail(store: AdeStore, taskId: string) {
       projectId: task.projectId ?? null,
       repositoryPath: task.repositoryPath ?? null,
       status: task.currentStatus,
+      acceptanceCriteria: task.acceptance(),
       history: task.history(),
     },
     changeSets: store.listChangeSets(taskId),

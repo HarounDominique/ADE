@@ -158,7 +158,7 @@ test("desktop sidecar returns actionable protocol errors", () => {
 
 test("desktop sidecar advances a Task through the application use case", () => {
   const store = new AdeStore();
-  const task = Task.create({ id: "task-advance", intent: "Advance Work task", projectId: "ade" });
+  const task = Task.create({ id: "task-advance", intent: "Advance Work task", projectId: "ade", acceptanceCriteria: ["The Task advances"] });
   store.saveTask(task);
   const response = handleDesktopRequest(store, {
     id: "advance-1",
@@ -179,7 +179,9 @@ test("desktop sidecar creates a Task through the application use case", () => {
     params: { taskId: "task-sidecar", intent: "Build Work screen", projectId: "ade" },
   });
 
-  assert.deepEqual(response.result, { id: "task-sidecar", intent: "Build Work screen", status: "DRAFT", projectId: "ade" });
+  // A Task starts with whatever bar the operator stated, and none is an empty
+  // list rather than a missing field: the Task will refuse to become READY.
+  assert.deepEqual(response.result, { id: "task-sidecar", intent: "Build Work screen", status: "DRAFT", projectId: "ade", acceptanceCriteria: [] });
   assert.equal(store.getTask("task-sidecar")?.intent, "Build Work screen");
   store.close();
 });
@@ -207,7 +209,7 @@ test("desktop sidecar accepts an Implementer run asynchronously", async () => {
   const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-run-"));
   const databasePath = join(directory, "ade.db");
   const store = new AdeStore(databasePath);
-  const task = Task.create({ id: "task-run", intent: "Run Implementer", repositoryPath: directory });
+  const task = Task.create({ id: "task-run", intent: "Run Implementer", repositoryPath: directory, acceptanceCriteria: ["The Implementer runs"] });
   task.transition("READY", "Ready for implementation", "human");
   store.saveTask(task);
   store.close();

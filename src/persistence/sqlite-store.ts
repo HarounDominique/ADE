@@ -15,6 +15,7 @@ export type PersistedTask = {
   events: string;
   projectId: string | null;
   repositoryPath: string | null;
+  acceptanceCriteria: string | null;
 };
 
 export type PersistedProject = {
@@ -231,6 +232,9 @@ export class AdeStore {
     const columns = this.db.prepare("PRAGMA table_info(tasks)").all() as Array<{ name: string }>;
     if (!columns.some((column) => column.name === "project_id")) this.db.exec("ALTER TABLE tasks ADD COLUMN project_id TEXT");
     if (!columns.some((column) => column.name === "repository_path")) this.db.exec("ALTER TABLE tasks ADD COLUMN repository_path TEXT");
+    /** Tasks recorded before acceptance criteria existed keep none and stay
+        readable; the column is added rather than the rows rewritten. */
+    if (!columns.some((column) => column.name === "acceptance_json")) this.db.exec("ALTER TABLE tasks ADD COLUMN acceptance_json TEXT");
   }
 
   /** Conversations recorded before the trace was kept simply have none, and
@@ -268,15 +272,16 @@ export class AdeStore {
 
   saveTask(task: Task): void {
     this.db.prepare(`
-      INSERT INTO tasks (id, intent, status, events_json, project_id, repository_path)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO tasks (id, intent, status, events_json, project_id, repository_path, acceptance_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         intent = excluded.intent,
         status = excluded.status,
         events_json = excluded.events_json,
         project_id = excluded.project_id,
-        repository_path = excluded.repository_path
-    `).run(task.id, task.intent, task.currentStatus, JSON.stringify(task.history()), task.projectId ?? null, task.repositoryPath ?? null);
+        repository_path = excluded.repository_path,
+        acceptance_json = excluded.acceptance_json
+    `).run(task.id, task.intent, task.currentStatus, JSON.stringify(task.history()), task.projectId ?? null, task.repositoryPath ?? null, JSON.stringify(task.acceptance()));
   }
 
   saveProject(project: Project, repository: Repository): void {
@@ -317,11 +322,11 @@ export class AdeStore {
   }
 
   getTask(id: string): PersistedTask | undefined {
-    return this.db.prepare("SELECT id, intent, status, events_json AS events, project_id AS projectId, repository_path AS repositoryPath FROM tasks WHERE id = ?").get(id) as PersistedTask | undefined;
+    return this.db.prepare("SELECT id, intent, status, events_json AS events, project_id AS projectId, repository_path AS repositoryPath, acceptance_json AS acceptanceCriteria FROM tasks WHERE id = ?").get(id) as PersistedTask | undefined;
   }
 
   listTasks(): PersistedTask[] {
-    return this.db.prepare("SELECT id, intent, status, events_json AS events, project_id AS projectId, repository_path AS repositoryPath FROM tasks ORDER BY id").all() as PersistedTask[];
+    return this.db.prepare("SELECT id, intent, status, events_json AS events, project_id AS projectId, repository_path AS repositoryPath, acceptance_json AS acceptanceCriteria FROM tasks ORDER BY id").all() as PersistedTask[];
   }
 
   rehydrateTask(id: string): Task | undefined {
@@ -334,6 +339,7 @@ export class AdeStore {
       repositoryPath: persisted.repositoryPath ?? undefined,
       status: persisted.status as TaskStatus,
       events: JSON.parse(persisted.events) as TaskEvent[],
+      acceptanceCriteria: readCriteria(persisted.acceptanceCriteria),
     });
   }
 
@@ -657,4 +663,14 @@ function readTaskCheckpoint(row: unknown): TaskCheckpoint {
     ...(provider ? { provider } : {}),
     ...(restoredAt ? { restoredAt } : {}),
   };
+}
+
+function readCriteria(value: string | null): readonly string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
 }

@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 
 test("task commands create, advance and rehydrate a Task", () => {
   const store = new AdeStore();
-  createTask(store, { id: "task-command", intent: "Inspect", actor: "human" });
+  createTask(store, { id: "task-command", intent: "Inspect", actor: "human", acceptanceCriteria: ["The inspection is recorded"] });
   const advanced = advanceTask(store, {
     id: "task-command",
     next: "READY",
