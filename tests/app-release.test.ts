@@ -107,7 +107,9 @@ test("the installable artifact is produced by one command from one version", () 
   assert.match(releaseScript, /'hdiutil'/);
   // The manifest the operator verifies is the one the app reads.
   assert.match(releaseScript, /createHash\('sha256'\)/);
-  assert.match(releaseScript, /writeFileSync\(resolve\(releaseDirectory, 'latest\.json'\)/);
+  // The manifest lives in one place and is now assembled from several machines.
+  assert.match(releaseScript, /const manifestPath = resolve\(releaseDirectory, 'latest\.json'\);/);
+  assert.match(releaseScript, /writeFileSync\(manifestPath,/);
   assert.match(DEFAULT_UPDATE_FEED_URL, /releases\/latest\/download\/latest\.json$/);
   // Nothing is published by the script: uploading is a human decision.
   assert.doesNotMatch(releaseScript, /gh release|git push/);

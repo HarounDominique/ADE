@@ -18,6 +18,7 @@ const ghCommand = readFileSync(new URL("../src/adapters/gh-command.ts", import.m
 const githubStatus = readFileSync(new URL("../src/application/git/github-status.ts", import.meta.url), "utf8");
 const nativeCargo = readFileSync(new URL("../desktop/src-tauri/Cargo.toml", import.meta.url), "utf8");
 const peSignature = readFileSync(new URL("../scripts/pe-signature.mjs", import.meta.url), "utf8");
+const releaseManifest = readFileSync(new URL("../scripts/release-manifest.mjs", import.meta.url), "utf8");
 const tauriConfig = JSON.parse(readFileSync(new URL("../desktop/src-tauri/tauri.conf.json", import.meta.url), "utf8")) as {
   bundle: { windows: { webviewInstallMode: { type: string; silent: boolean } } };
 };
@@ -1509,8 +1510,10 @@ test("what this session added behaves the same on Windows as on macOS", () => {
   assert.match(checkpointModule, /const locked: string\[\] = \[\];/);
   assert.match(checkpointModule, /catch \{ locked\.push\(path\); \}/);
   assert.match(main, /held open by another program and stayed/);
-  // The one artifact that is macOS-only refuses elsewhere instead of pretending.
-  assert.match(releaseScript, /if \(process\.platform !== 'darwin'\)/);
+  // Each machine builds the installer it can build, and refuses the rest
+  // instead of half-producing them.
+  assert.match(releaseScript, /if \(process\.platform !== 'darwin' && process\.platform !== 'win32'\)/);
+  assert.match(releaseScript, /Linux packaging is declared out of scope/);
 });
 
 test("nothing Assay runs for itself opens a console on Windows", () => {
@@ -1573,4 +1576,23 @@ test("a Windows install is packaged as something a machine will accept", () => {
   // What happens with no WebView2 present is declared rather than inherited
   // from whichever Tauri version happens to be installed.
   assert.deepEqual(tauriConfig.bundle.windows.webviewInstallMode, { type: "downloadBootstrapper", silent: true });
+});
+
+test("a release is built per machine and assembled into one manifest", () => {
+  // Only macOS artifacts were produced, so every Windows install was told a
+  // newer version existed with nothing behind it. The script now builds what
+  // the machine it runs on can build.
+  assert.match(releaseScript, /function windowsArtifact\(\)/);
+  assert.match(releaseScript, /build\('desktop:build'\)/);
+  // Tauri names the installer; taking what it produced beats guessing the
+  // spelling, which a rename would silently break.
+  assert.match(releaseScript, /\['nsis', 'msi'\]/);
+  assert.doesNotMatch(releaseScript, /_x64-setup\.exe`/);
+  // npm is a .cmd shim there, which Node cannot spawn without a shell.
+  assert.match(releaseScript, /shell: process\.platform === 'win32'/);
+  // Each machine knows about one artifact, so the manifest is merged rather
+  // than rewritten: whoever runs last must not erase the other platform.
+  assert.match(releaseScript, /mergeManifest\(existing, \{/);
+  assert.match(releaseManifest, /export function mergeManifest/);
+  assert.match(releaseManifest, /existing\.version === release\.version/);
 });

@@ -408,7 +408,8 @@ Dos auditorías externas y una lectura del log de CI. Lo corregido va en el hist
 
 - [ ] Task: Publicar un artefacto instalable para Windows
   - Acceptance: `latest.json` incluye un artefacto `win32` construido en Windows; el aviso de actualización deja de resolver `UPDATE_NOT_BUILT_FOR_THIS_PLATFORM` allí.
-  - Bloqueado por: construir el instalador exige una máquina Windows; el script de release lo dice y se niega en lugar de fingirlo.
+  - Hecho el 2026-09-10: `npm run desktop:release` construye ya el instalador de la máquina donde corre, toma el que produce el bundler de Tauri sin deletrear su nombre, y fusiona el manifiesto en vez de reescribirlo, de modo que el artefacto de una plataforma no borra el de la otra. Cubierto por `tests/release-manifest.test.ts`.
+  - Pendiente: ejecutarlo en una máquina Windows y subir ambos artefactos con el manifiesto fusionado a la release. Es una acción, no código.
 
 - [ ] Task: Firmar lo que se distribuye
   - Acceptance: el sidecar y el instalador llevan firma válida; `bundle.windows.certificateThumbprint` deja de estar sin declarar.
