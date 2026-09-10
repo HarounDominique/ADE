@@ -5,15 +5,31 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { firstRunnable, missingCommandError } from "../src/adapters/command-lookup.js";
 
+/** Each system decides what "can be run" means, so a fixture that expresses the
+    rule has to be spelled its way: a permission bit on POSIX, an extension from
+    PATHEXT on Windows, which has no such bit and calls every existing file
+    executable when asked. */
+const windows = process.platform === "win32";
+
+async function toolThatRuns(directory: string, name: string): Promise<string> {
+  const path = join(directory, windows ? `${name}.cmd` : name);
+  await writeFile(path, windows ? "@echo off\r\nexit /b 0\r\n" : "#!/bin/sh\nexit 0\n");
+  if (!windows) await chmod(path, 0o755);
+  return path;
+}
+
+async function toolThatDoesNot(directory: string, name: string): Promise<string> {
+  const path = join(directory, windows ? `${name}.txt` : name);
+  await writeFile(path, "not a program\n");
+  if (!windows) await chmod(path, 0o644);
+  return path;
+}
+
 test("a command is resolved to the first candidate that can actually run", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ade-lookup-"));
-  const runnable = join(directory, "tool-runnable");
-  const present = join(directory, "tool-present");
-  await writeFile(runnable, "#!/bin/sh\nexit 0\n");
-  await chmod(runnable, 0o755);
-  // Present but not executable: it must not shadow the one that runs.
-  await writeFile(present, "not a program\n");
-  await chmod(present, 0o644);
+  const runnable = await toolThatRuns(directory, "tool-runnable");
+  // There but not runnable: it must not shadow the one that runs.
+  const present = await toolThatDoesNot(directory, "tool-present");
 
   assert.equal(firstRunnable([join(directory, "missing"), present, runnable]), runnable);
   assert.equal(firstRunnable([join(directory, "missing")]), undefined);
@@ -21,9 +37,9 @@ test("a command is resolved to the first candidate that can actually run", async
 
 test("a bare command is looked up on the PATH, which a desktop launch barely has", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ade-lookup-path-"));
-  const tool = join(directory, "ade-fake-tool");
-  await writeFile(tool, "#!/bin/sh\nexit 0\n");
-  await chmod(tool, 0o755);
+  // On Windows the command is typed without its extension and found through
+  // PATHEXT, which is the same lookup the system itself performs.
+  const tool = await toolThatRuns(directory, "ade-fake-tool");
   const previous = process.env.PATH;
   try {
     process.env.PATH = directory;
@@ -50,10 +66,9 @@ test("a missing program is reported with every place ADE looked", () => {
 
 test("a binary that is there but cannot be used is reported as such", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ade-lookup-perm-"));
-  const tool = join(directory, "tool");
-  await writeFile(tool, "#!/bin/sh\nexit 0\n");
-  await chmod(tool, 0o644);
+  const tool = await toolThatDoesNot(directory, "tool");
   const error = missingCommandError(new Error("spawn ENOENT"), "Codex", "ADE_CODEX_COMMAND", [tool], { command: tool, cwd: directory });
-  assert.match(error.message, /present but this process may not use it/);
+  // The same fact, told the way each system knows it.
+  assert.match(error.message, windows ? /present but not a program this system runs/ : /present but this process may not use it/);
   assert.match(error.message, /Working directory: .*\(present and permitted\)/);
 });

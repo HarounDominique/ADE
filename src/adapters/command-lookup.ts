@@ -14,15 +14,43 @@ export function firstRunnable(candidates: readonly string[]): string | undefined
   return undefined;
 }
 
+const windows = process.platform === "win32";
+
+/** What each system means by "can be run". A permission bit says it on POSIX;
+    Windows has no such bit and answers `X_OK` for any file that exists, so
+    asking it that question accepts a text file as a program. There the answer
+    is the extension, and `PATHEXT` is where the machine keeps the list. */
+function executableExtensions(): readonly string[] {
+  return (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD")
+    .split(";")
+    .map((extension) => extension.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function looksExecutable(candidate: string): boolean {
+  const lower = candidate.toLowerCase();
+  return executableExtensions().some((extension) => lower.endsWith(extension));
+}
+
 function runnable(candidate: string): string | undefined {
-  try { accessSync(candidate, constants.X_OK); return candidate; } catch { return undefined; }
+  try { accessSync(candidate, windows ? constants.F_OK : constants.X_OK); } catch { return undefined; }
+  return windows && !looksExecutable(candidate) ? undefined : candidate;
+}
+
+/** A bare command on Windows is spelled without its extension, and the system
+    finds it by trying each one on `PATHEXT` in turn. */
+function spellings(command: string): readonly string[] {
+  if (!windows || looksExecutable(command)) return [command];
+  return [command, ...executableExtensions().map((extension) => `${command}${extension}`)];
 }
 
 function onPath(command: string): string | undefined {
-  const separator = process.platform === "win32" ? ";" : ":";
+  const separator = windows ? ";" : ":";
   for (const directory of (process.env.PATH ?? "").split(separator).filter(Boolean)) {
-    const found = runnable(join(directory, command));
-    if (found) return found;
+    for (const spelling of spellings(command)) {
+      const found = runnable(join(directory, spelling));
+      if (found) return found;
+    }
   }
   return undefined;
 }
@@ -52,5 +80,8 @@ export function missingCommandError(
 
 function describePath(target: string, mode: number): string {
   try { accessSync(target, constants.F_OK); } catch { return "missing"; }
+  // Windows would answer "permitted" for a text file, so the extension answers
+  // instead: the operator is told the file is there and is not a program.
+  if (windows && mode === constants.X_OK && !looksExecutable(target)) return "present but not a program this system runs";
   try { accessSync(target, mode); return "present and permitted"; } catch { return "present but this process may not use it"; }
 }
