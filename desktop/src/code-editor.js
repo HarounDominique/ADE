@@ -156,7 +156,10 @@ export async function loadMonaco() {
     ]).then(([editor]) => {
       monaco = editor;
       configureMonacoThemes();
-      applyMonacoTheme(document.documentElement.dataset.theme);
+      // Monaco arrives after the theme was chosen, so it is told which one it
+      // is joining. The shell used to be asked, from a module that cannot see
+      // it: the first file that needed Monaco threw instead of opening.
+      monaco.editor.setTheme(document.documentElement.dataset.theme === 'light' ? 'ade-light' : 'ade-dark');
       return monaco;
     });
   }
