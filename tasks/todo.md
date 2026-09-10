@@ -398,3 +398,23 @@ Pregunta del operador: separar un tab del Editor a su propia ventana, para traba
   - Hallazgo: tres intentos fallaron antes de acertar. El arrastre HTML del webview animaba la pestaña y no entregaba nada al soltar fuera; los eventos de puntero no llegaban. El gesto se sigue con eventos de ratón, la imagen que sigue al cursor la dibuja Assay —la nativa se fue con el primer enfoque— y el gesto es salir de la barra de pestañas, no de la aplicación. Además el atributo que lo habilitaba estaba condicionado al estado del documento, y una pestaña restaurada se queda en `pending` hasta que se mira: ahora cualquier pestaña se levanta y la negativa se explica al soltar.
   - Abierto: sólo se ha ejercitado en macOS; el gesto es lo único de esta serie que puede necesitar ajuste por plataforma.
 
+## Paridad Windows — 2026-09-10
+
+Dos auditorías externas y una lectura del log de CI. Lo corregido va en el historial; esto es lo que queda abierto y por qué.
+
+- [ ] Task: Devolver a Windows un grado de soporte demostrado
+  - Acceptance: una corrida verde de la matriz en `windows-latest`, con el paso de Rust ejecutándose de verdad, y la spec citando esa corrida en vez de una de hace días.
+  - Abierto porque: los tests de TypeScript fallaban antes de llegar a Rust, así que la pregunta sobre el PTY en Windows sigue sin respuesta en ninguno de los dos sentidos.
+
+- [ ] Task: Publicar un artefacto instalable para Windows
+  - Acceptance: `latest.json` incluye un artefacto `win32` construido en Windows; el aviso de actualización deja de resolver `UPDATE_NOT_BUILT_FOR_THIS_PLATFORM` allí.
+  - Bloqueado por: construir el instalador exige una máquina Windows; el script de release lo dice y se niega en lugar de fingirlo.
+
+- [ ] Task: Firmar lo que se distribuye
+  - Acceptance: el sidecar y el instalador llevan firma válida; `bundle.windows.certificateThumbprint` deja de estar sin declarar.
+  - Bloqueado por: no hay certificado de firma de código. Hasta entonces, la construcción retira la firma heredada de `node.exe` —rota es peor que ausente— y macOS sigue mostrando Gatekeeper.
+
+- [ ] Task: Fidelidad de checkpoint bajo `.gitattributes`
+  - Acceptance: un repositorio que declara `text` en sus atributos tampoco altera los bytes que devuelve una restauración.
+  - Abierto porque: esas reglas viven en el árbol, no en configuración; saltárselas exige la plomería de objetos (`hash-object --no-filters`, `cat-file`) en vez del índice.
+
