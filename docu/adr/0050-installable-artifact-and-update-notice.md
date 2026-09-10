@@ -28,7 +28,7 @@ Junto al artefacto se escribe `latest.json`: producto, versión, fecha, notas y,
 
 **La aplicación avisa; no se actualiza sola.** Al arrancar pregunta al feed —por defecto un asset de release del propio repositorio, sustituible con `ADE_UPDATE_FEED_URL`— y compara versiones. Si hay una más reciente lo dice en la barra de estado y una vez por arranque. No descarga, no reemplaza el bundle y no ejecuta nada: instalar sigue siendo una decisión del operador. Estar sin conexión, un feed sin publicar o un manifiesto ilegible se dicen como tales, no como "estás al día".
 
-El script local no publica. Para Ubuntu, [`.github/workflows/ubuntu-release.yml`](../../.github/workflows/ubuntu-release.yml) publica el artefacto y su manifiesto cuando se empuja un tag `v<version>` que coincide con la versión de Tauri; el workflow ejecuta primero la matriz de comprobaciones, el empaquetado Debian y el smoke. La acción sigue siendo deliberada —crear el tag es la decisión de release— y no convierte la aplicación en autoactualizable.
+El script local no publica. Para las tres plataformas, [`.github/workflows/release.yml`](../../.github/workflows/release.yml) construye en runners nativos, fusiona los manifiestos y publica los artefactos cuando se empuja un tag `v<version>` que coincide con la versión de Tauri. La acción sigue siendo deliberada —crear el tag es la decisión de release— y no convierte la aplicación en autoactualizable.
 
 ## Alternatives Considered
 
@@ -52,6 +52,6 @@ Rechazado: el fallo es del script de empaquetado de Tauri, no de `hdiutil`. Llam
 
 - Existe un artefacto instalable, reproducible con un comando, y su `sha256` está declarado junto a él.
 - Una instalación vieja lo dice; el operador decide cuándo y si actualiza.
-- macOS y Ubuntu tienen artefacto instalable; Windows sigue pendiente de publicación y Fedora/Arch no tienen canal específico.
+- macOS, Ubuntu y Windows tienen artefacto instalable en una release; Fedora/Arch no tienen canal específico.
 - El artefacto no está firmado ni notarizado, así que macOS mostrará la advertencia de Gatekeeper en una instalación limpia. Firmar es la decisión siguiente y no se toma aquí.
-- La publicación Ubuntu queda automatizada detrás de un tag versionado; firmar artefactos y publicar macOS/Windows siguen siendo decisiones posteriores.
+- La publicación de las tres plataformas queda automatizada detrás de un tag versionado; firmar artefactos sigue siendo una decisión posterior.
