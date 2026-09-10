@@ -302,8 +302,10 @@ test("the terminal opens in the theme already on screen, in full colour", () => 
   for (const colour of ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "brightBlack", "brightWhite"]) {
     assert.match(main, new RegExp(`${colour}: '#`));
   }
-  // The frame and the canvas must agree on one colour per theme.
-  assert.match(styles, /\[data-theme="light"\] \.terminal-surface[\s\S]*?background: #f7f6f3/);
+  // The frame and the canvas must agree on one colour per theme: the light
+  // theme's move to Everest changed the frame, and the canvas follows it.
+  assert.match(styles, /\[data-theme="light"\] \.terminal-surface[\s\S]*?background: #eaf1f2/);
+  assert.match(main, /background: '#eaf1f2', foreground: '#131b25'/);
   assert.match(styles, /not\(\[data-theme="light"\]\) \.terminal-surface[\s\S]*?background: #141a22/);
 });
 

@@ -221,20 +221,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .terminal-dock-tabs { display: flex; align-items: center; gap: 16px; min-height: 32px; color: var(--faint); font: 11px var(--mono); text-transform: uppercase; }.terminal-dock-tabs .active { align-self: stretch; display: inline-flex; align-items: center; border-bottom: 2px solid var(--cyan); color: var(--text); }.terminal-cwd { margin-left: auto; max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; }
 .terminal-surface { display: flex; min-height: 0; flex: 1; flex-direction: column; padding: 0 9px 8px; border: 1px solid var(--line); background: #0d1416; }.terminal-hosts { display: flex; min-height: 0; flex: 1; width: 100%; }.terminal-host { min-width: 0; min-height: 0; flex: 1; }.terminal-host[hidden] { display: none; }.terminal-host .xterm { height: 100%; padding: 10px 8px 8px; }.terminal-host .xterm-viewport { border-radius: 2px; }
 
-:root[data-theme="light"] { --bg: #f3f6fa; --chrome: #e8eef5; --chrome-strong: #dfe8f2; --panel: #ffffff; --panel-raised: #f5f8fb; --panel-soft: #edf3f8; --line: #c6d2de; --line-strong: #97aabd; --text: #152231; --text-soft: #3b4b5c; --muted: #647689; --faint: #7d8d9d; --blue: #2865b1; --cyan: #0e827b; --green: #167646; --amber: #8a5d11; --red: #ab3d47; --purple: #6f48a6; color-scheme: light; }
+:root[data-theme="light"] { --bg: #e4ecef; --chrome: #cadae0; --chrome-strong: #b9cfd7; --panel: #ffffff; --panel-raised: #fdfeff; --panel-soft: #dce6e9; --line: #cadae0; --line-strong: #7ebbd5; --text: #0e3448; --text-soft: #567b8a; --muted: #6e828f; --faint: #7d9aa6; --blue: #397fb7; --cyan: #246a89; --green: #30a25e; --amber: #c8963e; --red: #c8534e; --purple: #6f7fb0; color-scheme: light; }
 :root[data-theme="light"] body { background: var(--bg); }
 :root[data-theme="light"] .topbar { background: color-mix(in srgb, var(--chrome) 96%, transparent); }
-:root[data-theme="light"] .rail-button:hover, :root[data-theme="light"] .rail-button.active, :root[data-theme="light"] .nav-item:hover { background: #d3e0ed; }
-:root[data-theme="light"] .sidebar-tool:hover { background: #d3e0ed; }
-:root[data-theme="light"] .nav-item.active { background: #dbe8f3; }:root[data-theme="light"] .command-button { background: var(--panel); }
+:root[data-theme="light"] .rail-button:hover, :root[data-theme="light"] .rail-button.active, :root[data-theme="light"] .nav-item:hover { background: #d5d8e7; }
+:root[data-theme="light"] .sidebar-tool:hover { background: #d5d8e7; }
+:root[data-theme="light"] .nav-item.active { background: #d9edf3; }:root[data-theme="light"] .command-button { background: var(--panel); }
 :root[data-theme="light"] .command-button, :root[data-theme="light"] .workspace-picker, :root[data-theme="light"] .explorer-filter { background: var(--panel); }
-:root[data-theme="light"] .workspace-entry.directory:hover, :root[data-theme="light"] .workspace-entry.file:hover { color: var(--text); background: #d3e0ed; }
-:root[data-theme="light"] .task-status.review, :root[data-theme="light"] .gate.pending, :root[data-theme="light"] .nav-count.warning { background: #f7ebcf; }:root[data-theme="light"] .task-status.building { background: #dceafa; }
-:root[data-theme="light"] .ide-steps li.current { background: #e1edf8; }:root[data-theme="light"] .ide-files li, :root[data-theme="light"] .ide-verification dl div { border-color: #d8e1ea; }
-:root[data-theme="light"] .ide-terminal, :root[data-theme="light"] .terminal-surface { background: #e8f2ef; }:root[data-theme="light"] .terminal-host .xterm-viewport { background: #e8f2ef; }
-:root[data-theme="light"] .workspace-entry.file .workspace-glyph.file::after { background: var(--panel); }:root[data-theme="light"] .service-status.failed { background: #f7ebcf; }:root[data-theme="light"] .service-status.running, :root[data-theme="light"] .gate.passed { background: #dff3e7; }
+:root[data-theme="light"] .workspace-entry.directory:hover, :root[data-theme="light"] .workspace-entry.file:hover { color: var(--text); background: #d5d8e7; }
+:root[data-theme="light"] .task-status.review, :root[data-theme="light"] .gate.pending, :root[data-theme="light"] .nav-count.warning { background: #f1e4c7; }:root[data-theme="light"] .task-status.building { background: #dcebf5; }
+:root[data-theme="light"] .ide-steps li.current { background: #dcebf5; }:root[data-theme="light"] .ide-files li, :root[data-theme="light"] .ide-verification dl div { border-color: #cadae0; }
+:root[data-theme="light"] .ide-terminal, :root[data-theme="light"] .terminal-surface { background: #eaf1f2; }:root[data-theme="light"] .terminal-host .xterm-viewport { background: #eaf1f2; }
+:root[data-theme="light"] .workspace-entry.file .workspace-glyph.file::after { background: var(--panel); }:root[data-theme="light"] .service-status.failed { background: #f1e4c7; }:root[data-theme="light"] .service-status.running, :root[data-theme="light"] .gate.passed { background: #d8efde; }
 :root[data-theme="light"] .runtime-icon { background: var(--panel); }:root[data-theme="light"] .review-panel { background: var(--panel); }
-:root[data-theme="light"] .document-viewer-panel { box-shadow: 0 12px 28px #6476891c; }
+:root[data-theme="light"] .document-viewer-panel { box-shadow: 0 12px 28px #0e34481c; }
 
 @media (max-width: 1180px) { .terminal-dock { left: var(--sidebar-width, 246px); padding-right: 16px; padding-left: 16px; } }
 
@@ -348,7 +348,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .workspace-entry.search-result:hover .workspace-path-hint, .workspace-entry.search-result.selected .workspace-path-hint { color: currentColor; }
 .workspace-entry.selected { color: var(--text); background: #1b3140; }
 .workspace-entry.selected .workspace-glyph.file { border-color: var(--cyan); }
-:root[data-theme="light"] .workspace-entry.selected { background: #dbeaf5; }
+:root[data-theme="light"] .workspace-entry.selected { background: #d9edf3; }
 
 @media (max-width: 1180px) {
   .explorer-heading { padding-right: 2px; padding-left: 2px; }
@@ -397,8 +397,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 :root[data-theme="light"] .version-control-toolbar,
 :root[data-theme="light"] .version-control-status { background: #ffffff; }
-:root[data-theme="light"] .git-commit-item.active { background: #e3eef9; }
-:root[data-theme="light"] .git-pending-file:hover { background: #e3eef9; }
+:root[data-theme="light"] .git-commit-item.active { background: #b6d8e5; }
+:root[data-theme="light"] .git-pending-file:hover { background: #d9edf3; }
 
 @media (max-width: 1180px) {
   .pending-changes-layout { grid-template-columns: 1fr; }
@@ -452,10 +452,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .commit-form input, .commit-form textarea { border-radius: 5px; background: var(--panel-soft); }
 .commit-form-hint { padding-top: 3px; }
 
-:root[data-theme="light"] .version-control-tab.active { box-shadow: 0 1px 3px #15324d1c; }
+:root[data-theme="light"] .version-control-tab.active { box-shadow: 0 1px 3px #0e34481c; }
 :root[data-theme="light"] .version-history-layout,
 :root[data-theme="light"] .changes-workspace,
-:root[data-theme="light"] .commit-form { box-shadow: 0 8px 24px #15324d12; }
+:root[data-theme="light"] .commit-form { box-shadow: 0 8px 24px #0e344812; }
 
 @media (max-width: 1180px) {
   .pending-changes-layout { grid-template-columns: 1fr; }
@@ -517,11 +517,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .operation-error-details pre { max-height: 160px; margin: 0; padding: 0 10px 10px; overflow: auto; color: var(--text-soft); font: 12px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; }
 .operation-error-actions { display: flex; justify-content: flex-end; margin-top: 3px; }
 .operation-error-actions .button { min-width: 88px; }
-:root[data-theme="light"] .operation-error-dialog { box-shadow: 0 24px 70px #15324d38; }
+:root[data-theme="light"] .operation-error-dialog { box-shadow: 0 24px 70px #0e344838; }
 
-:root[data-theme="light"] .git-pending-file.active, :root[data-theme="light"] .git-commit-file.active { background: #e3eef9; }
-:root[data-theme="light"] .commit-dialog { box-shadow: 0 24px 70px #15324d38; }
-:root[data-theme="light"] .agent-delete-dialog { box-shadow: 0 24px 70px #15324d38; }
+:root[data-theme="light"] .git-pending-file.active, :root[data-theme="light"] .git-commit-file.active { background: #b6d8e5; }
+:root[data-theme="light"] .commit-dialog { box-shadow: 0 24px 70px #0e344838; }
+:root[data-theme="light"] .agent-delete-dialog { box-shadow: 0 24px 70px #0e344838; }
 
 @media (max-width: 760px) {
   .version-control-tab-row { align-items: stretch; flex-direction: column; gap: 10px; }
@@ -619,7 +619,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .agent-thread .agent-prompt-form { padding: 12px 16px 10px; }
 .agent-thread .agent-prompt-form textarea { min-height: 70px; border-color: var(--line-strong); border-radius: 4px; background: var(--panel-soft); }
 .agent-thread .agent-prompt-form textarea:focus { border-color: var(--blue); }
-:root[data-theme="light"] .agent-session-item:hover, :root[data-theme="light"] .agent-session-item.active { background: #e3eef9; }
+:root[data-theme="light"] .agent-session-item:hover, :root[data-theme="light"] .agent-session-item.active { background: #d9edf3; }
 :root[data-theme="light"] .agent-thread-header { background: var(--bg); }
 @media (max-width: 1180px) {
   .agents-workbench { grid-template-columns: 172px minmax(0, 1fr); }
@@ -1738,7 +1738,7 @@ body { color: var(--text); }
    set in separate passes. */
 :root[data-theme="light"] .terminal-surface,
 :root[data-theme="light"] .ide-terminal,
-:root[data-theme="light"] .terminal-host .xterm-viewport { background: #f7f6f3; }
+:root[data-theme="light"] .terminal-host .xterm-viewport { background: #eaf1f2; }
 :root:not([data-theme="light"]) .terminal-surface,
 :root:not([data-theme="light"]) .ide-terminal,
 :root:not([data-theme="light"]) .terminal-host .xterm-viewport { background: #141a22; }
