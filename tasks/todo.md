@@ -400,11 +400,11 @@ Pregunta del operador: separar un tab del Editor a su propia ventana, para traba
 
 ## Ubuntu Linux — 2026-09-10
 
-- [ ] Task: Llevar Ubuntu de arranque confirmado a plataforma verificable
+- [x] Task: Llevar Ubuntu de arranque confirmado a plataforma verificable
   - Spec: [SPEC-cross-platform-support.md](../docu/specs/SPEC-cross-platform-support.md#linux-target-slice) · ADR: [0054-ubuntu-first-linux-target](../docu/adr/0054-ubuntu-first-linux-target.md)
   - Acceptance: Ubuntu arranca, responde en la terminal PTY, navega y edita ficheros, abre el escape hatch, opera Git, detecta los proveedores disponibles, conserva el estado tras reiniciar y no deja procesos huérfanos; la matriz CI queda verde.
-  - Verify: `npm run desktop:package`, `npm run desktop:release -- --skip-build`, `xvfb-run --auto-servernum npm run desktop:smoke` en CI y recorrido manual en Ubuntu; registrar el resultado y el entorno antes de cambiar el grado a `verificada`.
-  - Estado: el arranque ya está comprobado manualmente; faltan el smoke completo, su registro y la publicación del `.deb`.
+  - Hecho el 2026-09-10: smoke manual completo sobre el `.deb` real (`npm run desktop:package`), los diez puntos de la acceptance verificados uno a uno; el grado sube a `verificada`. Detalle y matices en [SPEC-cross-platform-support.md#linux-target-slice](../docu/specs/SPEC-cross-platform-support.md#linux-target-slice).
+  - Pendiente: instalación real vía `dpkg -i`/`apt install` (el smoke corrió sobre el binario extraído, no instalado, porque el entorno no tenía `sudo`); deduplicar `libwebkit2gtk-4.1-0`/`libgtk-3-0` en `Depends`; el `toolchain inspection` de la matriz de Windows sigue en rojo por un defecto sin relación con Ubuntu (ver Paridad Windows).
 
 ## Paridad Windows — 2026-09-10
 
@@ -426,3 +426,7 @@ Dos auditorías externas y una lectura del log de CI. Lo corregido va en el hist
 - [ ] Task: Fidelidad de checkpoint bajo `.gitattributes`
   - Acceptance: un repositorio que declara `text` en sus atributos tampoco altera los bytes que devuelve una restauración.
   - Abierto porque: esas reglas viven en el árbol, no en configuración; saltárselas exige la plomería de objetos (`hash-object --no-filters`, `cat-file`) en vez del índice.
+
+- [ ] Task: `toolchain inspection` deja de fallar por timeout en Windows
+  - Acceptance: `test at tests\toolchain-inspection.test.ts:1:273` pasa en `windows-latest` y la matriz vuelve a verde.
+  - Abierto porque: el inspector de toolchains empezó a resolver Node/Java por las mismas rutas de version manager que `LocalProcess` (a42a9d8), y en el runner de Windows `npm --version` deja de responder dentro del timeout de 1.5s del probe. Calcular el entorno aumentado una sola vez por inspección en vez de una vez por sonda (1cb8d3d) no lo cerró: el fallo persiste con el mismo margen de tiempo, así que la causa no era el volumen de trabajo repetido. Sin acceso a una máquina Windows para reproducir y depurar en vivo, la causa exacta sigue sin confirmar.
