@@ -20,7 +20,9 @@ const nativeCargo = readFileSync(new URL("../desktop/src-tauri/Cargo.toml", impo
 const peSignature = readFileSync(new URL("../scripts/pe-signature.mjs", import.meta.url), "utf8");
 const releaseManifest = readFileSync(new URL("../scripts/release-manifest.mjs", import.meta.url), "utf8");
 const tauriConfig = JSON.parse(readFileSync(new URL("../desktop/src-tauri/tauri.conf.json", import.meta.url), "utf8")) as {
-  bundle: { windows: { webviewInstallMode: { type: string; silent: boolean } } };
+  category: string;
+  license: string;
+  bundle: { linux: { deb: { section: string; depends: string[] } }; windows: { webviewInstallMode: { type: string; silent: boolean } } };
 };
 const editorWindow = readFileSync(new URL("../desktop/src/editor-window.js", import.meta.url), "utf8");
 const editorWindowHtml = readFileSync(new URL("../desktop/src/editor-window.html", import.meta.url), "utf8");
@@ -1522,10 +1524,10 @@ test("what this session added behaves the same on Windows as on macOS", () => {
   assert.match(checkpointModule, /const locked: string\[\] = \[\];/);
   assert.match(checkpointModule, /catch \{ locked\.push\(path\); \}/);
   assert.match(main, /held open by another program and stayed/);
-  // Each machine builds the installer it can build, and refuses the rest
-  // instead of half-producing them.
-  assert.match(releaseScript, /if \(process\.platform !== 'darwin' && process\.platform !== 'win32'\)/);
-  assert.match(releaseScript, /Linux packaging is declared out of scope/);
+  // Each supported target builds the installer it can build, and refuses
+  // unknown platforms instead of half-producing one.
+  assert.match(releaseScript, /!\['darwin', 'win32', 'linux'\]\.includes\(process\.platform\)/);
+  assert.match(releaseScript, /No installer is produced for \$\{process\.platform\}/);
 });
 
 test("nothing Assay runs for itself opens a console on Windows", () => {
@@ -1595,6 +1597,8 @@ test("a release is built per machine and assembled into one manifest", () => {
   // newer version existed with nothing behind it. The script now builds what
   // the machine it runs on can build.
   assert.match(releaseScript, /function windowsArtifact\(\)/);
+  assert.match(releaseScript, /function linuxArtifact\(\)/);
+  assert.match(releaseScript, /\$\{productName\}-\$\{version\}-ubuntu-\$\{arch\}\.deb/);
   assert.match(releaseScript, /build\('desktop:build'\)/);
   // Tauri names the installer; taking what it produced beats guessing the
   // spelling, which a rename would silently break.
@@ -1607,6 +1611,18 @@ test("a release is built per machine and assembled into one manifest", () => {
   assert.match(releaseScript, /mergeManifest\(existing, \{/);
   assert.match(releaseManifest, /export function mergeManifest/);
   assert.match(releaseManifest, /existing\.version === release\.version/);
+});
+
+test("the Ubuntu package declares desktop metadata and runtime dependencies", () => {
+  assert.equal(tauriConfig.category, "DeveloperTool");
+  assert.equal(tauriConfig.license, "MIT");
+  assert.equal(tauriConfig.bundle.linux.deb.section, "devel");
+  assert.deepEqual(tauriConfig.bundle.linux.deb.depends, [
+    "libwebkit2gtk-4.1-0",
+    "libgtk-3-0",
+    "libayatana-appindicator3-1",
+    "librsvg2-2",
+  ]);
 });
 
 test("History shows the commits that exist, not the ones it read on the way in", () => {

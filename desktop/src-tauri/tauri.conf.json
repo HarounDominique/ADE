@@ -3,6 +3,12 @@
   "productName": "Assay",
   "version": "0.1.0",
   "identifier": "com.ade.desktop",
+  "category": "DeveloperTool",
+  "shortDescription": "Local-first workstation for agentic software engineering",
+  "longDescription": "Assay keeps Projects, Tasks, agents, code, terminal, Git, verification and review in one local-first development workspace.",
+  "homepage": "https://github.com/HarounDominique/ADE",
+  "license": "MIT",
+  "licenseFile": "../../LICENSE",
   "build": {
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run build",
@@ -40,6 +46,18 @@
       "webviewInstallMode": {
         "type": "downloadBootstrapper",
         "silent": true
+      }
+    },
+    "linux": {
+      "deb": {
+        "section": "devel",
+        "priority": "optional",
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1",
+          "librsvg2-2"
+        ]
       }
     }
   }

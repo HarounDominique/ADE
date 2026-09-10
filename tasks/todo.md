@@ -334,7 +334,7 @@ Auditoría de origen: [product-gap-audit](../docu/knowledge/product-gap-audit.md
   - Acceptance: existe un artefacto instalable reproducible y la app puede informar de que hay una versión más reciente; la instalación deja de ser un reemplazo manual del bundle.
   - Verify: `npm test` (314 tests TypeScript, siete nuevos sobre orden de versiones, feed publicado, feed inalcanzable y forma del script), `npm run desktop:release` sobre el bundle real —`.dmg` montado y comprobado: `Assay.app` con su sidecar y enlace a `/Applications`— y `npm run desktop:smoke`.
   - Files: `scripts/package-desktop-release.mjs`, `src/application/release/update-check.ts`, `src/desktop-sidecar.ts`, `desktop/src/main.js`, `desktop/src/index.html`, `desktop/src/styles.css`, `package.json`, `tests/app-release.test.ts`.
-  - Abierto: el artefacto no está firmado ni notarizado, Windows y Linux siguen sin artefacto propio y publicar la release sigue siendo manual.
+  - Abierto: el artefacto no está firmado ni notarizado, y publicar la release sigue siendo manual. Ubuntu ya tiene camino de paquete Debian; falta construirlo y publicarlo desde Ubuntu.
 
 ## Aviso al desarrollador — 2026-09-09
 
@@ -398,6 +398,14 @@ Pregunta del operador: separar un tab del Editor a su propia ventana, para traba
   - Hallazgo: tres intentos fallaron antes de acertar. El arrastre HTML del webview animaba la pestaña y no entregaba nada al soltar fuera; los eventos de puntero no llegaban. El gesto se sigue con eventos de ratón, la imagen que sigue al cursor la dibuja Assay —la nativa se fue con el primer enfoque— y el gesto es salir de la barra de pestañas, no de la aplicación. Además el atributo que lo habilitaba estaba condicionado al estado del documento, y una pestaña restaurada se queda en `pending` hasta que se mira: ahora cualquier pestaña se levanta y la negativa se explica al soltar.
   - Abierto: sólo se ha ejercitado en macOS; el gesto es lo único de esta serie que puede necesitar ajuste por plataforma.
 
+## Ubuntu Linux — 2026-09-10
+
+- [ ] Task: Llevar Ubuntu de arranque confirmado a plataforma verificable
+  - Spec: [SPEC-cross-platform-support.md](../docu/specs/SPEC-cross-platform-support.md#linux-target-slice) · ADR: [0054-ubuntu-first-linux-target](../docu/adr/0054-ubuntu-first-linux-target.md)
+  - Acceptance: Ubuntu arranca, responde en la terminal PTY, navega y edita ficheros, abre el escape hatch, opera Git, detecta los proveedores disponibles, conserva el estado tras reiniciar y no deja procesos huérfanos; la matriz CI queda verde.
+  - Verify: `npm run desktop:package`, `npm run desktop:release -- --skip-build`, `xvfb-run --auto-servernum npm run desktop:smoke` en CI y recorrido manual en Ubuntu; registrar el resultado y el entorno antes de cambiar el grado a `verificada`.
+  - Estado: el arranque ya está comprobado manualmente; faltan el smoke completo, su registro y la publicación del `.deb`.
+
 ## Paridad Windows — 2026-09-10
 
 Dos auditorías externas y una lectura del log de CI. Lo corregido va en el historial; esto es lo que queda abierto y por qué.
@@ -418,4 +426,3 @@ Dos auditorías externas y una lectura del log de CI. Lo corregido va en el hist
 - [ ] Task: Fidelidad de checkpoint bajo `.gitattributes`
   - Acceptance: un repositorio que declara `text` en sus atributos tampoco altera los bytes que devuelve una restauración.
   - Abierto porque: esas reglas viven en el árbol, no en configuración; saltárselas exige la plomería de objetos (`hash-object --no-filters`, `cat-file`) en vez del índice.
-
