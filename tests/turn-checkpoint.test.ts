@@ -150,3 +150,27 @@ test("a checkpoint on a repository without a first commit still has a way back",
   assert.equal(await readFile(join(directory, "draft.md"), "utf8"), "before the first commit\n");
   await rm(directory, { recursive: true, force: true });
 });
+
+test("a checkpoint returns the bytes the operator wrote, not Git's idea of them", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ade-checkpoint-crlf-"));
+  const git = (...args: string[]) => execFile("git", args, { cwd: directory });
+  await git("init", "-q");
+  await git("config", "user.email", "operator@example.test");
+  await git("config", "user.name", "Operator");
+  // Git for Windows turns this on when it installs, so this is the ordinary
+  // configuration there rather than an exotic one.
+  await git("config", "core.autocrlf", "true");
+  await writeFile(join(directory, "unix.txt"), "line one\nline two\n");
+  await writeFile(join(directory, "windows.txt"), "line one\r\nline two\r\n");
+
+  const checkpoint = await createTurnCheckpoint({ directory, label: "claude turn 1" });
+  await writeFile(join(directory, "unix.txt"), "rewritten by the agent\n");
+  await rm(join(directory, "windows.txt"));
+  await restoreTurnCheckpoint({ directory, commit: checkpoint.commit });
+
+  // A restore that changes a byte the operator never touched is not a way back.
+  assert.equal(await readFile(join(directory, "unix.txt"), "utf8"), "line one\nline two\n");
+  assert.equal(await readFile(join(directory, "windows.txt"), "utf8"), "line one\r\nline two\r\n");
+
+  await rm(directory, { recursive: true, force: true });
+});

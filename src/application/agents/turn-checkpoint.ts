@@ -140,8 +140,21 @@ function checkpointIdentity(): NodeJS.ProcessEnv {
   };
 }
 
+/** A checkpoint is a photograph, and Git does not photograph by default: with
+    `core.autocrlf` — which Git for Windows turns on when it installs — adding a
+    file rewrites its line endings into the blob and checking it out rewrites
+    them again on the way to disk. A restore would hand back a file whose bytes
+    the operator never wrote, which is the one thing a way back must not do.
+    Every call the checkpoint makes therefore runs with that conversion off.
+
+    What this does not cover is a repository that declares `text` in its own
+    `.gitattributes`: those rules live in the tree, not in config, and bypassing
+    them needs the object plumbing instead of the index. It is declared in
+    SPEC-changes-review-governance rather than left to be discovered. */
+const withoutLineEndingConversion = ["-c", "core.autocrlf=false", "-c", "core.eol=lf", "-c", "core.safecrlf=false"];
+
 async function git(args: string[], cwd: string, indexFile?: string, identity?: NodeJS.ProcessEnv): Promise<string> {
-  const { stdout } = await executeGit(args, {
+  const { stdout } = await executeGit([...withoutLineEndingConversion, ...args], {
     cwd,
     ...(indexFile || identity ? { env: { ...(indexFile ? { GIT_INDEX_FILE: indexFile } : {}), ...identity } } : {}),
   });
