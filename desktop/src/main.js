@@ -1057,7 +1057,10 @@ async function switchProjectFromContext(project) {
     window.clearTimeout(workspaceSearchTimer);
     workspaceSearchToken += 1;
     setWorkspaceSearchLoading(false);
-    await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
+    // A filter from the Project being left does not describe the one arriving.
+    const filter = document.getElementById('workspace-filter');
+    if (filter) filter.value = '';
+    await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true, replacesFilter: true });
     await refreshGitWorkspace(workspaceRootPath, nativeInvoke);
     requestAgentSessions(workspaceRootPath);
     resetRunControlForProject();
@@ -3842,9 +3845,21 @@ async function refreshGitWorkspace(path, invoke = nativeInvoke) {
   } catch (error) { console.warn('Git workspace unavailable:', error); }
 }
 
-async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke, { animate = false, requestToken = null } = {}) {
+/** A filter with text in it means the tree belongs to the search. Any load that
+    paints the whole tree over live results answers a question nobody asked, and
+    the operator sees their file appear and vanish — or never appear, once the
+    search became fast enough to land first. The nine places that load the tree
+    do not each have to remember this; the load itself declines.
+
+    `replacesFilter` is for the one case that outranks the filter: the Project
+    changed, so results from the previous one must not survive. That path clears
+    the box as well, because a filter still showing text over a tree it no
+    longer describes is its own lie. */
+async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke, { animate = false, requestToken = null, replacesFilter = false } = {}) {
   const tree = document.getElementById('workspace-tree');
   if (!tree || !invoke || !path) return;
+  const filtering = Boolean(document.getElementById('workspace-filter')?.value.trim());
+  if (filtering && !replacesFilter && requestToken === null) return;
   workspaceRootPath = path;
   if (animate) tree.classList.add('is-transitioning');
   try {
