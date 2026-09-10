@@ -41,7 +41,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev xvfb
 
       - name: Install dependencies
         run: |
@@ -68,15 +68,51 @@ jobs:
       - name: Compile shell
         run: cargo build --manifest-path desktop/src-tauri/Cargo.toml
 
+      - name: Package Ubuntu desktop app
+        if: matrix.platform == 'linux'
+        run: npm run desktop:package
+
+      - name: Validate Ubuntu Debian package
+        if: matrix.platform == 'linux'
+        run: |
+          dpkg-deb --info desktop/src-tauri/target/release/bundle/deb/*.deb
+          dpkg-deb --contents desktop/src-tauri/target/release/bundle/deb/*.deb | grep -E 'usr/bin|usr/share/applications'
+
+      - name: Assemble Ubuntu release manifest
+        if: matrix.platform == 'linux'
+        run: npm run desktop:release -- --skip-build
+
       # A runnable Windows bundle lets contributors test the desktop shell even
       # when their local application-control policy blocks Cargo build scripts.
       - name: Package Windows desktop app
         if: matrix.platform == 'windows'
         run: npm run desktop:package
 
+      - name: Smoke test Ubuntu desktop app
+        if: matrix.platform == 'linux'
+        run: xvfb-run --auto-servernum npm run desktop:smoke
+
       - name: Smoke test Windows desktop app
         if: matrix.platform == 'windows'
         run: npm run desktop:smoke
+
+      - name: Upload Ubuntu desktop app
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: assay-ubuntu
+          path: desktop/src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+      - name: Upload Ubuntu release manifest
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: assay-ubuntu-release
+          path: |
+            release/Assay-*-ubuntu-*.deb
+            release/latest.json
+          if-no-files-found: error
 
       - name: Upload Windows desktop app
         if: matrix.platform == 'windows'

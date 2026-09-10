@@ -29,7 +29,7 @@ The gap between what this README promises and what the code sustains is inventor
 
 ## Platform support
 
-macOS is the verified platform. Windows and Linux are buildable — the CI matrix is green — and neither has a recorded manual smoke run. Every platform boundary and its degree of support is declared in [SPEC-cross-platform-support](docu/specs/SPEC-cross-platform-support.md#platform-boundary); no document here claims more than CI or a recorded smoke run supports.
+macOS is the verified platform. Ubuntu is the first Linux target: the application has been started there manually, Linux is buildable in CI, and the full manual smoke plus distributable `.deb` release are still being closed. Windows remains buildable but not manually verified. Every platform boundary and its degree of support is declared in [SPEC-cross-platform-support](docu/specs/SPEC-cross-platform-support.md#platform-boundary); no document here claims more than CI or a recorded smoke run supports.
 
 ## Quick start
 

@@ -22,8 +22,8 @@ import { mergeManifest } from './release-manifest.mjs';
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const skipBuild = process.argv.includes('--skip-build');
 
-if (process.platform !== 'darwin' && process.platform !== 'win32') {
-  console.error(`No installer is produced for ${process.platform}. Linux packaging is declared out of scope in SPEC-cross-platform-support rather than half-built here.`);
+if (!['darwin', 'win32', 'linux'].includes(process.platform)) {
+  console.error(`No installer is produced for ${process.platform}.`);
   process.exit(1);
 }
 
@@ -105,7 +105,31 @@ function windowsArtifact() {
   return { name, artifact };
 }
 
-const { name, artifact } = process.platform === 'darwin' ? macosArtifact() : windowsArtifact();
+/** Ubuntu: publish the native Debian package first. It is the format that
+    integrates with the target distribution's package manager; AppImage can be
+    added later as a broad fallback without changing the release contract. */
+function linuxArtifact() {
+  build('desktop:build');
+  const bundles = resolve(root, 'desktop/src-tauri/target/release/bundle/deb');
+  const installer = existsSync(bundles)
+    ? readdirSync(bundles).filter((file) => file.endsWith('.deb')).map((file) => resolve(bundles, file))[0]
+    : undefined;
+  if (!installer) {
+    console.error(`No Debian package under ${bundles}. Run without --skip-build, or build it first with npm run desktop:build.`);
+    process.exit(1);
+  }
+  const name = `${productName}-${version}-ubuntu-${arch}.deb`;
+  const artifact = resolve(releaseDirectory, name);
+  rmSync(artifact, { force: true });
+  copyFileSync(installer, artifact);
+  return { name, artifact };
+}
+
+const { name, artifact } = process.platform === 'darwin'
+  ? macosArtifact()
+  : process.platform === 'win32'
+    ? windowsArtifact()
+    : linuxArtifact();
 const sha256 = createHash('sha256').update(readFileSync(artifact)).digest('hex');
 const manifestPath = resolve(releaseDirectory, 'latest.json');
 const existing = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : undefined;

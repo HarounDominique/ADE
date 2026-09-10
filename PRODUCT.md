@@ -4,9 +4,9 @@
 
 ## Platform
 
-desktop (macOS)
+desktop (macOS; Ubuntu Linux target)
 
-Assay se distribuye en esta iteración como shell desktop Tauri para macOS; la interfaz de trabajo es HTML/CSS y debe conservar affordances propias de una herramienta desktop.
+Assay se distribuye en esta iteración como shell desktop Tauri para macOS, con Ubuntu como primer objetivo Linux; la interfaz de trabajo es HTML/CSS y debe conservar affordances propias de una herramienta desktop.
 
 La shell prioriza claridad verificable sobre ornamentación: una acción visible debe funcionar, un estado visible debe tener una fuente real y cada panel debe vivir únicamente en la vista donde el usuario puede actuar sobre él.
 

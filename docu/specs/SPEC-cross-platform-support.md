@@ -6,7 +6,13 @@
 
 Assay debe instalarse y ejecutarse en macOS, Windows y Linux sin que el usuario note qué plataforma fue la primera. El objetivo no es abstraer el sistema operativo, sino aislar los pocos puntos donde Assay lo toca y verificar cada uno en la plataforma real, de forma que una regresión de plataforma falle en CI y no en la máquina de alguien.
 
-macOS es hoy la plataforma verificada. Windows es objetivo de primer orden. Linux es objetivo declarado, con la misma frontera técnica, y se acepta que su verificación llegue después.
+macOS es hoy la plataforma verificada. Windows es objetivo de primer orden. Ubuntu es el primer objetivo operativo de Linux: la aplicación ya arranca allí según una comprobación manual, pero el smoke completo y el artefacto distribuible siguen pendientes. El alcance y el orden están fijados en [ADR-0054](../adr/0054-ubuntu-first-linux-target.md).
+
+## Linux target slice
+
+El primer contrato de Linux se prueba contra Ubuntu. La matriz usa `ubuntu-latest` y el primer artefacto de distribución es un paquete Debian (`.deb`). Esto acota el trabajo inicial sin afirmar que todas las distribuciones Linux se comporten igual.
+
+El arranque de la aplicación en Ubuntu ya fue comprobado manualmente por el operador el 2026-09-10. Esa evidencia cubre sólo el arranque; no sustituye el smoke de terminal, Explorer/editor, escape hatch, Git, proveedores, persistencia y cierre limpio que exige el grado `verificada`.
 
 ## Platform boundary
 
@@ -44,13 +50,13 @@ El gesto de separar una pestaña arrastrándola se apoya en eventos de ratón y 
 
 Una segunda ejecución de Assay no abre una segunda aplicación: el bloqueo de instancia única entrega la petición a la ventana que ya existe y termina. Dos instancias significaban dos sidecars escribiendo la misma base SQLite.
 
-**Estado a 2026-09-10:** macOS `verificada` (secuencia local verde y aplicación arrancada a mano). Linux `construible` (matriz verde). Windows **`no verificada`**: su trabajo de CI llevaba días en rojo y el grado que esta spec le atribuía —`construible` con la matriz verde del 2026-09-06— había dejado de ser cierto sin que nadie lo notara. El log nombraba dos defectos reales, no dos tests frágiles: los checkpoints devolvían ficheros con los finales de línea reescritos y la resolución de comandos aceptaba cualquier fichero existente como programa. Ambos corregidos el 2026-09-10; el grado vuelve a `construible` cuando la matriz lo demuestre, no antes.
+**Estado a 2026-09-10:** macOS `verificada` (secuencia local verde y aplicación arrancada a mano). Ubuntu/Linux `construible` (matriz verde y arranque manual confirmado, pero smoke completo pendiente). Windows **`no verificada`**: su trabajo de CI llevaba días en rojo y el grado que esta spec le atribuía —`construible` con la matriz verde del 2026-09-06— había dejado de ser cierto sin que nadie lo notara. El log nombraba dos defectos reales, no dos tests frágiles: los checkpoints devolvían ficheros con los finales de línea reescritos y la resolución de comandos aceptaba cualquier fichero existente como programa. Ambos corregidos el 2026-09-10; el grado vuelve a `construible` cuando la matriz lo demuestre, no antes.
 
 Sobre el PTY en Windows: el trabajo de CI ejecuta `cargo test` sin excluir `terminal_pty_accepts_input_after_the_shell_is_ready`, y ese test no lleva guarda. Lo que esta spec afirmaba —que el PTY queda fuera de la matriz— no se puede comprobar todavía, porque el paso de Rust nunca llegó a ejecutarse: los tests de TypeScript fallaban antes. Queda como pregunta abierta hasta que una corrida verde de Windows lo responda, en vez de darse por sabido en cualquiera de los dos sentidos.
 
 ## Distribution and update
 
-macOS y Windows tienen artefacto instalable. `npm run desktop:release` construye el de la máquina donde se ejecuta —la única cuyo instalador puede producir— y se niega en el resto en vez de fabricarlo a medias. En macOS produce un `.dmg` con `hdiutil` —no con el `bundle_dmg.sh` de Tauri, que falla en este entorno— llevando dentro la aplicación y un enlace a `/Applications`: instalar es arrastrar. En Windows toma el instalador que genera el propio bundler de Tauri, prefiriendo NSIS sobre MSI, sin deletrear su nombre: renombrarlo dejaría de encontrarse en silencio. La versión sale de un único sitio, `desktop/src-tauri/tauri.conf.json`, y de ahí toman su nombre el artefacto y el manifiesto.
+macOS, Windows y Ubuntu tienen camino de empaquetado instalable. `npm run desktop:release` construye el de la máquina donde se ejecuta —la única cuyo instalador puede producir— y se niega en el resto en vez de fabricarlo a medias. En macOS produce un `.dmg` con `hdiutil` —no con el `bundle_dmg.sh` de Tauri, que falla en este entorno— llevando dentro la aplicación y un enlace a `/Applications`: instalar es arrastrar. En Windows toma el instalador que genera el propio bundler de Tauri, prefiriendo NSIS sobre MSI, sin deletrear su nombre: renombrarlo dejaría de encontrarse en silencio. En Ubuntu toma el paquete Debian generado por Tauri y lo publica con nombre estable `Assay-<version>-ubuntu-<arch>.deb`. La versión sale de un único sitio, `desktop/src-tauri/tauri.conf.json`, y de ahí toman su nombre los artefactos y el manifiesto.
 
 Una release tiene un artefacto por plataforma y cada uno se construye en otra máquina, así que el manifiesto se **fusiona**, no se reescribe: quien ejecute el comando en segundo lugar no borra el trabajo del primero, porque hacerlo dejaría a la otra plataforma avisada de una versión nueva sin nada que descargar. Construir dos veces la misma plataforma reemplaza su entrada; una versión distinta empieza un manifiesto nuevo, para no ofrecer la descarga de una versión que el manifiesto ya no anuncia.
 
@@ -58,13 +64,13 @@ Junto al artefacto se escribe `latest.json` con producto, versión, fecha, notas
 
 Assay avisa de que existe una versión más reciente y ahí termina: no descarga, no se reemplaza y no ejecuta nada. Sin conexión, sin publicar o con un manifiesto ilegible se dice como tal y nunca como "al día". El feed por defecto es un asset de release del repositorio. La precedencia es explícita: lo que pida la petición, luego lo que el operador haya configurado en sus preferencias ([ADR-0053](../adr/0053-user-settings-live-in-ades-store.md)), luego `ADE_UPDATE_FEED_URL`, luego el valor por defecto; vacío significa que este install no pregunta a nadie. La decisión vive en [ADR-0050](../adr/0050-installable-artifact-and-update-notice.md).
 
-El artefacto no está firmado ni notarizado; una instalación limpia verá la advertencia de Gatekeeper. Linux sigue sin artefacto propio: el script lo dice y falla en vez de fingir soporte. Un install cuya plataforma no aparece en el manifiesto **no** recibe un aviso de actualización disponible: se distingue de un `UPDATE_AVAILABLE` real, porque pedir instalar algo que no existe es una instrucción que nadie puede seguir.
+Los artefactos no están firmados; una instalación limpia de macOS verá la advertencia de Gatekeeper. El paquete Ubuntu tampoco tiene aún firma de repositorio. Un install cuya plataforma no aparece en el manifiesto **no** recibe un aviso de actualización disponible: se distingue de un `UPDATE_AVAILABLE` real, porque pedir instalar algo que no existe es una instrucción que nadie puede seguir.
 
 Sobre firma en Windows: el sidecar es una copia de `node.exe`, que el proyecto Node firma, y la inyección del payload invalida esa firma. Una firma rota es peor que ninguna —SmartScreen y los antivirus la leen como manipulación—, así que la construcción **retira** la firma heredada y deja el binario honestamente sin firmar. Firmarlo de verdad exige un certificado de firma de código que este proyecto todavía no tiene; hasta entonces, `bundle.windows.certificateThumbprint` se queda deliberadamente sin declarar en vez de con un valor de mentira. Lo que sí se declara es `webviewInstallMode`, para que el comportamiento sin WebView2 presente sea una decisión y no el defecto implícito de la versión de Tauri instalada.
 
 ## Out of scope
 
-Empaquetado firmado y notarizado, instaladores de Windows y Linux (MSI/NSIS, AppImage o paquetes de distribución), actualización automática —descarga y reemplazo del bundle por la propia aplicación—, publicación automatizada de releases, soporte de arquitecturas distintas de x86-64 y ARM64 donde el runner no las ofrezca, y paridad visual pixel a pixel entre sistemas.
+Empaquetado firmado y notarizado, instaladores adicionales de Windows y Linux (MSI/NSIS, AppImage u otros paquetes de distribución), actualización automática —descarga y reemplazo del bundle por la propia aplicación—, publicación automatizada de releases, soporte de arquitecturas distintas de x86-64 y ARM64 donde el runner no las ofrezca, y paridad visual pixel a pixel entre sistemas.
 
 Tampoco entra abstraer Git: Assay seguirá invocando el `git` del sistema y exigiendo que esté en `PATH`.
 
@@ -78,6 +84,7 @@ Tampoco entra abstraer Git: Assay seguirá invocando el `git` del sistema y exig
 6. ⏳ La autorización del workspace se comporta igual en las tres plataformas, incluidos los prefijos UNC de Windows.
 7. ✅ La documentación nombra el grado de soporte real de cada plataforma.
 8. ✅ macOS produce un artefacto instalable con un comando, con su `sha256` declarado, y la aplicación informa de que existe una versión más reciente sin actualizarse sola.
+9. ⏳ Ubuntu produce un paquete `.deb` con un comando, y el smoke manual cubre el recorrido operativo completo; el arranque aislado ya está confirmado, pero no cierra este criterio.
 
 ## Verification
 
@@ -86,7 +93,7 @@ npm run desktop:sidecar:build
 npm test
 cargo test --manifest-path desktop/src-tauri/Cargo.toml
 npm --prefix desktop run build
-npm run desktop:release   # macOS: bundle, .dmg y latest.json
+npm run desktop:release   # macOS: .dmg; Ubuntu: .deb; ambos actualizan latest.json
 npm run desktop:smoke
 ```
 
