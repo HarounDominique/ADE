@@ -5993,7 +5993,6 @@ document.addEventListener('keydown', (event) => {
   document.getElementById('run-configuration-button')?.focus();
   event.preventDefault();
 });
-initializeCodeEditor();
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });
 /** A commit is usually made somewhere else — the terminal in the dock, another
     window, another tool — and Assay finds out when the operator comes back to
