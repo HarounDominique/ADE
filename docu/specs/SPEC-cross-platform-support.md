@@ -44,7 +44,9 @@ El gesto de separar una pestaña arrastrándola se apoya en eventos de ratón y 
 
 Una segunda ejecución de Assay no abre una segunda aplicación: el bloqueo de instancia única entrega la petición a la ventana que ya existe y termina. Dos instancias significaban dos sidecars escribiendo la misma base SQLite.
 
-**Estado a 2026-09-06:** macOS `verificada` (secuencia local verde y aplicación arrancada a mano). Windows y Linux `construibles` (matriz verde el 2026-09-06, sin smoke manual). El PTY en Windows no está cubierto ni siquiera por la matriz.
+**Estado a 2026-09-10:** macOS `verificada` (secuencia local verde y aplicación arrancada a mano). Linux `construible` (matriz verde). Windows **`no verificada`**: su trabajo de CI llevaba días en rojo y el grado que esta spec le atribuía —`construible` con la matriz verde del 2026-09-06— había dejado de ser cierto sin que nadie lo notara. El log nombraba dos defectos reales, no dos tests frágiles: los checkpoints devolvían ficheros con los finales de línea reescritos y la resolución de comandos aceptaba cualquier fichero existente como programa. Ambos corregidos el 2026-09-10; el grado vuelve a `construible` cuando la matriz lo demuestre, no antes.
+
+Sobre el PTY en Windows: el trabajo de CI ejecuta `cargo test` sin excluir `terminal_pty_accepts_input_after_the_shell_is_ready`, y ese test no lleva guarda. Lo que esta spec afirmaba —que el PTY queda fuera de la matriz— no se puede comprobar todavía, porque el paso de Rust nunca llegó a ejecutarse: los tests de TypeScript fallaban antes. Queda como pregunta abierta hasta que una corrida verde de Windows lo responda, en vez de darse por sabido en cualquiera de los dos sentidos.
 
 ## Distribution and update
 
