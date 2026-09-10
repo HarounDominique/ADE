@@ -1096,16 +1096,74 @@ fn resolve_node_binary() -> String {
             std::env::var("ProgramFiles(x86)").unwrap_or_else(|_| "C:\\Program Files (x86)".to_string())
         ),
     ];
+    // The same directories `posixNodeDirectories` in `local-process.ts` checks
+    // for the sidecar's own child processes, so a packaged launch -- no login
+    // shell, no version manager on PATH -- finds the same Node install
+    // whichever of the two resolvers runs first. `/usr/local/bin` and
+    // `/usr/bin` stand in for a distribution's package manager; nvm keeps one
+    // directory per release with no stable "current" symlink, so only the
+    // newest is checked.
     #[cfg(not(target_os = "windows"))]
-    let candidates = [
-        "/opt/homebrew/opt/node@24/bin/node".to_string(),
-        "/usr/local/bin/node".to_string(),
-    ];
+    let candidates = {
+        let home = std::env::var("HOME").unwrap_or_default();
+        let mut candidates = vec![
+            "/usr/local/bin/node".to_string(),
+            "/opt/homebrew/bin/node".to_string(),
+            "/opt/homebrew/opt/node@24/bin/node".to_string(),
+            "/usr/bin/node".to_string(),
+        ];
+        if !home.is_empty() {
+            candidates.push(format!("{home}/.local/bin/node"));
+            candidates.push(format!("{home}/.volta/bin/node"));
+            candidates.push(format!("{home}/.asdf/shims/node"));
+            candidates.push(format!("{home}/.local/share/mise/shims/node"));
+            if let Some(nvm_node) = newest_nvm_node(&home) {
+                candidates.push(nvm_node);
+            }
+        }
+        candidates
+    };
     candidates
         .iter()
         .find(|candidate| Path::new(candidate).is_file())
         .cloned()
         .unwrap_or_else(|| "node".to_string())
+}
+
+/// nvm keeps one directory per installed release under a version string
+/// (`v24.21.0`) and no stable symlink to the default -- only a numeric sort of
+/// the directory names stands in for "the one `nvm use default` would pick".
+#[cfg(not(target_os = "windows"))]
+fn newest_nvm_node(home: &str) -> Option<String> {
+    let versions_dir = Path::new(home).join(".nvm/versions/node");
+    let mut versions: Vec<String> = std::fs::read_dir(&versions_dir)
+        .ok()?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            entry
+                .file_type()
+                .map(|kind| kind.is_dir() || kind.is_symlink())
+                .unwrap_or(false)
+        })
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    versions.sort_by(|left, right| version_key(right).cmp(&version_key(left)));
+    versions.into_iter().next().map(|version| {
+        versions_dir
+            .join(version)
+            .join("bin/node")
+            .to_string_lossy()
+            .into_owned()
+    })
+}
+
+#[cfg(not(target_os = "windows"))]
+fn version_key(value: &str) -> Vec<u64> {
+    value
+        .trim_start_matches('v')
+        .split('.')
+        .map(|part| part.parse().unwrap_or(0))
+        .collect()
 }
 
 /// The packaged sidecar is a single executable, except where Node lacks the SEA
