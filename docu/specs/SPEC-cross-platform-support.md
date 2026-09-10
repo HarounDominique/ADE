@@ -56,7 +56,7 @@ Sobre el PTY en Windows: el trabajo de CI ejecuta `cargo test` sin excluir `term
 
 ## Distribution and update
 
-macOS, Windows y Ubuntu tienen camino de empaquetado instalable. `npm run desktop:release` construye el de la máquina donde se ejecuta —la única cuyo instalador puede producir— y se niega en el resto en vez de fabricarlo a medias. En macOS produce un `.dmg` con `hdiutil` —no con el `bundle_dmg.sh` de Tauri, que falla en este entorno— llevando dentro la aplicación y un enlace a `/Applications`: instalar es arrastrar. En Windows toma el instalador que genera el propio bundler de Tauri, prefiriendo NSIS sobre MSI, sin deletrear su nombre: renombrarlo dejaría de encontrarse en silencio. En Ubuntu toma el paquete Debian generado por Tauri y lo publica con nombre estable `Assay-<version>-ubuntu-<arch>.deb`. La versión sale de un único sitio, `desktop/src-tauri/tauri.conf.json`, y de ahí toman su nombre los artefactos y el manifiesto.
+macOS, Windows y Ubuntu tienen camino de empaquetado instalable. `npm run desktop:release` construye el de la máquina donde se ejecuta —la única cuyo instalador puede producir— y se niega en el resto en vez de fabricarlo a medias. En macOS produce un `.dmg` con `hdiutil` —no con el `bundle_dmg.sh` de Tauri, que falla en este entorno— llevando dentro la aplicación y un enlace a `/Applications`: instalar es arrastrar. En Windows toma el instalador que genera el propio bundler de Tauri, prefiriendo NSIS sobre MSI, sin deletrear su nombre: renombrarlo dejaría de encontrarse en silencio. En Ubuntu toma el paquete Debian generado por Tauri y lo publica con nombre estable `Assay-<version>-ubuntu-<arch>.deb`; el workflow [Ubuntu release](../../.github/workflows/ubuntu-release.yml) lo construye y publica al empujar un tag `v<version>` coincidente. La versión sale de un único sitio, `desktop/src-tauri/tauri.conf.json`, y de ahí toman su nombre los artefactos y el manifiesto.
 
 Una release tiene un artefacto por plataforma y cada uno se construye en otra máquina, así que el manifiesto se **fusiona**, no se reescribe: quien ejecute el comando en segundo lugar no borra el trabajo del primero, porque hacerlo dejaría a la otra plataforma avisada de una versión nueva sin nada que descargar. Construir dos veces la misma plataforma reemplaza su entrada; una versión distinta empieza un manifiesto nuevo, para no ofrecer la descarga de una versión que el manifiesto ya no anuncia.
 
@@ -70,7 +70,7 @@ Sobre firma en Windows: el sidecar es una copia de `node.exe`, que el proyecto N
 
 ## Out of scope
 
-Empaquetado firmado y notarizado, instaladores adicionales de Windows y Linux (MSI/NSIS, AppImage u otros paquetes de distribución), actualización automática —descarga y reemplazo del bundle por la propia aplicación—, publicación automatizada de releases, soporte de arquitecturas distintas de x86-64 y ARM64 donde el runner no las ofrezca, y paridad visual pixel a pixel entre sistemas.
+Empaquetado firmado y notarizado, instaladores adicionales de Windows y Linux (MSI/NSIS, AppImage u otros paquetes de distribución), actualización automática —descarga y reemplazo del bundle por la propia aplicación—, publicación automatizada de releases para plataformas distintas de Ubuntu, soporte de arquitecturas distintas de x86-64 y ARM64 donde el runner no las ofrezca, y paridad visual pixel a pixel entre sistemas.
 
 Tampoco entra abstraer Git: Assay seguirá invocando el `git` del sistema y exigiendo que esté en `PATH`.
 
@@ -84,7 +84,7 @@ Tampoco entra abstraer Git: Assay seguirá invocando el `git` del sistema y exig
 6. ⏳ La autorización del workspace se comporta igual en las tres plataformas, incluidos los prefijos UNC de Windows.
 7. ✅ La documentación nombra el grado de soporte real de cada plataforma.
 8. ✅ macOS produce un artefacto instalable con un comando, con su `sha256` declarado, y la aplicación informa de que existe una versión más reciente sin actualizarse sola.
-9. ✅ Ubuntu produce un paquete `.deb` con un comando (`npm run desktop:package`), y el smoke manual del 2026-09-10 cubre el recorrido operativo completo. Sin cerrar todavía: una instalación real vía `dpkg -i`/`apt install` — el smoke se hizo sobre el binario extraído del `.deb`, no instalado — y la duplicación de `libwebkit2gtk-4.1-0`/`libgtk-3-0` en `Depends`.
+9. ✅ Ubuntu produce un paquete `.deb` con un comando (`npm run desktop:package`), el smoke manual del 2026-09-10 cubre el recorrido operativo completo y el tag `v<version>` tiene workflow para publicarlo. Sin cerrar todavía: una instalación real vía `dpkg -i`/`apt install` — el smoke se hizo sobre el binario extraído del `.deb`, no instalado — y la duplicación de `libwebkit2gtk-4.1-0`/`libgtk-3-0` en `Depends`.
 
 ## Verification
 
