@@ -1488,6 +1488,12 @@ test("the Explorer filter searches the operator's files, not their dependencies"
   // A one-letter query walked the whole tree — in this repository that is
   // 64,574 files, of which 63,733 are .git and node_modules — and the tree then
   // tried to draw every match. The filter looked like it had stopped working.
+  // The repository already says which files are the operator's, so nothing has
+  // to guess that this project builds into `target` and the next one does not.
+  assert.match(nativeShell, /fn files_git_knows_about\(root: &Path\) -> Option<Vec<PathBuf>>/);
+  assert.match(nativeShell, /"ls-files", "-z", "-c", "-o", "--exclude-standard"/);
+  // Without Git there is no such list, so the walk stays as the fallback.
+  assert.match(nativeShell, /None => collect_matching_files\(&root, 0, &needle, &mut entries\)\?,/);
   assert.match(nativeShell, /const UNSEARCHED_DIRECTORIES: \[&str; 2\] = \[".git", "node_modules"\];/);
   assert.match(nativeShell, /if UNSEARCHED_DIRECTORIES\.contains\(&folder\.as_str\(\)\) \{\s*\n\s*continue;/);
   assert.match(nativeShell, /const SEARCH_RESULT_LIMIT: usize = 200;/);
