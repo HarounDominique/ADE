@@ -1397,12 +1397,16 @@ test("every workbench stands on the same ground", () => {
   // Projects rendered on the ground colour while Agents, Editor and Version
   // control sat on a lighter panel or on the chrome tone, so the same
   // application changed shade depending on which entry was clicked.
-  assert.match(styles, /\.agents-workspace \{[^}]*background: var\(--bg\)/);
-  assert.match(styles, /\.agent-session-rail, \.agent-thread \{[^}]*background: var\(--bg\)/);
-  assert.match(styles, /\.document-viewer-panel \{[^}]*background: var\(--bg\)/);
-  assert.match(styles, /\.changes-workspace \{[^}]*background: var\(--bg\)/);
-  assert.match(styles, /\.git-commit-list \{ background: var\(--bg\); \}/);
-  assert.match(styles, /\.pending-files-pane \{[^}]*background: var\(--bg\)/);
+  assert.match(styles, /\.agents-workspace \{[^}]*background: var\(--workbench\)/);
+  assert.match(styles, /\.agent-session-rail, \.agent-thread \{[^}]*background: var\(--workbench\)/);
+  assert.match(styles, /\.document-viewer-panel \{[^}]*background: var\(--workbench\)/);
+  assert.match(styles, /\.changes-workspace \{[^}]*background: var\(--workbench\)/);
+  assert.match(styles, /\.git-commit-list \{ background: var\(--workbench\); \}/);
+  assert.match(styles, /\.pending-files-pane \{[^}]*background: var\(--workbench\)/);
+  // One ground, named, and each theme says what it is: the window colour in
+  // the dark theme, Everest's editor background against the chrome in light.
+  assert.match(styles, /--bg: #0f1724; --workbench: #0f1724;/);
+  assert.match(styles, /--bg: #e4ecef; --workbench: #fdfeff;/);
   // What floats still differs from what it floats over, and the chrome keeps
   // its own tone: sidebar, terminal dock and status bar are not workbenches.
   assert.match(styles, /\.git-context-menu \{[^}]*background: var\(--panel\)/);
