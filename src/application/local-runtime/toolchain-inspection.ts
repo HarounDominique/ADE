@@ -70,7 +70,9 @@ function identifier(prefix: string, name: string): string {
 async function probe(id: string, label: string, command: string, args: readonly string[], source: string, cwd: string): Promise<ToolchainStatus> {
   const base = { id, label, command, source };
   return new Promise((resolve) => {
-    const child = crossSpawn(command, [...args], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    // A toolchain probe is a question, not a window: on Windows every one of
+    // these would otherwise flash a console of its own.
+    const child = crossSpawn(command, [...args], { cwd, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     let output = "";
     const append = (chunk: Buffer | string) => { output += chunk.toString(); };
     child.stdout?.on("data", append);

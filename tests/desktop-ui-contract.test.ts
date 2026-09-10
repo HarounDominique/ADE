@@ -12,6 +12,8 @@ const paths = readFileSync(new URL("../desktop/src/paths.js", import.meta.url), 
 const nativeShell = readFileSync(new URL("../desktop/src-tauri/src/lib.rs", import.meta.url), "utf8");
 const checkpointModule = readFileSync(new URL("../src/application/agents/turn-checkpoint.ts", import.meta.url), "utf8");
 const releaseScript = readFileSync(new URL("../scripts/package-desktop-release.mjs", import.meta.url), "utf8");
+const safeCommand = readFileSync(new URL("../src/adapters/safe-command.ts", import.meta.url), "utf8");
+const gitCommand = readFileSync(new URL("../src/adapters/git-command.ts", import.meta.url), "utf8");
 const editorWindow = readFileSync(new URL("../desktop/src/editor-window.js", import.meta.url), "utf8");
 const editorWindowHtml = readFileSync(new URL("../desktop/src/editor-window.html", import.meta.url), "utf8");
 const editorCapability = JSON.parse(readFileSync(new URL("../desktop/src-tauri/capabilities/editor-window.json", import.meta.url), "utf8")) as { windows: string[]; permissions: string[] };
@@ -1502,4 +1504,26 @@ test("what this session added behaves the same on Windows as on macOS", () => {
   assert.match(main, /held open by another program and stayed/);
   // The one artifact that is macOS-only refuses elsewhere instead of pretending.
   assert.match(releaseScript, /if \(process\.platform !== 'darwin'\)/);
+});
+
+test("nothing Assay runs for itself opens a console on Windows", () => {
+  // The sidecar is a copy of node.exe with a payload injected, so it carries
+  // Node's console subsystem, and CreateProcess gives a console application a
+  // console of its own unless the parent says otherwise at spawn time. An
+  // install on Windows showed a terminal nobody could close.
+  assert.match(nativeShell, /fn without_a_console\(command: &mut Command\) -> &mut Command \{/);
+  assert.match(nativeShell, /const CREATE_NO_WINDOW: u32 = 0x0800_0000;/);
+  assert.match(nativeShell, /command\.creation_flags\(CREATE_NO_WINDOW\)/);
+  // Every branch — node, the packaged binary, its .cmd shim — meets one spawn.
+  assert.match(nativeShell, /let mut child = without_a_console\(&mut command\)/);
+  // A window the operator asked for stays a window: opening a terminal is the
+  // escape hatch, not infrastructure.
+  const openTerminal = nativeShell.slice(nativeShell.indexOf("fn open_terminal_at"), nativeShell.indexOf("fn open_terminal_at") + 900);
+  assert.doesNotMatch(openTerminal, /without_a_console/);
+  // The sidecar's own children would each be given a console in turn, so the
+  // shared launch paths hide them.
+  assert.match(safeCommand, /windowsHide: true/);
+  assert.match(gitCommand, /windowsHide: true/);
+  // And the build says why the executable is like that, where someone would look.
+  assert.match(sidecarBuild, /inherits Node's PE subsystem, which is `console`/);
 });

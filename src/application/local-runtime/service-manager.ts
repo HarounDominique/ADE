@@ -47,7 +47,7 @@ async function runHealthcheck(definition: ServiceDefinition): Promise<boolean> {
   const healthcheck = definition.healthcheck;
   if (!healthcheck) return true;
   return new Promise((resolve) => {
-    const child = crossSpawn(healthcheck.command, [...(healthcheck.args ?? [])], { cwd: definition.cwd, env: { ...process.env, ...definition.env }, stdio: "ignore" });
+    const child = crossSpawn(healthcheck.command, [...(healthcheck.args ?? [])], { windowsHide: true, cwd: definition.cwd, env: { ...process.env, ...definition.env }, stdio: "ignore" });
     const timer = setTimeout(() => { child.kill("SIGKILL"); resolve(false); }, healthcheck.timeoutMs ?? 2_000);
     child.once("error", () => { clearTimeout(timer); resolve(false); });
     child.once("close", (code) => { clearTimeout(timer); resolve(code === 0); });

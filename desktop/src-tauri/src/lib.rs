@@ -147,11 +147,36 @@ fn terminal_start_in(
 /// The escape hatch is the one place ADE hands a path to the host desktop, and
 /// each platform names that handoff differently.  Keeping it here means the
 /// callers stay about authorization, not about which OS is running.
+/// A process Assay runs for itself must not open a console window. The shell
+/// binary declares the windows subsystem, but that covers only itself: the
+/// sidecar is a copy of `node.exe` with a payload injected, and `node.exe` is
+/// built as a console application, so Windows gives it a console of its own
+/// unless the parent says otherwise at spawn time. The same is true of every
+/// `cmd.exe` and `powershell.exe` Assay runs to read something back.
+///
+/// This is deliberately not applied to the escape hatch: opening a terminal is
+/// a window the operator asked for.
+#[cfg(target_os = "windows")]
+fn without_a_console(command: &mut Command) -> &mut Command {
+    use std::os::windows::process::CommandExt;
+    // `CREATE_NO_WINDOW`: run the child with no console at all, rather than
+    // with one that is merely hidden.
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    command.creation_flags(CREATE_NO_WINDOW)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn without_a_console(command: &mut Command) -> &mut Command {
+    command
+}
+
 fn open_with_desktop(path: &Path, what: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let spawned = Command::new("open").arg(path).spawn();
     #[cfg(target_os = "windows")]
-    let spawned = Command::new(std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()))
+    let spawned = without_a_console(&mut Command::new(
+        std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()),
+    ))
         .args(["/C", "start", ""])
         .arg(path)
         .spawn();
@@ -178,7 +203,9 @@ fn open_local_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let spawned = Command::new("open").arg(url).spawn();
     #[cfg(target_os = "windows")]
-    let spawned = Command::new(std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()))
+    let spawned = without_a_console(&mut Command::new(
+        std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()),
+    ))
         .args(["/C", "start", ""])
         .arg(url)
         .spawn();
@@ -764,7 +791,9 @@ fn terminal_exec_in(
         return Err("Terminal command cannot be empty".to_string());
     }
     #[cfg(target_os = "windows")]
-    let output = Command::new(std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()))
+    let output = without_a_console(&mut Command::new(
+        std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string()),
+    ))
         .args(["/C", &command])
         .current_dir(&directory)
         .output();
@@ -846,7 +875,9 @@ fn select_project_directory() -> Result<Option<String>, String> {
              $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; \
              $dialog.Description = 'Add project to Assay'; \
              if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dialog.SelectedPath }";
-        Command::new(std::env::var("ADE_POWERSHELL_COMMAND").unwrap_or_else(|_| "powershell.exe".to_string()))
+        without_a_console(&mut Command::new(
+            std::env::var("ADE_POWERSHELL_COMMAND").unwrap_or_else(|_| "powershell.exe".to_string()),
+        ))
             .args(["-NoProfile", "-STA", "-Command", script])
             .output()
     };
@@ -1014,7 +1045,9 @@ fn sidecar_start(
             }
         }
     };
-    let mut child = command
+    // Every branch above -- node, the packaged binary, its .cmd shim -- is a
+    // console application on Windows, and they all arrive at this one spawn.
+    let mut child = without_a_console(&mut command)
         .env("ADE_DB_PATH", database_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

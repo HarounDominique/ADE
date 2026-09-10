@@ -289,7 +289,7 @@ async function probeOnce(type: "http" | "command", target: string, configuration
   const command = process.platform === "win32" ? "cmd.exe" : "/bin/sh";
   const args = process.platform === "win32" ? ["/d", "/s", "/c", target] : ["-lc", target];
   return new Promise((resolve) => {
-    const child = spawn(command, args, { cwd: configuration.cwd, env: { ...process.env, ...configuration.env }, stdio: "ignore", shell: false });
+    const child = spawn(command, args, { windowsHide: true, cwd: configuration.cwd, env: { ...process.env, ...configuration.env }, stdio: "ignore", shell: false });
     child.once("error", () => resolve(false));
     child.once("close", (code) => resolve(code === 0));
   });
