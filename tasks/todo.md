@@ -406,6 +406,11 @@ Pregunta del operador: separar un tab del Editor a su propia ventana, para traba
   - Hecho el 2026-09-10: smoke manual completo sobre el `.deb` real (`npm run desktop:package`), los diez puntos de la acceptance verificados uno a uno; el grado sube a `verificada`. Detalle y matices en [SPEC-cross-platform-support.md#linux-target-slice](../docu/specs/SPEC-cross-platform-support.md#linux-target-slice).
   - Pendiente: instalación real vía `dpkg -i`/`apt install` (el smoke corrió sobre el binario extraído, no instalado, porque el entorno no tenía `sudo`); deduplicar `libwebkit2gtk-4.1-0`/`libgtk-3-0` en `Depends`; el `toolchain inspection` de la matriz de Windows sigue en rojo por un defecto sin relación con Ubuntu (ver Paridad Windows).
 
+- [ ] Task: Publicar el artefacto Ubuntu en GitHub Releases
+  - Acceptance: un tag `v<version>` coincidente con Tauri construye el `.deb` en Ubuntu, pasa validación y smoke, y deja `.deb` y `latest.json` en una GitHub Release.
+  - Verify: push de `v<version>` y comprobación del workflow [ubuntu-release.yml](../.github/workflows/ubuntu-release.yml).
+  - Estado: workflow preparado; pendiente ejecutar el primer tag con credenciales GitHub válidas.
+
 ## Paridad Windows — 2026-09-10
 
 Dos auditorías externas y una lectura del log de CI. Lo corregido va en el historial; esto es lo que queda abierto y por qué.

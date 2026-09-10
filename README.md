@@ -29,7 +29,9 @@ The gap between what this README promises and what the code sustains is inventor
 
 ## Platform support
 
-macOS is the verified platform. Ubuntu is the first Linux target: the application has been started there manually, Linux is buildable in CI, and the full manual smoke plus distributable `.deb` release are still being closed. Windows remains buildable but not manually verified. Every platform boundary and its degree of support is declared in [SPEC-cross-platform-support](docu/specs/SPEC-cross-platform-support.md#platform-boundary); no document here claims more than CI or a recorded smoke run supports.
+macOS and Ubuntu are verified platforms. Ubuntu's full manual smoke was completed on 2026-09-10 over the real `.deb`; Fedora, Arch and the rest of Linux remain without platform-specific evidence. Windows remains buildable but not manually verified. Every platform boundary and its degree of support is declared in [SPEC-cross-platform-support](docu/specs/SPEC-cross-platform-support.md#platform-boundary); no document here claims more than CI or a recorded smoke run supports.
+
+Pushing a tag such as `v0.1.0` runs [Ubuntu release](.github/workflows/ubuntu-release.yml), which builds the Debian package on Ubuntu, validates it, runs the packaged smoke and publishes the `.deb` plus `latest.json` to a GitHub Release. The package is not signed yet; install it with `sudo apt install ./Assay-<version>-ubuntu-<arch>.deb` on a supported Ubuntu system.
 
 ## Quick start
 
