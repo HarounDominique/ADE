@@ -82,7 +82,9 @@ function windowsGitCandidates(environment: NodeJS.ProcessEnv): readonly string[]
 export async function executeGit(args: string[], options?: { cwd?: string; env?: NodeJS.ProcessEnv }): Promise<{ stdout: string; stderr: string }> {
   try {
     const { env, ...rest } = options ?? {};
-    return await execFile(gitExecutable(), args, { encoding: "utf8", ...rest, ...(env ? { env: { ...process.env, ...env } } : {}) });
+    // Git is a console application: without this, every read of the repository
+    // flashes a window on Windows.
+    return await execFile(gitExecutable(), args, { encoding: "utf8", windowsHide: true, ...rest, ...(env ? { env: { ...process.env, ...env } } : {}) });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") throw new GitUnavailableError();
     throw error;

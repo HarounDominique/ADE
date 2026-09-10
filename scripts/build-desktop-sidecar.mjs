@@ -45,6 +45,12 @@ writeFileSync(seaConfig, JSON.stringify({
 }, null, 2));
 const sea = spawnSync(seaNode, ['--experimental-sea-config', seaConfig], { cwd: root, stdio: 'inherit' });
 if (sea.status !== 0) process.exit(sea.status ?? 1);
+/* The single-file executable is a copy of `node.exe` with a payload injected,
+   so it inherits Node's PE subsystem, which is `console`. Windows therefore
+   gives it a console window of its own unless whoever launches it says
+   otherwise, and the shell launches it with CREATE_NO_WINDOW for exactly that
+   reason (`without_a_console` in desktop/src-tauri/src/lib.rs). Repatching the
+   subsystem here would be the wrong fix: the sidecar still speaks over stdio. */
 copyFileSync(seaNode, seaExecutable);
 chmodSync(seaExecutable, 0o755);
 if (process.platform === 'darwin') {

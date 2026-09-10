@@ -10,7 +10,7 @@ macOS es hoy la plataforma verificada. Windows es objetivo de primer orden. Linu
 
 ## Platform boundary
 
-Assay toca el sistema operativo en nueve sitios, y sólo en esos nueve. Cualquier código nuevo que necesite un décimo es una señal de que la frontera se está filtrando. Las dos últimas se añadieron al revisar la paridad del trabajo de 2026-09-09: no eran fronteras nuevas del producto, eran dos sitios donde el código asumía macOS sin decirlo.
+Assay toca el sistema operativo en diez sitios, y sólo en esos diez. Cualquier código nuevo que necesite un undécimo es una señal de que la frontera se está filtrando. Las tres últimas se añadieron al revisar la paridad en 2026-09-09 y 2026-09-10: no eran fronteras nuevas del producto, eran sitios donde el código asumía macOS sin decirlo, y el último lo pagó una instalación real en Windows con una terminal de fondo que no se podía cerrar.
 
 1. **Escape hatch al escritorio.** Abrir un fichero, un documento o una terminal en la aplicación del sistema, y elegir una carpeta con el selector nativo. `open` y `osascript` en macOS, `cmd /C start` y un `FolderBrowserDialog` de PowerShell en Windows, `xdg-open` y `zenity` en Linux. Cancelar debe ser indistinguible de no elegir nada, aunque el selector de la plataforma lo comunique con un código de salida distinto de cero.
 2. **Shell interactiva del PTY.** Fuera de Windows, el `$SHELL` del usuario como sesión de login e interactiva, con `/bin/sh` como reserva cuando no está declarado o no existe; `cmd` en Windows. El PTY en sí es `portable_pty`, ya multiplataforma.
@@ -28,6 +28,8 @@ Assay toca el sistema operativo en nueve sitios, y sólo en esos nueve. Cualquie
 
 9. **Borrado de ficheros que otro programa tiene abiertos.** Windows lo impide donde macOS lo permite. Una operación que borra varios ficheros —restaurar un checkpoint— borra los que puede y nombra los que no, en vez de detenerse en el primero y dejar el árbol en un estado que no es ni el de antes ni el de después.
 
+10. **Ventanas de consola en Windows.** Un proceso que Assay ejecuta para sí mismo no debe abrir consola. El binario de la shell declara el subsistema `windows`, pero eso sólo cubre a sí mismo: el sidecar es una copia de `node.exe` con su carga inyectada, así que hereda el subsistema `console` de Node y Windows le da consola propia salvo que quien lo lanza lo diga en el momento del spawn (`CREATE_NO_WINDOW`). Lo mismo vale para cada `cmd.exe` o `powershell.exe` que Assay ejecuta para leer una salida, y para los hijos del sidecar —Git, los CLI de los agentes, los healthchecks, las sondas de toolchain—, que sin `windowsHide` recibirían cada uno la suya. La excepción es deliberada y es el escape hatch: abrir una terminal es una ventana que el operador ha pedido.
+
 Queda además sin resolver la canonización de rutas del workspace en el lado nativo. `WorkspaceRoot::resolve` compara con `starts_with` sobre rutas canónicas, y en Windows la canonización produce prefijos UNC (`\\?\C:\…`). Está descrito en Open Questions porque no puede decidirse sin ejecutar en Windows.
 
 ## Verification strategy
@@ -35,7 +37,7 @@ Queda además sin resolver la canonización de rutas del workspace en el lado na
 La verificación de plataforma no se delega a la intuición ni a la lectura del código: un cambio se considera portable cuando una máquina de esa plataforma lo compila y ejecuta sus tests.
 
 - **CI por matriz.** `windows-latest` y `ubuntu-latest` ejecutan la misma secuencia: instalar dependencias, construir el sidecar, `npm test`, compilar el bundle, `cargo test` y compilar el shell. macOS queda fuera de la matriz deliberadamente: es la plataforma de desarrollo, se verifica en local en cada cambio, y en un repositorio privado su runner se factura al décuplo de las plataformas que la matriz existe para cubrir.
-- **Lo que CI cubre y lo que no.** CI demuestra que compila, que los tests pasan y que el script de construcción del sidecar funciona en esa plataforma. No demuestra que la ventana abra, que el PTY se comporte ni que el escape hatch haga lo que promete: eso exige un smoke manual por plataforma.
+- **Lo que CI cubre y lo que no.** CI demuestra que compila, que los tests pasan y que el script de construcción del sidecar funciona en esa plataforma. No demuestra que la ventana abra, que el PTY se comporte, que el escape hatch haga lo que promete ni que no aparezca una consola que nadie pidió: eso exige un smoke manual por plataforma. La consola de fondo del sidecar es el ejemplo caro de esta distinción — compilaba, pasaba los tests y arruinaba la instalación.
 - **Grados de soporte.** Una plataforma es `verificada` cuando su secuencia está verde y existe un smoke manual registrado; `construible` cuando sólo lo está la secuencia; `no verificada` en cualquier otro caso. La documentación debe nombrar el grado, nunca insinuar más.
 
 El gesto de separar una pestaña arrastrándola se apoya en eventos de ratón y se juzga contra el rectángulo de la barra de pestañas, no contra los límites de la ventana, así que no depende de que el sistema siga enrutando el ratón más allá del borde. Está ejercitado en macOS.
@@ -60,7 +62,7 @@ Tampoco entra abstraer Git: Assay seguirá invocando el `git` del sistema y exig
 
 ## Acceptance criteria
 
-1. ⏳ Las nueve fronteras de plataforma están detrás de `cfg(target_os)` o de una comprobación explícita, sin rutas ni comandos de un sistema concreto en el camino común. Ocho lo están, incluidos el selector de carpetas y la grafía de rutas en la shell; la detección de proveedores sigue asumiendo la ruta de macOS y la canonización nativa sigue abierta.
+1. ⏳ Las diez fronteras de plataforma están detrás de `cfg(target_os)` o de una comprobación explícita, sin rutas ni comandos de un sistema concreto en el camino común. Nueve lo están, incluidos el selector de carpetas y la grafía de rutas en la shell; la detección de proveedores sigue asumiendo la ruta de macOS y la canonización nativa sigue abierta.
 2. ✅ CI ejecuta la matriz en cada push y su resultado es visible; macOS se verifica en local por la decisión de coste registrada arriba.
 3. ✅ `windows-latest` compila el shell, construye el sidecar y pasa los tests Rust y TypeScript, con el test del PTY excluido en esa plataforma.
 4. ✅ `ubuntu-latest` hace lo mismo, sin exclusiones.

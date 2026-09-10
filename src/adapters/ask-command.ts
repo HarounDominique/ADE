@@ -76,7 +76,7 @@ export type AskExecution = { stdout: string; stderr: string; exitCode: number };
 export async function executeAsk(args: readonly string[], options?: { cwd?: string; maxBuffer?: number }): Promise<AskExecution> {
   const maxBuffer = options?.maxBuffer ?? 16 * 1024 * 1024;
   try {
-    const { stdout, stderr } = await execFile(askExecutable(), [...args], { encoding: "utf8", maxBuffer, ...(options?.cwd ? { cwd: options.cwd } : {}) });
+    const { stdout, stderr } = await execFile(askExecutable(), [...args], { encoding: "utf8", maxBuffer, windowsHide: true, ...(options?.cwd ? { cwd: options.cwd } : {}) });
     return { stdout, stderr, exitCode: 0 };
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") throw new AskUnavailableError();

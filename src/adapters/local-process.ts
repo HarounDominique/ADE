@@ -218,7 +218,7 @@ async function killGroup(child: ChildProcess, signal: NodeJS.Signals): Promise<v
     // Windows process tree. taskkill /T is the equivalent for npm/dev-server
     // children that outlive their direct parent.
     await new Promise<void>((resolve) => {
-      execFile("taskkill", ["/PID", String(child.pid), "/T", "/F"], (error) => {
+      execFile("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true }, (error) => {
         if (error) {
           try { child.kill(signal); } catch { /* the process may have exited */ }
         }

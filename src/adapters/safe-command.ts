@@ -15,7 +15,9 @@ export function startSafeCommand(
   options: SpawnOptionsWithoutStdio & { maxBuffer?: number; onStdout?: (text: string) => void },
 ): StartedCommand {
   const { maxBuffer = 4 * 1024 * 1024, onStdout, ...spawnOptions } = options;
-  const child = crossSpawn(command, [...args], { ...spawnOptions, stdio: ["pipe", "pipe", "pipe"] });
+  /** Windows gives a console application a console of its own, and every agent
+      CLI is one. The sidecar runs them to read their output, not to show them. */
+  const child = crossSpawn(command, [...args], { ...spawnOptions, stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
   child.stdin?.end();
 
   let stdout = "";
