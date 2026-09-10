@@ -1626,3 +1626,15 @@ test("History shows the commits that exist, not the ones it read on the way in",
   assert.match(main, /if \(!force && Date\.now\(\) - versionControlLoadedAt < versionControlFreshMs\) return;/);
   assert.match(main, /requestVersionControlData\(workspaceRootPath, \{ force: true \}\);/);
 });
+
+test("a tree load never paints over a live filter", () => {
+  // Search results used to arrive after seconds, so they landed last. Once the
+  // search became fast the order flipped: an unguarded tree load painted the
+  // whole tree over results that had already arrived, and the file appeared
+  // and vanished — or never appeared at all.
+  assert.match(main, /const filtering = Boolean\(document\.getElementById\('workspace-filter'\)\?\.value\.trim\(\)\);/);
+  assert.match(main, /if \(filtering && !replacesFilter && requestToken === null\) return;/);
+  // One case outranks the filter: the Project changed, and results from the
+  // previous one must not survive — so the box is cleared with it.
+  assert.match(main, /if \(filter\) filter\.value = '';\s*\n\s*await loadWorkspaceTree\(workspaceRootPath, nativeInvoke, \{ animate: true, replacesFilter: true \}\);/);
+});
