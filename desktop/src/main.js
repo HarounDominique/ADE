@@ -1431,8 +1431,16 @@ function requestPendingGitChanges(path = workspaceRootPath, { showLoading = fals
   });
 }
 
-function requestVersionControlData(path = workspaceRootPath) {
+/** When the working tree was last read, so the moments that ask for a refresh
+    can overlap without each of them costing a pair of Git processes. */
+let versionControlLoadedAt = 0;
+const versionControlFreshMs = 1_500;
+
+function requestVersionControlData(path = workspaceRootPath, { force = false } = {}) {
   if (!nativeInvoke || !path) return;
+  // Switching view and switching tab can both land within the same instant.
+  if (!force && Date.now() - versionControlLoadedAt < versionControlFreshMs) return;
+  versionControlLoadedAt = Date.now();
   if (activeVersionControl === 'none') {
     const message = 'This Project is not a Git repository.';
     document.getElementById('git-history-status')?.replaceChildren(document.createTextNode(message));
@@ -5268,7 +5276,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'refresh-version-control') {
-    requestVersionControlData(workspaceRootPath);
+    requestVersionControlData(workspaceRootPath, { force: true });
     return;
   }
   if (item.dataset.action === 'fetch-origin') {
@@ -5559,6 +5567,11 @@ document.addEventListener('click', (event) => {
   if (versionControlTab) {
     const tab = versionControlTab.dataset.versionControlTab;
     renderVersionControlTabs(tab);
+    /** Opening a tab is asking to see what is in it. History used to show
+        whatever it had read on the way into the view, so a commit made since —
+        in the terminal below, or anywhere else — was invisible until the
+        operator thought to press Refresh. */
+    requestVersionControlData(workspaceRootPath);
     return;
   }
   const commitFile = event.target.closest('[data-git-commit-file]');
@@ -5954,6 +5967,19 @@ document.addEventListener('keydown', (event) => {
 });
 initializeCodeEditor();
 document.getElementById('workspace-filter')?.addEventListener('input', (event) => { scheduleWorkspaceFileSearch(event.target.value); });
+/** A commit is usually made somewhere else — the terminal in the dock, another
+    window, another tool — and Assay finds out when the operator comes back to
+    it. Coming back is the signal: no timer polls Git on the chance that
+    something changed, which would cost a pair of processes for every tick of
+    every hour the window sits open. */
+function refreshVersionControlOnReturn() {
+  if (activeView !== 'changes' || document.hidden) return;
+  requestVersionControlData(workspaceRootPath);
+}
+
+window.addEventListener('focus', refreshVersionControlOnReturn);
+document.addEventListener('visibilitychange', refreshVersionControlOnReturn);
+
 window.addEventListener('beforeunload', () => {
   terminalTabs.forEach(persistTerminalHistory);
   nativeInvoke?.('terminal_stop_all').catch(() => {});
