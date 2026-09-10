@@ -1,0 +1,148 @@
+name: Desktop release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build and publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Ubuntu
+            platform: linux
+            runner: ubuntu-latest
+          - name: macOS
+            platform: darwin
+            runner: macos-latest
+          - name: Windows
+            platform: win32
+            runner: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Check tag matches the desktop version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          if [[ "$RELEASE_TAG" != v* ]]; then
+            echo "Expected a version tag, got $RELEASE_TAG" >&2
+            exit 1
+          fi
+          tag_version="${RELEASE_TAG#v}"
+          app_version="$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")"
+          if [[ "$tag_version" != "$app_version" ]]; then
+            echo "Tag v$tag_version does not match desktop version $app_version" >&2
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev xvfb
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix desktop
+
+      - name: Verify source
+        run: |
+          npm run build
+          npm test
+          npm run desktop:sidecar:build
+          npm --prefix desktop run build
+          cargo test --manifest-path desktop/src-tauri/Cargo.toml
+
+      - name: Build installable package
+        run: npm run desktop:package
+
+      - name: Validate Debian package
+        if: matrix.platform == 'linux'
+        run: |
+          dpkg-deb --info desktop/src-tauri/target/release/bundle/deb/*.deb
+          dpkg-deb --contents desktop/src-tauri/target/release/bundle/deb/*.deb | grep -E 'usr/bin|usr/share/applications'
+
+      - name: Run packaged smoke
+        if: matrix.platform != 'darwin'
+        run: ${{ matrix.platform == 'linux' && 'xvfb-run --auto-servernum npm run desktop:smoke' || 'npm run desktop:smoke' }}
+
+      - name: Assemble platform release files
+        shell: bash
+        run: npm run desktop:release -- --skip-build
+
+      - name: Upload platform release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: |
+            release/Assay-*
+            release/latest.json
+          if-no-files-found: error
+
+  publish:
+    name: Publish combined release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Download platform release files
+        uses: actions/download-artifact@v5
+        with:
+          pattern: release-*
+          path: release-input
+
+      - name: Merge release manifest
+        run: node scripts/assemble-release-manifest.mjs release-input release
+
+      - name: Check all platform artifacts are present
+        run: |
+          node -e "const m=require('./release/latest.json'); if (m.artifacts.length !== 3) throw new Error('Expected Linux, macOS and Windows artifacts');"
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release/Assay-* release/latest.json --clobber
+          else
+            gh release create "$RELEASE_TAG" release/Assay-* release/latest.json --verify-tag --title "Assay $RELEASE_TAG" --generate-notes
+          fi

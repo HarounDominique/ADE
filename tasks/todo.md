@@ -408,8 +408,13 @@ Pregunta del operador: separar un tab del Editor a su propia ventana, para traba
 
 - [x] Task: Publicar el artefacto Ubuntu en GitHub Releases
   - Acceptance: un tag `v<version>` coincidente con Tauri construye el `.deb` en Ubuntu, pasa validación y smoke, y deja `.deb` y `latest.json` en una GitHub Release.
-  - Verify: push de `v<version>` y comprobación del workflow [ubuntu-release.yml](../.github/workflows/ubuntu-release.yml).
+  - Verify: push de `v<version>` y comprobación del workflow [release.yml](../.github/workflows/release.yml).
   - Hecho el 2026-09-10: `v0.1.0` pasó el workflow `34525371235` en 9m30s y publicó [Assay v0.1.0](https://github.com/HarounDominique/ADE/releases/tag/v0.1.0) con `Assay-0.1.0-ubuntu-x64.deb` (51.7 MB) y `latest.json`.
+
+- [ ] Task: Completar release multiplataforma
+  - Acceptance: el mismo tag publica `.deb`, `.dmg`, instalador Windows y un manifiesto fusionado; cada plataforma se construye en su runner nativo.
+  - Verify: ejecutar manualmente `release.yml` para `v0.1.0` y comprobar los cuatro assets de la release.
+  - Estado: workflow preparado; Ubuntu ya publicado, macOS y Windows pendientes de la ejecución multiplataforma.
 
 ## Paridad Windows — 2026-09-10
 

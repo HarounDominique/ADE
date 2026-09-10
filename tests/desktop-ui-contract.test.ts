@@ -12,7 +12,7 @@ const paths = readFileSync(new URL("../desktop/src/paths.js", import.meta.url), 
 const nativeShell = readFileSync(new URL("../desktop/src-tauri/src/lib.rs", import.meta.url), "utf8");
 const checkpointModule = readFileSync(new URL("../src/application/agents/turn-checkpoint.ts", import.meta.url), "utf8");
 const releaseScript = readFileSync(new URL("../scripts/package-desktop-release.mjs", import.meta.url), "utf8");
-const ubuntuReleaseWorkflow = readFileSync(new URL("../.github/workflows/ubuntu-release.yml", import.meta.url), "utf8");
+const desktopReleaseWorkflow = readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
 const safeCommand = readFileSync(new URL("../src/adapters/safe-command.ts", import.meta.url), "utf8");
 const gitCommand = readFileSync(new URL("../src/adapters/git-command.ts", import.meta.url), "utf8");
 const ghCommand = readFileSync(new URL("../src/adapters/gh-command.ts", import.meta.url), "utf8");
@@ -1629,15 +1629,19 @@ test("the Ubuntu package declares desktop metadata and runtime dependencies", ()
   ]);
 });
 
-test("Ubuntu tags build and publish a verified Debian release", () => {
-  assert.match(ubuntuReleaseWorkflow, /tags: \['v\*'\]/);
-  assert.match(ubuntuReleaseWorkflow, /contents: write/);
-  assert.match(ubuntuReleaseWorkflow, /tag_version/);
-  assert.match(ubuntuReleaseWorkflow, /npm run desktop:package/);
-  assert.match(ubuntuReleaseWorkflow, /dpkg-deb --info/);
-  assert.match(ubuntuReleaseWorkflow, /xvfb-run --auto-servernum npm run desktop:smoke/);
-  assert.match(ubuntuReleaseWorkflow, /gh release create/);
-  assert.match(ubuntuReleaseWorkflow, /release\/latest\.json/);
+test("a version tag publishes Linux, macOS and Windows artifacts", () => {
+  assert.match(desktopReleaseWorkflow, /tags: \['v\*'\]/);
+  assert.match(desktopReleaseWorkflow, /workflow_dispatch/);
+  assert.match(desktopReleaseWorkflow, /contents: write/);
+  assert.match(desktopReleaseWorkflow, /ubuntu-latest/);
+  assert.match(desktopReleaseWorkflow, /macos-latest/);
+  assert.match(desktopReleaseWorkflow, /windows-latest/);
+  assert.match(desktopReleaseWorkflow, /npm run desktop:package/);
+  assert.match(desktopReleaseWorkflow, /dpkg-deb --info/);
+  assert.match(desktopReleaseWorkflow, /xvfb-run --auto-servernum npm run desktop:smoke/);
+  assert.match(desktopReleaseWorkflow, /assemble-release-manifest\.mjs/);
+  assert.match(desktopReleaseWorkflow, /gh release upload/);
+  assert.match(desktopReleaseWorkflow, /release\/latest\.json/);
 });
 
 test("History shows the commits that exist, not the ones it read on the way in", () => {
