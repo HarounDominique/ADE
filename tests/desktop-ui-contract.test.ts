@@ -14,6 +14,8 @@ const checkpointModule = readFileSync(new URL("../src/application/agents/turn-ch
 const releaseScript = readFileSync(new URL("../scripts/package-desktop-release.mjs", import.meta.url), "utf8");
 const safeCommand = readFileSync(new URL("../src/adapters/safe-command.ts", import.meta.url), "utf8");
 const gitCommand = readFileSync(new URL("../src/adapters/git-command.ts", import.meta.url), "utf8");
+const ghCommand = readFileSync(new URL("../src/adapters/gh-command.ts", import.meta.url), "utf8");
+const githubStatus = readFileSync(new URL("../src/application/git/github-status.ts", import.meta.url), "utf8");
 const editorWindow = readFileSync(new URL("../desktop/src/editor-window.js", import.meta.url), "utf8");
 const editorWindowHtml = readFileSync(new URL("../desktop/src/editor-window.html", import.meta.url), "utf8");
 const editorCapability = JSON.parse(readFileSync(new URL("../desktop/src-tauri/capabilities/editor-window.json", import.meta.url), "utf8")) as { windows: string[]; permissions: string[] };
@@ -1526,4 +1528,18 @@ test("nothing Assay runs for itself opens a console on Windows", () => {
   assert.match(gitCommand, /windowsHide: true/);
   // And the build says why the executable is like that, where someone would look.
   assert.match(sidecarBuild, /inherits Node's PE subsystem, which is `console`/);
+});
+
+test("every tool Assay runs is found the same way", () => {
+  // A desktop launch inherits a short PATH, so each tool resolves through an
+  // explicit override, then the operator's PATH, then the places installers
+  // use. gh was the one adapter still trusting a bare name.
+  assert.match(githubStatus, /execFile\(ghExecutable\(\), \["auth", "status"\]/);
+  assert.doesNotMatch(githubStatus, /execFile\("gh"/);
+  assert.match(ghCommand, /environment\.ADE_GH_COMMAND\?\.trim\(\)/);
+  // And the native side looks where the sidecar's own resolver looks, so a
+  // Node installed by a version manager is not invisible to one of them.
+  for (const directory of ["scoop", "volta", "chocolatey"]) {
+    assert.ok(nativeShell.includes(directory), `resolve_node_binary should know about ${directory}`);
+  }
 });

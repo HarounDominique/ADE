@@ -1,6 +1,7 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 import { executeGit } from "../../adapters/git-command.js";
+import { ghExecutable } from "../../adapters/gh-command.js";
 
 const execFile = promisify(execFileCallback);
 
@@ -52,7 +53,7 @@ export async function fetchOrigin(input: ConfirmedOperation & { remote?: string 
 
 export async function createPullRequest(input: ConfirmedOperation & { title: string; body: string; base?: string }) {
   assertConfirmed(input);
-  const result = await execFile("gh", ["pr", "create", "--title", input.title, "--body", input.body, ...(input.base ? ["--base", input.base] : [])], { cwd: input.directory, windowsHide: true });
+  const result = await execFile(ghExecutable(), ["pr", "create", "--title", input.title, "--body", input.body, ...(input.base ? ["--base", input.base] : [])], { cwd: input.directory, windowsHide: true });
   return { operation: "pull-request.create", url: result.stdout.trim(), actor: input.actor, reason: input.reason };
 }
 

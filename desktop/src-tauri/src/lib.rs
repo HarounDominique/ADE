@@ -982,17 +982,38 @@ fn resolve_node_binary() -> String {
     {
         return explicit;
     }
+    // The same places the sidecar's own resolver looks, in the same order:
+    // a version manager's shims first, a machine-wide install last. A shorter
+    // list here means falling back to a bare `node` and the launcher's PATH,
+    // which this codebase documents as insufficient in a packaged app.
+    #[cfg(target_os = "windows")]
+    let home = std::env::var("USERPROFILE").unwrap_or_default();
     #[cfg(target_os = "windows")]
     let candidates = [
-        "C:\\Program Files\\nodejs\\node.exe",
-        "C:\\Program Files (x86)\\nodejs\\node.exe",
+        format!("{home}\\.volta\\bin\\node.exe"),
+        format!("{home}\\scoop\\shims\\node.exe"),
+        format!(
+            "{}\\chocolatey\\bin\\node.exe",
+            std::env::var("ProgramData").unwrap_or_else(|_| "C:\\ProgramData".to_string())
+        ),
+        format!(
+            "{}\\nodejs\\node.exe",
+            std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string())
+        ),
+        format!(
+            "{}\\nodejs\\node.exe",
+            std::env::var("ProgramFiles(x86)").unwrap_or_else(|_| "C:\\Program Files (x86)".to_string())
+        ),
     ];
     #[cfg(not(target_os = "windows"))]
-    let candidates = ["/opt/homebrew/opt/node@24/bin/node", "/usr/local/bin/node"];
+    let candidates = [
+        "/opt/homebrew/opt/node@24/bin/node".to_string(),
+        "/usr/local/bin/node".to_string(),
+    ];
     candidates
         .iter()
         .find(|candidate| Path::new(candidate).is_file())
-        .map(|candidate| (*candidate).to_string())
+        .cloned()
         .unwrap_or_else(|| "node".to_string())
 }
 
