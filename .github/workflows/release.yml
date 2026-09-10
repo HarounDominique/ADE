@@ -34,7 +34,10 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          # A tag push checks out the tagged source. A manual dispatch uses
+          # the selected branch, so an older tag can be backfilled with the
+          # current release workflow without rewriting the tag.
+          ref: ${{ github.ref }}
 
       - uses: actions/setup-node@v5
         with:
@@ -116,7 +119,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ github.ref }}
 
       - uses: actions/setup-node@v5
         with:
