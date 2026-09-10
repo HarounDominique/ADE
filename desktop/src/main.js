@@ -182,10 +182,13 @@ function applyMonacoTheme(theme) {
 /** Terminal palettes.  Only four colours were defined before, so the sixteen
     ANSI colours fell back to xterm's own -- tuned for a dark background and
     close to invisible on a light one, which is what made light mode unreadable.
-    Both palettes are built from the product's tokens and verified for contrast
-    against their own background: every colour clears 4.5:1, the threshold the
-    terminal literature settles on, rather than copying a scheme like Solarized
-    Light whose low contrast is a documented complaint.
+    The dark palette is built from the product's tokens and every colour clears
+    4.5:1 against its background. The light one follows the Everest scheme the
+    light theme now wears, and measured on its own background two colours land
+    just under that line -- ANSI green at 4.39:1 and white at 4.47:1 -- because
+    an IDE scheme is tuned for a code canvas rather than for a terminal. The
+    numbers are written here rather than left as a claim that reads as verified
+    and is not.
 
     ANSI black is the deliberate exception: it is the dim colour programs use to
     de-emphasise, so it stays close to the background by convention. Bright
@@ -202,7 +205,7 @@ const terminalPalettes = {
     brightBlue: '#a8c9ff', brightMagenta: '#d6c1ff', brightCyan: '#8fe6db', brightWhite: '#edf4f7',
   },
   light: {
-    background: '#f7f6f3', foreground: '#20211f', cursor: '#1d7775', cursorAccent: '#f7f6f3', selectionBackground: '#cfe0dd',
+    background: '#eaf1f2', foreground: '#131b25', cursor: '#467196', cursorAccent: '#eaf1f2', selectionBackground: '#d5ece2',
     black: '#3b3a37', red: '#a32b2b', green: '#1a7f4b', yellow: '#8a5d11',
     blue: '#245ec4', magenta: '#7057b8', cyan: '#1d7775', white: '#6f6e69',
     brightBlack: '#575652', brightRed: '#c0392b', brightGreen: '#15693e', brightYellow: '#725012',

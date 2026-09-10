@@ -34,9 +34,14 @@ let monacoLoader = null;
 /** Editor syntax palettes.  CodeMirror's defaultHighlightStyle is written for a
     white page -- it paints names in pure blue and comments in near-black -- so
     in dark mode a Java class or field sank into the background and could not be
-    read. Each theme now gets its own style, built from the product's tokens and
-    checked against every panel-soft background the skins use: nothing here
-    falls below 5:1, comfortably past the 4.5:1 minimum for body-size text.
+    read. The dark style is built from the product's tokens and nothing in it
+    falls below 5:1. The light one is Everest's own scheme, taken from the
+    theme's colour file rather than derived, and measured against the editor
+    background it is a code palette rather than a body-text one: keyword,
+    number, type, name, property and operator clear 4.5:1, while string
+    (2.16:1), meta (2.64:1), callee (3.22:1), comment (3.96:1), invalid (4.33:1)
+    and definition (4.25:1) do not. That is the trade the theme makes, and it is
+    written down rather than implied to have been checked.
 
     The two palettes assign the same hue to the same role, so a file keeps its
     shape across a theme switch: purple for keywords, green for types, blue for
@@ -48,9 +53,9 @@ const codeHighlightPalettes = {
     property: '#95e9de', meta: '#f2cc85', operator: '#a6b8c8', invalid: '#ff9aa2',
   },
   light: {
-    keyword: '#6f48a6', string: '#ab3d47', number: '#8a5d11', comment: '#566878',
-    type: '#167646', name: '#243544', definition: '#1d4fa8', callee: '#0b6b65',
-    property: '#0f6d68', meta: '#8a5d11', operator: '#4a5c6e', invalid: '#a32b2b',
+    keyword: '#2e674f', string: '#ec9c81', number: '#1a6687', comment: '#6e828f',
+    type: '#246a89', name: '#131b25', definition: '#397fb7', callee: '#30a25e',
+    property: '#567b8a', meta: '#c8963e', operator: '#567b8a', invalid: '#c8534e',
   },
 };
 
@@ -108,14 +113,14 @@ function configureMonacoThemes() {
   inherit: true,
   rules: [],
   colors: {
-    'editor.background': '#edf3f8',
-    'editor.foreground': '#152231',
-    'editorLineNumber.foreground': '#8393a3',
-    'editorLineNumber.activeForeground': '#2865b1',
-    'editor.lineHighlightBackground': '#e3edf5',
-    'editor.selectionBackground': '#b9d5ee',
-    'editorCursor.foreground': '#0e827b',
-    'editorIndentGuide.background': '#c6d2de',
+    'editor.background': '#fdfeff',
+    'editor.foreground': '#131b25',
+    'editorLineNumber.foreground': '#7d9aa6',
+    'editorLineNumber.activeForeground': '#1a6687',
+    'editor.lineHighlightBackground': '#e6edf5',
+    'editor.selectionBackground': '#d5ece2',
+    'editorCursor.foreground': '#467196',
+    'editorIndentGuide.background': '#dde7f6',
   },
   });
 }
