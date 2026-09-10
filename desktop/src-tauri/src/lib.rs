@@ -236,12 +236,56 @@ fn open_terminal_at(directory: &Path) -> Result<(), String> {
         .arg(directory)
         .spawn();
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
-    let spawned = Command::new("x-terminal-emulator")
-        .current_dir(directory)
-        .spawn();
+    let spawned = spawn_linux_terminal(directory);
     spawned
         .map(|_| ())
         .map_err(|error| format!("Unable to open Terminal: {error}"))
+}
+
+/// Linux has no one terminal the way macOS has Terminal.app: `x-terminal-emulator`
+/// is only Debian and Ubuntu's own `update-alternatives` convention, absent on
+/// Fedora, Arch, openSUSE and any minimal install that never registered one.
+/// `$TERMINAL` is the closer thing to a standard -- set by several window
+/// managers and by operators themselves -- so it is tried first, then the
+/// Debian convention, then the emulators actually shipped by the desktops ADE
+/// is likely to run under. Every one of them starts its shell in its own
+/// process's working directory when given no other instruction, so a single
+/// `current_dir` covers all of them without per-terminal argument spellings.
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+fn spawn_linux_terminal(directory: &Path) -> std::io::Result<Child> {
+    let mut candidates: Vec<String> = std::env::var("TERMINAL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .into_iter()
+        .collect();
+    candidates.extend(
+        [
+            "x-terminal-emulator",
+            "gnome-terminal",
+            "konsole",
+            "xfce4-terminal",
+            "tilix",
+            "terminator",
+            "kitty",
+            "alacritty",
+            "mate-terminal",
+            "lxterminal",
+            "deepin-terminal",
+            "xterm",
+        ]
+        .map(str::to_string),
+    );
+    let mut last_error = std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "no terminal emulator found among $TERMINAL, x-terminal-emulator or the common desktop terminals",
+    );
+    for candidate in candidates {
+        match Command::new(&candidate).current_dir(directory).spawn() {
+            Ok(child) => return Ok(child),
+            Err(error) => last_error = error,
+        }
+    }
+    Err(last_error)
 }
 
 fn start_terminal_pty(cwd: &Path) -> Result<(TerminalProcess, Box<dyn Read + Send>), String> {
