@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import crossSpawn from "cross-spawn";
+import { runtimeEnvironment } from "../../adapters/local-process.js";
 
 export type ToolchainStatus = {
   id: string;
@@ -71,8 +72,12 @@ async function probe(id: string, label: string, command: string, args: readonly 
   const base = { id, label, command, source };
   return new Promise((resolve) => {
     // A toolchain probe is a question, not a window: on Windows every one of
-    // these would otherwise flash a console of its own.
-    const child = crossSpawn(command, [...args], { cwd, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    // these would otherwise flash a console of its own. The same augmented
+    // PATH (and JAVA_HOME) that a run configuration gets through LocalProcess
+    // applies here too -- otherwise a version manager's node, cargo or java
+    // reads as "unavailable" in this preview and as present the moment the
+    // operator actually runs it.
+    const child = crossSpawn(command, [...args], { cwd, env: runtimeEnvironment(undefined), stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     let output = "";
     const append = (chunk: Buffer | string) => { output += chunk.toString(); };
     child.stdout?.on("data", append);
