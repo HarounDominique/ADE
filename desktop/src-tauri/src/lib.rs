@@ -1187,6 +1187,20 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // A second launch is the operator asking for the window they already
+        // have, not for a second application. Two of them would run two
+        // sidecars against one SQLite file and write over each other's work, so
+        // the second instance hands its request to the first and leaves. It is
+        // registered first because the lock has to be claimed before anything
+        // else is built.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            use tauri::Manager;
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .manage(SidecarSupervisor::default())
         .manage(TerminalSupervisor::default())
         .manage(WorkspaceRoot::default())

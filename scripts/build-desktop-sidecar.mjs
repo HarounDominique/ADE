@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { stripAuthenticodeSignature } from './pe-signature.mjs';
 
 const windows = process.platform === 'win32';
 // A file URL's pathname keeps a leading slash before the drive letter, so only
@@ -55,6 +56,15 @@ copyFileSync(seaNode, seaExecutable);
 chmodSync(seaExecutable, 0o755);
 if (process.platform === 'darwin') {
   spawnSync('codesign', ['--remove-signature', seaExecutable], { stdio: 'inherit' });
+}
+if (windows) {
+  // node.exe is signed, and injecting the payload invalidates that signature.
+  // Windows treats a broken signature as tampering, which is worse than an
+  // unsigned build, so the inherited one is removed rather than left to rot.
+  const removed = stripAuthenticodeSignature(seaExecutable);
+  console.log(removed.stripped
+    ? `Removed the inherited Authenticode signature (${removed.bytes} bytes).`
+    : `No Authenticode signature to remove (${removed.reason}).`);
 }
 const injected = runBinary('postject', [
   seaExecutable,

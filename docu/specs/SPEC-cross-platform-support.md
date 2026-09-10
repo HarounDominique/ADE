@@ -42,6 +42,8 @@ La verificación de plataforma no se delega a la intuición ni a la lectura del 
 
 El gesto de separar una pestaña arrastrándola se apoya en eventos de ratón y se juzga contra el rectángulo de la barra de pestañas, no contra los límites de la ventana, así que no depende de que el sistema siga enrutando el ratón más allá del borde. Está ejercitado en macOS.
 
+Una segunda ejecución de Assay no abre una segunda aplicación: el bloqueo de instancia única entrega la petición a la ventana que ya existe y termina. Dos instancias significaban dos sidecars escribiendo la misma base SQLite.
+
 **Estado a 2026-09-06:** macOS `verificada` (secuencia local verde y aplicación arrancada a mano). Windows y Linux `construibles` (matriz verde el 2026-09-06, sin smoke manual). El PTY en Windows no está cubierto ni siquiera por la matriz.
 
 ## Distribution and update
@@ -52,7 +54,9 @@ Junto al artefacto se escribe `latest.json` con producto, versión, fecha, notas
 
 Assay avisa de que existe una versión más reciente y ahí termina: no descarga, no se reemplaza y no ejecuta nada. Sin conexión, sin publicar o con un manifiesto ilegible se dice como tal y nunca como "al día". El feed por defecto es un asset de release del repositorio. La precedencia es explícita: lo que pida la petición, luego lo que el operador haya configurado en sus preferencias ([ADR-0053](../adr/0053-user-settings-live-in-ades-store.md)), luego `ADE_UPDATE_FEED_URL`, luego el valor por defecto; vacío significa que este install no pregunta a nadie. La decisión vive en [ADR-0050](../adr/0050-installable-artifact-and-update-notice.md).
 
-El artefacto no está firmado ni notarizado; una instalación limpia verá la advertencia de Gatekeeper. Windows y Linux siguen sin artefacto propio: el script lo dice y falla en vez de fingir soporte.
+El artefacto no está firmado ni notarizado; una instalación limpia verá la advertencia de Gatekeeper. Windows y Linux siguen sin artefacto propio: el script lo dice y falla en vez de fingir soporte. Mientras eso sea así, una versión nueva publicada sólo para macOS **no** se anuncia en Windows como actualización disponible: se distingue de un `UPDATE_AVAILABLE` real, porque pedir instalar algo que no existe es una instrucción que nadie puede seguir.
+
+Sobre firma en Windows: el sidecar es una copia de `node.exe`, que el proyecto Node firma, y la inyección del payload invalida esa firma. Una firma rota es peor que ninguna —SmartScreen y los antivirus la leen como manipulación—, así que la construcción **retira** la firma heredada y deja el binario honestamente sin firmar. Firmarlo de verdad exige un certificado de firma de código que este proyecto todavía no tiene; hasta entonces, `bundle.windows.certificateThumbprint` se queda deliberadamente sin declarar en vez de con un valor de mentira. Lo que sí se declara es `webviewInstallMode`, para que el comportamiento sin WebView2 presente sea una decisión y no el defecto implícito de la versión de Tauri instalada.
 
 ## Out of scope
 

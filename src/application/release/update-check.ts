@@ -9,7 +9,11 @@ export type ReleaseManifest = { product: string; version: string; publishedAt?: 
 export type UpdateCheck =
   | { status: "UNCONFIGURED" }
   | { status: "CURRENT"; currentVersion: string; latestVersion: string }
-  | { status: "UPDATE_AVAILABLE"; currentVersion: string; latestVersion: string; notes?: string; publishedAt?: string; artifact?: ReleaseArtifact }
+  | { status: "UPDATE_AVAILABLE"; currentVersion: string; latestVersion: string; notes?: string; publishedAt?: string; artifact: ReleaseArtifact }
+  /** A newer version exists and nothing was published for this machine. Telling
+      an operator to update when there is nothing they could install is an
+      instruction they cannot follow, so it is a state of its own. */
+  | { status: "UPDATE_NOT_BUILT_FOR_THIS_PLATFORM"; currentVersion: string; latestVersion: string; platform: string; notes?: string }
   | { status: "UNREACHABLE"; message: string };
 
 /** Ordering two versions is the whole decision, so it is a function with a
@@ -59,17 +63,27 @@ export async function checkForUpdate(input: {
     if (compareVersions(manifest.version, input.currentVersion) <= 0) {
       return { status: "CURRENT", currentVersion: input.currentVersion, latestVersion: manifest.version };
     }
-    /** The artifact for this machine, when the manifest carries one. A release
-        that does not build for this platform is still worth announcing, so its
-        absence is not a failure. */
-    const artifact = manifest.artifacts.find((candidate) => candidate.platform === (input.platform ?? process.platform) && candidate.arch === (input.arch ?? process.arch));
+    const platform = input.platform ?? process.platform;
+    const artifact = manifest.artifacts.find((candidate) => candidate.platform === platform && candidate.arch === (input.arch ?? process.arch));
+    /** Only a release this machine could actually install is an update. The
+        rest is news, and it says so rather than leaving a badge that asks for
+        an action nobody can take. */
+    if (!artifact) {
+      return {
+        status: "UPDATE_NOT_BUILT_FOR_THIS_PLATFORM",
+        currentVersion: input.currentVersion,
+        latestVersion: manifest.version,
+        platform,
+        ...(manifest.notes ? { notes: manifest.notes } : {}),
+      };
+    }
     return {
       status: "UPDATE_AVAILABLE",
       currentVersion: input.currentVersion,
       latestVersion: manifest.version,
       ...(manifest.notes ? { notes: manifest.notes } : {}),
       ...(manifest.publishedAt ? { publishedAt: manifest.publishedAt } : {}),
-      ...(artifact ? { artifact } : {}),
+      artifact,
     };
   } catch (error: unknown) {
     /** Being offline is the ordinary case, not an error to report as a
