@@ -6,13 +6,13 @@
 
 Assay debe instalarse y ejecutarse en macOS, Windows y Linux sin que el usuario note qué plataforma fue la primera. El objetivo no es abstraer el sistema operativo, sino aislar los pocos puntos donde Assay lo toca y verificar cada uno en la plataforma real, de forma que una regresión de plataforma falle en CI y no en la máquina de alguien.
 
-macOS es hoy la plataforma verificada. Windows es objetivo de primer orden. Ubuntu es el primer objetivo operativo de Linux: la aplicación ya arranca allí según una comprobación manual, pero el smoke completo y el artefacto distribuible siguen pendientes. El alcance y el orden están fijados en [ADR-0054](../adr/0054-ubuntu-first-linux-target.md).
+macOS es hoy la plataforma verificada. Windows es objetivo de primer orden. Ubuntu es la segunda plataforma verificada: el smoke manual completo se cerró el 2026-09-10. El alcance y el orden están fijados en [ADR-0054](../adr/0054-ubuntu-first-linux-target.md).
 
 ## Linux target slice
 
 El primer contrato de Linux se prueba contra Ubuntu. La matriz usa `ubuntu-latest` y el primer artefacto de distribución es un paquete Debian (`.deb`). Esto acota el trabajo inicial sin afirmar que todas las distribuciones Linux se comporten igual.
 
-El arranque de la aplicación en Ubuntu ya fue comprobado manualmente por el operador el 2026-09-10. Esa evidencia cubre sólo el arranque; no sustituye el smoke de terminal, Explorer/editor, escape hatch, Git, proveedores, persistencia y cierre limpio que exige el grado `verificada`.
+El smoke manual completo se ejecutó en Ubuntu el 2026-09-10, sobre el `.deb` real construido por `npm run desktop:package` (no una instalación por `dpkg -i`: el binario se extrajo con `dpkg-deb -x`, sin `sudo` disponible en ese entorno, y se ejecutó desde ahí — mismas librerías, mismo binario, sin pasar por la transacción del gestor de paquetes). Cubrió arranque, selector de carpetas nativo, Explorer, Editor (lectura, edición y guardado en disco), Git (diff real), terminal PTY (shell real, comandos reales), escape hatch (`Open externally` abrió Kate con el mismo fichero), detección de proveedores agénticos, persistencia del Project registrado tras un reinicio completo del proceso, y ausencia de procesos huérfanos (`WebKit`/sidecar) tras dos ciclos de cierre. Dos matices quedan registrados, no ocultos: el backend Wayland nativo de GDK no llegó a mapear ventana en la sesión KDE Plasma/KWin de esa máquina — hizo falta forzar `GDK_BACKEND=x11` (XWayland) para verla, algo que puede ser propio de ese compositor y no una regla general de Linux; y el `.deb` declara `libwebkit2gtk-4.1-0`/`libgtk-3-0` duplicados en `Depends` (el auto-detectado de Tauri se solapa con el declarado a mano en `tauri.conf.json`), sin corregir todavía.
 
 ## Platform boundary
 
@@ -50,7 +50,7 @@ El gesto de separar una pestaña arrastrándola se apoya en eventos de ratón y 
 
 Una segunda ejecución de Assay no abre una segunda aplicación: el bloqueo de instancia única entrega la petición a la ventana que ya existe y termina. Dos instancias significaban dos sidecars escribiendo la misma base SQLite.
 
-**Estado a 2026-09-10:** macOS `verificada` (secuencia local verde y aplicación arrancada a mano). Ubuntu/Linux `construible` (matriz verde y arranque manual confirmado, pero smoke completo pendiente). Windows **`no verificada`**: su trabajo de CI llevaba días en rojo y el grado que esta spec le atribuía —`construible` con la matriz verde del 2026-09-06— había dejado de ser cierto sin que nadie lo notara. El log nombraba dos defectos reales, no dos tests frágiles: los checkpoints devolvían ficheros con los finales de línea reescritos y la resolución de comandos aceptaba cualquier fichero existente como programa. Ambos corregidos el 2026-09-10; el grado vuelve a `construible` cuando la matriz lo demuestre, no antes.
+**Estado a 2026-09-10:** macOS `verificada` (secuencia local verde y aplicación arrancada a mano). Ubuntu `verificada` (matriz Linux en verde y smoke manual completo registrado en [Linux target slice](#linux-target-slice)); Fedora, Arch y el resto de distribuciones Linux siguen sin evidencia propia. Windows **`no verificada`**: su trabajo de CI llevaba días en rojo y el grado que esta spec le atribuía —`construible` con la matriz verde del 2026-09-06— había dejado de ser cierto sin que nadie lo notara. El log nombraba dos defectos reales, no dos tests frágiles: los checkpoints devolvían ficheros con los finales de línea reescritos y la resolución de comandos aceptaba cualquier fichero existente como programa. Ambos corregidos el 2026-09-10; el grado vuelve a `construible` cuando la matriz lo demuestre, no antes. Esa misma matriz de Windows sigue roja hoy por un defecto distinto: el test `toolchain inspection reports the entry points implied by Project manifests` falla por timeout desde que el inspector de toolchains empezó a resolver Node/Java por las mismas rutas de versión manager que ya usaba `LocalProcess`; un primer intento de arreglo (calcular el entorno una vez por inspección en vez de una vez por sonda) no lo cerró, y queda abierto.
 
 Sobre el PTY en Windows: el trabajo de CI ejecuta `cargo test` sin excluir `terminal_pty_accepts_input_after_the_shell_is_ready`, y ese test no lleva guarda. Lo que esta spec afirmaba —que el PTY queda fuera de la matriz— no se puede comprobar todavía, porque el paso de Rust nunca llegó a ejecutarse: los tests de TypeScript fallaban antes. Queda como pregunta abierta hasta que una corrida verde de Windows lo responda, en vez de darse por sabido en cualquiera de los dos sentidos.
 
@@ -84,7 +84,7 @@ Tampoco entra abstraer Git: Assay seguirá invocando el `git` del sistema y exig
 6. ⏳ La autorización del workspace se comporta igual en las tres plataformas, incluidos los prefijos UNC de Windows.
 7. ✅ La documentación nombra el grado de soporte real de cada plataforma.
 8. ✅ macOS produce un artefacto instalable con un comando, con su `sha256` declarado, y la aplicación informa de que existe una versión más reciente sin actualizarse sola.
-9. ⏳ Ubuntu produce un paquete `.deb` con un comando, y el smoke manual cubre el recorrido operativo completo; el arranque aislado ya está confirmado, pero no cierra este criterio.
+9. ✅ Ubuntu produce un paquete `.deb` con un comando (`npm run desktop:package`), y el smoke manual del 2026-09-10 cubre el recorrido operativo completo. Sin cerrar todavía: una instalación real vía `dpkg -i`/`apt install` — el smoke se hizo sobre el binario extraído del `.deb`, no instalado — y la duplicación de `libwebkit2gtk-4.1-0`/`libgtk-3-0` en `Depends`.
 
 ## Verification
 
