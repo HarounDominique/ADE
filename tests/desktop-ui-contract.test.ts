@@ -1600,7 +1600,10 @@ test("a release is built per machine and assembled into one manifest", () => {
 test("History shows the commits that exist, not the ones it read on the way in", () => {
   // A commit made in the terminal below stayed invisible until the operator
   // thought to press Refresh, because nothing re-read the repository.
-  assert.match(main, /renderVersionControlTabs\(tab\);\s*\n\s*\/\*\*[\s\S]*?\*\/\s*\n\s*requestVersionControlData\(workspaceRootPath\);/);
+  // Pressing a tab is a question, and answering it with what was already on
+  // screen is how an operator learns to distrust the view. Only the moments
+  // nobody asked for are coalesced.
+  assert.match(main, /renderVersionControlTabs\(tab\);\s*\n\s*\/\*\*[\s\S]*?\*\/\s*\n\s*requestVersionControlData\(workspaceRootPath, \{ force: true \}\);/);
   assert.match(main, /function refreshVersionControlOnReturn/);
   assert.match(main, /window\.addEventListener\('focus', refreshVersionControlOnReturn\);/);
   assert.match(main, /document\.addEventListener\('visibilitychange', refreshVersionControlOnReturn\);/);

@@ -1431,8 +1431,9 @@ function requestPendingGitChanges(path = workspaceRootPath, { showLoading = fals
   });
 }
 
-/** When the working tree was last read, so the moments that ask for a refresh
-    can overlap without each of them costing a pair of Git processes. */
+/** When the working tree was last read, so the moments nobody asked for —
+    entering the view, returning to the window — can overlap without each of
+    them costing a pair of Git processes. A press is never coalesced. */
 let versionControlLoadedAt = 0;
 const versionControlFreshMs = 1_500;
 
@@ -5567,11 +5568,14 @@ document.addEventListener('click', (event) => {
   if (versionControlTab) {
     const tab = versionControlTab.dataset.versionControlTab;
     renderVersionControlTabs(tab);
-    /** Opening a tab is asking to see what is in it. History used to show
-        whatever it had read on the way into the view, so a commit made since —
-        in the terminal below, or anywhere else — was invisible until the
-        operator thought to press Refresh. */
-    requestVersionControlData(workspaceRootPath);
+    /** Opening a tab is asking to see what is in it, so it reads: History used
+        to show whatever it had read on the way into the view, and a commit made
+        since — in the terminal below, or anywhere else — was invisible until
+        the operator thought to press Refresh. The read is forced, because a
+        press is a question and answering it with what was on screen already is
+        how the operator learns to distrust the view. Coalescing is for the
+        moments nobody asked for. */
+    requestVersionControlData(workspaceRootPath, { force: true });
     return;
   }
   const commitFile = event.target.closest('[data-git-commit-file]');
