@@ -1596,3 +1596,18 @@ test("a release is built per machine and assembled into one manifest", () => {
   assert.match(releaseManifest, /export function mergeManifest/);
   assert.match(releaseManifest, /existing\.version === release\.version/);
 });
+
+test("History shows the commits that exist, not the ones it read on the way in", () => {
+  // A commit made in the terminal below stayed invisible until the operator
+  // thought to press Refresh, because nothing re-read the repository.
+  assert.match(main, /renderVersionControlTabs\(tab\);\s*\n\s*\/\*\*[\s\S]*?\*\/\s*\n\s*requestVersionControlData\(workspaceRootPath\);/);
+  assert.match(main, /function refreshVersionControlOnReturn/);
+  assert.match(main, /window\.addEventListener\('focus', refreshVersionControlOnReturn\);/);
+  assert.match(main, /document\.addEventListener\('visibilitychange', refreshVersionControlOnReturn\);/);
+  assert.match(main, /if \(activeView !== 'changes' \|\| document\.hidden\) return;/);
+  // No timer polls Git on the chance that something changed.
+  assert.doesNotMatch(main, /setInterval\([^)]*requestVersionControlData/);
+  // Overlapping moments cost one read, and the manual control still forces one.
+  assert.match(main, /if \(!force && Date\.now\(\) - versionControlLoadedAt < versionControlFreshMs\) return;/);
+  assert.match(main, /requestVersionControlData\(workspaceRootPath, \{ force: true \}\);/);
+});
