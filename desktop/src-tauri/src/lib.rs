@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
+use tauri_plugin_dialog::DialogExt;
 
 #[derive(Default)]
 struct SidecarSupervisor {
@@ -917,53 +918,34 @@ fn project_context_for(
     })
 }
 
-/// Each desktop has its own folder picker and no portable command to reach it.
-/// Cancelling must be indistinguishable from choosing nothing, so a picker that
-/// reports cancellation through a non-zero exit is read as an empty selection
-/// rather than as a failure.
+/// Which folder becomes the newly added Project's repository. `tauri-plugin-dialog`
+/// puts one picker behind this call on every desktop -- GTK's own chooser on
+/// Linux, NSOpenPanel on macOS, the common item dialog on Windows -- so Linux
+/// gets the same first-class treatment as the other two instead of shelling
+/// out to a CLI helper (`zenity`) that many Linux desktops, including this
+/// project's own KDE dev environment, don't install by default. Cancelling
+/// must be indistinguishable from choosing nothing, which is exactly what
+/// `None` from the picker already means.
+///
+/// This has to stay `async`: a plain (blocking) command runs on the very
+/// same UI thread that owns the window, and `blocking_pick_folder` needs
+/// that thread free to dispatch the dialog onto -- a synchronous command
+/// here deadlocks the whole window the moment the operator clicks the
+/// button, rather than opening anything.
 #[tauri::command]
-fn select_project_directory() -> Result<Option<String>, String> {
-    #[cfg(target_os = "macos")]
-    let output = {
-        let script = r#"try
-        set selectedFolder to choose folder with prompt "Add project to Assay"
-        return POSIX path of selectedFolder
-    on error number -128
-        return ""
-    end try"#;
-        Command::new("osascript").args(["-e", script]).output()
-    };
-    #[cfg(target_os = "windows")]
-    let output = {
-        // Windows Forms dialogs require a single-threaded apartment.
-        let script = "Add-Type -AssemblyName System.Windows.Forms; \
-             $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; \
-             $dialog.Description = 'Add project to Assay'; \
-             if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dialog.SelectedPath }";
-        without_a_console(&mut Command::new(
-            std::env::var("ADE_POWERSHELL_COMMAND").unwrap_or_else(|_| "powershell.exe".to_string()),
-        ))
-            .args(["-NoProfile", "-STA", "-Command", script])
-            .output()
-    };
-    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
-    let output = Command::new("zenity")
-        .args([
-            "--file-selection",
-            "--directory",
-            "--title=Add project to Assay",
-        ])
-        .output();
-    let output = output.map_err(|error| format!("Unable to open folder picker: {error}"))?;
-    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if !output.status.success() {
-        // zenity exits non-zero when the user cancels, with nothing on stdout.
-        if path.is_empty() && output.stderr.is_empty() {
-            return Ok(None);
-        }
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+async fn select_project_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let selection = app
+        .dialog()
+        .file()
+        .set_title("Add project to Assay")
+        .blocking_pick_folder();
+    match selection {
+        None => Ok(None),
+        Some(path) => path
+            .into_path()
+            .map(|path| Some(path.to_string_lossy().into_owned()))
+            .map_err(|error| error.to_string()),
     }
-    Ok((!path.is_empty()).then_some(path))
 }
 
 /// Which Project the shell should open, when the operator's environment names
@@ -1270,6 +1252,7 @@ pub fn run() {
         .manage(TerminalSupervisor::default())
         .manage(WorkspaceRoot::default())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             greet,
             project_context,
