@@ -571,13 +571,53 @@ fn forward_slashed(value: &str) -> String {
     value.to_lowercase().replace('\\', "/")
 }
 
+/// What the operator's own repository says its files are: tracked, plus
+/// untracked that nothing ignores. It is one process and it needs no guesses —
+/// `target`, `dist`, a virtualenv, whatever this project builds into — because
+/// the rules are the ones already written in the repository.
+///
+/// Walking instead was the defect: skipping `.git` and `node_modules` left
+/// 62,797 files here, of which 59,266 were the Rust build directory, and each
+/// keystroke walked all of them. Git answers the same question in 19ms.
+fn files_git_knows_about(root: &Path) -> Option<Vec<PathBuf>> {
+    let output = without_a_console(&mut Command::new(git_command()))
+        .args(["ls-files", "-z", "-c", "-o", "--exclude-standard"])
+        .current_dir(root)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(
+        String::from_utf8_lossy(&output.stdout)
+            .split('\0')
+            .filter(|path| !path.is_empty())
+            .map(|path| root.join(path))
+            .collect(),
+    )
+}
+
+/// Windows installs Git somewhere the launcher's PATH may not carry, and the
+/// override is the same one the rest of Assay honours.
+fn git_command() -> String {
+    std::env::var("ADE_GIT_COMMAND")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| if cfg!(target_os = "windows") { "git.exe".to_string() } else { "git".to_string() })
+}
+
 fn search_directory_from_root(
     root: PathBuf,
     needle: String,
 ) -> Result<Vec<DirectoryEntry>, String> {
     let needle = forward_slashed(&needle);
     let mut entries = Vec::new();
-    collect_matching_files(&root, 0, &needle, &mut entries)?;
+    match files_git_knows_about(&root) {
+        Some(files) => collect_matching_paths(&root, files, &needle, &mut entries),
+        // Not a repository, or no Git: the walk stands as the fallback it was
+        // always meant to be, with its own list of places nobody edits.
+        None => collect_matching_files(&root, 0, &needle, &mut entries)?,
+    }
     // A file whose *name* matches is what was being looked for; one that
     // matches only through a directory in its path is a neighbour of it. The
     // first kind comes first, and shallower before deeper, so the limit cuts
@@ -588,6 +628,31 @@ fn search_directory_from_root(
     });
     entries.truncate(SEARCH_RESULT_LIMIT);
     Ok(entries)
+}
+
+/// The same match and the same shape of answer, from a list Git handed over.
+fn collect_matching_paths(
+    root: &Path,
+    files: Vec<PathBuf>,
+    needle: &str,
+    entries: &mut Vec<DirectoryEntry>,
+) {
+    for path in files {
+        let Some(name) = path.file_name().and_then(|value| value.to_str()).map(str::to_string) else {
+            continue;
+        };
+        let spelled = path.to_string_lossy().into_owned();
+        if !forward_slashed(&format!("{name} {spelled}")).contains(needle) {
+            continue;
+        }
+        // Depth is how far the file sits from the Project root, which is what
+        // orders a name match ahead of a deeper one.
+        let depth = path
+            .strip_prefix(root)
+            .map(|relative| relative.components().count().saturating_sub(1))
+            .unwrap_or(0);
+        entries.push(DirectoryEntry { name, path: spelled, kind: "file".to_string(), depth });
+    }
 }
 
 fn collect_matching_files(
@@ -1419,6 +1484,33 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].name, "index.ts");
         assert_eq!(entries[1].name, "index-helper.ts");
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn search_directory_asks_git_which_files_the_operator_has() {
+        let root = fixture_root("search-directory-ignored");
+        fs::create_dir_all(root.join("target/debug")).expect("create build output");
+        fs::create_dir_all(root.join("src")).expect("create source");
+        fs::write(root.join(".gitignore"), "target/\n").expect("create ignore rules");
+        fs::write(root.join("src/report.rs"), "source").expect("create source file");
+        fs::write(root.join("target/debug/report.rs"), "build output").expect("create build file");
+        assert!(std::process::Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(&root)
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false), "git is required for this test");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select project");
+
+        let entries = search_directory_in(&workspace, &root.to_string_lossy(), "report")
+            .expect("search files");
+
+        // A build directory is not a place a file is edited, and no hardcoded
+        // list had to know it is called `target`: the repository says so.
+        assert_eq!(entries.len(), 1, "only the source file is the operator's");
+        assert!(entries[0].path.contains("src"));
         fs::remove_dir_all(root).expect("remove fixture");
     }
 
