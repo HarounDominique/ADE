@@ -4942,10 +4942,16 @@ function renderAppVersion(version, update) {
   const host = document.getElementById('status-version');
   if (!host || !version) return;
   const newer = update?.status === 'UPDATE_AVAILABLE';
-  host.textContent = newer ? `Assay ${version} · ${update.latestVersion} available` : `Assay ${version}`;
+  /** A release nobody built for this machine is news, not an update: saying
+      "available" would ask for an action the operator cannot take. */
+  const elsewhere = update?.status === 'UPDATE_NOT_BUILT_FOR_THIS_PLATFORM';
+  host.textContent = newer ? `Assay ${version} · ${update.latestVersion} available`
+    : elsewhere ? `Assay ${version} · ${update.latestVersion} elsewhere`
+    : `Assay ${version}`;
   host.dataset.update = newer ? 'true' : 'false';
   host.title = newer
-    ? `Assay ${update.latestVersion} has been published${update.artifact ? ` (${update.artifact.file}, sha256 ${update.artifact.sha256.slice(0, 12)}…)` : ''}${update.notes ? `\n${update.notes}` : ''}`
+    ? `Assay ${update.latestVersion} has been published (${update.artifact.file}, sha256 ${update.artifact.sha256.slice(0, 12)}…)${update.notes ? `\n${update.notes}` : ''}`
+    : elsewhere ? `Assay ${update.latestVersion} has been published, but not built for ${update.platform}. There is nothing to install here yet.${update.notes ? `\n${update.notes}` : ''}`
     : update?.status === 'UNREACHABLE' ? `Could not reach the release feed: ${update.message}`
     : update?.status === 'UNCONFIGURED' ? 'No release feed is configured for this install'
     : `Assay ${version} is the newest published version`;

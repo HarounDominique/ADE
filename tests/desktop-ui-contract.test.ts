@@ -16,6 +16,11 @@ const safeCommand = readFileSync(new URL("../src/adapters/safe-command.ts", impo
 const gitCommand = readFileSync(new URL("../src/adapters/git-command.ts", import.meta.url), "utf8");
 const ghCommand = readFileSync(new URL("../src/adapters/gh-command.ts", import.meta.url), "utf8");
 const githubStatus = readFileSync(new URL("../src/application/git/github-status.ts", import.meta.url), "utf8");
+const nativeCargo = readFileSync(new URL("../desktop/src-tauri/Cargo.toml", import.meta.url), "utf8");
+const peSignature = readFileSync(new URL("../scripts/pe-signature.mjs", import.meta.url), "utf8");
+const tauriConfig = JSON.parse(readFileSync(new URL("../desktop/src-tauri/tauri.conf.json", import.meta.url), "utf8")) as {
+  bundle: { windows: { webviewInstallMode: { type: string; silent: boolean } } };
+};
 const editorWindow = readFileSync(new URL("../desktop/src/editor-window.js", import.meta.url), "utf8");
 const editorWindowHtml = readFileSync(new URL("../desktop/src/editor-window.html", import.meta.url), "utf8");
 const editorCapability = JSON.parse(readFileSync(new URL("../desktop/src-tauri/capabilities/editor-window.json", import.meta.url), "utf8")) as { windows: string[]; permissions: string[] };
@@ -1542,4 +1547,30 @@ test("every tool Assay runs is found the same way", () => {
   for (const directory of ["scoop", "volta", "chocolatey"]) {
     assert.ok(nativeShell.includes(directory), `resolve_node_binary should know about ${directory}`);
   }
+});
+
+test("an update nobody built for this machine does not ask to be installed", () => {
+  // The release script only produces a macOS artifact, so on Windows the check
+  // resolved to "available" with nothing to install — a badge asking for an
+  // action the operator could not take, permanently.
+  assert.match(main, /const elsewhere = update\?\.status === 'UPDATE_NOT_BUILT_FOR_THIS_PLATFORM';/);
+  assert.match(main, /\$\{update\.latestVersion\} elsewhere/);
+  assert.match(main, /but not built for \$\{update\.platform\}\. There is nothing to install here yet\./);
+  // Only a release carrying something installable here lights the badge.
+  assert.match(main, /host\.dataset\.update = newer \? 'true' : 'false';/);
+});
+
+test("a Windows install is packaged as something a machine will accept", () => {
+  // Two windows meant two sidecars writing the same SQLite file. A second
+  // launch is a request for the window that already exists.
+  assert.match(nativeShell, /tauri_plugin_single_instance::init/);
+  assert.match(nativeShell, /window\.set_focus\(\);/);
+  assert.match(nativeCargo, /tauri-plugin-single-instance/);
+  // node.exe is signed, and injecting the payload breaks that signature.
+  // Windows reads a broken signature as tampering — worse than unsigned.
+  assert.match(sidecarBuild, /stripAuthenticodeSignature\(seaExecutable\)/);
+  assert.match(peSignature, /export function stripAuthenticodeSignature/);
+  // What happens with no WebView2 present is declared rather than inherited
+  // from whichever Tauri version happens to be installed.
+  assert.deepEqual(tauriConfig.bundle.windows.webviewInstallMode, { type: "downloadBootstrapper", silent: true });
 });

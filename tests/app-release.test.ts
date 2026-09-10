@@ -50,16 +50,28 @@ test("the running version being the published one is not an update", async () =>
   assert.equal(older.status, "CURRENT");
 });
 
-test("a release built for another machine is still announced", async () => {
+test("a release nobody built for this machine is news, not an update", async () => {
   const update = await checkForUpdate({
     currentVersion: "0.1.0",
-    platform: "linux",
-    arch: "arm64",
-    fetchImpl: feed({ version: "0.2.0", artifacts: [{ platform: "darwin", arch: "arm64", file: "Assay-0.2.0-macos-arm64.dmg", sha256: "armhash" }] }),
+    platform: "win32",
+    arch: "x64",
+    fetchImpl: feed({ version: "0.2.0", notes: "https://example.test/v0.2.0", artifacts: [{ platform: "darwin", arch: "arm64", file: "Assay-0.2.0-macos-arm64.dmg", sha256: "armhash" }] }),
   });
 
-  assert.equal(update.status, "UPDATE_AVAILABLE");
-  assert.equal(update.status === "UPDATE_AVAILABLE" && update.artifact, undefined);
+  // Telling an operator to update when there is nothing they could install is
+  // an instruction they cannot follow.
+  assert.equal(update.status, "UPDATE_NOT_BUILT_FOR_THIS_PLATFORM");
+  assert.equal(update.status === "UPDATE_NOT_BUILT_FOR_THIS_PLATFORM" && update.platform, "win32");
+  assert.equal(update.status === "UPDATE_NOT_BUILT_FOR_THIS_PLATFORM" && update.latestVersion, "0.2.0");
+  // An update is only an update when it carries something installable here.
+  const installable = await checkForUpdate({
+    currentVersion: "0.1.0",
+    platform: "win32",
+    arch: "x64",
+    fetchImpl: feed({ version: "0.2.0", artifacts: [{ platform: "win32", arch: "x64", file: "Assay-0.2.0-setup.exe", sha256: "winhash" }] }),
+  });
+  assert.equal(installable.status, "UPDATE_AVAILABLE");
+  assert.equal(installable.status === "UPDATE_AVAILABLE" && installable.artifact.file, "Assay-0.2.0-setup.exe");
 });
 
 test("being offline or unpublished is said plainly, not as a failure of the app", async () => {
