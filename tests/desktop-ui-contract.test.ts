@@ -1627,6 +1627,19 @@ test("History shows the commits that exist, not the ones it read on the way in",
   assert.match(main, /requestVersionControlData\(workspaceRootPath, \{ force: true \}\);/);
 });
 
+test("a search is only ever cancelled by another search", () => {
+  // One counter answered two questions — "is this tree render current" and "is
+  // this search current" — and the six places that invalidate the tree were
+  // silently cancelling searches that were still in flight.
+  assert.doesNotMatch(main, /workspaceSearchToken/);
+  assert.match(main, /let workspaceTreeToken = 0;/);
+  assert.match(main, /let workspaceSearchId = 0;/);
+  assert.match(main, /if \(search !== workspaceSearchId\) return;/);
+  assert.match(main, /if \(requestToken !== null && requestToken !== workspaceTreeToken\) return;/);
+  // A search that fails says what the system said, rather than a shrug.
+  assert.match(main, /File search unavailable: \$\{escapeHTML\(error instanceof Error \? error\.message : String\(error\)\)\}/);
+});
+
 test("a tree load never paints over a live filter", () => {
   // Search results used to arrive after seconds, so they landed last. Once the
   // search became fast the order flipped: an unguarded tree load painted the

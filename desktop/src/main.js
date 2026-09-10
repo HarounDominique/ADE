@@ -41,7 +41,14 @@ let activeDocument = null;
 let documentOriginalContent = '';
 let documentDirty = false;
 let explorerExpanded = false;
-let workspaceSearchToken = 0;
+/** Two different questions, and they used to share one counter: "is this tree
+    render still the one we asked for" and "is this search still the one being
+    typed". Six places that have nothing to do with searching — loading the
+    tree, switching Project, revealing a file, collapsing the Explorer,
+    refreshing — bumped it, and each of them silently cancelled a search that
+    was still in flight. */
+let workspaceTreeToken = 0;
+let workspaceSearchId = 0;
 let workspaceSearchTimer = null;
 /** What the native search stops at, so the tree can say the list was cut
     rather than let it read as the whole answer. */
@@ -1055,7 +1062,7 @@ async function switchProjectFromContext(project) {
     updateRevealOpenFileButton();
     renderSnapshot({ ...projectSnapshot, project: activeProject, metrics: { ...projectSnapshot.metrics, activeTasks: 0, inReview: 0 } });
     window.clearTimeout(workspaceSearchTimer);
-    workspaceSearchToken += 1;
+    workspaceTreeToken += 1;
     setWorkspaceSearchLoading(false);
     // A filter from the Project being left does not describe the one arriving.
     const filter = document.getElementById('workspace-filter');
@@ -3816,7 +3823,7 @@ async function refreshProjectContext(snapshot) {
     activeProject = mergeActiveProject(activeProject, context);
     renderSnapshot({ ...snapshot, project: activeProject });
     window.clearTimeout(workspaceSearchTimer);
-    workspaceSearchToken += 1;
+    workspaceTreeToken += 1;
     setWorkspaceSearchLoading(false);
     await loadWorkspaceTree(context.repositoryPath, invoke);
     await syncDocumentScope();
@@ -3864,7 +3871,7 @@ async function loadWorkspaceTree(path, invoke = window.__TAURI__?.core?.invoke, 
   if (animate) tree.classList.add('is-transitioning');
   try {
     const entries = await invoke('list_directory', { path, maxDepth: 0 });
-    if (requestToken !== null && requestToken !== workspaceSearchToken) return;
+    if (requestToken !== null && requestToken !== workspaceTreeToken) return;
     tree.innerHTML = explorerExpanded || !selectedFilePath
       ? renderWorkspaceEntries(entries)
       : await renderCompactWorkspacePath(entries, selectedFilePath, invoke);
@@ -4094,21 +4101,20 @@ document.addEventListener('pointerdown', hideWorkspaceTooltip);
 document.addEventListener('scroll', hideWorkspaceTooltip, true);
 window.addEventListener('blur', hideWorkspaceTooltip);
 
-async function searchWorkspaceFiles(query) {
+async function searchWorkspaceFiles(query, search = ++workspaceSearchId) {
   const tree = document.getElementById('workspace-tree');
   const invoke = nativeInvoke ?? window.__TAURI__?.core?.invoke;
   const needle = query.trim().toLowerCase();
   if (!tree || !needle) {
     setWorkspaceSearchLoading(false);
-    workspaceSearchToken += 1;
-    await loadWorkspaceTree(workspaceRootPath, invoke, { animate: true });
+    await loadWorkspaceTree(workspaceRootPath, invoke, { animate: true, requestToken: ++workspaceTreeToken });
     return;
   }
-  const token = workspaceSearchToken;
   setWorkspaceSearchLoading(true);
   try {
     const matches = await invoke('search_directory', { path: workspaceRootPath, query: needle });
-    if (token !== workspaceSearchToken) return;
+    // Only a newer keystroke may discard this answer.
+    if (search !== workspaceSearchId) return;
     /** The search stops at a number the tree can draw. A list that quietly ends
         would read as "there is nothing else", which is a different answer. */
     const capped = matches.length >= workspaceSearchLimit;
@@ -4119,8 +4125,8 @@ async function searchWorkspaceFiles(query) {
     decorateWorkspaceTree();
     setWorkspaceSearchLoading(false);
   } catch (error) {
-    if (token !== workspaceSearchToken) return;
-    tree.innerHTML = '<li class="workspace-empty">File search unavailable.</li>';
+    if (search !== workspaceSearchId) return;
+    tree.innerHTML = `<li class="workspace-empty">File search unavailable: ${escapeHTML(error instanceof Error ? error.message : String(error))}</li>`;
     setWorkspaceSearchLoading(false);
     notify('Workspace file search unavailable.');
     console.warn('Workspace file search unavailable:', error);
@@ -4136,17 +4142,17 @@ function setWorkspaceSearchLoading(loading) {
 
 function scheduleWorkspaceFileSearch(query) {
   window.clearTimeout(workspaceSearchTimer);
-  const token = ++workspaceSearchToken;
+  const search = ++workspaceSearchId;
   const needle = query.trim();
   if (!needle) {
     setWorkspaceSearchLoading(false);
-    void loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true, requestToken: token });
+    void loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true, requestToken: ++workspaceTreeToken });
     return;
   }
   setWorkspaceSearchLoading(true);
   workspaceSearchTimer = window.setTimeout(() => {
-    if (token !== workspaceSearchToken) return;
-    void searchWorkspaceFiles(query);
+    if (search !== workspaceSearchId) return;
+    void searchWorkspaceFiles(query, search);
   }, 140);
 }
 
@@ -4267,7 +4273,7 @@ async function revealOpenFileInExplorer() {
   if (filtered) {
     filter.value = '';
     window.clearTimeout(workspaceSearchTimer);
-    workspaceSearchToken += 1;
+    workspaceTreeToken += 1;
     setWorkspaceSearchLoading(false);
   }
   if (!explorerExpanded || filtered) {
@@ -4304,7 +4310,7 @@ async function expandExplorer() {
 
 async function collapseExplorer() {
   window.clearTimeout(workspaceSearchTimer);
-  workspaceSearchToken += 1;
+  workspaceTreeToken += 1;
   setWorkspaceSearchLoading(false);
   updateExplorerMode(false);
   await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
@@ -5264,7 +5270,7 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'refresh-tree') {
     window.clearTimeout(workspaceSearchTimer);
-    workspaceSearchToken += 1;
+    workspaceTreeToken += 1;
     setWorkspaceSearchLoading(false);
     loadWorkspaceTree(activeRepositoryPath(), nativeInvoke);
     return;
