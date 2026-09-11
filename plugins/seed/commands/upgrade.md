@@ -8,6 +8,8 @@ description: Migrate this project's memory-bank/ to the current SEED schema vers
 
 ## Memory Bank Integration
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 **Reads from:** `memory-bank/projectConfig.md`'s `schema_version` field,
 `${CLAUDE_PLUGIN_ROOT}/context/schema-migrations.md`.
 **Updates:** `memory-bank/projectConfig.md` and whatever else a migration row touches.

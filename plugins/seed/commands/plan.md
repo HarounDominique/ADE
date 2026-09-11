@@ -9,6 +9,8 @@ argument-hint: <slug>
 
 ## Memory Bank Integration
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 **Reads from:** `memory-bank/specs/SPEC-<slug>.md` (or the relevant module spec under a
 nexus), `memory-bank/agent-rules-index.md` (run `${CLAUDE_PLUGIN_ROOT}/commands/rules-index.md`
 first if missing or stale), `memory-bank/projectConfig.md`.

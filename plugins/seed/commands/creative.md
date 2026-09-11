@@ -12,6 +12,8 @@ never invokes this — no context-loading cost is paid for a step that does not 
 
 ## Memory Bank Integration
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 **Reads from:** `memory-bank/tasks/<slug>.md` (the specific phase flagged as needing
 design), the approved spec it satisfies, `memory-bank/agent-rules-index.md` (run
 `${CLAUDE_PLUGIN_ROOT}/commands/rules-index.md` first if missing or stale) for any

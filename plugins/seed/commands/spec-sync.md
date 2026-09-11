@@ -12,6 +12,8 @@ Run after any edit to a module spec under a nexus. Automates
 
 ## Memory Bank Integration
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 **Reads from:** the changed `SPEC-<module-id>.md`, `SPEC-NEXUS.md`, every other
 `SPEC-*.md` in the corpus.
 **Updates:** `SPEC-NEXUS.md` (status, Blocked by, Change Log), any citing spec whose

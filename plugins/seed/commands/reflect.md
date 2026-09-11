@@ -12,6 +12,8 @@ behind for the next one.
 
 ## Memory Bank Integration
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 **Reads from:** `memory-bank/tasks/<slug>.md`, its spec(s), its creative doc if any,
 the build phases' deviation notes, and — if present —
 `memory-bank/.local/session-logs/*.md` (written by the `SessionEnd` hook) as optional

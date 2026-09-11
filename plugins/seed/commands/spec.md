@@ -11,6 +11,8 @@ The mandatory origin of every task. Nothing calls `/seed:plan` on a task with no
 
 ## Memory Bank Integration
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 **Reads from:** the initiative description (argument or conversation), existing
 `memory-bank/specs/SPEC-NEXUS.md` if one already exists.
 **Updates:** `memory-bank/specs/SPEC-<slug>.md`, or `SPEC-NEXUS.md` + one
@@ -23,15 +25,26 @@ method — it gates and persists what the agent drafts.
 
 ---
 
-## Step 0: Scope check
+## Step 0: Memory bank first
+
+`/seed:spec` writes `memory-bank/specs/SPEC-<slug>.md`. If `memory-bank/` is not there,
+run `/seed:init` now, say that you did, and continue — do not ask whether to, and do not
+write a spec into a tree that does not exist. See
+`${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`.
+
+This is the first phase of the workflow, so it is where an uninitialized project is most
+likely to arrive. The human asking for a spec has already told you they want the workflow;
+needing a memory bank is what that means, not a separate decision.
+
+## Step 0.5: Scope check
 
 Read `${CLAUDE_PLUGIN_ROOT}/context/spec-first.md` § Bundled capabilities. Does this request name more than one
 independently-testable capability, or more than one distinct screen/view/menu?
 
 - No → Step 1, single-capability path.
-- Yes → Step 0a, nexus path.
+- Yes → Step 0.5a, nexus path.
 
-### Step 0a: Nexus path
+### Step 0.5a: Nexus path
 
 Propose `SPEC-NEXUS.md` per the template in `${CLAUDE_PLUGIN_ROOT}/context/spec-first.md`. Stop for human
 review of module boundaries, dependency direction, and build order before writing a

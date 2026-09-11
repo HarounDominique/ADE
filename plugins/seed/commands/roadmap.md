@@ -13,6 +13,8 @@ exists for visibility across many tasks, not as a gate.
 
 ## Memory Bank Integration
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 **Reads from:** `memory-bank/roadmap/*.md`, `memory-bank/tasks/*.md` (for linked-task
 status).
 **Updates:** `memory-bank/roadmap/<feature>.md`.
