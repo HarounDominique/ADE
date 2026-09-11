@@ -12,6 +12,9 @@ import { runSpike } from "./application/run-spike.js";
 import { createRuntimeEvidence } from "./domain/runtime-evidence.js";
 import { getRuntimeHistory, getTaskDetail } from "./application/task-detail.js";
 import { getChangeReview } from "./application/change-review-read-model.js";
+import { advanceTaskWorkflow, getTaskWorkflow, isWorkflowEnabledForTask, resolveActivation, startTaskWorkflow, WorkflowDisabledError } from "./application/workflow/task-workflow.js";
+import { proposeNextPhase, WorkflowRefusedError, type WorkflowResult } from "./application/workflow/advance.js";
+import type { WorkflowMode, WorkflowState } from "./domain/workflow/phase.js";
 import { approveTaskFromStore } from "./application/tasks/approval-from-store.js";
 import { ShipBlockedError, shipTaskFromStore } from "./application/tasks/ship-from-store.js";
 import { createAgentRuntime, createReviewer, isAgentProvider, type AgentProvider } from "./adapters/provider-runtime.js";
@@ -56,7 +59,7 @@ import { resolveProviderSessionId } from "./application/terminal-history/provide
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; settings?: Partial<UserSettings>; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean };
+  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; settings?: Partial<UserSettings>; prompt?: string; commit?: string; file?: string; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean; workflowMode?: WorkflowMode; result?: WorkflowResult };
 };
 
 export type DesktopResponse = {
@@ -141,9 +144,66 @@ function backfillTerminalConversationIds(store: AdeStore, projectId: string, rep
   });
 }
 
+const WORKFLOW_MODES = ["quick", "standard", "design-heavy", "recovery"] as const;
+
+/** The shell asks three things of the workflow: where the Task is, start
+    conducting it, move it on. `workflow.state` answers even when the flow is
+    switched off -- a surface that cannot tell "off" from "broken" renders the
+    same empty panel for both. Start and advance say no with their own code, so
+    the shell can explain rather than retry. */
+function handleWorkflowRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
+  const taskId = request.params?.taskId;
+  if (!taskId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId is required" } };
+
+  const enabled = isWorkflowEnabledForTask(store, taskId);
+
+  if (request.method === "workflow.state") {
+    const state = enabled ? getTaskWorkflow(store, taskId) : undefined;
+    return { id: request.id, result: { taskId, enabled, state: state ? readWorkflow(state) : null } };
+  }
+
+  const activation = resolveActivation(store, taskId);
+  try {
+    if (request.method === "workflow.start") {
+      const { workflowMode, reason, actor } = request.params ?? {};
+      if (!workflowMode || !reason || !WORKFLOW_MODES.includes(workflowMode)) {
+        return { id: request.id, error: { code: "INVALID_PARAMS", message: `workflowMode (${WORKFLOW_MODES.join(", ")}) and reason are required` } };
+      }
+      const state = startTaskWorkflow(store, { taskId, mode: workflowMode, reason, activation, ...(actor ? { actor } : {}) });
+      return { id: request.id, result: readWorkflow(state) };
+    }
+
+    const { result, actor } = request.params ?? {};
+    if (!result?.phase || !result.reason) {
+      return { id: request.id, error: { code: "INVALID_PARAMS", message: "result with a phase and a reason is required" } };
+    }
+    const state = advanceTaskWorkflow(store, { taskId, result, activation, ...(actor ? { actor } : {}) });
+    return { id: request.id, result: readWorkflow(state) };
+  } catch (error) {
+    if (error instanceof WorkflowDisabledError) return { id: request.id, error: { code: "WORKFLOW_DISABLED", message: error.message } };
+    if (error instanceof WorkflowRefusedError) return { id: request.id, error: { code: "WORKFLOW_REFUSED", message: error.message } };
+    throw error;
+  }
+}
+
+/** What the surface needs to render a phase: where the work is, how it got
+    there, and whether this phase has already used up its attempts. */
+function readWorkflow(state: WorkflowState) {
+  return {
+    taskId: state.taskId,
+    phase: state.currentPhase,
+    mode: state.currentMode,
+    cycle: state.currentCycle,
+    nextProposed: proposeNextPhase(state) ?? null,
+    dispatch: state.dispatchFor(state.currentPhase),
+    haltReason: state.haltReason() ?? null,
+    history: state.history(),
+  };
+}
+
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.acceptance', 'task.advance', 'settings.read', 'settings.write', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'terminal.history.list', 'terminal.history.get', 'terminal.history.save', 'terminal.history.delete', 'service.status', 'skills.list'].includes(request.method)) {
+    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.acceptance', 'task.advance', 'settings.read', 'settings.write', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'terminal.history.list', 'terminal.history.get', 'terminal.history.save', 'terminal.history.delete', 'service.status', 'skills.list', 'workflow.state', 'workflow.start', 'workflow.advance'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.list") {
@@ -236,6 +296,9 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       const taskId = request.params?.taskId;
       if (!taskId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "taskId is required" } };
       return { id: request.id, result: request.method === "task.detail" ? getTaskDetail(store, taskId) : request.method === "runtime.history" ? getRuntimeHistory(store, taskId) : getChangeReview(store, taskId) };
+    }
+    if (request.method === "workflow.state" || request.method === "workflow.start" || request.method === "workflow.advance") {
+      return handleWorkflowRequest(store, request);
     }
     if (request.method === "settings.read") {
       return { id: request.id, result: readSettings(store) };

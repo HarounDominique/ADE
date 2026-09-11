@@ -4,8 +4,8 @@ import { AdeStore } from "../../persistence/sqlite-store.js";
 import { getChangeReview } from "../change-review-read-model.js";
 import { isDevelopmentWorkflowEnabled } from "./activation.js";
 import { applyWorkflowResult, type WorkflowResult } from "./advance.js";
-import type { GatePolicy } from "../change-review/gate-policy.js";
-import type { UserSettings } from "../settings/settings.js";
+import { loadGatePolicy, type GatePolicy } from "../change-review/gate-policy.js";
+import { readSettings, type UserSettings } from "../settings/settings.js";
 
 /** The workflow is off for this operator or this Project. Told apart from a
     refusal: nothing was wrong with the request, ADE simply is not conducting
@@ -18,6 +18,23 @@ export type Activation = {
   user: Pick<UserSettings, "developmentWorkflow">;
   policy: Pick<GatePolicy, "developmentWorkflow">;
 };
+
+/** Both halves of the switch, read where they actually live: the operator's
+    preference in ADE's own store, the Project's position in the repository the
+    Task points at. A Task with no repository has no Project policy to consult,
+    so the operator's preference stands alone. */
+export function resolveActivation(store: AdeStore, taskId: string): Activation {
+  const task = store.getTask(taskId);
+  return {
+    user: readSettings(store),
+    policy: loadGatePolicy(task?.repositoryPath ?? undefined),
+  };
+}
+
+export function isWorkflowEnabledForTask(store: AdeStore, taskId: string): boolean {
+  const activation = resolveActivation(store, taskId);
+  return isDevelopmentWorkflowEnabled({ user: activation.user as UserSettings, policy: activation.policy as GatePolicy });
+}
 
 export function getTaskWorkflow(store: AdeStore, taskId: string): WorkflowState | undefined {
   const snapshot = store.getWorkflowState(taskId);

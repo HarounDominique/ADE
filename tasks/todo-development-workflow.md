@@ -37,10 +37,10 @@
   - Verify: `npx tsx --test tests/workflow-orchestration.test.ts tests/workflow-task.test.ts` — 25 tests.
   - Files: `src/application/workflow/advance.ts`, `src/application/workflow/task-workflow.ts`, `tests/workflow-orchestration.test.ts`, `tests/workflow-task.test.ts`
 
-- [ ] Task: Exponer el workflow en el sidecar
-  - Acceptance: la shell puede leer estado y avanzar fase; con el flujo desactivado los comandos responden que está apagado en vez de fallar.
-  - Verify: `tests/desktop-sidecar.test.ts`.
-  - Files: `src/desktop-sidecar.ts`, `tests/desktop-sidecar.test.ts`
+- [x] Task: Exponer el workflow en el sidecar
+  - Acceptance: `workflow.state`, `workflow.start` y `workflow.advance` existen; `state` contesta también con el flujo apagado (`enabled: false`) para que la superficie distinga «apagado» de «roto»; `start`/`advance` rechazan con `WORKFLOW_DISABLED` y un resultado inválido vuelve como `WORKFLOW_REFUSED`, nunca como excepción; los parámetros se validan, incluido un modo inexistente.
+  - Verify: `npx tsx --test tests/workflow-sidecar.test.ts` — 9 tests.
+  - Files: `src/desktop-sidecar.ts`, `src/application/workflow/task-workflow.ts`, `tests/workflow-sidecar.test.ts`
 
 - [ ] Task: Superficie de shell e interruptor en Settings
   - Acceptance: fase, modo, intentos y motivo de reentrada son visibles en el detalle de la Task; Settings permite apagar el flujo; un Project que lo fuerza lo explica en vez de mostrar un control muerto.
