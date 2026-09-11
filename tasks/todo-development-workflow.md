@@ -32,10 +32,10 @@
   - Verify: `npx tsx --test tests/commit-guard.test.ts` — 17 tests.
   - Files: `src/application/workflow/commit-guard.ts`, `src/application/change-review/gate-policy.ts`, `tests/commit-guard.test.ts`
 
-- [ ] Task: Orquestación y contrato `WorkflowResult`
-  - Acceptance: un caso de uso propone la fase siguiente según modo y evidencia, aplica `gateUpdates`, respeta el halt del tercer intento y nunca salta una gate obligatoria ni aprueba `SHIP`.
-  - Verify: matriz de modos y loops en `tests/workflow-orchestration.test.ts`.
-  - Files: `src/application/workflow/advance.ts`, `tests/workflow-orchestration.test.ts`
+- [x] Task: Orquestación y contrato `WorkflowResult`
+  - Acceptance: la ruta del modo propone la fase siguiente y calla cuando la matriz la rechazaría; un resultado de una fase ya abandonada se rechaza como obsoleto; volver atrás se marca como reentrada; `SHIP` se rechaza contra las gates reales de la Task, no contra lo que el llamante afirme; una skill no puede aprobar ni dispensar una gate; el tercer intento rechaza el despacho; con el flujo apagado se rechaza sin dejar estado a medias y un resultado rechazado nunca llega al store.
+  - Verify: `npx tsx --test tests/workflow-orchestration.test.ts tests/workflow-task.test.ts` — 25 tests.
+  - Files: `src/application/workflow/advance.ts`, `src/application/workflow/task-workflow.ts`, `tests/workflow-orchestration.test.ts`, `tests/workflow-task.test.ts`
 
 - [ ] Task: Exponer el workflow en el sidecar
   - Acceptance: la shell puede leer estado y avanzar fase; con el flujo desactivado los comandos responden que está apagado en vez de fallar.
