@@ -32,7 +32,8 @@
     "license": "MIT",
     "licenseFile": "../../LICENSE",
     "resources": {
-      "../sidecar-dist": "sidecar-dist"
+      "../sidecar-dist": "sidecar-dist",
+      "../../plugins/seed": "seed"
     },
     "targets": "all",
     "icon": [
