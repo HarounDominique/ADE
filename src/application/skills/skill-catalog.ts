@@ -3,11 +3,11 @@ import { validateSkillManifest, type SkillManifest } from "../../domain/skill.js
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const nativeSkillDefinitions: ReadonlyArray<Pick<SkillManifest, "id" | "label" | "description" | "permissions">> = [
+const nativeSkillDefinitions: ReadonlyArray<Pick<SkillManifest, "id" | "label" | "description" | "permissions"> & { implemented?: boolean }> = [
   { id: "prompt-engineering", label: "Prompt engineering", description: "Shape intent, constraints and acceptance criteria.", permissions: ["read_project"] },
   { id: "pr-review", label: "PR review", description: "Review a ChangeSet with evidence and actionable findings.", permissions: ["read_project"] },
   { id: "spector", label: "Spector specs", description: "Generate and reconcile living specifications.", permissions: ["read_project", "write_docs"] },
-  { id: "adaptive-workflow", label: "Adaptive workflow", description: "Select phase, mode and re-entry without rigid ceremony.", permissions: ["read_project"] },
+  { id: "adaptive-workflow", label: "Adaptive workflow", description: "Select phase, mode and re-entry without rigid ceremony.", permissions: ["read_project"], implemented: true },
   { id: "uml", label: "UML diagrams", description: "Generate diagrams that support specs and quality review.", permissions: ["read_project", "write_docs"] },
   { id: "functional-documentation", label: "Functional documentation", description: "Explain scope, behavior and rationale for QA.", permissions: ["read_project", "write_docs"] },
   { id: "task-estimation", label: "Task estimation", description: "Estimate implementation effort from functional intent.", permissions: ["read_project"] },
@@ -20,6 +20,9 @@ export const nativeSkills: readonly SkillManifest[] = nativeSkillDefinitions.map
   inputs: ["intent", "context"],
   outputs: ["proposal", "evidence"],
   source: "native",
+  /** Unstated means not yet built. A skill claims a body explicitly, so the
+      default can never be an overstatement of what the catalogue can do. */
+  implemented: skill.implemented ?? false,
 }));
 
 export function listNativeSkills(): readonly SkillManifest[] {

@@ -47,15 +47,15 @@
   - Verify: `tests/desktop-ui-contract.test.ts`.
   - Files: `desktop/src/`, `tests/desktop-ui-contract.test.ts`
 
-- [ ] Task: Bucle de aprendizaje en RECONCILE
-  - Acceptance: una Task cerrada deja cero o más reglas con evidencia de origen, refuerzo y prioridad; una regla nueva nace en `low`; una regla rechazada por la validación de seguridad no se carga nunca; el coste de contexto está acotado.
-  - Verify: `tests/workflow-learning.test.ts`.
-  - Files: `src/application/workflow/learned-rules.ts`, `tests/workflow-learning.test.ts`
+- [x] Task: Bucle de aprendizaje en RECONCILE
+  - Acceptance: una Task cerrada deja cero o más reglas con evidencia de origen, refuerzo y prioridad; una regla nueva nace en `low` y nunca alcanza `critical` por sí sola; una Task no puede reforzar su propia regla dos veces; una regla humana jamás se reescribe; las cuatro categorías de rechazo se detectan y una regla rechazada no se almacena ni se carga; el corpus se acota por ficheros tocados y por número.
+  - Verify: `npx tsx --test tests/workflow-learning.test.ts tests/workflow-rules-store.test.ts` — 25 tests.
+  - Files: `src/domain/workflow/learned-rule.ts`, `src/application/workflow/learned-rules.ts`, `src/persistence/sqlite-store.ts`, `tests/workflow-learning.test.ts`, `tests/workflow-rules-store.test.ts`
 
-- [ ] Task: Dar cuerpo a la skill nativa `adaptive-workflow`
-  - Acceptance: la skill despacha contra el dominio en vez de reenviar su propia descripción como prompt; `spector` se declara explícitamente como pendiente en vez de aparentar paridad.
-  - Verify: `tests/skill-catalog.test.ts` y `tests/run-skill.test.ts`.
-  - Files: `src/application/skills/skill-catalog.ts`, `src/application/skills/run-skill.ts`
+- [x] Task: Dar cuerpo a la skill nativa `adaptive-workflow`
+  - Acceptance: el briefing lleva intención, criterios de aceptación, fase, modo, ciclo, intento, aviso de escalada, motivo de reentrada, propuesta de la ruta, reglas aplicables y el contrato de respuesta con lo que el agente no puede decidir; una fase detenida no se briefea; una regla insegura nunca llega al prompt; el manifiesto distingue skill con cuerpo de skill que sólo se describe, y `spector` se declara pendiente.
+  - Verify: `npx tsx --test tests/workflow-briefing.test.ts` — 8 tests.
+  - Files: `src/application/workflow/workflow-briefing.ts`, `src/application/skills/skill-catalog.ts`, `src/application/skills/run-skill.ts`, `src/domain/skill.ts`, `tests/workflow-briefing.test.ts`
 
 - [ ] Task: Sincronizar documentación y cerrar el módulo
   - Acceptance: nexus, PRODUCT, README y specs dependientes reflejan lo implementado; `development-workflow` vuelve a `done` sólo cuando el código lo sostiene.

@@ -8,6 +8,11 @@ import type { Review } from "../domain/review.js";
 import type { RuntimeEvidence } from "../domain/runtime-evidence.js";
 import type { Gate, GateStatus } from "../domain/gate.js";
 import type { WorkflowSnapshot } from "../domain/workflow/phase.js";
+import type { LearnedRule } from "../domain/workflow/learned-rule.js";
+
+/** A learned rule as it is stored: the domain shape plus the Project it belongs
+    to, which the rule itself has no reason to carry around. */
+export type StoredLearnedRule = LearnedRule & { projectId: string };
 
 export type PersistedTask = {
   id: string;
@@ -165,6 +170,19 @@ export class AdeStore {
         value TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS learned_rules (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        topic TEXT NOT NULL,
+        directive TEXT NOT NULL,
+        globs_json TEXT NOT NULL,
+        priority TEXT NOT NULL,
+        evidence_count INTEGER NOT NULL,
+        source TEXT NOT NULL,
+        derived_from TEXT NOT NULL,
+        last_validated TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_learned_rules_project ON learned_rules(project_id);
       CREATE TABLE IF NOT EXISTS workflow_state (
         task_id TEXT PRIMARY KEY REFERENCES tasks(id),
         mode TEXT NOT NULL,
@@ -543,6 +561,22 @@ export class AdeStore {
   setSetting(key: string, value: unknown, updatedAt = new Date().toISOString()): void {
     this.db.prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at")
       .run(key, JSON.stringify(value), updatedAt);
+  }
+
+  /** Rules belong to the Project, not to the Task that produced them: the point
+      of the loop is that the next Task inherits them. */
+  saveLearnedRule(rule: StoredLearnedRule): void {
+    this.db.prepare(`INSERT INTO learned_rules (id, project_id, topic, directive, globs_json, priority, evidence_count, source, derived_from, last_validated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET topic = excluded.topic, directive = excluded.directive, globs_json = excluded.globs_json, priority = excluded.priority, evidence_count = excluded.evidence_count, source = excluded.source, derived_from = excluded.derived_from, last_validated = excluded.last_validated`)
+      .run(rule.id, rule.projectId, rule.topic, rule.directive, JSON.stringify(rule.globs), rule.priority, rule.evidenceCount, rule.source, rule.derivedFrom, rule.lastValidated);
+  }
+
+  listLearnedRules(projectId: string): StoredLearnedRule[] {
+    return this.db.prepare(`SELECT id, project_id AS projectId, topic, directive, globs_json AS globs, priority, evidence_count AS evidenceCount, source, derived_from AS derivedFrom, last_validated AS lastValidated FROM learned_rules WHERE project_id = ?`)
+      .all(projectId)
+      .map((row) => {
+        const record = row as Omit<StoredLearnedRule, "globs"> & { globs: string };
+        return { ...record, globs: JSON.parse(record.globs) as string[] };
+      });
   }
 
   /** One row per Task: the workflow state is where the work currently is, not a
