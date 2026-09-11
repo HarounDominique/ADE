@@ -77,6 +77,52 @@ El sistema selecciona un modo inicial y puede escalarlo:
 
 El modo no puede omitir invariantes: ChangeSet, evidencia de verificación, review cuando la policy la exige y aprobación humana antes de commit.
 
+## Activation
+
+El workflow viene **activado por defecto** y puede desactivarse en dos niveles, decididos en [ADR-0056](../adr/0056-native-development-workflow.md):
+
+| Nivel | Dónde | Precedente |
+|---|---|---|
+| Operador | `UserSettings.developmentWorkflow` en la base de ADE | `turnChime` ([ADR-0053](../adr/0053-user-settings-live-in-ades-store.md)) |
+| Project | `developmentWorkflow` en `.ade/policy.json` | `requiredGates` ([ADR-0044](../adr/0044-verification-gates-from-real-runs.md)) |
+
+El Project gana cuando se pronuncia: un repositorio que declara `developmentWorkflow: true` lo exige a quien lo abra, y uno que declara `false` lo apaga aunque el operador lo prefiera. Ausencia de declaración en `.ade/policy.json` cede la decisión al operador; ausencia en ambos sitios significa activado.
+
+Desactivado, la Task conserva estado de ciclo de vida, gates, evidencia, review y aprobación. Lo que se apaga es la conducción por fases: nadie propone la fase siguiente, nadie cuenta intentos y el guard TDD no bloquea. La gobernanza no depende de este interruptor.
+
+## Attempts and model escalation
+
+Cada fase cuenta sus propios intentos sobre la Task, y el contador se reinicia al entrar en un ciclo nuevo de esa fase, nunca a mitad.
+
+| Intento | Comportamiento |
+|---|---|
+| 1 | Despachar en el tier por defecto de la fase |
+| 2 | Despachar la misma fase subiendo un tier, una sola vez |
+| 3 | No despachar. Detener la fase y pedir decisión humana, nombrando fase, intentos y última razón de fallo |
+
+No es un presupuesto de reintentos que se pueda ampliar: el tercer intento es la parada prevista. Un fallo que ya sobrevivió a un tier superior es información sobre el problema, no sobre el modelo.
+
+El contador vive junto a la fase, no en el prompt, para que reanudar una Task tras cerrar la aplicación no reinicie la escalada ni la repita.
+
+## TDD guard
+
+Antes de que un cambio pase `VERIFY`, un chequeo determinista sobre el diff staged decide, sin intervención de un agente:
+
+- Todo fichero de producción **añadido o modificado** lleva un fichero de test en el mismo diff. Un fichero de producción sólo **borrado** no exige nada: limpiar no es un cambio sin probar.
+- La verificación declarada del Project terminó en `0`, leída de la evidencia `verification.tests.pass|fail` que [ADR-0044](../adr/0044-verification-gates-from-real-runs.md) ya produce. Sin evidencia de ejecución, el guard bloquea: ausencia no es verde.
+
+Producción y test se distinguen por nombre de fichero —extensión conocida y patrón `test_*`, `*_test.*`, `*.test.*`, `*.spec.*`— lo que funciona igual para una raíz plana que para `src/` + `tests/`. Un Project cuya convención sea genuinamente distinta la declara una vez en `.ade/policy.json`, nunca por commit.
+
+El guard no comprueba el **orden** en que se escribieron test e implementación: un chequeo sobre un diff no puede verlo. El orden lo impone `BUILD`, que exige un RED verificado antes de implementar. El guard cubre el caso que sí puede ver — que el test falte del todo.
+
+## Learning loop
+
+`RECONCILE` extrae de la Task cerrada reglas reutilizables. Una regla es una línea directiva con su evidencia de origen, un contador de refuerzo y una prioridad en cuatro niveles (`low` < `medium` < `high` < `critical`).
+
+Una regla nueva nace en `low` con un solo refuerzo; sólo asciende cuando varias Tasks la reconfirman. Nunca sobrescribe una regla escrita por un humano.
+
+Las fases que evalúan trabajo —`REVIEW` sobre todo— cargan las reglas que apliquen a los ficheros tocados, no el corpus entero, y una regla que la validación de seguridad rechazó no se carga nunca. El coste de contexto de las reglas está acotado por la misma razón que lo está el de las fases.
+
 ## Workflow skills
 
 ### Transition skills
@@ -164,11 +210,14 @@ En v0.1 son comandos de aplicación, aunque inicialmente puedan exponerse sólo 
 ## Project Structure
 
 ```text
-src/application/workflow/ → Orquestación de transiciones
-src/domain/workflow/      → Estados, modos, triggers e invariantes
-src/skills/workflow/      → Skills de transición y responsibility
-tests/workflow/            → Matriz de modos, loops y gates
+src/domain/workflow/      → Fases, modos, matriz de transiciones, intentos e invariantes
+src/application/workflow/ → Orquestación, persistencia de estado, guard TDD y activación
+tests/                     → Matriz de modos, loops, gates y escalada (un fichero por seam)
 ```
+
+Los tests viven en `tests/` en plano, como el resto del repositorio, no en un subárbol
+propio: `tests/workflow-phase.test.ts`, `tests/workflow-mode.test.ts`,
+`tests/workflow-attempts.test.ts`, `tests/commit-guard.test.ts`.
 
 ## Code Style
 
