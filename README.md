@@ -35,7 +35,7 @@ RECONCILE leaves rules behind. A rule is one directive about how this Project wr
 
 The workflow is on by default and can be switched off in two places: your own preferences, in Settings, and the Project's `.ade/policy.json`. The Project wins when it declares a position, because a repository that requires the workflow requires it of whoever opens it; silence hands the decision back to you. Switched off, Tasks, gates, evidence, review and approval all still work — what stops is the conducting, not the governance.
 
-The methodology also exists on its own, as SEED — a plugin you can install into your own agent and use without Assay. One methodology, two distribution surfaces; neither requires the other. The contract is in [SPEC-development-workflow](docu/specs/SPEC-development-workflow.md) and the decision in [ADR-0056](docu/adr/0056-native-development-workflow.md).
+The methodology also exists on its own, as [SEED](https://github.com/HarounDominique/seed) — a plugin you can install into your own agent and use without Assay. One methodology, two distribution surfaces; neither requires the other. The contract is in [SPEC-development-workflow](docu/specs/SPEC-development-workflow.md) and the decision in [ADR-0056](docu/adr/0056-native-development-workflow.md).
 
 ### Known gaps
 

@@ -26,7 +26,7 @@ Lo único que quedaba del módulo era una entrada en el catálogo de skills nati
 
 `runNativeSkill` toma el `label` y la `description` de ese manifiesto, los mete en un prompt de cinco líneas y se lo manda al proveedor. Ejecutar la skill era enviarle al modelo una frase de una línea. La misma forma tiene `spector`, que promete generar y reconciliar specs vivas.
 
-Existe una implementación probada de esta metodología fuera de ADE: SEED, un plugin de Claude Code que lleva el flujo `spec → plan → creative → build → reflect → archive` con enrutado por complejidad, un guard TDD determinista, escalada de modelo por reintento y un bucle de aprendizaje entre tareas. Comparte con ADE el formato de corpus de specs —`SPEC-NEXUS.md`, specs de módulo, cita por `module id + heading`, estados `draft/ready/blocked/in-progress/done`— hasta el punto de que las dos tablas de módulos son intercambiables. Sus seis fases encajan dentro de las ocho de ADE sin residuo.
+Existe una implementación probada de esta metodología fuera de ADE: [SEED](https://github.com/HarounDominique/seed), un plugin de Claude Code que lleva el flujo `spec → plan → creative → build → reflect → archive` con enrutado por complejidad, un guard TDD determinista, escalada de modelo por reintento y un bucle de aprendizaje entre tareas. Comparte con ADE el formato de corpus de specs —`SPEC-NEXUS.md`, specs de módulo, cita por `module id + heading`, estados `draft/ready/blocked/in-progress/done`— hasta el punto de que las dos tablas de módulos son intercambiables. Sus seis fases encajan dentro de las ocho de ADE sin residuo.
 
 ## Decision
 
