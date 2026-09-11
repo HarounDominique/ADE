@@ -125,3 +125,14 @@ test("the failing files are all reported, not just the first", () => {
   assert.equal(verdict.ok, false);
   assert.deepEqual(verdict.files, ["src/a.ts", "src/b.ts"], "the deleted file is not among them");
 });
+
+test("a Windows-shaped path is judged by its file name like any other", () => {
+  const verdict = evaluateCommitGuard({ staged: staged(["M", "src\\pricing.ts"]), verification: green });
+  assert.equal(verdict.ok, false, "a backslash must not hide a production file from the guard");
+
+  assert.equal(
+    evaluateCommitGuard({ staged: staged(["M", "src\\pricing.ts"], ["M", "tests\\pricing.test.ts"]), verification: green }).ok,
+    true,
+    "nor hide its test",
+  );
+});

@@ -158,3 +158,8 @@ test("the context a phase loads is bounded, keeping the highest priority rules",
   assert.equal(selected.length, 10);
   assert.equal(selected[0]?.id, "r39", "the bound drops the least reinforced, never the most");
 });
+
+test("a rule's scope matches a Windows-shaped path too", () => {
+  const selected = selectRulesFor([rule({ id: "ts", globs: ["src/**/*.ts"] })], ["src\\application\\advance.ts"]);
+  assert.deepEqual(selected.map((item) => item.id), ["ts"], "a glob is written with forward slashes on every platform");
+});
