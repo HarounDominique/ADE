@@ -9,6 +9,11 @@ export type SkillManifest = {
   outputs: readonly string[];
   permissions: readonly SkillPermission[];
   source: "native" | "project";
+  /** Whether this skill has a body, or is only a manifest describing one.
+      A manifest-only skill forwards its own description to the provider as a
+      prompt; presenting that beside skills that actually execute leaves the
+      operator unable to tell them apart (ADR-0056). */
+  implemented?: boolean;
 };
 
 export function validateSkillManifest(manifest: SkillManifest): SkillManifest {
