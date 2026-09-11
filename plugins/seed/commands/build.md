@@ -12,6 +12,8 @@ the whole point of `${CLAUDE_PLUGIN_ROOT}/context/jit-sharding.md`.
 
 ## Memory Bank Integration
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 **Reads from:** `memory-bank/tasks/<slug>.md` `## Execution State`,
 `memory-bank/agent-rules-index.md` (step 4's review gate loads its **Active rules** table,
 never the raw `agent-rules/` files — run `${CLAUDE_PLUGIN_ROOT}/commands/rules-index.md`

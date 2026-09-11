@@ -9,6 +9,8 @@ argument-hint: <slug>
 
 ## Memory Bank Integration
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 **Reads from:** `memory-bank/tasks/<slug>.md`, `memory-bank/reflection/<slug>.md`.
 **Updates:** `memory-bank/archive/<slug>.md`; resets nothing in `_learned/` (that
 persists across tasks by design).

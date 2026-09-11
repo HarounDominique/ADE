@@ -5,6 +5,8 @@ argument-hint: [--specs]
 
 # /seed:verify — ad-hoc verification
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 Runs independently of the phase lifecycle, at any point.
 
 ---

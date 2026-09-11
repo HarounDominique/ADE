@@ -4,6 +4,8 @@ description: On-demand health check of memory-bank shape, hot-cache consistency,
 
 # /seed:doctor — health check
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 On-demand git/config diagnostic. Doubles as a pre-flight before any structural migration
 of `memory-bank/`.
 

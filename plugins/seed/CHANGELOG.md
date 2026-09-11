@@ -3,6 +3,25 @@
 Format: one entry per notable change, newest first. Schema-affecting changes also get a
 row in `context/schema-migrations.md`.
 
+## 1.0.2
+
+**No command checked that `memory-bank/` existed.** All fourteen read or write under it,
+and none of them looked. `/seed:spec` wrote a spec into a tree that was not there, and the
+human had to be the one who knew that `/seed:init` comes first — a workflow whose first
+phase depends on the operator remembering its own setup step has moved its precondition
+into their head.
+
+`/seed:init` was also referenced from nowhere in the flow. `/seed:go` claims to infer the
+next action from repository state, and an uninitialized repository is a state whose next
+action is `/seed:init`; it had no idea.
+
+The precondition is now stated once, in `context/preconditions.md`, and referenced from
+every command whose Memory Bank Integration names a path under `memory-bank/`. `/seed:go`
+gains a Step 0 that routes to `/seed:init`, and `/seed:spec` — the first phase, where an
+uninitialized project is most likely to arrive — initializes and says so rather than
+asking. Asking would be treating a requirement as a decision: someone who asked for a spec
+has already said they want the workflow.
+
 ## 1.0.1
 
 Correctness pass over 1.0.0 — no schema change, so no `context/schema-migrations.md` row.

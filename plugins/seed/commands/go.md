@@ -12,11 +12,23 @@ user to remember which command comes next.
 
 ## Memory Bank Integration
 
+**Precondition:** `memory-bank/` must exist — see `${CLAUDE_PLUGIN_ROOT}/context/preconditions.md`. Absent, run `/seed:init` first, say that you did, then continue.
+
 **Reads from:** `memory-bank/tasks/*.md` execution state, `memory-bank/specs/`, git branch list.
 **Updates:** nothing directly — dispatches to the command whose turn it is.
 **References:** `${CLAUDE_PLUGIN_ROOT}/context/complexity-routing.md`, `${CLAUDE_PLUGIN_ROOT}/context/spec-first.md`.
 
 ---
+
+## Step 0: Is this project initialized at all?
+
+No `memory-bank/` means this project has never met the workflow. That is not an error and
+not a question for the human: run `/seed:init`, report that you did, and carry on with
+Step 1 — a freshly initialized project has no in-flight work, so discovery will be empty
+and the answer will be "next: /seed:spec".
+
+This command claims to infer the next action from repository state. An uninitialized
+repository is a state, and its next action is `/seed:init`.
 
 ## Step 1: Discover in-flight work
 
