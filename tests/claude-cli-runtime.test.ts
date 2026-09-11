@@ -19,6 +19,12 @@ test("a read-only turn does not plan, so the requested model survives", async ()
 });
 
 test("Claude Code CLI creates a resumable session and maps permissions", async () => {
+  /** This test pins the whole argument list, so it pins the plugin away too:
+      the vendored plugin's path is absolute and machine-dependent, and what is
+      under test here is permission and session mapping. The --plugin-dir
+      behaviour has its own tests below. */
+  const previousPluginDir = process.env.ADE_SEED_PLUGIN_DIR;
+  process.env.ADE_SEED_PLUGIN_DIR = "/not/a/plugin";
   const calls: string[][] = [];
   const runtime = new ClaudeCliRuntime("claude", async (_command, args) => {
     calls.push(args);
@@ -33,6 +39,8 @@ test("Claude Code CLI creates a resumable session and maps permissions", async (
     ["--print", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--permission-mode", "default", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep", "--session-id", firstSessionId, "Read the project"],
     ["--print", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--permission-mode", "acceptEdits", "--permission-prompts", "none", "--allowed-tools", "Read,Glob,Grep,Edit,Write,Bash,WebFetch,WebSearch", "--model", "sonnet", "--resume", "claude-session", "Update the project"],
   ]);
+  if (previousPluginDir === undefined) delete process.env.ADE_SEED_PLUGIN_DIR;
+  else process.env.ADE_SEED_PLUGIN_DIR = previousPluginDir;
 });
 
 test("Claude Code forwards public text deltas while a turn is running", async () => {
@@ -128,4 +136,40 @@ test("stream-json is asked for the way the CLI accepts it", async () => {
   const args = calls[0] ?? [];
   assert.ok(args.includes("--verbose"), "stream-json in print mode requires --verbose");
   assert.ok(args.indexOf("--verbose") > args.indexOf("stream-json"));
+});
+
+test("every Claude turn is told where Assay keeps the workflow plugin", async () => {
+  const calls: string[][] = [];
+  const runtime = new ClaudeCliRuntime("claude", async (_command, args) => {
+    calls.push(args);
+    return { stdout: JSON.stringify({ result: "ok", session_id: "11111111-2222-3333-4444-555555555555" }) };
+  });
+
+  await runtime.prompt({ id: "claude-pending-11111111-2222-3333-4444-555555555555", directory: "/tmp" }, { text: "hi" });
+
+  const args = calls[0] ?? [];
+  const at = args.indexOf("--plugin-dir");
+  assert.notEqual(at, -1, "a turn that cannot see the plugin invents an answer about what seed means");
+  assert.ok(args[at + 1]?.endsWith("seed"), `--plugin-dir should name the vendored plugin, got ${args[at + 1]}`);
+});
+
+test("a turn still runs when Assay is not carrying the plugin", async () => {
+  const previous = process.env.ADE_SEED_PLUGIN_DIR;
+  process.env.ADE_SEED_PLUGIN_DIR = "/definitely/not/here";
+  try {
+    const calls: string[][] = [];
+    const runtime = new ClaudeCliRuntime("claude", async (_command, args) => {
+      calls.push(args);
+      return { stdout: JSON.stringify({ result: "ok", session_id: "11111111-2222-3333-4444-555555555555" }) };
+    });
+
+    await runtime.prompt({ id: "claude-pending-11111111-2222-3333-4444-555555555555", directory: "/tmp" }, { text: "hi" });
+
+    const args = calls[0] ?? [];
+    assert.equal(args.includes("--plugin-dir"), false, "a missing plugin is not passed as an empty flag");
+    assert.ok(args.includes("--print"), "and the turn itself still happens");
+  } finally {
+    if (previous === undefined) delete process.env.ADE_SEED_PLUGIN_DIR;
+    else process.env.ADE_SEED_PLUGIN_DIR = previous;
+  }
 });

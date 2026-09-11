@@ -1169,6 +1169,17 @@ fn version_key(value: &str) -> Vec<u64> {
 /// The packaged sidecar is a single executable, except where Node lacks the SEA
 /// fuse and the build falls back to a launcher script.  Probe both spellings and
 /// let the last candidate surface the spawn error if neither exists.
+
+/// Where the bundle put the workflow plugin, when this build has a bundle. A
+/// path that does not exist is not returned: the sidecar's own search is a
+/// better answer than a variable pointing at nothing.
+fn seed_plugin_dir(app: &tauri::AppHandle) -> Option<std::ffi::OsString> {
+    let dir = app.path().resource_dir().ok()?.join("seed");
+    dir.join(".claude-plugin/plugin.json")
+        .is_file()
+        .then(|| dir.into_os_string())
+}
+
 fn resolve_sidecar_binary(resource_dir: &Path) -> PathBuf {
     let candidates: &[&str] = if cfg!(target_os = "windows") {
         &["sidecar-dist/ade-sidecar.exe", "sidecar-dist/ade-sidecar.cmd"]
@@ -1219,6 +1230,11 @@ fn sidecar_start(
     // console application on Windows, and they all arrive at this one spawn.
     let mut child = without_a_console(&mut command)
         .env("ADE_DB_PATH", database_path)
+        // Assay carries the workflow plugin. Packaged, it sits beside the
+        // other resources; from source the sidecar finds it in the repository
+        // on its own, so the variable is only set when there is a resource dir
+        // to point at.
+        .envs(seed_plugin_dir(&app).map(|dir| ("ADE_SEED_PLUGIN_DIR", dir)))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted; su posición sobre la independencia de SEED queda sustituida por [ADR-0057](0057-assay-carries-the-workflow-plugin.md)
 
 ## Date
 
@@ -79,4 +79,4 @@ Rechazado: mezcla dos ejes. Una Task puede reentrar en `EXPLORE` cinco veces sin
 - Las gates existentes no cambian de contrato: siguen leyendo `RuntimeEvidence`. Lo que cambia es que ahora hay una fase que sabe cuándo pedirlas y a qué fase volver cuando fallan.
 - La skill nativa `adaptive-workflow` deja de ser un manifiesto sin cuerpo y pasa a despachar contra el dominio. `spector` queda pendiente del mismo tratamiento y se declara como tal, en vez de aparentar paridad con las skills que sí ejecutan algo.
 - Un Project que desactiva el flujo conserva Tasks, gates, evidencia y review. La conducción por fases es lo único que se apaga.
-- SEED se mantiene como plugin independiente y utilizable sin Assay. Las dos superficies comparten metodología y no comparten código; ninguna es requisito de la otra. Un cambio en la metodología se decide una vez y se aplica a las dos a mano, que es el precio de no atar al usuario a este producto para usarla.
+- ~~SEED se mantiene como plugin independiente del que Assay no depende, con la metodología sincronizada a mano entre las dos superficies.~~ Sustituido por [ADR-0057](0057-assay-carries-the-workflow-plugin.md): Assay incorpora el plugin a su propio código y lo lleva en el bundle. El repositorio `seed` sigue publicado y su evolución deja de ser asunto de Assay.

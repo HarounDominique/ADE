@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/session-end-log.sh",
+            "description": "Save a per-session log entry under memory-bank/.local/session-logs/ for /seed:reflect to read as evidence"
+          }
+        ]
+      }
+    ]
+  }
+}

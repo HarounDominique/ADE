@@ -4,6 +4,7 @@ import type { AgentPermission, AgentRuntimePort, FileDiff, RuntimeEvent, Session
 import { executeGit } from "./git-command.js";
 import { firstRunnable, missingCommandError } from "./command-lookup.js";
 import { startSafeCommand } from "./safe-command.js";
+import { resolveSeedPluginDir } from "./seed-plugin.js";
 
 /** An app launched from the Dock inherits launchd's minimal PATH, not the
     shell's, so a bare `claude` can be unreachable exactly where the operator
@@ -104,6 +105,7 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
     // so a caller asking for Haiku got Sonnet. The allowed-tools list is what
     // actually keeps the turn read-only: an unlisted Write is denied outright
     // because non-interactive runs cannot prompt for permission.
+    const seedPluginDir = resolveSeedPluginDir();
     const args = [
       "--print",
       "--output-format", "stream-json",
@@ -115,6 +117,11 @@ export class ClaudeCliRuntime implements AgentRuntimePort {
       "--permission-mode", writable ? "acceptEdits" : "default",
       "--permission-prompts", "none",
       "--allowed-tools", allowedTools.join(","),
+      /** Assay carries the workflow plugin, so a turn never depends on the
+          operator having installed it. Resolved per turn rather than once at
+          import: a packaged app can point at a different copy, and a turn that
+          finds none still runs -- without the plugin, not without the turn. */
+      ...(seedPluginDir ? ["--plugin-dir", seedPluginDir] : []),
       ...(model ? ["--model", model] : []),
       ...(schema ? ["--json-schema", schema] : []),
       ...(isNew ? ["--session-id", sessionId] : ["--resume", session.id]),
