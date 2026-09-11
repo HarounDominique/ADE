@@ -42,10 +42,10 @@
   - Verify: `npx tsx --test tests/workflow-sidecar.test.ts` — 9 tests.
   - Files: `src/desktop-sidecar.ts`, `src/application/workflow/task-workflow.ts`, `tests/workflow-sidecar.test.ts`
 
-- [ ] Task: Superficie de shell e interruptor en Settings
-  - Acceptance: fase, modo, intentos y motivo de reentrada son visibles en el detalle de la Task; Settings permite apagar el flujo; un Project que lo fuerza lo explica en vez de mostrar un control muerto.
-  - Verify: `tests/desktop-ui-contract.test.ts`.
-  - Files: `desktop/src/`, `tests/desktop-ui-contract.test.ts`
+- [x] Task: Superficie de shell e interruptor en Settings
+  - Acceptance: fase, modo, ciclo, intento, aviso de escalada y motivo de reentrada visibles en el detalle de la Task; «apagado», «aún sin conducir» y «detenido» son tres estados distintos y el halt no se parece a una nota corriente; Settings permite apagarlo y explica que la policy del Project gana.
+  - Verify: `npx tsx --test tests/desktop-ui-contract.test.ts` — 105 tests (3 nuevos).
+  - Files: `desktop/src/main.js`, `desktop/src/index.html`, `desktop/src/components.css`, `src/application/task-detail.ts`, `tests/desktop-ui-contract.test.ts`
 
 - [x] Task: Bucle de aprendizaje en RECONCILE
   - Acceptance: una Task cerrada deja cero o más reglas con evidencia de origen, refuerzo y prioridad; una regla nueva nace en `low` y nunca alcanza `critical` por sí sola; una Task no puede reforzar su propia regla dos veces; una regla humana jamás se reescribe; las cuatro categorías de rechazo se detectan y una regla rechazada no se almacena ni se carga; el corpus se acota por ficheros tocados y por número.
