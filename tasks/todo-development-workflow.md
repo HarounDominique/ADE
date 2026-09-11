@@ -57,7 +57,7 @@
   - Verify: `npx tsx --test tests/workflow-briefing.test.ts` — 8 tests.
   - Files: `src/application/workflow/workflow-briefing.ts`, `src/application/skills/skill-catalog.ts`, `src/application/skills/run-skill.ts`, `src/domain/skill.ts`, `tests/workflow-briefing.test.ts`
 
-- [ ] Task: Sincronizar documentación y cerrar el módulo
-  - Acceptance: nexus, PRODUCT, README y specs dependientes reflejan lo implementado; `development-workflow` vuelve a `done` sólo cuando el código lo sostiene.
-  - Verify: `npm run build && npm test` y revisión de referencias.
-  - Files: `docu/`, `README.md`, `PRODUCT.md`
+- [x] Task: Sincronizar documentación y cerrar el módulo
+  - Acceptance: `development-workflow` vuelve a `done` con el código detrás; el nexus gana entrada de Change Log; README y PRODUCT describen fases, modos, escalada, guard, bucle de aprendizaje e interruptor; se reconcilian las tres cifras de baseline contradictorias (194/246/261) en una sola, y se declara qué párrafo la fija.
+  - Verify: `npm run build && npm test` — 473 TypeScript, 20 Rust.
+  - Files: `docu/specs/SPEC-NEXUS.md`, `README.md`, `PRODUCT.md`
