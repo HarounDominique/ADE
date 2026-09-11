@@ -30,8 +30,12 @@ Then, in the project you want to work in:
 ## Requirements
 
 - `git`
-- `sqlite3` **or** any `python3`/`python` with the stdlib `sqlite3` module (the hot-cache
-  script prefers the CLI and falls back to Python automatically)
+- Node — already there, since Claude Code runs on it. The three scripts are Node rather
+  than shell precisely so the plugin behaves the same on Windows, where `bash` is only
+  present if Git for Windows put it on PATH.
+- For the hot cache: nothing extra on Node 22.5 or later, which has `node:sqlite` in its
+  standard library. On an older Node the script falls back to the `sqlite3` CLI, then to
+  `python3`/`python` and its stdlib `sqlite3`.
 - Optional: the `codex@openai-codex` plugin, if you want to route a seam to Codex. A
   configured-but-unreachable Codex falls back to Claude automatically and says so — it
   never blocks a task.
@@ -72,7 +76,7 @@ The one part of this workflow that is a script rather than a judgment call. A mo
 rationalize a bypass under pressure; a boolean gate reading the actual staged diff will
 not.
 
-`/seed:init` copies `scripts/commit-guard.sh` into your project. Before any build phase
+`/seed:init` copies `scripts/commit-guard.mjs` into your project. Before any build phase
 commits, it checks that every production file added or modified in the staged diff has a
 test file in that same diff, and that the test suite actually ran and exited `0`.
 
@@ -106,7 +110,7 @@ commands/            # the 14 slash commands
 agents/              # 8 subagents, each dispatched by one step or command
 context/             # methodology — the "why", read by commands as needed
   build-steps/       # one file per build step; dispatch targets, never slash commands
-scripts/             # commit-guard.sh, init-state-db.sh, session-end-log.sh
+scripts/             # commit-guard.mjs, init-state-db.mjs, session-end-log.mjs
 templates/           # task file, projectConfig, project .gitignore
 hooks/hooks.json     # SessionEnd hook feeding evidence to /seed:reflect
 ```
@@ -118,7 +122,7 @@ registers as a slash command, and a step file is a dispatch target.
 
 Cross-references in this plugin use `${CLAUDE_PLUGIN_ROOT}` to mean "this plugin's
 installed location". For reading a file it resolves transparently. It is **not** an
-exported shell variable: when running one of `scripts/*.sh` via Bash, substitute the real
+exported shell variable: when running one of `scripts/*.mjs` via Bash, substitute the real
 absolute path first. See `context/plugin-paths.md`.
 
 ## License

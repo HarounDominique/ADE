@@ -41,12 +41,13 @@ of `memory-bank/`.
    literal string `DONE` and silently fails to recognize a task as finished otherwise.
    `Can Resume` must be exactly `YES` or `NO`. Flag any task file with a non-canonical
    value, quoting the exact string found and the file.
-5. **Commit-guard reachable** — `scripts/commit-guard.sh` (the project's own copy, at
+5. **Commit-guard reachable** — `scripts/commit-guard.mjs` (the project's own copy, at
    the project root, per `${CLAUDE_PLUGIN_ROOT}/context/tdd-and-commit-guard.md`) exists
-   and is executable. If it exists but lacks the executable bit (`cp` doesn't always
-   preserve it, and a plain file write never sets it), do not just report the fail — fix
-   it (`chmod +x scripts/commit-guard.sh`) and note that you did, since this is a
-   one-line, unambiguous repair, not a judgment call.
+   and runs: `node scripts/commit-guard.mjs` outside a staged change should report its own
+   verdict rather than a missing-file error. No executable bit is involved — it is invoked
+   through `node`, which is the same on every platform. If the file is missing, copy it
+   from the plugin as `/seed:init` Step 4 does and say that you did; that is a one-line,
+   unambiguous repair, not a judgment call.
 6. **Backend configured-vs-used drift** — if `memory-bank/.local/backend-drift.log`
    exists, for each seam in `memory-bank/projectConfig.md`'s `## Agent Backends` block
    still configured as `codex[:model]`, check whether the log's most recent entry for

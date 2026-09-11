@@ -24,7 +24,7 @@ Increment `Step Attempts[3]` by 1 and write it back before dispatching.
 4. **Record the actual result the commit-guard reads later**: after the batch's final
    run this pass, write its real exit code to `memory-bank/.local/last-test-exit-code`
    (create `memory-bank/.local/` if absent) — e.g. `... ; echo $? > memory-bank/.local/last-test-exit-code`.
-   This is not optional bookkeeping: `scripts/commit-guard.sh` refuses to commit at all
+   This is not optional bookkeeping: `scripts/commit-guard.mjs` refuses to commit at all
    if this file is missing, precisely so "the tests ran and are green" is never a claim
    nobody checked.
 5. Write execution state: `Current Step: 4/6` (leave `Step Attempts` as written in step 0).

@@ -11,7 +11,7 @@ path with `context/foo.md` appended.
 **It is not an exported environment variable.** When a step needs to *run* a script from
 `scripts/` via the Bash tool — not read a doc via Read — the literal string
 `${CLAUDE_PLUGIN_ROOT}` means nothing to the shell, and a command like
-`bash ${CLAUDE_PLUGIN_ROOT}/scripts/foo.sh` fails with "No such file or directory": the
+`node ${CLAUDE_PLUGIN_ROOT}/scripts/foo.mjs` fails with "Cannot find module": the
 shell sees a literal, empty-expanding `${CLAUDE_PLUGIN_ROOT}` token, not the real path.
 
 **The fix is always the same:** substitute the real absolute path yourself before writing

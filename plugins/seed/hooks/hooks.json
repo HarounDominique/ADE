@@ -6,9 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/session-end-log.sh",
-            "description": "Save a per-session log entry under memory-bank/.local/session-logs/ for /seed:reflect to read as evidence. Needs bash: present on macOS and Linux, and on Windows wherever Git for Windows put it on PATH. Absent, the hook fails and the log is simply not written -- reflect treats these as optional corroboration, never as the only source for a claim.",
-            "commandWindows": "bash \"%CLAUDE_PLUGIN_ROOT%/scripts/session-end-log.sh\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/session-end-log.mjs\"",
+            "description": "Save a per-session log entry under memory-bank/.local/session-logs/ for /seed:reflect to read as evidence. Node, not a shell, so the hook fires on every platform Claude Code runs on. Fails silently: a hook must never break the session it is attached to."
           }
         ]
       }

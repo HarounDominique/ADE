@@ -44,5 +44,5 @@ it reads the actual diff and test run, not a claim made inside a step.
 ## A step file that runs a plugin script directly
 
 Reading a step/context/template file via `${CLAUDE_PLUGIN_ROOT}/...` just works. Running
-one of `${CLAUDE_PLUGIN_ROOT}/scripts/*.sh` via the Bash tool needs the real path
+one of `${CLAUDE_PLUGIN_ROOT}/scripts/*.mjs` via the Bash tool needs the real path
 substituted first — see `${CLAUDE_PLUGIN_ROOT}/context/plugin-paths.md`.
