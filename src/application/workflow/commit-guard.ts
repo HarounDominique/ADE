@@ -89,8 +89,12 @@ export function evaluateCommitGuard(input: {
   return { ok: true };
 }
 
+/** Git reports forward slashes on every platform, including Windows, so that is
+    the shape this normally sees. Backslashes are handled anyway because the
+    verdict must not depend on which side of the boundary the caller got its
+    paths from. */
 function basename(path: string): string {
-  const cut = path.lastIndexOf("/");
+  const cut = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   return cut === -1 ? path : path.slice(cut + 1);
 }
 

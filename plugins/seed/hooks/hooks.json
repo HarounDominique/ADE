@@ -7,7 +7,8 @@
           {
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/session-end-log.sh",
-            "description": "Save a per-session log entry under memory-bank/.local/session-logs/ for /seed:reflect to read as evidence"
+            "description": "Save a per-session log entry under memory-bank/.local/session-logs/ for /seed:reflect to read as evidence. Needs bash: present on macOS and Linux, and on Windows wherever Git for Windows put it on PATH. Absent, the hook fails and the log is simply not written -- reflect treats these as optional corroboration, never as the only source for a claim.",
+            "commandWindows": "bash \"%CLAUDE_PLUGIN_ROOT%/scripts/session-end-log.sh\""
           }
         ]
       }
