@@ -111,7 +111,7 @@ let agentSessionUsage = null;
 let agentUsageRequestId = null;
 /** The operator's preferences as the store holds them. The shell renders from
     this rather than from its own copy, so a preference has one home. */
-let userSettings = { turnChime: true, defaultModels: {} };
+let userSettings = { turnChime: true, developmentWorkflow: true, defaultModels: {} };
 let settingsRequestId = null;
 let appVersion = null;
 let appUpdateRequestId = null;
@@ -3779,6 +3779,33 @@ function taskGovernanceMarkup(detail) {
   </div>`;
 }
 
+/** Where the adaptive workflow has this Task. Off is a state with a reason, not
+    an empty panel: an operator who cannot tell "switched off" from "nothing
+    happened here" has no way to know whether to go looking for a bug. */
+function taskWorkflowMarkup(detail) {
+  const workflow = detail.workflow;
+  if (!workflow) return '';
+  if (!workflow.enabled) {
+    return `<h3 class="task-trace-heading">Workflow</h3><p class="task-trace-empty">The adaptive workflow is switched off for this Project or operator. Tasks, gates, evidence and review still apply \u2014 only the phase-by-phase conducting is off.</p>`;
+  }
+  const state = workflow.state;
+  if (!state) {
+    return `<h3 class="task-trace-heading">Workflow</h3><p class="task-trace-empty">This Task is not being conducted yet. Starting it picks a mode and enters its first phase.</p>`;
+  }
+  const attempt = state.dispatch?.attempt ?? 1;
+  const notes = [];
+  if (state.haltReason) notes.push(`<p class="task-workflow-halt">${escapeHTML(state.haltReason)}</p>`);
+  else if (state.dispatch?.escalate) notes.push(`<p class="task-workflow-note">This phase already failed once, so the next run goes up a tier.</p>`);
+  if (state.lastTransition?.reentry) notes.push(`<p class="task-workflow-note">Came back here: ${escapeHTML(state.lastTransition.reason)}</p>`);
+  const next = state.nextProposed ? `Next on this route: ${escapeHTML(state.nextProposed)}` : 'The route has no further proposal.';
+  return `<h3 class="task-trace-heading">Workflow</h3>
+    <div class="task-workflow">
+      <p class="task-workflow-phase"><strong>${escapeHTML(state.phase)}</strong> <span class="task-workflow-mode">${escapeHTML(state.mode)} \u00b7 cycle ${state.cycle} \u00b7 attempt ${attempt}</span></p>
+      <p class="task-workflow-next">${next}</p>
+      ${notes.join('')}
+    </div>`;
+}
+
 /** The way back a writing turn left behind. It lives where the work is judged
     so the operator does not need a Git incantation to undo a turn, and it says
     what going back would cost before asking whether to do it. */
@@ -3809,7 +3836,7 @@ function renderTaskDetail(detail) {
   /** What the Task cost, where the Task is judged. A Task whose turns nobody
       priced says so; it is never shown as free. */
   const usage = usageSummary(detail.usage);
-  const markup = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p class="task-detail-usage" title="${escapeHTML(usageTitle(detail.usage))}"><strong>Agent spend:</strong> ${escapeHTML(usage ?? 'not reported for this Task')}</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p>${taskAcceptanceMarkup(task)}${taskGovernanceMarkup(detail)}<h3 class="task-trace-heading">Checkpoints</h3>${taskCheckpointsMarkup(detail)}<h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
+  const markup = `<p class="task-detail-summary">${task.history.length} history events · ${detail.changeSets.length} ChangeSets · ${detail.reviews.length} Reviews · ${detail.runtimeEvidence.length} runtime events</p><p class="task-detail-usage" title="${escapeHTML(usageTitle(detail.usage))}"><strong>Agent spend:</strong> ${escapeHTML(usage ?? 'not reported for this Task')}</p><p><strong>ChangeSet:</strong> ${escapeHTML(changeset)}</p><p><strong>Gates:</strong> ${escapeHTML(gates)}</p>${taskAcceptanceMarkup(task)}${taskGovernanceMarkup(detail)}${taskWorkflowMarkup(detail)}<h3 class="task-trace-heading">Checkpoints</h3>${taskCheckpointsMarkup(detail)}<h3 class="task-trace-heading">Git trace</h3>${operations}<h3 class="task-trace-heading">Agent sessions</h3>${sessions}<h3 class="task-trace-heading">Persisted activity</h3>${evidence}`;
   taskDetailMarkup.set(task.id, markup);
   panel.innerHTML = markup;
 }
@@ -4995,7 +5022,7 @@ function renderAppVersion(version, update) {
     order to depend on one. Anything already chosen in this webview moves there
     the first time, so nobody has to set it twice. */
 function applyUserSettings(settings) {
-  userSettings = { turnChime: settings?.turnChime !== false, defaultModels: settings?.defaultModels ?? {}, ...(settings?.updateFeedUrl ? { updateFeedUrl: settings.updateFeedUrl } : {}) };
+  userSettings = { turnChime: settings?.turnChime !== false, developmentWorkflow: settings?.developmentWorkflow !== false, defaultModels: settings?.defaultModels ?? {}, ...(settings?.updateFeedUrl ? { updateFeedUrl: settings.updateFeedUrl } : {}) };
   agentSoundEnabled = userSettings.turnChime;
   agentDefaultModels = { ...userSettings.defaultModels };
   renderAgentSoundToggle();
@@ -5036,6 +5063,8 @@ function openSettingsDialog() {
   const feed = document.getElementById('settings-update-feed');
   const defaults = document.getElementById('settings-default-models');
   if (chime) chime.checked = userSettings.turnChime;
+  const workflowToggle = document.getElementById('settings-development-workflow');
+  if (workflowToggle) workflowToggle.checked = userSettings.developmentWorkflow;
   if (feed) feed.value = userSettings.updateFeedUrl ?? '';
   const models = Object.entries(userSettings.defaultModels ?? {});
   if (defaults) defaults.textContent = models.length
@@ -5527,8 +5556,9 @@ document.getElementById('settings-form')?.addEventListener('submit', (event) => 
   // A dialog form submits on Cancel too; only the Save button writes.
   if (event.submitter?.value === 'cancel') return;
   const turnChime = document.getElementById('settings-turn-chime')?.checked !== false;
+  const developmentWorkflow = document.getElementById('settings-development-workflow')?.checked !== false;
   const updateFeedUrl = document.getElementById('settings-update-feed')?.value.trim() ?? '';
-  void saveUserSettings({ turnChime, updateFeedUrl }).then(() => notify('Preferences saved.'));
+  void saveUserSettings({ turnChime, developmentWorkflow, updateFeedUrl }).then(() => notify('Preferences saved.'));
 });
 
 /** Changing what done means is a decision the Task records, so it goes through
