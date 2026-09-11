@@ -3,6 +3,18 @@
 Format: one entry per notable change, newest first. Schema-affecting changes also get a
 row in `context/schema-migrations.md`.
 
+## 1.1.0
+
+**MIT.** The plugin was published as `UNLICENSED` — "all rights reserved, not licensed for
+redistribution" — while sitting in a public repository that invited people to take it, and
+vendored inside Assay, which is MIT. A component under a stricter licence than the
+repository carrying it is a contradiction someone eventually has to resolve, and it is
+cheaper to resolve before anyone has relied on it.
+
+`LICENSE` now states MIT, `plugin.json` declares it, and the README says what it actually
+permits. Minor rather than patch: what you are allowed to do with this changed, which is
+not a bug fix.
+
 ## 1.0.3
 
 **The plugin no longer needs a shell.** Its three scripts were bash, which meant the guard,

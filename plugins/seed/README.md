@@ -127,4 +127,8 @@ absolute path first. See `context/plugin-paths.md`.
 
 ## License
 
-UNLICENSED — all rights reserved. Not licensed for redistribution.
+MIT — see [LICENSE](LICENSE). Take it, change it, ship it; keep the copyright notice.
+
+The same licence as Assay, which carries this plugin inside it. That is deliberate: a
+vendored component under a stricter licence than the repository containing it is a
+contradiction someone eventually has to resolve, usually at the worst moment.
