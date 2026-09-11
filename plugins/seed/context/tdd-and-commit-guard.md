@@ -14,8 +14,8 @@ a model's opinion.
 
 ## The guard
 
-Before a commit lands, a deterministic script — `scripts/commit-guard.sh` in the
-project (copied there by `/seed:init` from `${CLAUDE_PLUGIN_ROOT}/scripts/commit-guard.sh`,
+Before a commit lands, a deterministic script — `scripts/commit-guard.mjs` in the
+project (copied there by `/seed:init` from `${CLAUDE_PLUGIN_ROOT}/scripts/commit-guard.mjs`,
 never run from the plugin directly) — not a sub-agent, not a judgment call — checks:
 
 - Every production file added or modified in the staged diff has a test file in that same

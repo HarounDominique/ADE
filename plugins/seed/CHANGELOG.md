@@ -3,6 +3,32 @@
 Format: one entry per notable change, newest first. Schema-affecting changes also get a
 row in `context/schema-migrations.md`.
 
+## 1.0.3
+
+**The plugin no longer needs a shell.** Its three scripts were bash, which meant the guard,
+the hot cache and the session log all worked on macOS and Linux and quietly did not on
+Windows, where `bash` is only present if Git for Windows put it on PATH. A guard that runs
+on two platforms out of three is not a guard; it is a convention some people happen to be
+held to.
+
+All three are now Node. That removes a dependency rather than adding one: Claude Code runs
+on Node, so Node is present wherever this plugin can be installed, and `bash` never was.
+
+- `commit-guard.mjs` — same six verdicts as the shell version, verified case by case:
+  production without a test blocks, a pure deletion does not, a rename counts as the file
+  that now exists, a missing test-run record blocks rather than passing, a red run quotes
+  its exit code, and running outside a repository reports that instead of a git usage dump.
+  Its decision is an exported pure function, so it can be tested without a commit.
+- `init-state-db.mjs` — tries `node:sqlite` first, then the `sqlite3` CLI, then
+  `python3`/`python`. The standard-library path is what makes a fresh Windows machine work
+  with nothing installed.
+- `session-end-log.mjs` — writes only into an already-initialized project, and still fails
+  silently: a hook must never break the session it is attached to.
+
+`chmod +x` is gone from `/seed:init` and `/seed:doctor`. The scripts are invoked through
+`node`, so no executable bit is involved — which is also why they behave identically on a
+platform that has no such bit.
+
 ## 1.0.2
 
 **No command checked that `memory-bank/` existed.** All fourteen read or write under it,

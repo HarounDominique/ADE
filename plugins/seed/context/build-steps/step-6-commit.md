@@ -3,8 +3,8 @@
 Runs the deterministic gate from `${CLAUDE_PLUGIN_ROOT}/context/tdd-and-commit-guard.md`. This step does not
 use judgment — it runs the guard and obeys its verdict.
 
-1. Run `scripts/commit-guard.sh` (the project's own copy, at the project root — not
-   `${CLAUDE_PLUGIN_ROOT}/scripts/commit-guard.sh`) against the actual staged diff. It
+1. Run `scripts/commit-guard.mjs` (the project's own copy, at the project root — not
+   `${CLAUDE_PLUGIN_ROOT}/scripts/commit-guard.mjs`) against the actual staged diff. It
    reads its own recorded test result from `memory-bank/.local/last-test-exit-code`,
    written by step 3 — if step 3 hasn't run this phase (shouldn't happen in normal
    dispatch order, but if resuming into step 6 directly after a crash, confirm it did),

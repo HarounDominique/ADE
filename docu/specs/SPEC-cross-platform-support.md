@@ -18,6 +18,15 @@ El smoke manual completo se ejecutó en Ubuntu el 2026-09-10, sobre el `.deb` re
 
 Assay toca el sistema operativo en diez sitios, y sólo en esos diez. Cualquier código nuevo que necesite un undécimo es una señal de que la frontera se está filtrando. Las tres últimas se añadieron al revisar la paridad en 2026-09-09 y 2026-09-10: no eran fronteras nuevas del producto, eran sitios donde el código asumía macOS sin decirlo, y el último lo pagó una instalación real en Windows con una terminal de fondo que no se podía cerrar.
 
+> **El workflow no añade una frontera.** Assay lleva el plugin del workflow dentro
+> ([ADR-0057](../adr/0057-assay-carries-the-workflow-plugin.md)), y sus tres scripts se
+> portaron de bash a Node el 2026-09-11 precisamente para no convertirse en la undécima:
+> `bash` sólo está en Windows si Git for Windows lo dejó en el PATH, mientras que Node está
+> allí donde corre Claude Code. El guard TDD nativo de Assay tampoco lanza proceso alguno —
+> es una función pura de TypeScript. El plugin usa `node:sqlite` cuando existe (Node 22.5+)
+> y cae a `sqlite3` o a Python cuando no, de modo que una máquina Windows recién instalada
+> no necesita nada más.
+
 1. **Escape hatch al escritorio.** Abrir un fichero o un documento en la aplicación del sistema: `open` en macOS, `cmd /C start` en Windows, `xdg-open` en Linux. Abrir una terminal en el directorio del Project: `open -a Terminal` en macOS, un `cmd` con `cd /D` en Windows y, en Linux —donde no hay una única terminal del sistema—, `$TERMINAL` si el operador o su gestor de ventanas lo declaran, luego la convención `x-terminal-emulator` de Debian/Ubuntu, luego una lista de los emuladores que de hecho traen los escritorios habituales (GNOME, KDE, Xfce, etc.), probados en orden hasta que uno arranca. Elegir una carpeta con el selector nativo: desde 2026-09-11 lo resuelve `tauri-plugin-dialog` en las tres plataformas —GTK en Linux, `NSOpenPanel` en macOS, el diálogo común de Windows—, sin invocar un binario externo; antes lo hacían `osascript`, un `FolderBrowserDialog` de PowerShell y `zenity`, y este último no viene instalado en muchos escritorios Linux, KDE incluido. Cancelar debe ser indistinguible de no elegir nada.
 2. **Shell interactiva del PTY.** Fuera de Windows, el `$SHELL` del usuario como sesión de login e interactiva, con `/bin/sh` como reserva cuando no está declarado o no existe; `cmd` en Windows. El PTY en sí es `portable_pty`, ya multiplataforma.
 
