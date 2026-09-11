@@ -7,6 +7,7 @@ import type { Project, Repository } from "../domain/project.js";
 import type { Review } from "../domain/review.js";
 import type { RuntimeEvidence } from "../domain/runtime-evidence.js";
 import type { Gate, GateStatus } from "../domain/gate.js";
+import type { WorkflowSnapshot } from "../domain/workflow/phase.js";
 
 export type PersistedTask = {
   id: string;
@@ -162,6 +163,15 @@ export class AdeStore {
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS workflow_state (
+        task_id TEXT PRIMARY KEY REFERENCES tasks(id),
+        mode TEXT NOT NULL,
+        phase TEXT NOT NULL,
+        cycle INTEGER NOT NULL,
+        attempts_json TEXT NOT NULL,
+        transitions_json TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS task_checkpoints (
@@ -533,6 +543,31 @@ export class AdeStore {
   setSetting(key: string, value: unknown, updatedAt = new Date().toISOString()): void {
     this.db.prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at")
       .run(key, JSON.stringify(value), updatedAt);
+  }
+
+  /** One row per Task: the workflow state is where the work currently is, not a
+      log of where it has been. The log lives inside it, in `transitions_json`,
+      so restoring a Task restores its history in the same read. */
+  saveWorkflowState(snapshot: WorkflowSnapshot, updatedAt = new Date().toISOString()): void {
+    this.db.prepare(`INSERT INTO workflow_state (task_id, mode, phase, cycle, attempts_json, transitions_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(task_id) DO UPDATE SET mode = excluded.mode, phase = excluded.phase, cycle = excluded.cycle, attempts_json = excluded.attempts_json, transitions_json = excluded.transitions_json, updated_at = excluded.updated_at`)
+      .run(snapshot.taskId, snapshot.mode, snapshot.phase, snapshot.cycle, JSON.stringify(snapshot.attempts), JSON.stringify(snapshot.transitions), updatedAt);
+  }
+
+  /** A Task created before this table existed, or one the operator never drove
+      through a phase, simply has no workflow state. That is a legible answer,
+      not a failure -- the workflow can be off, and every read here predates it. */
+  getWorkflowState(taskId: string): WorkflowSnapshot | undefined {
+    const row = this.db.prepare(`SELECT task_id AS taskId, mode, phase, cycle, attempts_json AS attempts, transitions_json AS transitions FROM workflow_state WHERE task_id = ?`).get(taskId);
+    if (!row) return undefined;
+    const record = row as { taskId: string; mode: string; phase: string; cycle: number; attempts: string; transitions: string };
+    return {
+      taskId: record.taskId,
+      mode: record.mode as WorkflowSnapshot["mode"],
+      phase: record.phase as WorkflowSnapshot["phase"],
+      cycle: record.cycle,
+      attempts: JSON.parse(record.attempts) as Record<string, number>,
+      transitions: JSON.parse(record.transitions) as WorkflowSnapshot["transitions"],
+    };
   }
 
   saveTaskCheckpoint(input: Omit<TaskCheckpoint, "createdAt"> & { createdAt?: string }): void {
