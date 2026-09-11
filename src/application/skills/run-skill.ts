@@ -3,20 +3,24 @@ import type { SkillPermission } from "../../domain/skill.js";
 import { listSkills } from "./skill-catalog.js";
 import { assertSkillPermissions } from "./skill-permissions.js";
 
-export async function runNativeSkill(runtime: AgentRuntimePort, input: { skillId: string; directory: string; intent: string; sessionId?: string; model?: string; grantedPermissions?: readonly SkillPermission[]; onSession?: (session: SessionHandle) => void | Promise<void>; onEvent?: (event: RuntimeEvent) => void }) {
+export async function runNativeSkill(runtime: AgentRuntimePort, input: { skillId: string; directory: string; intent: string; sessionId?: string; model?: string; briefing?: string; grantedPermissions?: readonly SkillPermission[]; onSession?: (session: SessionHandle) => void | Promise<void>; onEvent?: (event: RuntimeEvent) => void }) {
   const skill = (await listSkills(input.directory)).find((candidate) => candidate.id === input.skillId);
   if (!skill) throw new Error(`Native skill not found: ${input.skillId}`);
   assertSkillPermissions(skill, input.grantedPermissions ?? []);
   const session = input.sessionId ? { id: input.sessionId, directory: input.directory } : await runtime.createSession({ directory: input.directory, title: `skill-${skill.id}` });
   await input.onSession?.(session);
   const completion = input.onEvent ? collectUntilIdle(runtime.events(), input.onEvent) : undefined;
-  await runtime.prompt(session, { ...(input.model ? { model: input.model } : {}), text: [
+  /** A skill with a body composes its own prompt from real state. Without one,
+      all ADE can do is hand the provider the skill's own description and its
+      declared outputs -- which is honest, but is not the same thing. */
+  const text = input.briefing ?? [
     `You are running the ADE skill: ${skill.label}.`,
     skill.description,
     `Declared permissions: ${skill.permissions.join(", ")}.`,
     `Return outputs: ${skill.outputs.join(", ")}.`,
     `Task intent: ${input.intent}`,
-  ].join("\n"), grantedPermissions: input.grantedPermissions ?? [] });
+  ].join("\n");
+  await runtime.prompt(session, { ...(input.model ? { model: input.model } : {}), text, grantedPermissions: input.grantedPermissions ?? [] });
   const events = completion ? await completion : [];
   return { skill, session, events };
 }

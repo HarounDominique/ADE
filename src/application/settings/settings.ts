@@ -15,9 +15,15 @@ export type UserSettings = {
   /** Where the app asks whether a newer version has been published. Empty means
       this install asks nobody. */
   updateFeedUrl?: string;
+  /** Whether ADE conducts work through the adaptive workflow's phases. On by
+      default: a differentiator that arrives switched off is one nobody sees.
+      Off, Tasks, gates, evidence and review all still exist -- what stops is the
+      conducting, not the governance. A Project can override this either way
+      (ADR-0056). */
+  developmentWorkflow: boolean;
 };
 
-export const defaultSettings: UserSettings = { turnChime: true, defaultModels: {} };
+export const defaultSettings: UserSettings = { turnChime: true, defaultModels: {}, developmentWorkflow: true };
 
 export function readSettings(store: AdeStore): UserSettings {
   return normalizeSettings(store.getSetting("user") as Partial<UserSettings> | undefined);
@@ -40,6 +46,7 @@ function normalizeSettings(value: Partial<UserSettings> | undefined): UserSettin
   const models = value?.defaultModels && typeof value.defaultModels === "object" ? value.defaultModels : {};
   return {
     turnChime: value?.turnChime !== false,
+    developmentWorkflow: value?.developmentWorkflow !== false,
     /** A default the operator cleared is removed rather than stored as an empty
         string that would later read as a model named "". */
     defaultModels: Object.fromEntries(Object.entries(models).filter(([provider, model]) => provider && typeof model === "string" && model.trim())),

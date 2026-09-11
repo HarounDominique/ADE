@@ -6,7 +6,7 @@ import { handleDesktopRequest } from "../src/desktop-sidecar.js";
 
 test("an install with no preferences yet has defaults, not emptiness", () => {
   const store = new AdeStore();
-  assert.deepEqual(readSettings(store), { turnChime: true, defaultModels: {} });
+  assert.deepEqual(readSettings(store), { turnChime: true, developmentWorkflow: true, defaultModels: {} });
 });
 
 test("a write states only what changes and leaves the rest standing", () => {
@@ -44,7 +44,7 @@ test("the shell reads and writes preferences through the sidecar", () => {
   const store = new AdeStore();
 
   const initial = handleDesktopRequest(store, { id: "1", method: "settings.read" });
-  assert.deepEqual(initial.result, { turnChime: true, defaultModels: {} });
+  assert.deepEqual(initial.result, { turnChime: true, developmentWorkflow: true, defaultModels: {} });
 
   const written = handleDesktopRequest(store, { id: "2", method: "settings.write", params: { settings: { turnChime: false, updateFeedUrl: "https://example.test/latest.json" } } });
   assert.equal((written.result as { turnChime: boolean }).turnChime, false);

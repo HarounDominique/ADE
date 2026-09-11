@@ -1686,3 +1686,25 @@ test("a tree load never paints over a live filter", () => {
   // previous one must not survive — so the box is cleared with it.
   assert.match(main, /if \(filter\) filter\.value = '';\s*\n\s*await loadWorkspaceTree\(workspaceRootPath, nativeInvoke, \{ animate: true, replacesFilter: true \}\);/);
 });
+
+test("the Task detail shows where the workflow has the Task, and says when it is off", () => {
+  assert.match(main, /function taskWorkflowMarkup/);
+  assert.match(main, /\$\{taskWorkflowMarkup\(detail\)\}/, "the markup is actually rendered, not merely defined");
+  assert.match(main, /switched off for this Project or operator/);
+  assert.match(main, /not being conducted yet/, "off and not-yet-started are different states");
+  assert.match(main, /task-workflow-halt/, "a halt waiting on a person cannot look like an ordinary note");
+  assert.match(components, /\.task-workflow-halt/);
+});
+
+test("the workflow surface reports the attempt and why the work came back", () => {
+  assert.match(main, /attempt \$\{attempt\}/);
+  assert.match(main, /goes up a tier/);
+  assert.match(main, /Came back here/);
+});
+
+test("preferences let the operator switch the workflow off, and say who can overrule them", () => {
+  assert.match(html, /id="settings-development-workflow"/);
+  assert.match(html, /A Project can require or refuse this in its own policy, and its answer wins/);
+  assert.match(main, /developmentWorkflow: settings\?\.developmentWorkflow !== false/, "an unstated preference reads as on");
+  assert.match(main, /saveUserSettings\(\{ turnChime, developmentWorkflow, updateFeedUrl \}\)/);
+});
