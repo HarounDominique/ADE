@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Frontend: `renderBranchMenu()` prepends the "+ New branch" trigger;
+- [x] Phase 1 — Frontend: `renderBranchMenu()` prepends the "+ New branch" trigger;
   `renderCreateBranchForm()` swaps the popover to the inline name form; two new
   delegated-click entries (trigger, cancel); `createBranchFromDropdown(name)` mirroring
   `switchBranchFromContext`; the `'create-branch-from-dropdown'` response branch
@@ -32,14 +32,17 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: RUNNING
+**Current Phase**: 1
+**Current Step**: 5/6
+**Step Attempts**: {2: 1, 3: 0, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 1: none. Implemented from the spec's Style snippets essentially verbatim — a
+  genuine "verified mirror" this time, unlike `offer-git-init-when-no-vcs`'s spec, whose
+  own Style snippet was the bug. Review (step 4) additionally confirmed
+  `requestConfirmation`/`notify` render via `.textContent`, not `innerHTML`, so the
+  user-typed branch name reaching both carries no injection risk.
