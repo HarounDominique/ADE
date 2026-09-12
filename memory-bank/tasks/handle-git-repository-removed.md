@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Sidecar: `GitRepositoryMissingError` + `isInsideGitWorkTree`
+- [x] Phase 1 — Sidecar: `GitRepositoryMissingError` + `isInsideGitWorkTree`
   (`src/adapters/git-command.ts`); up-front guards in `inspectGitWorkspace`
   (`workspace-status.ts`) and `inspectPendingGitChanges` (`version-control.ts`);
   `gitError()` mapping (`desktop-sidecar.ts`). No creative needed — mirrors
@@ -34,14 +34,16 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
+**Build Status**: RUNNING
+**Current Phase**: 1
+**Current Step**: 5/6
 **Step Attempts**: {2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 1: `inspectGitWorkspace` had no existing test coverage at all (neither happy path
+  nor error path) before this task — added `tests/workspace-status.test.ts` from
+  scratch with both, rather than only the new guard case, since exercising a guard with
+  zero coverage of the function it guards would leave the happy path unverified.
