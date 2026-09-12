@@ -1710,13 +1710,49 @@ test("preferences let the operator switch the workflow off, and say who can over
 });
 
 test("the Explorer offers New File / New Directory, not just Refresh", () => {
-  // JetBrains-style: a toolbar action and a positioned context menu, both
-  // landing on the same name dialog — see SPEC-explorer-new-file-folder.md.
+  // A toolbar action and a positioned context menu, both landing on the
+  // same name dialog — see SPEC-explorer-new-file-folder.md.
   assert.match(html, /data-action="new-workspace-entry"/);
   assert.match(html, /id="workspace-context-menu"[\s\S]*data-action="new-workspace-file"[\s\S]*data-action="new-workspace-directory"/);
   assert.match(html, /id="new-entry-dialog"/);
   assert.match(html, /id="new-entry-name"/);
   assert.match(styles, /\.workspace-context-menu \{/);
+});
+
+test("clicking a directory selects it, and New targets the selection first", () => {
+  // A directory click still toggles expand/collapse; it also now becomes the
+  // create target, ahead of the open file's parent and ahead of the root —
+  // see SPEC-explorer-selection-and-drag-drop.md.
+  assert.match(main, /let selectedDirectoryPath = null;/);
+  assert.match(main, /entry\.path === selectedDirectoryPath/);
+  assert.match(main, /function relevantWorkspaceDirectory\(\) \{[\s\S]{0,300}selectedDirectoryPath[\s\S]{0,300}\n\}/);
+});
+
+test("a file or directory can be dragged into another directory, or to root", () => {
+  // Same mousedown/mousemove/mouseup + ghost mechanism as detaching a
+  // document tab into its own window (see "a tab carried off the strip..."
+  // above) -- HTML5 draggable/drag events were tried there first and dropped
+  // for reporting nothing usable about a drop that left the window in this
+  // WebView, so this feature never reaches for them either.
+  assert.doesNotMatch(main, /data-directory-path="\$\{path\}"[^>]*draggable="true"/);
+  assert.doesNotMatch(main, /data-file-path="\$\{path\}"[^>]*draggable="true"/);
+  assert.match(main, /function isDescendantOrSame/);
+  assert.match(main, /function trackWorkspaceDrag/);
+  assert.match(main, /function finishWorkspaceDrag/);
+  assert.match(main, /nativeInvoke\('move_workspace_entry', \{ sourcePath: state\.sourcePath, destinationDirectoryPath: target\.path \}\)/);
+  assert.match(styles, /\.workspace-entry\.dragging \{/);
+  assert.match(styles, /\.workspace-entry\.workspace-drop-target \{/);
+  assert.match(styles, /#workspace-tree\.workspace-drop-target \{/);
+  assert.match(styles, /\.workspace-drag-ghost \{/);
+});
+
+test("creating or moving an entry into a directory reveals it there", () => {
+  // A full loadWorkspaceTree() call resets every directory back to
+  // collapsed, so without this the new/moved entry would land invisibly
+  // nested under a folder the operator has to manually re-open to see.
+  assert.match(main, /function expandWorkspaceTreeTo/);
+  assert.match(main, /await expandWorkspaceTreeTo\(parentPath\);/);
+  assert.match(main, /await expandWorkspaceTreeTo\(target\.path\);/);
 });
 
 test("New File / New Directory are wired to the workspace tree, not just drawn", () => {
