@@ -1424,8 +1424,10 @@ test("every workbench stands on the same ground", () => {
 test("a file can be moved to a window of its own, and moved is not copied", () => {
   // Multi-monitor work needed a file out of the shell. What it must never mean
   // is two windows holding the same buffer with their own dirty state.
-  assert.match(html, /data-action="detach-document" id="detach-document" disabled/);
-  assert.match(main, /async function detachActiveDocument/);
+  // The button that used to trigger this is gone -- dragging a tab off the
+  // strip is the only entry point now -- but the subsystem it called stays.
+  assert.doesNotMatch(html, /data-action="detach-document"/);
+  assert.doesNotMatch(main, /function detachActiveDocument/);
   assert.match(main, /const detachedDocuments = new Map\(\);/);
   assert.match(main, /if \(record\) await closeDocumentTabNow\(record\.id\);/);
   // Unsaved work is written before the handover, because the new window reads

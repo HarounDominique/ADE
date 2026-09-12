@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Remove the button markup, its `detachActiveDocument()` wrapper, its
+- [x] Phase 1 — Remove the button markup, its `detachActiveDocument()` wrapper, its
   dispatcher entry, and the `detachButton` lines in `setDocumentHeader`; update the
   existing contract test to drop only its two button-specific assertions. Fast-path:
   single phase, no creative needed.
@@ -15,10 +15,10 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
+**Build Status**: DONE
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
