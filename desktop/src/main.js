@@ -5882,6 +5882,101 @@ document.addEventListener('click', (event) => {
   if (!event.target.closest('.git-context-control')) closeGitContextMenus();
 });
 document.getElementById('workspace-tree')?.addEventListener('contextmenu', openWorkspaceContextMenu);
+
+/** Same-path-string prefix check the backend's `starts_with` makes, used to
+    skip highlighting (and to refuse) a move into the dragged item itself or
+    one of its own descendants. */
+function isDescendantOrSame(candidatePath, ancestorPath) {
+  if (candidatePath === ancestorPath) return true;
+  const separator = candidatePath.includes('\\') ? '\\' : '/';
+  return candidatePath.startsWith(`${ancestorPath}${separator}`);
+}
+
+/** The Explorer tree moves entries the same way a document tab detaches into
+    its own window: mousedown/mousemove/mouseup with a ghost that tracks the
+    cursor, never HTML5 `draggable`/drag events. That API was tried for tab
+    detaching first and dropped -- it reported nothing usable about a drop
+    that left the window in this WebView -- so it is not tried again here. */
+let workspaceDragState = null;
+const workspaceDragThreshold = 4;
+
+function workspaceDropTargetAt(x, y) {
+  const tree = document.getElementById('workspace-tree');
+  if (!tree) return null;
+  const element = document.elementFromPoint(x, y);
+  if (!tree.contains(element)) return null;
+  const directoryEntry = element?.closest('[data-directory-path].directory');
+  return { path: directoryEntry ? directoryEntry.dataset.directoryPath : workspaceRootPath, entry: directoryEntry ?? tree };
+}
+
+function clearWorkspaceDropHighlight() {
+  document.querySelectorAll('.workspace-drop-target').forEach((node) => node.classList.remove('workspace-drop-target'));
+}
+
+function moveWorkspaceDragGhost(state, event) {
+  if (state.ghost) state.ghost.style.transform = `translate(${event.clientX + 12}px, ${event.clientY + 12}px)`;
+  clearWorkspaceDropHighlight();
+  const target = workspaceDropTargetAt(event.clientX, event.clientY);
+  if (target && !isDescendantOrSame(target.path, state.sourcePath)) target.entry.classList.add('workspace-drop-target');
+}
+
+function trackWorkspaceDrag(event) {
+  if (!workspaceDragState) return;
+  if (!workspaceDragState.dragging) {
+    if (Math.hypot(event.clientX - workspaceDragState.startX, event.clientY - workspaceDragState.startY) < workspaceDragThreshold) return;
+    workspaceDragState.dragging = true;
+    workspaceDragState.entry.classList.add('dragging');
+    const ghost = document.createElement('div');
+    ghost.className = 'workspace-drag-ghost';
+    ghost.textContent = pathBaseName(workspaceDragState.sourcePath) || 'Item';
+    document.body.append(ghost);
+    workspaceDragState.ghost = ghost;
+  }
+  moveWorkspaceDragGhost(workspaceDragState, event);
+}
+
+async function finishWorkspaceDrag(event) {
+  const state = workspaceDragState;
+  workspaceDragState = null;
+  document.removeEventListener('mousemove', trackWorkspaceDrag, true);
+  document.removeEventListener('mouseup', finishWorkspaceDrag, true);
+  if (!state) return;
+  state.entry.classList.remove('dragging');
+  state.ghost?.remove();
+  clearWorkspaceDropHighlight();
+  // A press that never travelled is a click, already handled by it.
+  if (!state.dragging) return;
+  const target = workspaceDropTargetAt(event.clientX, event.clientY);
+  if (!target || isDescendantOrSame(target.path, state.sourcePath)) return;
+  if (!nativeInvoke) { notify('Moving files requires the local desktop runtime.'); return; }
+  try {
+    const movedPath = await nativeInvoke('move_workspace_entry', { sourcePath: state.sourcePath, destinationDirectoryPath: target.path });
+    // The selected directory itself may be what just moved -- follow it to
+    // its new path rather than leave "New" pointed at a path that no longer
+    // exists (SPEC-explorer-selection-and-drag-drop.md#boundaries).
+    if (selectedDirectoryPath === state.sourcePath) selectedDirectoryPath = movedPath;
+    await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
+  } catch (error) {
+    notify(error instanceof Error ? error.message : 'Unable to move the entry.');
+  }
+}
+
+document.getElementById('workspace-tree')?.addEventListener('mousedown', (event) => {
+  if (event.button !== 0) return;
+  const entry = event.target.closest('[data-directory-path], [data-file-path]');
+  if (!entry) return;
+  event.preventDefault();
+  workspaceDragState = {
+    sourcePath: entry.dataset.directoryPath ?? entry.dataset.filePath,
+    startX: event.clientX,
+    startY: event.clientY,
+    entry,
+    dragging: false,
+    ghost: null,
+  };
+  document.addEventListener('mousemove', trackWorkspaceDrag, true);
+  document.addEventListener('mouseup', finishWorkspaceDrag, true);
+});
 document.addEventListener('click', (event) => {
   if (!event.target.closest('#workspace-context-menu') && !event.target.closest('[data-action="new-workspace-entry"]')) closeWorkspaceContextMenu();
 });

@@ -1728,6 +1728,24 @@ test("clicking a directory selects it, and New targets the selection first", () 
   assert.match(main, /function relevantWorkspaceDirectory\(\) \{[\s\S]{0,300}selectedDirectoryPath[\s\S]{0,300}\n\}/);
 });
 
+test("a file or directory can be dragged into another directory, or to root", () => {
+  // Same mousedown/mousemove/mouseup + ghost mechanism as detaching a
+  // document tab into its own window (see "a tab carried off the strip..."
+  // above) -- HTML5 draggable/drag events were tried there first and dropped
+  // for reporting nothing usable about a drop that left the window in this
+  // WebView, so this feature never reaches for them either.
+  assert.doesNotMatch(main, /data-directory-path="\$\{path\}"[^>]*draggable="true"/);
+  assert.doesNotMatch(main, /data-file-path="\$\{path\}"[^>]*draggable="true"/);
+  assert.match(main, /function isDescendantOrSame/);
+  assert.match(main, /function trackWorkspaceDrag/);
+  assert.match(main, /function finishWorkspaceDrag/);
+  assert.match(main, /nativeInvoke\('move_workspace_entry', \{ sourcePath: state\.sourcePath, destinationDirectoryPath: target\.path \}\)/);
+  assert.match(styles, /\.workspace-entry\.dragging \{/);
+  assert.match(styles, /\.workspace-entry\.workspace-drop-target \{/);
+  assert.match(styles, /#workspace-tree\.workspace-drop-target \{/);
+  assert.match(styles, /\.workspace-drag-ghost \{/);
+});
+
 test("New File / New Directory are wired to the workspace tree, not just drawn", () => {
   assert.match(main, /function openWorkspaceContextMenu/);
   assert.match(main, /function showWorkspaceContextMenu/);
