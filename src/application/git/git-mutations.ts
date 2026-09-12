@@ -30,9 +30,18 @@ export async function createWorktree(input: ConfirmedOperation & { path: string;
   return { operation: "worktree.create", path: input.path, branch: input.branch, actor: input.actor, reason: input.reason };
 }
 
-export async function createCommit(input: ConfirmedOperation & { message: string; body?: string }) {
+export async function createCommit(input: ConfirmedOperation & { message: string; body?: string; files?: string[] }) {
   assertConfirmed(input);
-  await executeGit(["add", "--all"], { cwd: input.directory });
+  // The selection is the source of truth, not whatever the index already held --
+  // reset first so a file staged from outside Assay never sneaks into a commit
+  // the operator only checked a subset for. Safe on an unborn HEAD (confirmed
+  // directly against real git before this was written).
+  await executeGit(["reset"], { cwd: input.directory });
+  if (input.files?.length) {
+    await executeGit(["add", "--", ...input.files], { cwd: input.directory });
+  } else {
+    await executeGit(["add", "--all"], { cwd: input.directory });
+  }
   const result = await executeGit(["commit", "-m", input.message, ...(input.body ? ["-m", input.body] : [])], { cwd: input.directory });
   const commit = (await executeGit(["rev-parse", "HEAD"], { cwd: input.directory })).stdout.trim();
   return { operation: "commit.create", message: input.message, commit, output: result.stdout.trim(), actor: input.actor, reason: input.reason };
