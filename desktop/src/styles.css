@@ -41,6 +41,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .sidebar-collapsed .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 .sidebar-collapsed .sidebar-collapse { right: auto; left: 50%; transform: translate(-50%, -50%); }
 .sidebar-collapsed .sidebar-collapse svg { transform: rotate(180deg); }
+.sidebar-tree-toggle { position: absolute; top: var(--sidebar-control-y, 50%); left: 50%; z-index: 7; width: 24px; height: 24px; transform: translate(-50%, -50%); }
+.sidebar-tree-toggle svg { width: 15px; height: 15px; }
+.sidebar-collapsed .sidebar-tree-toggle { display: none; }
 .sidebar-collapsed .explorer-section { display: none; }
 .sidebar-collapsed .primary-nav { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
 .sidebar-collapsed .nav-item { justify-content: center; gap: 0; padding: 6px 0; border-left: 0; border-radius: 5px; }
