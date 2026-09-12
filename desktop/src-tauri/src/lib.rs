@@ -908,6 +908,46 @@ fn create_workspace_file_in(workspace: &WorkspaceRoot, parent_path: &str, name: 
     Ok(target.to_string_lossy().into_owned())
 }
 
+#[tauri::command]
+fn move_workspace_entry(
+    workspace: tauri::State<'_, WorkspaceRoot>,
+    source_path: String,
+    destination_directory_path: String,
+) -> Result<String, String> {
+    move_workspace_entry_in(&workspace, &source_path, &destination_directory_path)
+}
+
+/// Both `source` and `destination_dir` already exist -- unlike a create
+/// target, `WorkspaceRoot::resolve()` (which canonicalizes) applies to both
+/// directly, jailing each independently rather than trusting either path.
+fn move_workspace_entry_in(
+    workspace: &WorkspaceRoot,
+    source_path: &str,
+    destination_directory_path: &str,
+) -> Result<String, String> {
+    let source = workspace.resolve(source_path)?;
+    let destination_dir = workspace.resolve(destination_directory_path)?;
+    if !destination_dir.is_dir() {
+        return Err(format!("{} is not a directory.", destination_dir.display()));
+    }
+    // Covers both "into itself" and "into one of its own descendants" in one check.
+    if destination_dir.starts_with(&source) {
+        return Err("Cannot move a folder into itself or one of its own subfolders.".to_string());
+    }
+    let name = source
+        .file_name()
+        .ok_or_else(|| "Source has no file name".to_string())?;
+    let target = destination_dir.join(name);
+    if target == source {
+        return Ok(source.to_string_lossy().into_owned());
+    }
+    if target.exists() {
+        return Err(format!("{} already exists.", target.display()));
+    }
+    std::fs::rename(&source, &target).map_err(|error| error.to_string())?;
+    Ok(target.to_string_lossy().into_owned())
+}
+
 fn write_file_in(workspace: &WorkspaceRoot, path: &str, content: &str) -> Result<(), String> {
     let file = workspace.resolve(path)?;
     if !file.is_file() {
@@ -1479,6 +1519,7 @@ pub fn run() {
             create_project_directory,
             create_workspace_directory,
             create_workspace_file,
+            move_workspace_entry,
             open_terminal,
             open_document,
             sidecar_start,
@@ -1495,8 +1536,8 @@ pub fn run() {
 mod tests {
     use super::{
         create_workspace_directory_in, create_workspace_file_in, list_directory_in,
-        open_document_in, open_file_in, open_local_url, open_terminal_in,
-        project_context_for, search_directory_in, SEARCH_RESULT_LIMIT,
+        move_workspace_entry_in, open_document_in, open_file_in, open_local_url,
+        open_terminal_in, project_context_for, search_directory_in, SEARCH_RESULT_LIMIT,
         read_file_in, start_terminal_pty, terminal_exec_in, write_file_in, SidecarSupervisor,
         WorkspaceRoot, MAX_FILE_PREVIEW_BYTES,
     };
@@ -1984,6 +2025,121 @@ mod tests {
         let result = create_workspace_directory_in(&workspace, &root.to_string_lossy(), "existing");
 
         assert!(result.is_err());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn move_workspace_entry_moves_a_file_into_another_directory() {
+        let root = fixture_root("move-workspace-file");
+        fs::create_dir_all(root.join("target")).expect("seed target directory");
+        fs::write(root.join("notes.md"), "hello").expect("seed file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let moved = move_workspace_entry_in(
+            &workspace,
+            &root.join("notes.md").to_string_lossy(),
+            &root.join("target").to_string_lossy(),
+        )
+        .expect("move file");
+
+        assert!(!root.join("notes.md").exists());
+        assert!(root.join("target/notes.md").is_file());
+        let expected = workspace.resolve(&root.to_string_lossy()).expect("resolve root").join("target/notes.md");
+        assert_eq!(moved, expected.to_string_lossy());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn move_workspace_entry_moves_a_directory_into_another_directory() {
+        let root = fixture_root("move-workspace-directory");
+        fs::create_dir_all(root.join("target")).expect("seed target directory");
+        fs::create_dir_all(root.join("source")).expect("seed source directory");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        move_workspace_entry_in(
+            &workspace,
+            &root.join("source").to_string_lossy(),
+            &root.join("target").to_string_lossy(),
+        )
+        .expect("move directory");
+
+        assert!(!root.join("source").exists());
+        assert!(root.join("target/source").is_dir());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn move_workspace_entry_rejects_moving_a_directory_into_itself() {
+        let root = fixture_root("move-workspace-into-self");
+        fs::create_dir_all(root.join("source")).expect("seed source directory");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = move_workspace_entry_in(
+            &workspace,
+            &root.join("source").to_string_lossy(),
+            &root.join("source").to_string_lossy(),
+        );
+
+        assert!(result.is_err());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn move_workspace_entry_rejects_moving_a_directory_into_its_own_descendant() {
+        let root = fixture_root("move-workspace-into-descendant");
+        fs::create_dir_all(root.join("source/child")).expect("seed nested directories");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = move_workspace_entry_in(
+            &workspace,
+            &root.join("source").to_string_lossy(),
+            &root.join("source/child").to_string_lossy(),
+        );
+
+        assert!(result.is_err());
+        assert!(root.join("source/child").exists(), "the illegal move must not partially apply");
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn move_workspace_entry_rejects_a_destination_with_an_existing_name() {
+        let root = fixture_root("move-workspace-name-collision");
+        fs::create_dir_all(root.join("target")).expect("seed target directory");
+        fs::write(root.join("notes.md"), "source").expect("seed source file");
+        fs::write(root.join("target/notes.md"), "already here").expect("seed colliding file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = move_workspace_entry_in(
+            &workspace,
+            &root.join("notes.md").to_string_lossy(),
+            &root.join("target").to_string_lossy(),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(fs::read_to_string(root.join("target/notes.md")).expect("read"), "already here");
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn move_workspace_entry_is_a_no_op_when_dropped_back_into_its_current_parent() {
+        let root = fixture_root("move-workspace-noop");
+        fs::write(root.join("notes.md"), "hello").expect("seed file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = move_workspace_entry_in(
+            &workspace,
+            &root.join("notes.md").to_string_lossy(),
+            &root.to_string_lossy(),
+        );
+
+        assert!(result.is_ok());
+        assert!(root.join("notes.md").is_file());
         fs::remove_dir_all(root).expect("remove fixture");
     }
 
