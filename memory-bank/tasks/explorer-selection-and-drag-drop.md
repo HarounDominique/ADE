@@ -23,7 +23,7 @@ status: approved
   tint (softer) on `#workspace-tree` itself for root-drop.
   (satisfies: SPEC-explorer-selection-and-drag-drop.md#structure — "finalized in the /seed:creative pass")
 
-- [ ] Phase 3 — Backend: `move_workspace_entry`/`move_workspace_entry_in` in
+- [x] Phase 3 — Backend: `move_workspace_entry`/`move_workspace_entry_in` in
   `desktop/src-tauri/src/lib.rs`, registered in `generate_handler![...]`, plus Rust unit
   tests (happy path for file and directory, reject into-self, reject into-own-descendant,
   reject onto-existing-name, no-op when dropped back into current parent). No creative
