@@ -15,7 +15,7 @@ status: approved
   Test strategy: `npm run build`; `node --import tsx --test tests/version-control.test.ts
   tests/desktop-sidecar.test.ts`.
 
-- [ ] Phase 2 — Frontend: `GIT_REPOSITORY_MISSING` branch in the `sidecar:response`
+- [x] Phase 2 — Frontend: `GIT_REPOSITORY_MISSING` branch in the `sidecar:response`
   listener, calling `refreshProjectContext` + a plain `notify()` instead of
   `showOperationError`. No creative needed — reuses the exact re-sync path
   `initGitRepositoryFromUI` already established.
@@ -35,7 +35,7 @@ status: approved
 ## Execution State
 
 **Build Status**: RUNNING
-**Current Phase**: 1
+**Current Phase**: 2
 **Current Step**: 5/6
 **Step Attempts**: {2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
@@ -47,3 +47,17 @@ status: approved
   nor error path) before this task — added `tests/workspace-status.test.ts` from
   scratch with both, rather than only the new guard case, since exercising a guard with
   zero coverage of the function it guards would leave the happy path unverified.
+
+- Phase 2: the first RED assertion for the frontend branch used a regex that tried to
+  extract the matched `if` block's body as a substring, and never matched real source
+  (a comment between the `if` and the body broke the capture window). Simplified to two
+  direct assertions — the branch calls `refreshProjectContext` within a few lines of its
+  own literal string, and its source position is strictly before
+  `showOperationError(response.error, contextPurpose);` — rather than one fragile
+  block-extraction regex. Caught immediately by running GREEN and getting an unexpected
+  empty-match failure, not by the operator.
+
+- Phase 2 review: confirmed `refreshGitWorkspace`'s pre-existing `activeVersionControl
+  === 'none'` guard makes the fix self-terminating — once `refreshProjectContext` re-syncs
+  the live state, the 1.2s background poll (`requestPendingGitChanges`) stops reaching
+  `git.pending` on its own, no additional de-duplication needed.
