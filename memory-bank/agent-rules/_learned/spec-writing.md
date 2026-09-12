@@ -30,3 +30,20 @@ cleared on an affecting delete/rename but the symmetric `selectedFilePath` case 
 missed in the first draft — same shape of stale reference, this time caught in review
 before the operator ever saw it. That task's manual-verification pass raised zero
 follow-ups, the first of its arc to do so.
+
+### mirror-pattern-verification
+_derived_from: reflection/offer-git-init-when-no-vcs.md · evidence_count: 1 · last_validated: 2026-09-12_
+
+When a spec's Style section says a new code path "mirrors" an existing one, verify the
+existing one is actually correct for the property that matters, don't just check it
+looks similar. `offer-git-init-when-no-vcs`'s spec gave a literal snippet chaining
+`.then()` straight off `nativeInvoke('sidecar_request', ...)`, claiming to mirror
+create-branch/push-origin — but Rust's `sidecar_request` is fire-and-forget (writes to
+stdin, returns before the response arrives), and the real create-branch/push-origin
+handlers only read correctly because they go through a separate `sendContextRequest` +
+event-listener correlation the snippet skipped. The build phase implemented the spec
+exactly and shipped the bug. Also: when a feature's entire purpose is to produce a state
+the app has never been in before (here: a Git repository with zero commits — every prior
+Project already had one by construction), "an existing pattern already covers this" is
+specifically the wrong inference, since that pattern was only ever proven against the
+old state.
