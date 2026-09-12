@@ -12,6 +12,11 @@ const toast = document.querySelector('.toast');
 const taskDialog = document.getElementById('new-task-dialog');
 const taskForm = document.getElementById('new-task-form');
 const taskIntent = document.getElementById('task-intent');
+const projectChoiceDialog = document.getElementById('project-choice-dialog');
+const newProjectDialog = document.getElementById('new-project-dialog');
+const newProjectForm = document.getElementById('new-project-form');
+const newProjectName = document.getElementById('new-project-name');
+const newProjectLocation = document.getElementById('new-project-location');
 const themeMeta = document.querySelector('meta[name="theme-color"]');
 let nativeInvoke;
 const terminalTabs = [];
@@ -1101,10 +1106,56 @@ function projectIdForPath(path) {
   return `${slug}-${Date.now().toString(36)}`;
 }
 
+function openProjectChoiceDialog() {
+  if (projectChoiceDialog?.showModal) projectChoiceDialog.showModal();
+}
+
+function closeProjectChoiceDialog() {
+  projectChoiceDialog?.close();
+}
+
+function updateNewProjectPathPreview() {
+  const preview = document.getElementById('new-project-path-preview');
+  if (!preview) return;
+  const location = newProjectLocation?.value.trim();
+  const name = newProjectName?.value.trim();
+  preview.textContent = location && name ? `Creates ${location}/${name}` : '';
+}
+
+function openNewProjectDialog() {
+  newProjectForm?.reset();
+  updateNewProjectPathPreview();
+  if (newProjectDialog?.showModal) newProjectDialog.showModal();
+  requestAnimationFrame(() => newProjectName?.focus());
+}
+
+function closeNewProjectDialog() {
+  newProjectDialog?.close();
+}
+
+async function browseNewProjectLocationFromUI() {
+  if (!nativeInvoke) { notify('Choosing a location requires the local desktop runtime.'); return; }
+  try {
+    const selectedPath = await nativeInvoke('select_project_directory', { title: 'Choose a location for the new project' });
+    if (!selectedPath) return;
+    if (newProjectLocation) newProjectLocation.value = selectedPath;
+    updateNewProjectPathPreview();
+  } catch (error) {
+    notify(error instanceof Error ? error.message : 'Unable to choose a location.');
+  }
+}
+
+async function createProjectFromUI(location, name) {
+  if (!nativeInvoke) { notify('Creating a project requires the local desktop runtime.'); return; }
+  const projectPath = await nativeInvoke('create_project_directory', { location, name });
+  setSyncState('stale', `Adding ${name}…`);
+  await sendContextRequest('project.register', { projectId: projectIdForPath(projectPath), name, repositoryPath: projectPath }, 'register-project');
+}
+
 async function addProjectFromUI() {
   if (!nativeInvoke) { notify('Adding a project requires the local desktop runtime.'); return; }
   try {
-    const selectedPath = await nativeInvoke('select_project_directory');
+    const selectedPath = await nativeInvoke('select_project_directory', { title: 'Open existing project' });
     if (!selectedPath) return;
     const name = pathBaseName(selectedPath) || 'Project';
     setSyncState('stale', `Adding ${name}…`);
@@ -5251,7 +5302,29 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     return;
   }
   if (item.dataset.action === 'add-project') {
+    openProjectChoiceDialog();
+    return;
+  }
+  if (item.dataset.action === 'close-project-choice-dialog') {
+    closeProjectChoiceDialog();
+    return;
+  }
+  if (item.dataset.action === 'choose-new-project') {
+    closeProjectChoiceDialog();
+    openNewProjectDialog();
+    return;
+  }
+  if (item.dataset.action === 'choose-open-project') {
+    closeProjectChoiceDialog();
     void addProjectFromUI();
+    return;
+  }
+  if (item.dataset.action === 'close-new-project-dialog') {
+    closeNewProjectDialog();
+    return;
+  }
+  if (item.dataset.action === 'browse-new-project-location') {
+    void browseNewProjectLocationFromUI();
     return;
   }
   if (item.dataset.action === 'check-runtime') {
@@ -6040,6 +6113,25 @@ document.addEventListener('visibilitychange', refreshVersionControlOnReturn);
 window.addEventListener('beforeunload', () => {
   terminalTabs.forEach(persistTerminalHistory);
   nativeInvoke?.('terminal_stop_all').catch(() => {});
+});
+newProjectName?.addEventListener('input', updateNewProjectPathPreview);
+newProjectForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const location = newProjectLocation?.value.trim();
+  const name = newProjectName?.value.trim();
+  if (!location) { notify('Choose a location for the new project.'); return; }
+  if (!name) { newProjectName?.focus(); return; }
+  const button = document.getElementById('create-project-button');
+  if (button) button.disabled = true;
+  try {
+    await createProjectFromUI(location, name);
+    newProjectForm.reset();
+    closeNewProjectDialog();
+  } catch (error) {
+    notify(error instanceof Error ? error.message : 'Unable to create project.');
+  } finally {
+    if (button) button.disabled = false;
+  }
 });
 taskForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
