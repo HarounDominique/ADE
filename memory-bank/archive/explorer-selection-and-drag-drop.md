@@ -46,10 +46,10 @@ and Boundaries, in full.
    its new path on a successful move (caught and fixed during Phase 4 review).
 3. Creating or moving an entry into a directory now expands that directory in the tree
    (caught by the operator during Phase 5 manual verification, fixed the same phase).
-4. Every "JetBrains"-style wording introduced by this task and the prior one was scrubbed
-   from specs, tests, and docs after the operator asked that no brand/licensed-product
-   name ever land in repo content — replaced with generic descriptions of the actual
-   convention. See commit `docs: describe Explorer create/drag-drop conventions
+4. Every commercial-IDE-branded wording introduced by this task and the prior one was
+   scrubbed from specs, tests, and docs after the operator asked that no brand/licensed-
+   product name ever land in repo content — replaced with generic descriptions of the
+   actual convention. See commit `docs: describe Explorer create/drag-drop conventions
    generically`. A few pre-existing, unrelated mentions (a real CSS font-family value,
    and an older theme-integration doc, neither introduced by this task) were flagged to
    the operator rather than changed unilaterally.
