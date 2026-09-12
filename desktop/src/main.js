@@ -1096,13 +1096,13 @@ function initGitRepositoryFromUI() {
     title: 'Initialize a Git repository here?',
     copy: `Creates a new Git repository at the root of ${activeProject.name}.`,
     confirmLabel: 'Initialize',
-  }, () => {
-    nativeInvoke('sidecar_request', { request: JSON.stringify({
-      id: `git.init-${Date.now()}`,
-      method: 'git.init',
-      params: { repositoryPath: activeRepositoryPath(), actor: 'human', reason: 'Git repository initialized from Assay', confirmed: true },
-    }) }).then(() => refreshProjectContext(projectSnapshot))
-      .catch((error) => { notify('Unable to initialize the Git repository.'); console.warn(error); });
+  }, async () => {
+    try {
+      await sendContextRequest('git.init', { repositoryPath: activeRepositoryPath(), actor: 'human', reason: 'Git repository initialized from Assay', confirmed: true }, 'init-git-repository');
+    } catch (error) {
+      notify('Unable to initialize the Git repository.');
+      console.warn(error);
+    }
   });
 }
 
@@ -4953,6 +4953,11 @@ async function connectSidecar(snapshot) {
         setSyncState('ready', 'Synced just now');
         notify(`Branch switched to ${response.result.branch}.`);
         renderCommitControls();
+        return;
+      }
+      if (contextPurpose === 'init-git-repository' && response.result?.operation === 'init') {
+        notify('Git repository initialized.');
+        await refreshProjectContext(projectSnapshot);
         return;
       }
       if (response.type?.startsWith('runtime.') && response.status) {
