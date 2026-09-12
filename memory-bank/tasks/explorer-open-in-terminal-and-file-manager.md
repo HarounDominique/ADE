@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Backend: `reveal_in_file_manager`/`reveal_in_file_manager_in` in
+- [x] Phase 1 — Backend: `reveal_in_file_manager`/`reveal_in_file_manager_in` in
   `desktop/src-tauri/src/lib.rs`, registered in `generate_handler![...]`, reusing the
   existing `open_with_desktop` helper. Rust unit tests: file resolves to its parent
   directory, directory resolves to itself, nonexistent path rejected. No creative
@@ -14,7 +14,7 @@ status: approved
   (satisfies: SPEC-explorer-open-in-terminal-and-file-manager.md#structure, #style, #test-strategy — backend half)
   Test strategy: `cd desktop/src-tauri && cargo check && cargo test`.
 
-- [ ] Phase 2 — Frontend: two more `[data-workspace-entry-action]` items in
+- [x] Phase 2 — Frontend: two more `[data-workspace-entry-action]` items in
   `#workspace-context-menu` ("Open in Terminal", "Reveal in File Manager"); `createTerminalTab`
   gains an optional `cwd` option (default `workspaceRootPath`, every existing call site
   unaffected); `startTerminal` uses `tab.completionCwd` instead of the hardcoded
@@ -26,7 +26,7 @@ status: approved
   menu items and the `cwd`/`completionCwd` wiring, in this same phase per the precedent
   set by every prior Explorer task.
 
-- [ ] Phase 3 — Verification: full regression (`npm test`, `cargo test`), then a manual
+- [x] Phase 3 — Verification: full regression (`npm test`, `cargo test`), then a manual
   pass by the operator in `npm run desktop:dev` (Open in Terminal on a file — new tab at
   its parent directory; Open in Terminal on a directory — new tab at that directory;
   Reveal in File Manager on a file — native file manager opens at its parent folder;
@@ -39,14 +39,29 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
+**Build Status**: DONE
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Step Attempts**: {2: 1, 3: 1, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 1: `reveal_in_file_manager_in`'s resolution logic was split into a pure
+  `containing_folder_of(target)` helper, unit-tested directly, rather than testing
+  `reveal_in_file_manager_in`'s success path — the spec's Test strategy named "file
+  resolves to its parent, directory resolves to itself" as coverage, but exercising the
+  full command's success path would spawn a real OS file-manager process during
+  `cargo test`, exactly what `open_file_in`'s own existing tests already avoid (they
+  cover only its rejections). Matches established precedent; satisfies the same intent
+  without the side effect.
+- Phase 2 review: an unstarted terminal tab (created but never yet typed into) now
+  freezes its `cwd` at creation time (`tab.completionCwd`) instead of reading the live
+  `workspaceRootPath` lazily when it actually starts. Only observable if the operator
+  creates an idle tab, switches Projects, then types into that same idle tab for the
+  first time — an already-started tab is completely unaffected (it keeps running
+  wherever it started, exactly as before; `terminalTabs` is never reset on a Project
+  switch). Judged an accidental side effect of the original hardcoding rather than a
+  relied-upon behavior, and not worth the extra complexity of a lazy re-read to preserve
+  exactly; flagged here rather than silently accepted.

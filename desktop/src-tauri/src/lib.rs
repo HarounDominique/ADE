@@ -752,6 +752,33 @@ fn open_file(workspace: tauri::State<'_, WorkspaceRoot>, path: String) -> Result
     open_file_in(&workspace, &path)
 }
 
+/// The folder `reveal_in_file_manager` opens: the path itself if it is
+/// already a directory, its parent otherwise. Split out so this resolution
+/// logic is unit-testable without spawning the real OS file manager the way
+/// exercising `reveal_in_file_manager_in`'s success path would -- the same
+/// reason `open_file_in`'s own tests below cover only its rejections.
+fn containing_folder_of(target: &Path) -> Result<PathBuf, String> {
+    if target.is_dir() {
+        Ok(target.to_path_buf())
+    } else {
+        target
+            .parent()
+            .map(|parent| parent.to_path_buf())
+            .ok_or_else(|| "Cannot determine a containing folder".to_string())
+    }
+}
+
+#[tauri::command]
+fn reveal_in_file_manager(workspace: tauri::State<'_, WorkspaceRoot>, path: String) -> Result<(), String> {
+    reveal_in_file_manager_in(&workspace, &path)
+}
+
+fn reveal_in_file_manager_in(workspace: &WorkspaceRoot, path: &str) -> Result<(), String> {
+    let target = workspace.resolve(path)?;
+    let folder = containing_folder_of(&target)?;
+    open_with_desktop(&folder, "folder")
+}
+
 fn open_file_in(workspace: &WorkspaceRoot, path: &str) -> Result<(), String> {
     let file = workspace.resolve(path)?;
     if !file.is_file() {
@@ -1570,6 +1597,7 @@ pub fn run() {
             move_workspace_entry,
             delete_workspace_entry,
             rename_workspace_entry,
+            reveal_in_file_manager,
             open_terminal,
             open_document,
             sidecar_start,
@@ -1588,7 +1616,7 @@ mod tests {
         create_workspace_directory_in, create_workspace_file_in, delete_workspace_entry_in,
         list_directory_in, move_workspace_entry_in, open_document_in, open_file_in,
         open_local_url, open_terminal_in, project_context_for, rename_workspace_entry_in,
-        search_directory_in, SEARCH_RESULT_LIMIT,
+        containing_folder_of, reveal_in_file_manager_in, search_directory_in, SEARCH_RESULT_LIMIT,
         read_file_in, start_terminal_pty, terminal_exec_in, write_file_in, SidecarSupervisor,
         WorkspaceRoot, MAX_FILE_PREVIEW_BYTES,
     };
@@ -2319,6 +2347,42 @@ mod tests {
         assert!(result.is_err());
         assert!(root.exists(), "the root must not be renamed out from under the selected Project");
         fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn containing_folder_of_a_file_is_its_parent_directory() {
+        let root = fixture_root("containing-folder-file");
+        fs::write(root.join("notes.md"), "hello").expect("seed file");
+
+        let folder = containing_folder_of(&root.join("notes.md")).expect("containing folder");
+
+        assert_eq!(folder, root);
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn containing_folder_of_a_directory_is_itself() {
+        let root = fixture_root("containing-folder-directory");
+        fs::create_dir_all(root.join("nested")).expect("seed directory");
+
+        let folder = containing_folder_of(&root.join("nested")).expect("containing folder");
+
+        assert_eq!(folder, root.join("nested"));
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn reveal_in_file_manager_rejects_a_path_outside_the_selected_project() {
+        let root = fixture_root("reveal-outside");
+        let outside = fixture_root("reveal-outside-target");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = reveal_in_file_manager_in(&workspace, &outside.to_string_lossy());
+
+        assert!(result.is_err());
+        fs::remove_dir_all(root).expect("remove fixture");
+        fs::remove_dir_all(outside).expect("remove fixture");
     }
 
     #[test]
