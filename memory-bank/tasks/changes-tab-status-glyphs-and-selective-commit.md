@@ -1,0 +1,55 @@
+---
+slug: changes-tab-status-glyphs-and-selective-commit
+spec: SPEC-changes-tab-status-glyphs-and-selective-commit.md
+status: approved
+---
+
+## Implementation Roadmap
+
+- [ ] Phase 1 — Sidecar: `createCommit` gains optional `files?: string[]`
+  (`git reset` then `git add -- <files>` or `git add --all`); `git.commit.create`'s
+  dispatch forwards `params.files` when present. `git.commit.push`/Ship untouched. No
+  creative needed — direct extension of an already-tested function's signature.
+  (satisfies: SPEC-changes-tab-status-glyphs-and-selective-commit.md#structure, #style,
+  #test-strategy — sidecar half)
+  Test strategy: `npm run build`; `node --import tsx --test tests/git-mutations.test.ts`.
+
+- [ ] Phase 2 — Frontend: `gitStatusGlyph()` (built on `workspaceGitStateClass()`)
+  replaces the raw status text in `gitFileLabelMarkup`; pending-file rows become
+  `<div role="button">` wrappers carrying a checkbox
+  (`data-git-pending-file-select`) alongside the existing diff-select
+  (`data-git-pending-file`); new `pendingCommitSelection` Set, reset only on a genuine
+  file-set change; select-all checkbox in `index.html`'s `.changes-section-heading`;
+  commit submit refuses an empty selection and omits `files` when everything is
+  selected. No creative needed — mirrors this session's established delegated-click
+  and Set-based-selection-state patterns.
+  (satisfies: SPEC-changes-tab-status-glyphs-and-selective-commit.md#structure, #style
+  — frontend half)
+  Test strategy: `node --check desktop/src/main.js`; contract-test additions in
+  `tests/desktop-ui-contract.test.ts`, same phase per this session's convention.
+
+- [ ] Phase 3 — Verification: full regression (`npm test`), then a manual pass by the
+  operator in `npm run desktop:dev` (modify/add/delete files, confirm the three
+  glyphs/colors; uncheck one file, commit, confirm only checked files land in the
+  commit via `git log`/`git show` and the unchecked one stays pending; confirm
+  select-all/indeterminate behavior; confirm an empty selection refuses to commit;
+  confirm a checkbox click never changes the diff preview) before reporting the task
+  done. No automated GUI clicks — see
+  `agent-rules/_learned/gui-automation-unsafe-in-this-environment`.
+  (satisfies: SPEC-changes-tab-status-glyphs-and-selective-commit.md#test-strategy,
+  #boundaries)
+  Test strategy: `npm test`, manual pass per this repo's `run` skill convention.
+
+## Execution State
+
+**Build Status**: NOT_STARTED
+**Current Phase**: —
+**Current Step**: —
+**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Last Block Rule**: none
+**Can Resume**: YES
+
+## Deviations
+
+[Anything a build phase did differently from what the spec/plan predicted, and whether
+it was accepted, and by whom.]
