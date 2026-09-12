@@ -19,6 +19,15 @@ schema_version: 1
 
 [Optional per-project overrides to `${CLAUDE_PLUGIN_ROOT}/context/complexity-routing.md`'s default table.]
 
+## Commit Guard Overrides
+
+`scripts/commit-guard.sh` gained a Rust-specific override (2026-09-12, during
+`explorer-new-file-folder` Phase 1): this project's Rust code keeps tests inline in the
+same file (`#[cfg(test)] mod tests`), which the stock filename-based
+`TEST_NAME_PATTERNS` cannot recognize. Added `rs_file_has_new_test()`, which treats a
+staged `.rs` file as "test changed" when its diff adds a new `#[test]`. See the script's
+own header comment for detail.
+
 ## Agent Backends
 
 [Optional. Uncomment and edit any line to route that seam to Codex; omit the whole

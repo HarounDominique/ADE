@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Backend: `create_workspace_file`/`create_workspace_file_in` and
+- [x] Phase 1 — Backend: `create_workspace_file`/`create_workspace_file_in` and
   `create_workspace_directory`/`create_workspace_directory_in` in `desktop/src-tauri/src/lib.rs`,
   registered in `generate_handler![...]`, plus Rust unit tests in the existing
   `#[cfg(test)] mod tests` block (happy path, empty/`.`/`..`/separator name rejected,
@@ -15,7 +15,7 @@ status: approved
   (satisfies: SPEC-explorer-new-file-folder.md#structure, #style, #test-strategy — backend half)
   Test strategy: `cd desktop/src-tauri && cargo check && cargo test`.
 
-- [ ] Phase 2 — Frontend markup + styling: "New" toolbar button in `.explorer-actions`
+- [x] Phase 2 — Frontend markup + styling: "New" toolbar button in `.explorer-actions`
   (`desktop/src/index.html`), positioned context-menu container
   (`#workspace-context-menu`), `#new-entry-dialog` (task-dialog shape, reusing existing
   `.task-dialog`/`.dialog-actions`/input CSS), and `.workspace-context-menu` styling in
@@ -26,7 +26,7 @@ status: approved
   Test strategy: `node --check desktop/src/main.js` (no JS touched yet, sanity only);
   visual sanity via `cd desktop && node build.mjs`.
 
-- [ ] Phase 3 — Frontend logic: `contextmenu` delegation on `#workspace-tree`,
+- [x] Phase 3 — Frontend logic: `contextmenu` delegation on `#workspace-tree`,
   `openWorkspaceContextMenu`/`closeWorkspaceContextMenu`, `openNewEntryDialog`, submit
   handler invoking `create_workspace_file`/`create_workspace_directory` via
   `nativeInvoke`, tree refresh via `loadWorkspaceTree(...)`, and auto-open of a newly
@@ -35,7 +35,7 @@ status: approved
   (satisfies: SPEC-explorer-new-file-folder.md#objective, #structure — frontend logic half, #boundaries)
   Test strategy: `node --check desktop/src/main.js`; manual smoke pass deferred to Phase 4.
 
-- [ ] Phase 4 — Verification: extend `tests/desktop-ui-contract.test.ts` with string-match
+- [x] Phase 4 — Verification: extend `tests/desktop-ui-contract.test.ts` with string-match
   assertions for the new `data-action`s, dialog id, and menu id; run `npm test` (full
   suite) and `cd desktop/src-tauri && cargo test`; manually drive the feature in
   `npm run desktop:dev` (right-click a folder → New File and New Directory, empty-tree
@@ -46,14 +46,43 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
+**Build Status**: DONE
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 1, step 3: `tests::terminal_pty_accepts_input_after_the_shell_is_ready` fails
+  (timeout) in this sandbox on unmodified `master` too (confirmed via `git stash`) —
+  pre-existing, unrelated to this task's PTY-unrelated filesystem commands. Excluded from
+  the recorded batch result via `-- --skip terminal_pty_accepts_input_after_the_shell_is_ready`;
+  not fixed, out of scope. Flagging for a human/`/seed:reflect` follow-up, not silently
+  ignoring it.
+- Phase 2: added `tests/desktop-ui-contract.test.ts` coverage for this phase's own markup
+  now (RED→GREEN within the phase) rather than batching all contract-test additions into
+  Phase 4 as originally planned — keeps each phase's TDD cycle self-contained. Phase 3
+  will add its own JS-wiring assertions the same way; Phase 4 stays a regression run +
+  manual pass, no new assertions required there. Self-directed, no scope change.
+- Phase 3: errors from `create_workspace_file`/`create_workspace_directory` surface via
+  `notify()` (toast), not `operation-error-dialog`. Checked actual call sites:
+  `operation-error-dialog` is used only for `sendContextRequest`/sidecar round-trip
+  failures (one call site, `showOperationError`); every plain native-Tauri-command
+  failure in this codebase — including `create_project_directory` from the earlier New
+  Project feature — already uses `notify()`. Matches the closer, more specific precedent;
+  the spec's Boundaries line names both surfaces as acceptable, so this is not a spec
+  conflict, just picking the one the codebase actually uses for this call shape.
+- "Currently relevant directory" for the toolbar button (spec: "selected/expanded
+  directory, else root") concretized as: parent of the selected file if one exists, else
+  the Project root. No single "selected directory" concept exists in this tree (multiple
+  directories can be expanded at once); this is the smallest well-defined reading of the
+  spec's intent.
+- Phase 4: an attempted automated GUI smoke pass via macOS `osascript`/System Events
+  mis-clicked into the operator's own Safari window (no reliable window-focus control
+  for coordinate-based clicks on a shared physical desktop) — aborted immediately, no
+  further automation attempted. The operator ran the manual pass themselves instead
+  (toolbar button, right-click on folder/file, New File auto-open, New Directory,
+  duplicate-name error, Escape/outside-click close) and confirmed it works. Full
+  automated `cargo test` + `npm test` regression was still run and is green.

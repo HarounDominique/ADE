@@ -14,6 +14,14 @@
 # calling this script. Do not "fix" a false FAIL by loosening these per commit — fix the
 # pattern once, here, if it's genuinely wrong for every commit, never for just this one.
 #
+# This project's Rust code (desktop/src-tauri) keeps tests inline in the same file as
+# the code under test (`#[cfg(test)] mod tests` at the bottom of e.g. lib.rs) rather than
+# in a separate *_test.rs/*.test.rs file — the idiomatic Rust convention, and genuinely
+# incompatible with a purely filename-based test/production split. rs_file_has_new_test()
+# below treats a staged .rs file as "test changed" when its diff adds a new `#[test]`,
+# so it can satisfy the gate for itself instead of always tripping the "no test file"
+# check for every Rust commit.
+#
 # Last test run: since an env var set by one Bash call does not survive into the next
 # (each tool call is its own subprocess), the actual test verdict is read from a file,
 # not an environment variable — write the real exit code to $SEED_LAST_TEST_RESULT_FILE
@@ -63,6 +71,13 @@ is_production_file() {
   return 1
 }
 
+rs_file_has_new_test() {
+  case "$1" in
+    *.rs) git diff --cached -- "$1" | grep -qE '^\+\s*#\[test\]' ;;
+    *) return 1 ;;
+  esac
+}
+
 production_changed=0
 test_changed=0
 production_files=""
@@ -70,6 +85,8 @@ production_files=""
 while IFS=$'\t' read -r status f; do
   [ -z "$f" ] && continue
   if is_test_file "$f"; then
+    test_changed=1
+  elif rs_file_has_new_test "$f"; then
     test_changed=1
   elif [ "$status" != "D" ] && is_production_file "$f"; then
     production_changed=1
