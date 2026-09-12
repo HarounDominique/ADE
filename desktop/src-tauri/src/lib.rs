@@ -876,14 +876,36 @@ fn write_file(
     write_file_in(&workspace, &path, &content)
 }
 
+/// Device names Windows reserves at the filesystem level, regardless of
+/// extension (`CON.txt` is just as reserved as `CON`) and regardless of case.
+const WINDOWS_RESERVED_NAMES: [&str; 22] = [
+    "CON", "PRN", "AUX", "NUL",
+    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
 /// Validates a proposed new-entry name shared by `create_workspace_directory`
 /// and `create_workspace_file`. Rejecting a separator outright -- rather than
 /// creating whatever intermediate directories it implies -- keeps "New File"
 /// from silently becoming "New File, and also two new folders nobody asked for".
+///
+/// Every rule here runs on every platform, not just Windows: the goal is that
+/// a repository this app creates or edits never contains a name that only
+/// breaks once it is opened on Windows, regardless of which OS created it.
 fn validate_new_entry_name(name: &str) -> Result<&str, String> {
     let trimmed = name.trim();
     if trimmed.is_empty() || trimmed == "." || trimmed == ".." || trimmed.contains('/') || trimmed.contains('\\') {
         return Err("Name cannot be empty, \".\", \"..\", or contain a path separator.".to_string());
+    }
+    if trimmed.ends_with('.') {
+        return Err("Name cannot end with a period -- Windows will not create it as typed.".to_string());
+    }
+    if trimmed.chars().any(|c| matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*') || (c as u32) < 32) {
+        return Err("Name cannot contain < > : \" | ? * or a control character -- reserved on Windows.".to_string());
+    }
+    let base = trimmed.split('.').next().unwrap_or(trimmed);
+    if WINDOWS_RESERVED_NAMES.iter().any(|reserved| reserved.eq_ignore_ascii_case(base)) {
+        return Err(format!("\"{base}\" is a reserved device name on Windows and cannot be used, even with an extension."));
     }
     Ok(trimmed)
 }
@@ -1618,7 +1640,7 @@ mod tests {
         open_local_url, open_terminal_in, project_context_for, rename_workspace_entry_in,
         containing_folder_of, reveal_in_file_manager_in, search_directory_in, SEARCH_RESULT_LIMIT,
         read_file_in, start_terminal_pty, terminal_exec_in, write_file_in, SidecarSupervisor,
-        WorkspaceRoot, MAX_FILE_PREVIEW_BYTES,
+        WorkspaceRoot, MAX_FILE_PREVIEW_BYTES, validate_new_entry_name,
     };
     use std::fs;
 
@@ -2092,6 +2114,47 @@ mod tests {
         assert!(create_workspace_file_in(&workspace, &root.to_string_lossy(), "").is_err());
         assert!(create_workspace_file_in(&workspace, &root.to_string_lossy(), "..").is_err());
         fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn validate_new_entry_name_rejects_windows_reserved_device_names() {
+        // Reserved even with an extension, and case-insensitively -- this
+        // validation runs on every platform Assay creates a name on, since
+        // the point is a repo built on macOS never contains a name that
+        // only breaks once opened on Windows.
+        assert!(validate_new_entry_name("CON").is_err());
+        assert!(validate_new_entry_name("con").is_err());
+        assert!(validate_new_entry_name("con.txt").is_err());
+        assert!(validate_new_entry_name("COM1").is_err());
+        assert!(validate_new_entry_name("lpt9").is_err());
+        assert!(validate_new_entry_name("NUL").is_err());
+    }
+
+    #[test]
+    fn validate_new_entry_name_accepts_names_that_merely_contain_a_reserved_word() {
+        // The check is on the exact base name, not a substring match.
+        assert!(validate_new_entry_name("reconsider.txt").is_ok());
+        assert!(validate_new_entry_name("disconnect").is_ok());
+        assert!(validate_new_entry_name("LPT99").is_ok());
+    }
+
+    #[test]
+    fn validate_new_entry_name_rejects_forbidden_windows_characters() {
+        for character in ['<', '>', ':', '"', '|', '?', '*'] {
+            let name = format!("file{character}name");
+            assert!(validate_new_entry_name(&name).is_err(), "expected {name:?} to be rejected");
+        }
+        assert!(validate_new_entry_name("file\u{0007}name").is_err());
+    }
+
+    #[test]
+    fn validate_new_entry_name_rejects_a_trailing_dot() {
+        // A trailing space is already unreachable here -- the function's
+        // existing `name.trim()` strips it before this check would ever
+        // see it, so testing for that would assert something that can
+        // never happen rather than guard real behavior.
+        assert!(validate_new_entry_name("notes.").is_err());
+        assert!(validate_new_entry_name("notes.md").is_ok());
     }
 
     #[test]
