@@ -4,6 +4,7 @@ import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
@@ -205,6 +206,49 @@ test("desktop sidecar process answers over stdin/stdout", async () => {
   child.kill();
   await once(child, "close");
   rmSync(directory, { recursive: true, force: true });
+});
+
+test("desktop sidecar's git.init updates the Project's stored Git state, not just the filesystem", async () => {
+  // A Project registered before `git init` runs is persisted with
+  // versionControl: "none". Without refreshing that stored row after init,
+  // switching Projects away and back re-read the stale "none" and the
+  // topbar dropdown offered to initialize Git again even though it already
+  // had been.
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-git-init-"));
+  // registerProject always stores the canonicalized path (realpath resolves
+  // a temp-dir symlink alias on macOS); saving the raw one here would make
+  // this test's own setup diverge from how a real registration ever looks.
+  const repositoryPath = await realpath(mkdtempSync(join(tmpdir(), "ade-sidecar-git-init-repo-")));
+  const databasePath = join(directory, "ade.db");
+  const store = new AdeStore(databasePath);
+  const project = Project.create({ id: "sidecar-init-project", name: "Init me", repositoryPath });
+  store.saveProject(project, { path: repositoryPath, gitRoot: repositoryPath, versionControl: "none" });
+  store.close();
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: databasePath },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const lines = readSidecarLines(child.stdout);
+
+  try {
+    child.stdin.write(JSON.stringify({ id: "init-1", method: "git.init", params: { repositoryPath, actor: "human", reason: "test", confirmed: true } }) + "\n");
+    const initResponse = await lines.waitFor((message) => message.id === "init-1");
+    assert.equal((initResponse.result as { operation: string } | undefined)?.operation, "init");
+
+    child.stdin.write(JSON.stringify({ id: "snapshot-1", method: "project.snapshot", params: { projectId: project.id } }) + "\n");
+    const snapshotResponse = await lines.waitFor((message) => message.id === "snapshot-1");
+    assert.equal((snapshotResponse.result as { project: { versionControl: string } }).project.versionControl, "git");
+  } finally {
+    // A failed assertion above must not leave the child (and its open
+    // stdio pipes) alive -- that keeps the test runner's event loop from
+    // ever draining, hanging the whole suite instead of just failing.
+    child.kill();
+    await once(child, "close");
+    rmSync(directory, { recursive: true, force: true });
+    rmSync(repositoryPath, { recursive: true, force: true });
+  }
 });
 
 test("desktop sidecar accepts an Implementer run asynchronously", async () => {

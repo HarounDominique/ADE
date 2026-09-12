@@ -36,7 +36,7 @@ import { turnWrites } from "./application/agents/turn-checkpoint.js";
 import { askBriefing, composeAgentPrompt } from "./application/structural-context/ask-briefing.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
-import { commitAndPush, createBranch, createCommit, createPullRequest, createWorktree, fetchOrigin, pushBranch, switchBranch } from "./application/git/git-mutations.js";
+import { commitAndPush, createBranch, createCommit, createPullRequest, createWorktree, fetchOrigin, initializeRepository, pushBranch, switchBranch } from "./application/git/git-mutations.js";
 import { inspectPendingGitChanges, listGitCommits, readGitCommitDiff, readPendingGitDiff } from "./application/git/version-control.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
@@ -50,7 +50,7 @@ import type { ResolvedRunConfiguration, RunConfiguration } from "./domain/run-co
 import { applyKnowledgeReconciliation, proposeKnowledgeReconciliation, reconcileChangedDocumentation } from "./application/knowledge/reconcile.js";
 import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNetwork, updateProjectSkill } from "./application/skills/skill-install.js";
-import { registerProject } from "./application/tasks/project-commands.js";
+import { registerProject, refreshProjectRepositoryState } from "./application/tasks/project-commands.js";
 import { LocalGitRepository } from "./adapters/local-git-repository.js";
 import { GitUnavailableError } from "./adapters/git-command.js";
 import { fallbackTerminalTitle, type TerminalAgentProvider } from "./application/terminal-history/agent-terminal.js";
@@ -577,7 +577,7 @@ export async function runDesktopSidecar(): Promise<void> {
         process.stdout.write(`${JSON.stringify({ id: request.id, result: { gitWorkflow: loadGatePolicy(directory).gitWorkflow } })}\n`);
       } else if (request.method === "github.status") {
         void inspectGitHub().then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`));
-      } else if (["git.branch.create", "git.branch.switch", "git.worktree.create", "git.commit.create", "git.commit.push", "git.push", "github.pr.create"].includes(request.method)) {
+      } else if (["git.init", "git.branch.create", "git.branch.switch", "git.worktree.create", "git.commit.create", "git.commit.push", "git.push", "github.pr.create"].includes(request.method)) {
         const params = request.params;
         if (!params?.repositoryPath || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, actor and reason are required" } })}\n`);
         else if ((request.method === "git.branch.create" || request.method === "git.commit.create" || request.method === "git.commit.push") && !params.intent) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "intent is required for this Git operation" } })}\n`);
@@ -585,8 +585,16 @@ export async function runDesktopSidecar(): Promise<void> {
         else if (request.method === "git.worktree.create" && (!params.worktreePath || !params.branch)) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "worktreePath and branch are required for a worktree" } })}\n`);
         else {
           const base = { directory: params.repositoryPath, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true };
-          const operation = request.method === "git.branch.create" ? createBranch({ ...base, name: params.intent! }) : request.method === "git.branch.switch" ? switchBranch({ ...base, branch: params.branch! }) : request.method === "git.worktree.create" ? createWorktree({ ...base, path: params.worktreePath!, branch: params.branch! }) : request.method === "git.commit.create" ? createCommit({ ...base, message: params.intent!, ...(params.body ? { body: params.body } : {}) }) : request.method === "git.commit.push" ? commitAndPush({ ...base, message: params.intent!, ...(params.body ? { body: params.body } : {}) }) : request.method === "git.push" ? pushBranch({ ...base, ...(params.intent ? { branch: params.intent } : {}) }) : createPullRequest({ ...base, title: params.intent ?? "ADE change", body: params.reason });
-          void operation.then((result) => {
+          const operation = request.method === "git.init" ? initializeRepository(base) : request.method === "git.branch.create" ? createBranch({ ...base, name: params.intent! }) : request.method === "git.branch.switch" ? switchBranch({ ...base, branch: params.branch! }) : request.method === "git.worktree.create" ? createWorktree({ ...base, path: params.worktreePath!, branch: params.branch! }) : request.method === "git.commit.create" ? createCommit({ ...base, message: params.intent!, ...(params.body ? { body: params.body } : {}) }) : request.method === "git.commit.push" ? commitAndPush({ ...base, message: params.intent!, ...(params.body ? { body: params.body } : {}) }) : request.method === "git.push" ? pushBranch({ ...base, ...(params.intent ? { branch: params.intent } : {}) }) : createPullRequest({ ...base, title: params.intent ?? "ADE change", body: params.reason });
+          void operation.then(async (result) => {
+            // A registered Project's Git state is stored at registration
+            // time; `git init` only touches the filesystem, so without this
+            // the stored row keeps answering "none" and every later
+            // project.snapshot read re-offers initializing Git that already
+            // happened.
+            if (request.method === "git.init") {
+              await refreshProjectRepositoryState(store, new LocalGitRepository(), params.repositoryPath!).catch(() => {});
+            }
             if (params.taskId) {
               const candidate = "name" in result ? result.name : "url" in result ? result.url : "branch" in result ? result.branch : "commit" in result ? result.commit : undefined;
               const reference = typeof candidate === "string" ? candidate : undefined;

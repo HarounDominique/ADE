@@ -22,6 +22,8 @@ export async function listUnpushedCommits(directory: string): Promise<Set<string
 }
 
 export async function listGitCommits(directory: string, limit = 50): Promise<GitCommit[]> {
+  const head = await executeGit(["rev-parse", "--verify", "HEAD"], { cwd: directory }).catch(() => null);
+  if (!head) return [];
   const log = await executeGit(["log", `-${limit}`, "--format=%H%x09%h%x09%an%x09%aI%x09%s"], { cwd: directory });
   const unpushed = await listUnpushedCommits(directory);
   const commits: GitCommit[] = [];
@@ -41,10 +43,22 @@ export async function readGitCommitDiff(directory: string, commit: string, file?
   return { commit, ...(file ? { file } : {}), diff: result.stdout };
 }
 
+/** The empty tree's well-known hash -- every Git repository has this object,
+    even one with zero commits. Diffing against it stands in for `HEAD` before
+    a first commit exists, so a fresh `git init` reads as "everything is new"
+    instead of failing outright on an ambiguous `HEAD`. */
+const emptyTreeHash = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
+async function resolveDiffBase(directory: string): Promise<string> {
+  const head = await executeGit(["rev-parse", "--verify", "HEAD"], { cwd: directory }).catch(() => null);
+  return head ? "HEAD" : emptyTreeHash;
+}
+
 export async function inspectPendingGitChanges(directory: string) {
+  const base = await resolveDiffBase(directory);
   const [status, diff] = await Promise.all([
     executeGit(["status", "--short", "--untracked-files=all"], { cwd: directory }),
-    executeGit(["diff", "HEAD", "--binary"], { cwd: directory }),
+    executeGit(["diff", base, "--binary"], { cwd: directory }),
   ]);
   const files = status.stdout.split("\n").filter(Boolean).map((line) => ({ status: line.slice(0, 2).trim() || "?", path: line.slice(3).trim() })).filter((file) => file.path.length > 0);
   return { files, diff: diff.stdout };
@@ -54,7 +68,8 @@ export async function readPendingGitDiff(directory: string, file: string): Promi
   const pending = await inspectPendingGitChanges(directory);
   if (!pending.files.some((candidate) => candidate.path === file)) throw new Error("The requested file is not pending in this repository");
   try {
-    const result = await executeGit(["diff", "HEAD", "--binary", "--", file], { cwd: directory });
+    const base = await resolveDiffBase(directory);
+    const result = await executeGit(["diff", base, "--binary", "--", file], { cwd: directory });
     if (result.stdout) return { file, diff: result.stdout };
   } catch (error) {
     const output = error && typeof error === "object" && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "";
