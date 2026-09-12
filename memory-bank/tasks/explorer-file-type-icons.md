@@ -22,7 +22,7 @@ status: approved
   Test strategy: `node --check desktop/src/main.js`; contract-test additions for the
   mapping module's shape and `build.mjs`'s copy step, in this same phase.
 
-- [ ] Phase 3 — Wire `renderWorkspaceEntry`'s file and directory branches to
+- [x] Phase 3 — Wire `renderWorkspaceEntry`'s file and directory branches to
   `iconForFileName`/the vendored folder icon, with the existing glyph as the untouched
   fallback for both. CSS for `.workspace-file-icon`/`.workspace-folder-icon` sizing to
   match the current glyph footprint.
