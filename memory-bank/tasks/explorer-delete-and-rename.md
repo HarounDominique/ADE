@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Backend: `delete_workspace_entry`/`delete_workspace_entry_in` and
+- [x] Phase 1 — Backend: `delete_workspace_entry`/`delete_workspace_entry_in` and
   `rename_workspace_entry`/`rename_workspace_entry_in` in `desktop/src-tauri/src/lib.rs`,
   registered in `generate_handler![...]`, reusing the existing `validate_new_entry_name`
   helper for rename's new name. Rust unit tests: delete file, delete directory with
@@ -52,11 +52,15 @@ status: approved
 **Build Status**: NOT_STARTED
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 1 review: `rename_workspace_entry_in`'s original draft computed the destination's
+  parent from `source.parent()` directly, never re-resolving it through
+  `WorkspaceRoot::resolve()`. Unreachable from the UI today (the tree never offers rename
+  on the Project root itself), but the backend command must not depend on the frontend
+  never sending that path — fixed before commit, with a new test
+  (`rename_workspace_entry_rejects_renaming_the_project_root_itself`) covering it.
