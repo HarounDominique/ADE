@@ -92,3 +92,37 @@ status: approved
   (`git rev-parse --verify HEAD`) and falling back to Git's well-known empty-tree hash
   (`4b825dc642cb6eb9a060e54bf8d69288fbee4904`) as the diff base otherwise, so a
   commit-less repository reads as "everything pending is new" instead of erroring.
+
+- Phase 3 manual verification, round 4: same repository-switch action, next error —
+  "Command failed: git log -50 ... fatal: your current branch 'main' does not have any
+  commits yet". `listGitCommits` in the same file had the identical unconditional-`HEAD`
+  assumption as round 3's diff calls, just via `git log` instead of `git diff`, and was
+  missed in that pass because it is a separate call site, not a separate bug. Fixed by
+  checking `HEAD` exists first and returning an empty commit list otherwise, rather than
+  letting `git log` fail. Every other `executeGit` call site in `src/application/git/`
+  was audited at the same time and confirmed not to share this assumption (none of them
+  need a commit to exist: `for-each-ref`, `worktree list`, `remote -v`,
+  `branch --show-current`, `status --short`).
+
+- Phase 3 manual verification, round 5: after rounds 3-4, switching Projects no longer
+  errored, but the operator reported that switching away from a freshly-initialized
+  Project and back made the branch dropdown revert to offering "Initialize Git
+  repository" again, as if the init had never happened. Root cause: a registered
+  Project's `versionControl`/`branch` is persisted in the sidecar's SQLite store at
+  registration time (`registerProject`, `src/application/tasks/project-commands.ts`) and
+  never re-read afterward. `git.init` only ran `git init` on the filesystem — nothing
+  told the stored row it was now `"git"` instead of `"none"`. `switchProjectFromContext`
+  reads the correct live value from Rust's `project_context` first, but then also
+  requests `project.snapshot` from the sidecar, whose response carries the *stored*
+  Project record and overwrites `activeProject` via `mergeActiveProject` — silently
+  reintroducing the stale `"none"`. Fixed by adding `AdeStore.updateProjectRepository`
+  and an application-layer `refreshProjectRepositoryState(store, git, repositoryPath)`
+  (looks the Project up by its canonicalized repository path, re-inspects the repository
+  live, writes the fresh state back), called from the sidecar's `git.init` dispatch
+  right after the mutation succeeds and before the response is written, so no later read
+  can observe the stale row. Caught by a new spawn-based integration test
+  (`tests/desktop-sidecar.test.ts`) that drives `git.init` then `project.snapshot`
+  through a real child process, exactly reproducing the two-request sequence the UI
+  performs — the existing unit-level tests for the store and for
+  `refreshProjectRepositoryState` in isolation would not have caught this, since the bug
+  was in the *wiring* between them, not in either piece alone.
