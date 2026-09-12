@@ -26,7 +26,7 @@ status: approved
   menu items and the `cwd`/`completionCwd` wiring, in this same phase per the precedent
   set by every prior Explorer task.
 
-- [ ] Phase 3 — Verification: full regression (`npm test`, `cargo test`), then a manual
+- [x] Phase 3 — Verification: full regression (`npm test`, `cargo test`), then a manual
   pass by the operator in `npm run desktop:dev` (Open in Terminal on a file — new tab at
   its parent directory; Open in Terminal on a directory — new tab at that directory;
   Reveal in File Manager on a file — native file manager opens at its parent folder;
@@ -39,10 +39,10 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
+**Build Status**: DONE
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 1, 3: 1, 4: 1}
+**Step Attempts**: {2: 1, 3: 1, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
