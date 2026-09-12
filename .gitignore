@@ -5,3 +5,16 @@ dist/
 # Built installers and their manifest: artifacts, not sources. Anchored,
 # because a bare pattern would also swallow src/application/release.
 /release/
+
+# Hot cache — never a truth source, never committed. See memory-bank-schema.md.
+memory-bank/.local/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# OS / editor noise
+Thumbs.db
