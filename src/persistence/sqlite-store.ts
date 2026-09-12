@@ -330,6 +330,12 @@ export class AdeStore {
     `).run(project.id, project.name, project.repositoryPath, repository.gitRoot ?? project.repositoryPath, repository.branch ?? null, project.createdAt, repository.versionControl ?? "git");
   }
 
+  updateProjectRepository(id: string, repository: Repository): void {
+    this.db.prepare(`
+      UPDATE projects SET git_root = ?, branch = ?, version_control = ? WHERE id = ?
+    `).run(repository.gitRoot ?? repository.path, repository.branch ?? null, repository.versionControl ?? "git", id);
+  }
+
   removeProject(id: string): boolean {
     const result = this.db.prepare("DELETE FROM projects WHERE id = ?").run(id);
     return result.changes > 0;

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { registerProject } from "../src/application/tasks/project-commands.js";
+import { registerProject, refreshProjectRepositoryState } from "../src/application/tasks/project-commands.js";
 import { advanceTask, createTask, getTask } from "../src/application/tasks/task-commands.js";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { mkdtemp, mkdir, realpath, rm } from "node:fs/promises";
@@ -52,5 +52,34 @@ test("registerProject accepts a local folder without Git", async () => {
   assert.equal(store.getProject(project.id)?.versionControl, "none");
   await assert.rejects(() => registerProject(store, git, { id: "duplicate-plain", name: "Duplicate", repositoryPath: root }), /folder/);
   await rm(root, { recursive: true, force: true });
+  store.close();
+});
+
+test("refreshProjectRepositoryState updates a stored Project once Git is initialized", async () => {
+  // A Project registered before `git init` has run is persisted with
+  // versionControl: "none". Initializing Git only touches the filesystem --
+  // nothing re-reads that stored row -- so every later project.snapshot read
+  // kept answering "none" and the topbar dropdown offered to initialize Git
+  // again even after it already had been.
+  const store = new AdeStore();
+  const root = await mkdtemp(join(tmpdir(), "ade-project-refresh-"));
+  const uninitializedGit = { inspect: async () => { throw new Error("not a Git repository"); } };
+  const project = await registerProject(store, uninitializedGit, { id: "refresh-project", name: "Refresh", repositoryPath: root });
+  assert.equal(store.getProject(project.id)?.versionControl, "none");
+
+  const initializedGit = { inspect: async () => ({ path: root, gitRoot: root, branch: "main", versionControl: "git" as const }) };
+  await refreshProjectRepositoryState(store, initializedGit, root);
+
+  const refreshed = store.getProject(project.id);
+  assert.equal(refreshed?.versionControl, "git");
+  assert.equal(refreshed?.branch, "main");
+  await rm(root, { recursive: true, force: true });
+  store.close();
+});
+
+test("refreshProjectRepositoryState is a no-op for a path with no registered Project", async () => {
+  const store = new AdeStore();
+  const git = { inspect: async () => ({ path: "/nowhere", gitRoot: "/nowhere", branch: "main", versionControl: "git" as const }) };
+  await assert.doesNotReject(() => refreshProjectRepositoryState(store, git, "/nowhere"));
   store.close();
 });
