@@ -35,7 +35,7 @@ status: approved
   (satisfies: SPEC-explorer-new-file-folder.md#objective, #structure — frontend logic half, #boundaries)
   Test strategy: `node --check desktop/src/main.js`; manual smoke pass deferred to Phase 4.
 
-- [ ] Phase 4 — Verification: extend `tests/desktop-ui-contract.test.ts` with string-match
+- [x] Phase 4 — Verification: extend `tests/desktop-ui-contract.test.ts` with string-match
   assertions for the new `data-action`s, dialog id, and menu id; run `npm test` (full
   suite) and `cd desktop/src-tauri && cargo test`; manually drive the feature in
   `npm run desktop:dev` (right-click a folder → New File and New Directory, empty-tree
@@ -46,7 +46,7 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
+**Build Status**: DONE
 **Current Phase**: —
 **Current Step**: —
 **Step Attempts**: {2: 1, 3: 1, 4: 1}
@@ -79,3 +79,10 @@ status: approved
   the Project root. No single "selected directory" concept exists in this tree (multiple
   directories can be expanded at once); this is the smallest well-defined reading of the
   spec's intent.
+- Phase 4: an attempted automated GUI smoke pass via macOS `osascript`/System Events
+  mis-clicked into the operator's own Safari window (no reliable window-focus control
+  for coordinate-based clicks on a shared physical desktop) — aborted immediately, no
+  further automation attempted. The operator ran the manual pass themselves instead
+  (toolbar button, right-click on folder/file, New File auto-open, New Directory,
+  duplicate-name error, Escape/outside-click close) and confirmed it works. Full
+  automated `cargo test` + `npm test` regression was still run and is green.
