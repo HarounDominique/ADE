@@ -151,6 +151,11 @@ let selectedPendingGitFile = null;
 let gitHistoryFilter = '';
 let pendingGitFilter = '';
 let pendingGitFiles = [];
+/** Which pending files the next commit includes. Reset to "everything" only
+    when the fetched file set actually changed -- not on every render, so
+    filtering the list mid-typing never silently re-selects a file the
+    operator had unchecked. */
+let pendingCommitSelection = new Set();
 let workspaceGitDecorations = { files: new Map(), directories: new Map() };
 let gitCommitNeedsPush = false;
 let gitUnpushedCommitCount = 0;
@@ -1685,12 +1690,24 @@ function selectGitCommit(hash, file = null) {
 /** The row answers "which file" before "where": a path that runs out of width
     truncates the folders, never the name and extension the reader came for. The
     whole path stays one hover away. */
+/** A `git status --short` code, collapsed to the three states the operator
+    actually distinguishes: new, deleted, or "something else changed" -- built
+    on the same classification the Explorer tree already uses, so both agree
+    on what a status code means even though each paints it differently. */
+function gitStatusGlyph(status) {
+  const state = workspaceGitStateClass(status);
+  if (state === 'git-added' || state === 'git-untracked') return { symbol: '+', bucket: 'new' };
+  if (state === 'git-deleted') return { symbol: '−', bucket: 'deleted' };
+  return { symbol: 'º', bucket: 'modified' };
+}
+
 function gitFileLabelMarkup(file) {
   const path = workspaceGitRelativePath(file?.path);
   const segments = pathSegments(path);
   const name = segments.at(-1) ?? path;
   const where = segments.slice(0, -1).join('/');
-  return `<span class="git-file-status">${escapeHTML(String(file?.status ?? ''))}</span><span class="git-file-label"><code class="git-file-name">${escapeHTML(name)}</code>${where ? `<small class="git-file-where">${escapeHTML(where)}</small>` : ''}</span>`;
+  const glyph = gitStatusGlyph(file?.status);
+  return `<span class="git-file-status git-file-status-${glyph.bucket}" title="${escapeHTML(String(file?.status ?? ''))}">${glyph.symbol}</span><span class="git-file-label"><code class="git-file-name">${escapeHTML(name)}</code>${where ? `<small class="git-file-where">${escapeHTML(where)}</small>` : ''}</span>`;
 }
 
 function renderPendingGitChanges(result) {
@@ -1699,7 +1716,10 @@ function renderPendingGitChanges(result) {
   const diff = document.getElementById('git-pending-diff');
   const count = document.getElementById('git-pending-file-count');
   const fileName = document.getElementById('git-pending-file-name');
+  const previousPaths = pendingGitFiles.map((file) => file.path).sort().join('\n');
   pendingGitFiles = result?.files ?? [];
+  const nextPaths = pendingGitFiles.map((file) => file.path).sort().join('\n');
+  if (nextPaths !== previousPaths) pendingCommitSelection = new Set(pendingGitFiles.map((file) => file.path));
   workspaceGitDecorations = buildWorkspaceGitDecorations(pendingGitFiles);
   decorateWorkspaceTree();
   const query = pendingGitFilter.trim();
@@ -1714,7 +1734,7 @@ function renderPendingGitChanges(result) {
   if (count) count.textContent = query && pendingGitFiles.length ? `${visibleFiles.length} of ${pendingGitFiles.length}` : changedLabel;
   if (fileName) fileName.textContent = selectedPendingGitFile ?? 'Select a file';
   if (files) files.innerHTML = visibleFiles.length
-    ? visibleFiles.map((file) => `<button class="git-pending-file${file.path === selectedPendingGitFile ? ' active' : ''}" type="button" data-git-pending-file="${escapeHTML(file.path)}" title="${escapeHTML(workspaceGitRelativePath(file.path))}">${gitFileLabelMarkup(file)}</button>`).join('')
+    ? visibleFiles.map((file) => `<div class="git-pending-file${file.path === selectedPendingGitFile ? ' active' : ''}" role="button" tabindex="0" data-git-pending-file="${escapeHTML(file.path)}" title="${escapeHTML(workspaceGitRelativePath(file.path))}"><label class="git-pending-file-checkbox"><input type="checkbox" data-git-pending-file-select="${escapeHTML(file.path)}"${pendingCommitSelection.has(file.path) ? ' checked' : ''}></label>${gitFileLabelMarkup(file)}</div>`).join('')
     : `<div class="git-empty-state">${pendingGitFiles.length ? 'No files match this filter.' : 'No changes pending.'}</div>`;
   if (!pendingGitFiles.length) renderDiffOutput(diff, null, 'No pending changes.');
   else if (!visibleFiles.length) renderDiffOutput(diff, null, 'No files match this filter.');
@@ -1722,8 +1742,22 @@ function renderPendingGitChanges(result) {
     renderDiffOutput(diff, null, 'Loading file diff…');
     requestPendingGitDiff(selectedPendingGitFile);
   }
+  updatePendingCommitSelectionUI();
   renderVersionControlRemoteStatus();
   renderCommitControls();
+}
+
+/** Syncs the select-all checkbox and the commit button to the current
+    selection without a full renderPendingGitChanges re-render -- toggling a
+    checkbox must never re-fetch or repaint the whole list. */
+function updatePendingCommitSelectionUI() {
+  const selectAll = document.getElementById('git-pending-select-all');
+  if (!selectAll) return;
+  const total = pendingGitFiles.length;
+  const selected = pendingCommitSelection.size;
+  selectAll.checked = total > 0 && selected === total;
+  selectAll.indeterminate = selected > 0 && selected < total;
+  selectAll.disabled = total === 0;
 }
 
 function requestPendingGitDiff(file) {
@@ -5997,10 +6031,14 @@ document.getElementById('git-commit-form')?.addEventListener('submit', (event) =
       .catch((error) => { notify('Ship failed.'); console.warn(error); });
     return;
   }
+  if (!pendingCommitSelection.size) { notify('Select at least one file to commit.'); return; }
   setSyncState('stale', 'Creating local commit…');
+  // Everything selected omits `files` entirely -- the request shape is then
+  // identical to before selective staging existed.
+  const allSelected = pendingCommitSelection.size === pendingGitFiles.length;
   /** A commit made while a Task is selected belongs to that Task's trail; the
       sidecar records the operation only when it is told which one. */
-  void sendContextRequest('git.commit.create', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), ...(selectedTaskId ? { taskId: selectedTaskId } : {}), reason: 'Local commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-local').catch((error) => notify(error instanceof Error ? error.message : 'Commit failed.'));
+  void sendContextRequest('git.commit.create', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), ...(selectedTaskId ? { taskId: selectedTaskId } : {}), ...(allSelected ? {} : { files: [...pendingCommitSelection] }), reason: 'Local commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-local').catch((error) => notify(error instanceof Error ? error.message : 'Commit failed.'));
 });
 document.getElementById('worktree-form')?.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -6010,6 +6048,11 @@ document.getElementById('worktree-form')?.addEventListener('submit', (event) => 
   if (!branch || !path) { notify('Enter a branch and an absolute path for the worktree.'); return; }
   document.getElementById('worktree-dialog')?.close();
   nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `git-worktree-${Date.now()}`, method: 'git.worktree.create', params: { ...(selectedTaskId ? { taskId: selectedTaskId } : {}), repositoryPath: activeRepositoryPath(), branch, worktreePath: path, actor: 'human', reason: 'Confirmed in Assay Git workspace', confirmed: true } }) }).catch((error) => { notify('Worktree creation failed.'); console.warn(error); });
+});
+document.getElementById('git-pending-select-all')?.addEventListener('change', (event) => {
+  pendingCommitSelection = event.target.checked ? new Set(pendingGitFiles.map((file) => file.path)) : new Set();
+  document.querySelectorAll('[data-git-pending-file-select]').forEach((input) => { input.checked = pendingCommitSelection.has(input.dataset.gitPendingFileSelect); });
+  updatePendingCommitSelectionUI();
 });
 document.getElementById('confirm-dialog')?.addEventListener('close', () => { pendingConfirmation = null; });
 document.addEventListener('click', (event) => {
@@ -6043,6 +6086,21 @@ document.addEventListener('click', (event) => {
     selectGitCommit(selectedGitCommit.hash, commitFile.dataset.gitCommitFile);
     return;
   }
+  const pendingFileSelect = event.target.closest('[data-git-pending-file-select]');
+  if (pendingFileSelect) {
+    const path = pendingFileSelect.dataset.gitPendingFileSelect;
+    if (pendingFileSelect.checked) pendingCommitSelection.add(path); else pendingCommitSelection.delete(path);
+    updatePendingCommitSelectionUI();
+    return;
+  }
+  // A click that lands on the checkbox's label but not exactly on the
+  // <input> (its padding, its flex box) fires here first with no
+  // data-git-pending-file-select match (closest() only looks at ancestors,
+  // and the input is a descendant) -- the browser then separately forwards
+  // a synthesized click straight at the <input>, which the branch above
+  // will catch. Stop here so the label click itself never also selects the
+  // file for diff preview.
+  if (event.target.closest('.git-pending-file-checkbox')) return;
   const pendingFile = event.target.closest('[data-git-pending-file]');
   if (pendingFile) {
     selectedPendingGitFile = pendingFile.dataset.gitPendingFile;
@@ -6226,6 +6284,18 @@ document.getElementById('workspace-tree')?.addEventListener('mousedown', (event)
 });
 document.addEventListener('click', (event) => {
   if (!event.target.closest('#workspace-context-menu') && !event.target.closest('[data-action="new-workspace-entry"]')) closeWorkspaceContextMenu();
+});
+document.addEventListener('keydown', (event) => {
+  // The pending-file row became a `<div role="button">` (a native <button>
+  // couldn't legally nest the per-file checkbox), which drops keyboard
+  // activation unless wired back manually -- the checkbox itself already
+  // toggles on Space natively, so this only fires when the row itself,
+  // not the checkbox, has focus.
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const pendingFile = event.target.closest?.('[data-git-pending-file]');
+  if (!pendingFile || event.target.matches('input')) return;
+  event.preventDefault();
+  pendingFile.click();
 });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && document.getElementById('workspace-context-menu')?.hidden === false) closeWorkspaceContextMenu();

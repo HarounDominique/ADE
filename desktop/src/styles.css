@@ -445,6 +445,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .git-commit-files, .git-pending-files { border-radius: 5px; overflow: hidden; }
 .git-commit-file, .git-pending-file { min-height: 35px; padding: 8px 10px; background: var(--panel-soft); }
 .git-file-status { font-weight: 700; }
+.git-file-status-new { color: var(--green); }
+.git-file-status-deleted { color: var(--red); }
+.git-file-status-modified { color: var(--amber); }
+.git-pending-file-checkbox { display: flex; flex: 0 0 auto; align-items: center; cursor: pointer; }
+.git-pending-select-all-label { display: flex; align-items: center; cursor: pointer; }
 .git-diff-output { border-radius: 5px; background: color-mix(in srgb, var(--panel-soft) 75%, var(--bg)); }
 .pending-changes-layout { min-height: 520px; }
 .changes-workspace { border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--workbench); box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 7%, transparent); }
