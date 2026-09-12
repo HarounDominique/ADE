@@ -927,9 +927,49 @@ function renderRepositoryMenu() {
 function renderBranchMenu() {
   const menu = document.getElementById('branch-context-menu');
   if (!menu) return;
-  menu.innerHTML = gitBranches.length
+  const createOption = '<button class="git-context-option git-context-option-create" type="button" role="menuitem" data-create-branch-trigger>+ New branch</button>';
+  menu.innerHTML = createOption + (gitBranches.length
     ? gitBranches.map((branch) => `<button class="git-context-option${branch === document.getElementById('current-branch-name')?.textContent ? ' selected' : ''}" type="button" role="menuitem" data-branch-name="${escapeHTML(branch)}">${selectedMarkMarkup(branch === document.getElementById('current-branch-name')?.textContent)}<span><strong>${escapeHTML(branch)}</strong></span></button>`).join('')
-    : '<p class="git-context-empty">No local branches found.</p>';
+    : '<p class="git-context-empty">No local branches found.</p>');
+}
+
+function renderCreateBranchForm() {
+  const menu = document.getElementById('branch-context-menu');
+  if (!menu) return;
+  menu.innerHTML = `<form class="git-context-inline-form" id="create-branch-form">
+    <label for="create-branch-name">New branch name</label>
+    <input id="create-branch-name" type="text" autocomplete="off" placeholder="feature/my-change" required>
+    <div class="git-context-inline-actions">
+      <button class="button secondary compact" type="button" data-cancel-create-branch>Cancel</button>
+      <button class="button primary compact" type="submit">Create</button>
+    </div>
+  </form>`;
+  const input = document.getElementById('create-branch-name');
+  requestAnimationFrame(() => input?.focus());
+  document.getElementById('create-branch-form')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const name = input?.value.trim();
+    if (!name) { input?.focus(); return; }
+    closeGitContextMenus();
+    requestConfirmation({
+      eyebrow: 'GIT OPERATION',
+      title: `Create branch "${name}"?`,
+      copy: `Creates and switches to a new branch from the current one in ${activeProject.name}.`,
+      confirmLabel: 'Create',
+    }, () => createBranchFromDropdown(name));
+  });
+}
+
+async function createBranchFromDropdown(name) {
+  const path = activeRepositoryPath();
+  if (!nativeInvoke || !path || !name) return;
+  setSyncState('stale', `Creating ${name}…`);
+  try {
+    await sendContextRequest('git.branch.create', { repositoryPath: path, intent: name, actor: 'human', reason: 'Branch created from Assay Git context bar', confirmed: true }, 'create-branch-from-dropdown');
+  } catch (error) {
+    setSyncState('failed', 'Branch creation failed');
+    notify(error instanceof Error ? error.message : 'Branch creation failed.');
+  }
 }
 
 function taskCreatedAt(task) {
@@ -4955,6 +4995,16 @@ async function connectSidecar(snapshot) {
         renderCommitControls();
         return;
       }
+      if (contextPurpose === 'create-branch-from-dropdown' && response.result?.operation === 'branch.create') {
+        const path = activeRepositoryPath();
+        if (path) await refreshGitWorkspace(path, nativeInvoke);
+        gitCommitNeedsPush = false;
+        gitUnpushedCommitCount = 0;
+        setSyncState('ready', 'Synced just now');
+        notify(`Branch ${response.result.name} created.`);
+        renderCommitControls();
+        return;
+      }
       if (contextPurpose === 'init-git-repository' && response.result?.operation === 'init') {
         notify('Git repository initialized.');
         await refreshProjectContext(projectSnapshot);
@@ -6015,6 +6065,14 @@ document.addEventListener('click', (event) => {
   }
   if (event.target.closest('[data-init-git-repository]')) {
     initGitRepositoryFromUI();
+    return;
+  }
+  if (event.target.closest('[data-create-branch-trigger]')) {
+    renderCreateBranchForm();
+    return;
+  }
+  if (event.target.closest('[data-cancel-create-branch]')) {
+    renderBranchMenu();
     return;
   }
   const taskOption = event.target.closest('[data-task-context-id]');

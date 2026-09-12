@@ -1773,6 +1773,29 @@ test("Git init refreshes the UI only once the sidecar actually finishes, not on 
   assert.match(main, /contextPurpose === 'init-git-repository' && response\.result\?\.operation === 'init'/);
 });
 
+test("the branch dropdown offers a 'New branch' option alongside the branch list", () => {
+  // The trigger and its cancel button are rendered dynamically (menu.innerHTML),
+  // so -- same reasoning as data-init-git-repository -- they must be wired
+  // through the delegated click listener, never the static [data-action]
+  // dispatcher which only ever attaches at page load.
+  assert.match(main, /data-create-branch-trigger/);
+  assert.match(main, /event\.target\.closest\('\[data-create-branch-trigger\]'\)/);
+  assert.match(main, /data-cancel-create-branch/);
+  assert.match(main, /event\.target\.closest\('\[data-cancel-create-branch\]'\)/);
+  assert.match(main, /function renderCreateBranchForm/);
+  assert.match(main, /id="create-branch-form"/);
+});
+
+test("creating a branch from the dropdown never chains .then() off a raw sidecar_request", () => {
+  // Same anti-pattern class as the Git-init race condition: the completion
+  // signal must come from sendContextRequest's id-correlated response, not
+  // from the promise nativeInvoke('sidecar_request', ...) resolves on send.
+  assert.match(main, /function createBranchFromDropdown/);
+  assert.match(main, /sendContextRequest\('git\.branch\.create', \{ repositoryPath: path, intent: name/);
+  assert.doesNotMatch(main, /nativeInvoke\('sidecar_request', \{ request: JSON\.stringify\(\{\s*id: `git-branch-create-/);
+  assert.match(main, /contextPurpose === 'create-branch-from-dropdown' && response\.result\?\.operation === 'branch\.create'/);
+});
+
 test("the tree expand/collapse control lives in the sidebar gap, not the Explorer row", () => {
   // Moved next to .sidebar-collapse, which already floats in this same gap
   // via --sidebar-control-y (computed by syncSidebarControlAnchor) -- centered
