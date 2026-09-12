@@ -33,9 +33,9 @@ status: approved
 ## Execution State
 
 **Build Status**: RUNNING
-**Current Phase**: 1
-**Current Step**: 5/6
-**Step Attempts**: {2: 1, 3: 0, 4: 1}
+**Current Phase**: 2
+**Current Step**: 3/6
+**Step Attempts**: {2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
