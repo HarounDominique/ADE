@@ -14,7 +14,7 @@ status: approved
   (satisfies: SPEC-offer-git-init-when-no-vcs.md#structure, #style, #test-strategy — sidecar half)
   Test strategy: `npm run build` (tsc); `node --import tsx --test tests/git-mutations.test.ts`.
 
-- [ ] Phase 2 — Frontend: `renderSnapshot`'s branch-button `branchable`/`title` logic
+- [x] Phase 2 — Frontend: `renderSnapshot`'s branch-button `branchable`/`title` logic
   drops the `hasGit` requirement; `toggleGitContextMenu` drops its no-git early return
   and renders an "Initialize Git repository" option instead of the branch list in that
   state; new `init-git-repository` dispatcher entry (confirm → `sidecar_request` →
