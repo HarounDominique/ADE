@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — `initializeRepository` (`src/application/git/git-mutations.ts`) passes
+- [x] Phase 1 — `initializeRepository` (`src/application/git/git-mutations.ts`) passes
   `--initial-branch=master` to `git init`. Fast-path: single-line change, no creative
   needed.
   (satisfies: SPEC-git-init-default-branch-master.md#objective, #boundaries)
@@ -15,14 +15,15 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: DONE
+**Current Phase**: 1
+**Current Step**: 6/6
+**Step Attempts**: {2: 1, 3: 0, 4: 0}
 **Last Block Rule**: none
-**Can Resume**: YES
+**Can Resume**: NO — complete, awaiting operator confirmation in `npm run desktop:dev`
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+None. Confirmed the bug directly against real `git` (`git init` on this machine
+produces `main`) before writing the fix — the operator's report was the trigger, not
+the only evidence.
