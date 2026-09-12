@@ -1746,6 +1746,15 @@ test("a file or directory can be dragged into another directory, or to root", ()
   assert.match(styles, /\.workspace-drag-ghost \{/);
 });
 
+test("creating or moving an entry into a directory reveals it there", () => {
+  // A full loadWorkspaceTree() call resets every directory back to
+  // collapsed, so without this the new/moved entry would land invisibly
+  // nested under a folder the operator has to manually re-open to see.
+  assert.match(main, /function expandWorkspaceTreeTo/);
+  assert.match(main, /await expandWorkspaceTreeTo\(parentPath\);/);
+  assert.match(main, /await expandWorkspaceTreeTo\(target\.path\);/);
+});
+
 test("New File / New Directory are wired to the workspace tree, not just drawn", () => {
   assert.match(main, /function openWorkspaceContextMenu/);
   assert.match(main, /function showWorkspaceContextMenu/);

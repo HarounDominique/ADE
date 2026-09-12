@@ -40,7 +40,7 @@ status: approved
   Test strategy: `node --check desktop/src/main.js`; contract-test additions for the new
   markup/function names in this same phase.
 
-- [ ] Phase 5 — Verification: full regression (`npm test`, `cargo test`), then a manual
+- [x] Phase 5 — Verification: full regression (`npm test`, `cargo test`), then a manual
   pass by the operator in `npm run desktop:dev` (click a directory → New targets it;
   click a file → New reverts to its parent; drag a file into a directory; drag a
   directory onto empty space to move it to root; attempt to drag a directory into its own
@@ -52,10 +52,10 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
+**Build Status**: DONE
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 1, 3: 1, 4: 1}
+**Step Attempts**: {2: 1, 3: 1, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
@@ -74,6 +74,15 @@ status: approved
   approval, since the visual design itself did not change. Flagged for a learned rule at
   `/seed:reflect` time: check for an existing, deliberately-abandoned technique before
   introducing native drag-and-drop anywhere in this codebase.
+- Phase 5 manual verification: the operator confirmed all core behavior works, but flagged
+  that a full `loadWorkspaceTree()` call (run after every create/move) resets every
+  directory back to collapsed, so a newly created or moved entry landed invisibly nested
+  under a folder the operator had to manually re-open — no feedback that the operation
+  succeeded. Fixed in-phase with `expandWorkspaceTreeTo(path)`, walking from root and
+  expanding every directory down to the create/move target (mirrors the existing
+  `revealSelectedFileBranch` walk, but independent of its `explorerExpanded` full-tree-mode
+  gate, since this needed to work in the everyday collapsed sidebar too). Re-verified by
+  the operator after the fix; confirmed working.
 - Phase 4 review: if the currently *selected* directory is itself the one dragged and
   moved, `selectedDirectoryPath` is updated to follow it to its new location (fixed during
   review, before commit) — otherwise "New" would silently target a path that no longer

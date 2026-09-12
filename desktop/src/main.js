@@ -1236,6 +1236,7 @@ async function createWorkspaceEntryFromUI(kind, parentPath, name) {
   const command = kind === 'directory' ? 'create_workspace_directory' : 'create_workspace_file';
   const createdPath = await nativeInvoke(command, { parentPath, name });
   await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
+  await expandWorkspaceTreeTo(parentPath);
   if (kind === 'file') await openFileInADE(createdPath);
 }
 
@@ -4427,6 +4428,25 @@ async function revealSelectedFileBranch(filePath = selectedFilePath) {
   updateWorkspaceFileSelection(filePath);
 }
 
+/** Walks from the Project root down to `directoryPath`, expanding (and
+    lazily loading) every directory on the way -- independent of the
+    sidebar's separate "expanded"/full-tree mode `revealSelectedFileBranch`
+    is gated on above. A full loadWorkspaceTree() call resets every directory
+    back to collapsed, so without this a freshly created or moved entry lands
+    invisibly nested under a folder the operator has to manually re-open. */
+async function expandWorkspaceTreeTo(directoryPath) {
+  if (!directoryPath || !pathInsideRoot(directoryPath)) return;
+  const segments = pathSegments(documentRelativePath(directoryPath));
+  let currentPath = workspaceRootPath;
+  for (const segment of segments) {
+    currentPath = `${currentPath}/${segment}`;
+    const directoryButton = [...document.querySelectorAll('[data-directory-path].directory')]
+      .find((candidate) => candidate.dataset.directoryPath === currentPath);
+    if (!directoryButton) return;
+    if (directoryButton.getAttribute('aria-expanded') !== 'true') await toggleWorkspaceDirectory(directoryButton);
+  }
+}
+
 /** Walk the tree down to the file the editor is showing, opening every
     directory on the way, and bring it into view. The explorer has to be opened
     and unfiltered first: collapsed it renders only the current file's own
@@ -5956,6 +5976,7 @@ async function finishWorkspaceDrag(event) {
     // exists (SPEC-explorer-selection-and-drag-drop.md#boundaries).
     if (selectedDirectoryPath === state.sourcePath) selectedDirectoryPath = movedPath;
     await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
+    await expandWorkspaceTreeTo(target.path);
   } catch (error) {
     notify(error instanceof Error ? error.message : 'Unable to move the entry.');
   }
