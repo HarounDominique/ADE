@@ -4,7 +4,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { createCodeEditorSurface, formatterParserForPath, languageLabelForPath } from './code-editor.js';
-import { fileExtension, pathBaseName, pathSegments } from './paths.js';
+import { fileExtension, pathBaseName, pathDirname, pathSegments } from './paths.js';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 const panels = [...document.querySelectorAll('.view')];
@@ -1150,6 +1150,80 @@ async function createProjectFromUI(location, name) {
   const projectPath = await nativeInvoke('create_project_directory', { location, name });
   setSyncState('stale', `Adding ${name}…`);
   await sendContextRequest('project.register', { projectId: projectIdForPath(projectPath), name, repositoryPath: projectPath }, 'register-project');
+}
+
+let workspaceContextMenuTargetPath = null;
+let newEntryDialogKind = 'file';
+let newEntryDialogParentPath = null;
+
+function relevantWorkspaceDirectory() {
+  const selectedFile = document.querySelector('[data-file-path].selected');
+  return selectedFile ? pathDirname(selectedFile.dataset.filePath) : workspaceRootPath;
+}
+
+function closeWorkspaceContextMenu() {
+  const menu = document.getElementById('workspace-context-menu');
+  if (menu) menu.hidden = true;
+  workspaceContextMenuTargetPath = null;
+}
+
+function showWorkspaceContextMenu(x, y, targetPath) {
+  const menu = document.getElementById('workspace-context-menu');
+  if (!menu || !targetPath) return;
+  workspaceContextMenuTargetPath = targetPath;
+  menu.hidden = false;
+  const maxLeft = window.innerWidth - menu.offsetWidth - 8;
+  const maxTop = window.innerHeight - menu.offsetHeight - 8;
+  menu.style.left = `${Math.max(8, Math.min(x, maxLeft))}px`;
+  menu.style.top = `${Math.max(8, Math.min(y, maxTop))}px`;
+}
+
+/** Right-click resolves its own create target from whatever was under the
+    cursor -- the clicked directory, the parent of a clicked file, or the
+    Project root for empty tree space -- rather than trusting a path a
+    previous open left lying around. */
+function openWorkspaceContextMenu(event) {
+  const directoryEntry = event.target.closest('[data-directory-path].directory');
+  const fileEntry = event.target.closest('[data-file-path].file');
+  const targetPath = directoryEntry
+    ? directoryEntry.dataset.directoryPath
+    : fileEntry
+      ? pathDirname(fileEntry.dataset.filePath)
+      : workspaceRootPath;
+  if (!targetPath) return;
+  event.preventDefault();
+  showWorkspaceContextMenu(event.clientX, event.clientY, targetPath);
+}
+
+function openNewEntryDialog(kind, parentPath) {
+  if (!parentPath) { notify('Select a Project before creating files.'); return; }
+  newEntryDialogKind = kind;
+  newEntryDialogParentPath = parentPath;
+  const dialog = document.getElementById('new-entry-dialog');
+  const nameInput = document.getElementById('new-entry-name');
+  const eyebrow = document.getElementById('new-entry-dialog-eyebrow');
+  const title = document.getElementById('new-entry-dialog-title');
+  const location = document.getElementById('new-entry-dialog-location');
+  document.getElementById('new-entry-form')?.reset();
+  if (eyebrow) eyebrow.textContent = kind === 'directory' ? 'NEW DIRECTORY' : 'NEW FILE';
+  if (title) title.textContent = kind === 'directory' ? 'Name the new directory' : 'Name the new file';
+  if (nameInput) nameInput.placeholder = kind === 'directory' ? 'components' : 'example.ts';
+  if (location) location.textContent = pathBaseName(parentPath) || parentPath;
+  if (dialog?.showModal) dialog.showModal();
+  requestAnimationFrame(() => nameInput?.focus());
+}
+
+function closeNewEntryDialog() {
+  document.getElementById('new-entry-dialog')?.close();
+  newEntryDialogParentPath = null;
+}
+
+async function createWorkspaceEntryFromUI(kind, parentPath, name) {
+  if (!nativeInvoke) { notify('Creating files requires the local desktop runtime.'); return; }
+  const command = kind === 'directory' ? 'create_workspace_directory' : 'create_workspace_file';
+  const createdPath = await nativeInvoke(command, { parentPath, name });
+  await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
+  if (kind === 'file') await openFileInADE(createdPath);
 }
 
 async function addProjectFromUI() {
@@ -5370,6 +5444,22 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     notify('Integrated terminal focused at the project root.');
     return;
   }
+  if (item.dataset.action === 'new-workspace-entry') {
+    const rect = item.getBoundingClientRect();
+    showWorkspaceContextMenu(rect.left, rect.bottom + 4, relevantWorkspaceDirectory());
+    return;
+  }
+  if (item.dataset.action === 'new-workspace-file' || item.dataset.action === 'new-workspace-directory') {
+    const kind = item.dataset.action === 'new-workspace-directory' ? 'directory' : 'file';
+    const parentPath = workspaceContextMenuTargetPath;
+    closeWorkspaceContextMenu();
+    openNewEntryDialog(kind, parentPath);
+    return;
+  }
+  if (item.dataset.action === 'close-new-entry-dialog') {
+    closeNewEntryDialog();
+    return;
+  }
   if (item.dataset.action === 'refresh-tree') {
     window.clearTimeout(workspaceSearchTimer);
     workspaceTreeToken += 1;
@@ -5775,6 +5865,13 @@ document.addEventListener('click', (event) => {
 document.addEventListener('click', (event) => {
   if (!event.target.closest('.git-context-control')) closeGitContextMenus();
 });
+document.getElementById('workspace-tree')?.addEventListener('contextmenu', openWorkspaceContextMenu);
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('#workspace-context-menu') && !event.target.closest('[data-action="new-workspace-entry"]')) closeWorkspaceContextMenu();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && document.getElementById('workspace-context-menu')?.hidden === false) closeWorkspaceContextMenu();
+});
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     closeGitContextMenus();
@@ -6113,6 +6210,23 @@ document.addEventListener('visibilitychange', refreshVersionControlOnReturn);
 window.addEventListener('beforeunload', () => {
   terminalTabs.forEach(persistTerminalHistory);
   nativeInvoke?.('terminal_stop_all').catch(() => {});
+});
+document.getElementById('new-entry-form')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const name = document.getElementById('new-entry-name')?.value.trim();
+  const parentPath = newEntryDialogParentPath;
+  const kind = newEntryDialogKind;
+  if (!name || !parentPath) return;
+  const button = document.getElementById('create-entry-button');
+  if (button) button.disabled = true;
+  try {
+    await createWorkspaceEntryFromUI(kind, parentPath, name);
+    closeNewEntryDialog();
+  } catch (error) {
+    notify(error instanceof Error ? error.message : `Unable to create the new ${kind === 'directory' ? 'directory' : 'file'}.`);
+  } finally {
+    if (button) button.disabled = false;
+  }
 });
 newProjectName?.addEventListener('input', updateNewProjectPathPreview);
 newProjectForm?.addEventListener('submit', async (event) => {

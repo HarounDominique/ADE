@@ -26,7 +26,7 @@ status: approved
   Test strategy: `node --check desktop/src/main.js` (no JS touched yet, sanity only);
   visual sanity via `cd desktop && node build.mjs`.
 
-- [ ] Phase 3 — Frontend logic: `contextmenu` delegation on `#workspace-tree`,
+- [x] Phase 3 — Frontend logic: `contextmenu` delegation on `#workspace-tree`,
   `openWorkspaceContextMenu`/`closeWorkspaceContextMenu`, `openNewEntryDialog`, submit
   handler invoking `create_workspace_file`/`create_workspace_directory` via
   `nativeInvoke`, tree refresh via `loadWorkspaceTree(...)`, and auto-open of a newly
@@ -66,3 +66,16 @@ status: approved
   Phase 4 as originally planned — keeps each phase's TDD cycle self-contained. Phase 3
   will add its own JS-wiring assertions the same way; Phase 4 stays a regression run +
   manual pass, no new assertions required there. Self-directed, no scope change.
+- Phase 3: errors from `create_workspace_file`/`create_workspace_directory` surface via
+  `notify()` (toast), not `operation-error-dialog`. Checked actual call sites:
+  `operation-error-dialog` is used only for `sendContextRequest`/sidecar round-trip
+  failures (one call site, `showOperationError`); every plain native-Tauri-command
+  failure in this codebase — including `create_project_directory` from the earlier New
+  Project feature — already uses `notify()`. Matches the closer, more specific precedent;
+  the spec's Boundaries line names both surfaces as acceptable, so this is not a spec
+  conflict, just picking the one the codebase actually uses for this call shape.
+- "Currently relevant directory" for the toolbar button (spec: "selected/expanded
+  directory, else root") concretized as: parent of the selected file if one exists, else
+  the Project root. No single "selected directory" concept exists in this tree (multiple
+  directories can be expanded at once); this is the smallest well-defined reading of the
+  spec's intent.
