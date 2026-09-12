@@ -17,7 +17,7 @@ status: approved
   (satisfies: SPEC-explorer-delete-and-rename.md#structure, #style, #test-strategy — backend half)
   Test strategy: `cd desktop/src-tauri && cargo check && cargo test`.
 
-- [ ] Phase 2 — Frontend markup: two more items (Rename, Delete) in
+- [x] Phase 2 — Frontend markup: two more items (Rename, Delete) in
   `#workspace-context-menu`, `#rename-entry-dialog` (task-dialog shape, pre-filled name
   input). No new markup for Delete — reuses `#confirm-dialog`. No behavior wired yet.
   (satisfies: SPEC-explorer-delete-and-rename.md#structure — markup half)
