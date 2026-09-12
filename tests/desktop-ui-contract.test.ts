@@ -1905,3 +1905,17 @@ test("a Project whose .git was removed externally recovers instead of crashing",
   // showOperationError call it exists to bypass.
   assert.ok(main.indexOf("response.error.code === 'GIT_REPOSITORY_MISSING'") < main.indexOf('showOperationError(response.error, contextPurpose);'));
 });
+
+test("clicking 'New branch' does not immediately re-close its own menu", () => {
+  // renderCreateBranchForm() replaces branch-context-menu's innerHTML
+  // synchronously inside the click handler, detaching the clicked button
+  // from the DOM. A later document click listener used to re-check
+  // event.target.closest('.git-context-control') for outside-click
+  // detection -- closest() on a now-detached node returns null, so it read
+  // its own in-menu click as an outside click and closed the menu the
+  // instant it repainted with the form. composedPath() reflects the tree
+  // as it was when the event actually dispatched, immune to a same-tick
+  // handler mutating the DOM afterward.
+  assert.doesNotMatch(main, /if \(!event\.target\.closest\('\.git-context-control'\)\) closeGitContextMenus\(\);/);
+  assert.match(main, /event\.composedPath\(\)\.some\(\(node\) => node\.classList\?\.contains\('git-context-control'\)\)/);
+});

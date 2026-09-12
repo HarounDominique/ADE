@@ -46,3 +46,18 @@ status: approved
   own Style snippet was the bug. Review (step 4) additionally confirmed
   `requestConfirmation`/`notify` render via `.textContent`, not `innerHTML`, so the
   user-typed branch name reaching both carries no injection risk.
+
+- Phase 2 manual verification: the operator reported clicking "+ New branch" did
+  nothing. Root cause was in a pre-existing listener, not new code from this task:
+  `desktop/src/main.js`'s outside-click-closes-the-menu handler checked
+  `event.target.closest('.git-context-control')` — but `renderCreateBranchForm()`
+  (an *earlier*-registered listener on the same click, same tick) replaces
+  `branch-context-menu`'s `innerHTML` synchronously, which detaches the clicked button
+  from the DOM. `closest()` on a detached node returns `null`, so the outside-click
+  listener misread its own in-menu click as an outside one and closed the menu the
+  instant it repainted with the form — invisible to the operator as "the click did
+  nothing." Fixed by switching that check to `event.composedPath()`, which reflects the
+  DOM tree as it was at dispatch time and is unaffected by a same-tick handler mutating
+  it afterward. This fix is general (not scoped to the new branch-create buttons) — it
+  also protects `data-cancel-create-branch`, and any future delegated handler that
+  replaces a `.git-context-menu`'s content in place, from the identical failure.
