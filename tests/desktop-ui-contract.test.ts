@@ -1719,6 +1719,12 @@ test("file-type icons are vendored, mapped, and copied into the build", () => {
   assert.match(fileIconMap, /export function iconForFileName/);
   assert.match(fileIconMap, /'package\.json': 'nodejs'/);
   assert.match(fileIconMap, /ts: 'typescript'/);
+  // Broad, not just the handful covered on day one -- every value below is a
+  // vendored file, not a guess (see desktop/src/file-icons/).
+  assert.match(fileIconMap, /dart: 'dart'/);
+  assert.match(fileIconMap, /db: 'database'/);
+  assert.match(fileIconMap, /'\.gitkeep': 'git'/);
+  assert.match(fileIconMap, /if \(lower\.endsWith\('\.css\.map'\)\) return 'css-map';/);
   assert.match(fileIconLicense, /MIT License/);
   for (const icon of ["typescript", "javascript", "rust", "python", "json", "markdown", "folder-base"]) {
     assert.ok(existsSync(new URL(`../desktop/src/file-icons/${icon}.svg`, import.meta.url)), `missing vendored icon: ${icon}.svg`);
