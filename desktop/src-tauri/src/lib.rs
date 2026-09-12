@@ -849,6 +849,65 @@ fn write_file(
     write_file_in(&workspace, &path, &content)
 }
 
+/// Validates a proposed new-entry name shared by `create_workspace_directory`
+/// and `create_workspace_file`. Rejecting a separator outright -- rather than
+/// creating whatever intermediate directories it implies -- keeps "New File"
+/// from silently becoming "New File, and also two new folders nobody asked for".
+fn validate_new_entry_name(name: &str) -> Result<&str, String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() || trimmed == "." || trimmed == ".." || trimmed.contains('/') || trimmed.contains('\\') {
+        return Err("Name cannot be empty, \".\", \"..\", or contain a path separator.".to_string());
+    }
+    Ok(trimmed)
+}
+
+#[tauri::command]
+fn create_workspace_directory(
+    workspace: tauri::State<'_, WorkspaceRoot>,
+    parent_path: String,
+    name: String,
+) -> Result<String, String> {
+    create_workspace_directory_in(&workspace, &parent_path, &name)
+}
+
+/// The requested entry does not exist yet, so only the PARENT can be
+/// resolved/jailed via `WorkspaceRoot::resolve()` -- it calls `canonicalize()`,
+/// which requires the path to already exist on disk.
+fn create_workspace_directory_in(
+    workspace: &WorkspaceRoot,
+    parent_path: &str,
+    name: &str,
+) -> Result<String, String> {
+    let parent = workspace.resolve(parent_path)?;
+    let trimmed = validate_new_entry_name(name)?;
+    let target = parent.join(trimmed);
+    if target.exists() {
+        return Err(format!("{} already exists.", target.display()));
+    }
+    std::fs::create_dir(&target).map_err(|error| error.to_string())?;
+    Ok(target.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn create_workspace_file(
+    workspace: tauri::State<'_, WorkspaceRoot>,
+    parent_path: String,
+    name: String,
+) -> Result<String, String> {
+    create_workspace_file_in(&workspace, &parent_path, &name)
+}
+
+fn create_workspace_file_in(workspace: &WorkspaceRoot, parent_path: &str, name: &str) -> Result<String, String> {
+    let parent = workspace.resolve(parent_path)?;
+    let trimmed = validate_new_entry_name(name)?;
+    let target = parent.join(trimmed);
+    if target.exists() {
+        return Err(format!("{} already exists.", target.display()));
+    }
+    std::fs::File::create(&target).map_err(|error| error.to_string())?;
+    Ok(target.to_string_lossy().into_owned())
+}
+
 fn write_file_in(workspace: &WorkspaceRoot, path: &str, content: &str) -> Result<(), String> {
     let file = workspace.resolve(path)?;
     if !file.is_file() {
@@ -1418,6 +1477,8 @@ pub fn run() {
             project_id,
             select_project_directory,
             create_project_directory,
+            create_workspace_directory,
+            create_workspace_file,
             open_terminal,
             open_document,
             sidecar_start,
@@ -1433,7 +1494,8 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        list_directory_in, open_document_in, open_file_in, open_local_url, open_terminal_in,
+        create_workspace_directory_in, create_workspace_file_in, list_directory_in,
+        open_document_in, open_file_in, open_local_url, open_terminal_in,
         project_context_for, search_directory_in, SEARCH_RESULT_LIMIT,
         read_file_in, start_terminal_pty, terminal_exec_in, write_file_in, SidecarSupervisor,
         WorkspaceRoot, MAX_FILE_PREVIEW_BYTES,
@@ -1855,6 +1917,73 @@ mod tests {
             "after\n"
         );
 
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn create_workspace_directory_creates_the_folder_inside_the_selected_project() {
+        let root = fixture_root("create-workspace-directory");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let created = create_workspace_directory_in(&workspace, &root.to_string_lossy(), "docs")
+            .expect("create directory");
+
+        let expected = workspace.resolve(&root.to_string_lossy()).expect("resolve root").join("docs");
+        assert!(root.join("docs").is_dir());
+        assert_eq!(created, expected.to_string_lossy());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn create_workspace_file_creates_an_empty_file_inside_the_selected_project() {
+        let root = fixture_root("create-workspace-file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let created = create_workspace_file_in(&workspace, &root.to_string_lossy(), "notes.md")
+            .expect("create file");
+
+        let expected = workspace.resolve(&root.to_string_lossy()).expect("resolve root").join("notes.md");
+        assert!(root.join("notes.md").is_file());
+        assert_eq!(created, expected.to_string_lossy());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn create_workspace_directory_rejects_a_name_with_a_path_separator() {
+        let root = fixture_root("create-workspace-directory-separator");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = create_workspace_directory_in(&workspace, &root.to_string_lossy(), "a/b");
+
+        assert!(result.is_err());
+        assert!(!root.join("a").exists());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn create_workspace_file_rejects_an_empty_or_dot_name() {
+        let root = fixture_root("create-workspace-file-dotname");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        assert!(create_workspace_file_in(&workspace, &root.to_string_lossy(), "").is_err());
+        assert!(create_workspace_file_in(&workspace, &root.to_string_lossy(), "..").is_err());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn create_workspace_directory_rejects_an_existing_entry() {
+        let root = fixture_root("create-workspace-directory-exists");
+        fs::create_dir_all(root.join("existing")).expect("seed existing directory");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = create_workspace_directory_in(&workspace, &root.to_string_lossy(), "existing");
+
+        assert!(result.is_err());
         fs::remove_dir_all(root).expect("remove fixture");
     }
 
