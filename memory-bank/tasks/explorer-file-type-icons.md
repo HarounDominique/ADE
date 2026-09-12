@@ -13,7 +13,7 @@ status: approved
   where no dedicated one exists.
   (satisfies: SPEC-explorer-file-type-icons.md#structure — curation and mechanism)
 
-- [ ] Phase 2 — Vendor assets: download the curated SVG subset (files + the one folder
+- [x] Phase 2 — Vendor assets: download the curated SVG subset (files + the one folder
   icon) into `desktop/src/file-icons/`, write `desktop/src/file-icons/LICENSE` with the
   real upstream MIT text and NOTICE per the creative pass, write
   `desktop/src/file-icon-map.js` (`iconForFileName`), update `desktop/build.mjs` to copy
@@ -45,11 +45,14 @@ status: approved
 **Build Status**: NOT_STARTED
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 2: 53 SVGs vendored (not 51 — the creative doc's file list count was slightly
+  off from its own enumerated list), totaling 216KB (not the ~150KB estimate) — every
+  file verified present, every mapping value cross-checked against an actual vendored
+  file (zero missing), every object key checked for duplicates (zero found). Numbers
+  only, no design change.

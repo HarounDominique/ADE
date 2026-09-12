@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const html = readFileSync(new URL("../desktop/src/index.html", import.meta.url), "utf8");
 const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "utf8");
@@ -1709,6 +1709,20 @@ test("preferences let the operator switch the workflow off, and say who can over
   assert.match(html, /A Project can require or refuse this in its own policy, and its answer wins/);
   assert.match(main, /developmentWorkflow: settings\?\.developmentWorkflow !== false/, "an unstated preference reads as on");
   assert.match(main, /saveUserSettings\(\{ turnChime, developmentWorkflow, updateFeedUrl \}\)/);
+});
+
+test("file-type icons are vendored, mapped, and copied into the build", () => {
+  const fileIconMap = readFileSync(new URL("../desktop/src/file-icon-map.js", import.meta.url), "utf8");
+  const fileIconLicense = readFileSync(new URL("../desktop/src/file-icons/LICENSE", import.meta.url), "utf8");
+  const desktopBuild = readFileSync(new URL("../desktop/build.mjs", import.meta.url), "utf8");
+  assert.match(desktopBuild, /cpSync\('src\/file-icons', 'dist\/file-icons'/);
+  assert.match(fileIconMap, /export function iconForFileName/);
+  assert.match(fileIconMap, /'package\.json': 'nodejs'/);
+  assert.match(fileIconMap, /ts: 'typescript'/);
+  assert.match(fileIconLicense, /MIT License/);
+  for (const icon of ["typescript", "javascript", "rust", "python", "json", "markdown", "folder-base"]) {
+    assert.ok(existsSync(new URL(`../desktop/src/file-icons/${icon}.svg`, import.meta.url)), `missing vendored icon: ${icon}.svg`);
+  }
 });
 
 test("the tree expand/collapse control lives in the sidebar gap, not the Explorer row", () => {

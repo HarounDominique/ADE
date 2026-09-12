@@ -1,0 +1,91 @@
+/** Curated subset of a vendored, MIT-licensed icon set (see
+    file-icons/LICENSE) — not the full upstream pack. Special filenames take
+    precedence over the extension rule; an unmapped file returns null, and
+    the caller keeps its existing generic glyph rather than a broken image. */
+const byFileName = {
+  'package.json': 'nodejs',
+  'package-lock.json': 'npm',
+  'yarn.lock': 'yarn',
+  'pnpm-lock.yaml': 'pnpm',
+  'tsconfig.json': 'typescript-def',
+  'cargo.toml': 'rust',
+  'cargo.lock': 'lock',
+  dockerfile: 'docker',
+  'docker-compose.yml': 'docker',
+  '.gitignore': 'git',
+  '.gitattributes': 'git',
+  '.env': 'settings',
+  '.editorconfig': 'editorconfig',
+  'readme.md': 'readme',
+  license: 'license',
+  makefile: 'makefile',
+  'go.mod': 'go-mod',
+  'requirements.txt': 'python-misc',
+  '.eslintrc': 'eslint',
+  '.eslintrc.json': 'eslint',
+  'favicon.ico': 'image',
+};
+
+const byExtension = {
+  ts: 'typescript',
+  tsx: 'react_ts',
+  mts: 'typescript',
+  js: 'javascript',
+  jsx: 'react',
+  mjs: 'javascript',
+  json: 'json',
+  md: 'markdown',
+  rs: 'rust',
+  py: 'python',
+  html: 'html',
+  css: 'css',
+  scss: 'sass',
+  yml: 'yaml',
+  yaml: 'yaml',
+  toml: 'toml',
+  lock: 'lock',
+  svg: 'svg',
+  png: 'image',
+  jpg: 'image',
+  jpeg: 'image',
+  gif: 'image',
+  webp: 'image',
+  ico: 'image',
+  sh: 'console',
+  bash: 'console',
+  zsh: 'console',
+  go: 'go',
+  rb: 'ruby',
+  php: 'php',
+  java: 'java',
+  kt: 'kotlin',
+  swift: 'swift',
+  c: 'c',
+  h: 'c',
+  cpp: 'cpp',
+  hpp: 'cpp',
+  cs: 'csharp',
+  sql: 'database',
+  graphql: 'graphql',
+  gql: 'graphql',
+  vue: 'vue',
+  svelte: 'svelte',
+  xml: 'xml',
+  zip: 'zip',
+  pdf: 'pdf',
+  log: 'log',
+  key: 'key',
+  pem: 'certificate',
+  csv: 'database',
+  woff: 'font',
+  woff2: 'font',
+  ttf: 'font',
+};
+
+export function iconForFileName(name) {
+  const lower = String(name ?? '').toLowerCase();
+  if (byFileName[lower]) return byFileName[lower];
+  const dot = lower.lastIndexOf('.');
+  const ext = dot >= 0 ? lower.slice(dot + 1) : '';
+  return byExtension[ext] ?? null;
+}
