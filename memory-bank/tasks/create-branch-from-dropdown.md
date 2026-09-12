@@ -61,3 +61,21 @@ status: approved
   it afterward. This fix is general (not scoped to the new branch-create buttons) — it
   also protects `data-cancel-create-branch`, and any future delegated handler that
   replaces a `.git-context-menu`'s content in place, from the identical failure.
+
+- Phase 2 manual verification, round 2: branch creation worked, but reopening the
+  dropdown afterward showed "No local branches found." Root cause: `for-each-ref
+  --format=%(refname:short) refs/heads` (`inspectGitWorkspace`,
+  `src/application/git/workspace-status.ts`) only lists refs that point at a real
+  commit — a branch just `git switch -c`-ed on a repository with zero commits has no
+  commit to point at yet, so it never appears there, even though `git branch
+  --show-current` correctly reports it as current. Confirmed directly against real
+  `git` before writing any fix (`git init && git switch -c x && git for-each-ref
+  refs/heads` prints nothing). This is the same "zero-commit repository" bug class as
+  `offer-git-init-when-no-vcs`'s rounds 3-4 (`git diff HEAD`, `git log`), a third
+  independent git read path broken by the identical invariant, on a Project the
+  operator had *just* run `git init` on in an earlier round of that same task's own
+  manual verification — the exact scenario the reflection for that task named as
+  "a state this codebase had never had before" is still surfacing new breakage a full
+  task later. Fixed by having `inspectGitWorkspace` append the current branch to its
+  returned list whenever `for-each-ref` omits it, so the dropdown shows the branch the
+  operator is actually on instead of claiming none exist.
