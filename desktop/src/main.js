@@ -1786,13 +1786,10 @@ function setDocumentHeader({ title, path, kind, externalDisabled = true }) {
   const pathElement = document.getElementById('document-path');
   const kindElement = document.getElementById('document-kind');
   const externalButton = document.getElementById('open-file-external');
-  const detachButton = document.getElementById('detach-document');
   if (titleElement) titleElement.textContent = title;
   if (pathElement) pathElement.textContent = path;
   if (kindElement) kindElement.textContent = kind;
   if (externalButton) externalButton.disabled = externalDisabled;
-  /** A file can be moved to its own window exactly when there is one to move. */
-  if (detachButton) detachButton.disabled = externalDisabled;
 }
 
 
@@ -2049,10 +2046,6 @@ async function openFileInADE(filePath) {
     work disappears. Unsaved edits are written first, because the new window
     reads the file from disk -- there is no other honest way to hand it over. */
 const detachedDocuments = new Map();
-
-async function detachActiveDocument() {
-  await detachDocument(activeDocumentId);
-}
 
 /** Any tab can be the one that leaves, not only the one in front. It is brought
     forward first, because saving and the dirty state belong to the active
@@ -5707,10 +5700,6 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     const repositoryPath = activeRepositoryPath();
     const taskId = selectedTaskId;
     nativeInvoke?.('sidecar_request', { request: JSON.stringify({ id: `knowledge-${Date.now()}`, method: 'knowledge.reconcile.changed', params: { repositoryPath, ...(taskId && taskId !== '—' ? { taskId } : {}) } }) });
-    return;
-  }
-  if (item.dataset.action === 'detach-document') {
-    void detachActiveDocument();
     return;
   }
   if (item.dataset.action === 'open-file-external') {
