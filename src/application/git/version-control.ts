@@ -22,6 +22,8 @@ export async function listUnpushedCommits(directory: string): Promise<Set<string
 }
 
 export async function listGitCommits(directory: string, limit = 50): Promise<GitCommit[]> {
+  const head = await executeGit(["rev-parse", "--verify", "HEAD"], { cwd: directory }).catch(() => null);
+  if (!head) return [];
   const log = await executeGit(["log", `-${limit}`, "--format=%H%x09%h%x09%an%x09%aI%x09%s"], { cwd: directory });
   const unpushed = await listUnpushedCommits(directory);
   const commits: GitCommit[] = [];
