@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Backend: `reveal_in_file_manager`/`reveal_in_file_manager_in` in
+- [x] Phase 1 — Backend: `reveal_in_file_manager`/`reveal_in_file_manager_in` in
   `desktop/src-tauri/src/lib.rs`, registered in `generate_handler![...]`, reusing the
   existing `open_with_desktop` helper. Rust unit tests: file resolves to its parent
   directory, directory resolves to itself, nonexistent path rejected. No creative
@@ -42,11 +42,17 @@ status: approved
 **Build Status**: NOT_STARTED
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 1: `reveal_in_file_manager_in`'s resolution logic was split into a pure
+  `containing_folder_of(target)` helper, unit-tested directly, rather than testing
+  `reveal_in_file_manager_in`'s success path — the spec's Test strategy named "file
+  resolves to its parent, directory resolves to itself" as coverage, but exercising the
+  full command's success path would spawn a real OS file-manager process during
+  `cargo test`, exactly what `open_file_in`'s own existing tests already avoid (they
+  cover only its rejections). Matches established precedent; satisfies the same intent
+  without the side effect.
