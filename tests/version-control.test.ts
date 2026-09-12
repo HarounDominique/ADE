@@ -71,6 +71,14 @@ test("version control read model reports nothing unpushed without a remote", asy
   assert.equal((await listGitCommits(directory))[0]?.unpushed, false);
 });
 
+test("version control read model reports no commits in a repository with none yet", async () => {
+  // `git log` fails outright on a branch with zero commits -- same class of
+  // bug as the no-HEAD diff case, different command.
+  const directory = await mkdtemp(join(tmpdir(), "ade-version-control-no-commits-"));
+  await git(directory, "init", "-q");
+  assert.deepEqual(await listGitCommits(directory), []);
+});
+
 test("version control read model exposes tracked, staged and untracked pending files", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ade-version-control-pending-"));
   await git(directory, "init", "-q");
