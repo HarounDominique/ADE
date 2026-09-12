@@ -45,6 +45,12 @@ export async function commitAndPush(input: ConfirmedOperation & { message: strin
   return { operation: "commit.push", commit: commit.commit, branch: push.branch, output: `${commit.output}\n${push.output}`.trim(), actor: input.actor, reason: input.reason };
 }
 
+export async function initializeRepository(input: ConfirmedOperation) {
+  assertConfirmed(input);
+  const result = await executeGit(["init"], { cwd: input.directory });
+  return { operation: "init", output: result.stdout.trim(), actor: input.actor, reason: input.reason };
+}
+
 export async function fetchOrigin(input: ConfirmedOperation & { remote?: string }) {
   assertConfirmed(input);
   const result = await executeGit(["fetch", input.remote ?? "origin"], { cwd: input.directory });

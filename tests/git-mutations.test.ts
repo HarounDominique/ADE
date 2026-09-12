@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { createBranch, createCommit, createWorktree, pushBranch, switchBranch } from "../src/application/git/git-mutations.js";
+import { createBranch, createCommit, createWorktree, initializeRepository, pushBranch, switchBranch } from "../src/application/git/git-mutations.js";
 const execFile = promisify(execFileCallback);
 
 /** A fixture repository owns its identity. Inheriting the machine's global
@@ -83,4 +83,16 @@ test("worktree creation requires confirmation and returns its branch", async () 
   assert.equal(worktree.branch, "feature/worktree");
   await execFile("git", ["worktree", "remove", "--force", target], { cwd: root });
   await rm(target, { recursive: true, force: true });
+});
+
+test("initializing a repository requires confirmation and leaves a real working tree", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-git-init-op-"));
+  await assert.rejects(() => initializeRepository({ directory: root, actor: "human", reason: "test", confirmed: false }), /confirmation/);
+
+  const result = await initializeRepository({ directory: root, actor: "human", reason: "test", confirmed: true });
+
+  assert.equal(result.operation, "init");
+  const check = await execFile("git", ["rev-parse", "--is-inside-work-tree"], { cwd: root });
+  assert.equal(check.stdout.trim(), "true");
+  await rm(root, { recursive: true, force: true });
 });

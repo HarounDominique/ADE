@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Sidecar: `initializeRepository` in `src/application/git/git-mutations.ts`
+- [x] Phase 1 — Sidecar: `initializeRepository` in `src/application/git/git-mutations.ts`
   (mirrors `fetchOrigin`'s shape exactly), `"git.init"` added to the existing confirmed-
   mutation method array in `src/desktop-sidecar.ts`. Rust/backend unaffected — this is
   entirely in the Node sidecar, same as every other Git mutation. No creative needed —
@@ -40,7 +40,7 @@ status: approved
 **Build Status**: NOT_STARTED
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
