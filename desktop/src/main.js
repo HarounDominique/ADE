@@ -622,7 +622,7 @@ function selectTerminalTab(sessionId, focus = true) {
   syncActiveTerminalInput(focus);
 }
 
-function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null, label: requestedLabel = null } = {}) {
+function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null, label: requestedLabel = null, cwd = workspaceRootPath } = {}) {
   terminalTabSequence += 1;
   const id = requestedId ?? `terminal-${Date.now()}-${terminalTabSequence}`;
   const tab = {
@@ -630,7 +630,7 @@ function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null,
     kind,
     label: requestedLabel ?? `Terminal ${terminalTabSequence}`,
     started: false,
-    completionCwd: workspaceRootPath,
+    completionCwd: cwd,
     terminal: null,
     fitAddon: null,
     startPromise: null,
@@ -707,7 +707,7 @@ async function startTerminal(tab) {
   tab.startPromise = (async () => {
     if (!nativeInvoke) throw new Error('Native terminal requires the desktop runtime.');
     const readiness = prepareTerminalReadiness(tab);
-    await nativeInvoke('terminal_start', { sessionId: tab.id, cwd: workspaceRootPath });
+    await nativeInvoke('terminal_start', { sessionId: tab.id, cwd: tab.completionCwd });
     tab.started = true;
     renderTerminalTabs();
     scheduleTerminalFit();
@@ -1243,6 +1243,19 @@ function deleteWorkspaceEntryFromUI(path, kind) {
         notify(error instanceof Error ? error.message : 'Unable to delete the entry.');
       }
     })();
+  });
+}
+
+function openWorkspaceEntryInTerminal(path, kind) {
+  const cwd = kind === 'directory' ? path : pathDirname(path);
+  createTerminalTab({ cwd, label: pathBaseName(cwd) || 'Terminal' });
+  document.querySelector('.terminal-dock')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function revealWorkspaceEntryInFileManager(path) {
+  if (!nativeInvoke) { notify('Revealing files requires the local desktop runtime.'); return; }
+  nativeInvoke('reveal_in_file_manager', { path }).catch((error) => {
+    notify(error instanceof Error ? error.message : 'Unable to reveal the entry.');
   });
 }
 
@@ -5598,6 +5611,18 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'close-rename-entry-dialog') {
     closeRenameEntryDialog();
+    return;
+  }
+  if (item.dataset.action === 'open-workspace-entry-terminal') {
+    const entry = workspaceContextMenuEntry;
+    closeWorkspaceContextMenu();
+    if (entry) openWorkspaceEntryInTerminal(entry.path, entry.kind);
+    return;
+  }
+  if (item.dataset.action === 'reveal-workspace-entry-in-file-manager') {
+    const entry = workspaceContextMenuEntry;
+    closeWorkspaceContextMenu();
+    if (entry) revealWorkspaceEntryInFileManager(entry.path);
     return;
   }
   if (item.dataset.action === 'refresh-tree') {
