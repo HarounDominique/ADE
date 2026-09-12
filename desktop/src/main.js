@@ -157,6 +157,7 @@ let pendingGitFiles = [];
     operator had unchecked. */
 let pendingCommitSelection = new Set();
 let workspaceGitDecorations = { files: new Map(), directories: new Map() };
+let hasGitRemote = false;
 let gitCommitNeedsPush = false;
 let gitUnpushedCommitCount = 0;
 let historyCommitsCollapsed = false;
@@ -1562,9 +1563,11 @@ function renderCommitControls() {
   const branch = document.getElementById('current-branch-name')?.textContent?.trim() || 'current branch';
   const branchLabel = document.getElementById('commit-branch-name');
   const pushButton = document.getElementById('git-push-origin');
+  const fetchButton = document.getElementById('git-fetch-origin');
   const commitButton = document.getElementById('git-commit-local');
   if (branchLabel) branchLabel.textContent = branch;
   if (pushButton) pushButton.disabled = !gitCommitNeedsPush || activeVersionControl === 'none';
+  if (fetchButton) fetchButton.disabled = !hasGitRemote || activeVersionControl === 'none';
   if (commitButton) commitButton.disabled = !pendingGitFiles.length || activeVersionControl === 'none';
 }
 
@@ -5228,6 +5231,7 @@ async function connectSidecar(snapshot) {
       }
       if (response.result?.branches && response.result?.worktrees) {
         gitBranches = response.result.branches;
+        hasGitRemote = response.result.remotes.length > 0;
         const branchName = response.result.currentBranch || 'detached';
         activeGitBranch = branchName;
         document.getElementById('current-branch-name')?.replaceChildren(document.createTextNode(branchName));
