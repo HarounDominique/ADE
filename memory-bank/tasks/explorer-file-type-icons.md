@@ -6,12 +6,11 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — `/seed:creative`: curate the extension/filename → icon mapping (~50-80
-  entries covering this project's own and typical software-project file types), pick the
-  exact vendored SVG filenames from the chosen upstream set, confirm the `<img>`
-  rendering mechanism and sizing against `.workspace-glyph`'s existing footprint, draft
-  the `LICENSE`/NOTICE attribution content. Required before any asset vendoring or
-  wiring — the curation list and exact mechanics are the open design decision here.
+- [x] Phase 1 — `/seed:creative`: approved —
+  `memory-bank/creative/explorer-file-type-icons-ui-ux.md`. 51 icon files, each verified
+  to exist upstream individually (not guessed); 16px sizing; mapping by special filename
+  first, then extension; `.ico`/shell/config fall back to the closest real upstream icon
+  where no dedicated one exists.
   (satisfies: SPEC-explorer-file-type-icons.md#structure — curation and mechanism)
 
 - [ ] Phase 2 — Vendor assets: download the curated SVG subset (files + the one folder
