@@ -23,7 +23,7 @@ status: approved
   Test strategy: `node --check desktop/src/main.js`; contract-test additions in
   `tests/desktop-ui-contract.test.ts`.
 
-- [ ] Phase 3 — Verification: full regression (`npm test`), then a manual pass by the
+- [x] Phase 3 — Verification: full regression (`npm test`), then a manual pass by the
   operator in `npm run desktop:dev` (delete `.git` from an open Project outside Assay,
   confirm no crash dialog, confirm the topbar reverts to "Initialize Git repository",
   confirm a plain notification appears instead of a modal) before reporting the task
@@ -34,12 +34,13 @@ status: approved
 
 ## Execution State
 
-**Build Status**: RUNNING
-**Current Phase**: 2
-**Current Step**: 5/6
+**Build Status**: DONE
+**Current Phase**: 3
+**Current Step**: 6/6
 **Step Attempts**: {2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
-**Can Resume**: YES
+**Can Resume**: NO — all phases complete, operator confirmed the fix in `npm run
+desktop:dev`
 
 ## Deviations
 
