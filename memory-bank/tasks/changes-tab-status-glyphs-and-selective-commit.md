@@ -28,7 +28,7 @@ status: approved
   Test strategy: `node --check desktop/src/main.js`; contract-test additions in
   `tests/desktop-ui-contract.test.ts`, same phase per this session's convention.
 
-- [ ] Phase 3 — Verification: full regression (`npm test`), then a manual pass by the
+- [x] Phase 3 — Verification: full regression (`npm test`), then a manual pass by the
   operator in `npm run desktop:dev` (modify/add/delete files, confirm the three
   glyphs/colors; uncheck one file, commit, confirm only checked files land in the
   commit via `git log`/`git show` and the unchecked one stays pending; confirm
@@ -42,12 +42,12 @@ status: approved
 
 ## Execution State
 
-**Build Status**: RUNNING
-**Current Phase**: 2
-**Current Step**: 5/6
+**Build Status**: DONE
+**Current Phase**: 3
+**Current Step**: 6/6
 **Step Attempts**: {2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
-**Can Resume**: YES
+**Can Resume**: NO — all phases complete, operator confirmed in `npm run desktop:dev`
 
 ## Deviations
 
