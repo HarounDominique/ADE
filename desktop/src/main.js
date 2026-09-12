@@ -854,10 +854,10 @@ function renderSnapshot(snapshot) {
   if (branchName) branchName.textContent = hasProject ? currentBranch : noneLabel;
   const branchButton = document.getElementById('branch-context-button');
   if (branchButton) {
-    const branchable = hasProject && hasGit;
+    const branchable = hasProject;
     branchButton.disabled = !branchable;
     branchButton.setAttribute('aria-disabled', String(!branchable));
-    branchButton.title = !hasProject ? 'No Project is open' : hasGit ? 'Switch local branch' : 'This project is not a Git repository';
+    branchButton.title = !hasProject ? 'No Project is open' : hasGit ? 'Switch local branch' : 'Initialize a Git repository';
   }
   const terminalCwd = document.getElementById('terminal-cwd');
   if (terminalCwd) terminalCwd.textContent = activeProject.repositoryPath;
@@ -1009,7 +1009,6 @@ function requestTaskDetail(taskId) {
 }
 
 function toggleGitContextMenu(kind) {
-  if (kind === 'branch' && activeVersionControl === 'none') return;
   const menu = document.getElementById(`${kind}-context-menu`);
   const button = document.getElementById(`${kind}-context-button`);
   if (!menu || !button) return;
@@ -1023,6 +1022,8 @@ function toggleGitContextMenu(kind) {
     if (!projectCatalogLoaded) void sendContextRequest('project.list', {}, 'projects');
   } else if (kind === 'task') {
     renderTaskContextMenu();
+  } else if (kind === 'branch' && activeVersionControl === 'none') {
+    menu.innerHTML = '<button class="git-context-option" type="button" role="menuitem" data-action="init-git-repository">Initialize Git repository</button>';
   } else {
     menu.innerHTML = '<p class="git-context-empty">Loading branches…</p>';
     void sendContextRequest('git.workspace', { repositoryPath: activeRepositoryPath() }, 'branches');
@@ -5699,6 +5700,24 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     if (!gitCommitNeedsPush) { notify('Create a local commit before pushing.'); return; }
     setSyncState('stale', 'Pushing to origin…');
     void sendContextRequest('git.push', { repositoryPath: workspaceRootPath, reason: 'Push requested from Version control', actor: 'human', confirmed: true }, 'git-push-origin').catch((error) => notify(error instanceof Error ? error.message : 'Push failed.'));
+    return;
+  }
+  if (item.dataset.action === 'init-git-repository') {
+    closeGitContextMenus();
+    if (!nativeInvoke) { notify('Initializing Git requires the local desktop runtime.'); return; }
+    requestConfirmation({
+      eyebrow: 'GIT OPERATION',
+      title: 'Initialize a Git repository here?',
+      copy: `Creates a new Git repository at the root of ${activeProject.name}.`,
+      confirmLabel: 'Initialize',
+    }, () => {
+      nativeInvoke('sidecar_request', { request: JSON.stringify({
+        id: `git.init-${Date.now()}`,
+        method: 'git.init',
+        params: { repositoryPath: activeRepositoryPath(), actor: 'human', reason: 'Git repository initialized from Assay', confirmed: true },
+      }) }).then(() => refreshProjectContext(projectSnapshot))
+        .catch((error) => { notify('Unable to initialize the Git repository.'); console.warn(error); });
+    });
     return;
   }
   if (item.dataset.action === 'refresh-knowledge') {

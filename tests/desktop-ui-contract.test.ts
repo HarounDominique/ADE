@@ -1743,6 +1743,17 @@ test("Explorer file and directory icons come from the vendored set, not a generi
   assert.match(styles, /\.workspace-file-icon, \.workspace-folder-icon \{/);
 });
 
+test("a Project with no Git offers to initialize one, instead of a disabled dropdown", () => {
+  // The branch button stays enabled whenever a Project is open, not only
+  // when it already has Git -- its dropdown offers the way in.
+  assert.doesNotMatch(main, /const branchable = hasProject && hasGit;/);
+  assert.match(main, /const branchable = hasProject;/);
+  assert.doesNotMatch(main, /if \(kind === 'branch' && activeVersionControl === 'none'\) return;/);
+  assert.match(main, /data-action="init-git-repository"/);
+  assert.match(main, /method: 'git\.init'/);
+  assert.match(main, /refreshProjectContext\(projectSnapshot\)/);
+});
+
 test("the tree expand/collapse control lives in the sidebar gap, not the Explorer row", () => {
   // Moved next to .sidebar-collapse, which already floats in this same gap
   // via --sidebar-control-y (computed by syncSidebarControlAnchor) -- centered
