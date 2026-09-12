@@ -25,7 +25,7 @@ status: approved
   changed `branchable` condition, the dropped guard, and the new dispatcher entry, in
   this same phase per the convention every prior task in this session has used.
 
-- [ ] Phase 3 — Verification: full regression (`npm test`), then a manual pass by the
+- [x] Phase 3 — Verification: full regression (`npm test`), then a manual pass by the
   operator in `npm run desktop:dev` (open/create a Project with no `.git`, confirm the
   branch button is enabled with only "Initialize Git repository" in its dropdown,
   confirm the dialog, confirm the branch name/commit/push buttons and version-control
@@ -37,12 +37,13 @@ status: approved
 
 ## Execution State
 
-**Build Status**: RUNNING
+**Build Status**: DONE
 **Current Phase**: 3
-**Current Step**: 3/6
-**Step Attempts**: {2: 1, 3: 0, 4: 0}
+**Current Step**: 6/6
+**Step Attempts**: {2: 1, 3: 5}
 **Last Block Rule**: none
-**Can Resume**: YES
+**Can Resume**: NO — all phases complete, operator confirmed the fix in `npm run
+desktop:dev` after 5 verification rounds (see Deviations)
 
 ## Deviations
 
