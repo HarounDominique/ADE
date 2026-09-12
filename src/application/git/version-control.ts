@@ -1,4 +1,4 @@
-import { executeGit } from "../../adapters/git-command.js";
+import { executeGit, GitRepositoryMissingError, isInsideGitWorkTree } from "../../adapters/git-command.js";
 
 export type GitCommitFile = { status: string; path: string };
 export type GitCommit = { hash: string; shortHash: string; author: string; date: string; subject: string; files: GitCommitFile[]; unpushed: boolean };
@@ -55,6 +55,7 @@ async function resolveDiffBase(directory: string): Promise<string> {
 }
 
 export async function inspectPendingGitChanges(directory: string) {
+  if (!(await isInsideGitWorkTree(directory))) throw new GitRepositoryMissingError();
   const base = await resolveDiffBase(directory);
   const [status, diff] = await Promise.all([
     executeGit(["status", "--short", "--untracked-files=all"], { cwd: directory }),

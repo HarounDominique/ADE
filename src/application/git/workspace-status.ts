@@ -1,6 +1,7 @@
-import { executeGit } from "../../adapters/git-command.js";
+import { executeGit, GitRepositoryMissingError, isInsideGitWorkTree } from "../../adapters/git-command.js";
 
 export async function inspectGitWorkspace(directory: string) {
+  if (!(await isInsideGitWorkTree(directory))) throw new GitRepositoryMissingError();
   const [branches, worktrees, remotes, currentBranch, status] = await Promise.all([
     executeGit(["for-each-ref", "--format=%(refname:short)", "refs/heads"], { cwd: directory }),
     executeGit(["worktree", "list", "--porcelain"], { cwd: directory }),
