@@ -32,7 +32,7 @@ before the operator ever saw it. That task's manual-verification pass raised zer
 follow-ups, the first of its arc to do so.
 
 ### mirror-pattern-verification
-_derived_from: reflection/offer-git-init-when-no-vcs.md · evidence_count: 1 · last_validated: 2026-09-12_
+_derived_from: reflection/offer-git-init-when-no-vcs.md · evidence_count: 2 · last_validated: 2026-09-12_
 
 When a spec's Style section says a new code path "mirrors" an existing one, verify the
 existing one is actually correct for the property that matters, don't just check it
@@ -47,3 +47,11 @@ the app has never been in before (here: a Git repository with zero commits — e
 Project already had one by construction), "an existing pattern already covers this" is
 specifically the wrong inference, since that pattern was only ever proven against the
 old state.
+
+Second occurrence (`create-branch-from-dropdown`): `inspectGitWorkspace`'s
+`for-each-ref refs/heads` call hit the identical zero-commit-repository invariant, a
+third independent git read path (after `git diff HEAD` and `git log`) broken by the
+same state, discovered a full task later on the very Project the operator used to test
+the *first* task's own fix. Confirms this is not a one-off spec gap but a durable blind
+spot: every git read path in this codebase needs its own independent check against a
+zero-commit repository, not an inference from sibling paths already fixed.
