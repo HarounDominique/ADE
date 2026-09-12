@@ -30,7 +30,7 @@ status: approved
   Test strategy: `node --check desktop/src/main.js`; contract-test additions for the
   render-branch lookup/fallback logic, in this same phase.
 
-- [ ] Phase 4 — Verification: full regression (`npm test`), then a manual pass by the
+- [x] Phase 4 — Verification: full regression (`npm test`), then a manual pass by the
   operator in `npm run desktop:dev` (icons render for several common file types; an
   unmapped extension still shows the plain fallback glyph, not a broken image; the
   folder icon replaces the old glyph for every directory; both light and dark theme
@@ -42,15 +42,19 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
+**Build Status**: DONE
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 1, 3: 1, 4: 1}
+**Step Attempts**: {2: 1, 3: 1, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
+- Phase 4 manual verification: operator asked to widen coverage (folder color too, and
+  more extensions) — handled as an in-phase expansion (see the "broaden file-icon
+  coverage" commit) rather than a separate task, since it's the same capability just
+  more complete. Confirmed working by the operator after.
 - Phase 2: 53 SVGs vendored (not 51 — the creative doc's file list count was slightly
   off from its own enumerated list), totaling 216KB (not the ~150KB estimate) — every
   file verified present, every mapping value cross-checked against an actual vendored
