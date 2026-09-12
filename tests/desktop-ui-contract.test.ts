@@ -1711,6 +1711,17 @@ test("preferences let the operator switch the workflow off, and say who can over
   assert.match(main, /saveUserSettings\(\{ turnChime, developmentWorkflow, updateFeedUrl \}\)/);
 });
 
+test("the tree expand/collapse control lives in the sidebar gap, not the Explorer row", () => {
+  // Moved next to .sidebar-collapse, which already floats in this same gap
+  // via --sidebar-control-y (computed by syncSidebarControlAnchor) -- centered
+  // instead of pinned to the right edge, and hidden with the rest of the
+  // Explorer whenever the sidebar itself collapses.
+  assert.match(html, /class="icon-button sidebar-tree-toggle" type="button" data-action="toggle-explorer"/);
+  assert.doesNotMatch(html, /class="explorer-actions">[\s\S]{0,400}data-action="toggle-explorer"/);
+  assert.match(styles, /\.sidebar-tree-toggle \{[^}]*top: var\(--sidebar-control-y, 50%\)[^}]*left: 50%/);
+  assert.match(styles, /\.sidebar-collapsed \.sidebar-tree-toggle \{ display: none; \}/);
+});
+
 test("the Explorer offers New File / New Directory, not just Refresh", () => {
   // A toolbar action and a positioned context menu, both landing on the
   // same name dialog — see SPEC-explorer-new-file-folder.md.
