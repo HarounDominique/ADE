@@ -37,14 +37,26 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 1, 3: 1, 4: 1}
+**Build Status**: RUNNING
+**Current Phase**: 3
+**Current Step**: 3/6
+**Step Attempts**: {2: 1, 3: 0, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 3 manual verification: the operator clicked "Initialize Git repository" and
+  nothing happened. Root cause: the button is created dynamically (via
+  `menu.innerHTML = ...` inside `toggleGitContextMenu`), but the spec's Style snippet
+  used `data-action="init-git-repository"`, wired by the *static* `[data-action]`
+  dispatcher that only ever attaches listeners at page load — dynamically-inserted menu
+  content in this codebase is always delegated instead (a separate `document`-level
+  listener matching `data-branch-name`, `data-project-id`, etc.), which this task's own
+  spec should have followed but didn't check against. Fixed by renaming the attribute to
+  `data-init-git-repository` and adding delegation for it alongside the sibling
+  `data-branch-name` handling, extracting the logic into `initGitRepositoryFromUI()`.
+  Flagged as a learned rule (see reflection) since this exact class of bug — a
+  `data-action` on dynamically-created markup — is invisible to every contract test that
+  only checks the attribute string exists in `main.js`, not that anything actually reads
+  it for that element.
