@@ -1919,3 +1919,57 @@ test("clicking 'New branch' does not immediately re-close its own menu", () => {
   assert.doesNotMatch(main, /if \(!event\.target\.closest\('\.git-context-control'\)\) closeGitContextMenus\(\);/);
   assert.match(main, /event\.composedPath\(\)\.some\(\(node\) => node\.classList\?\.contains\('git-context-control'\)\)/);
 });
+
+test("Changes tab shows a colored glyph per file, not the raw git status code", () => {
+  assert.match(main, /function gitStatusGlyph/);
+  assert.match(main, /workspaceGitStateClass\(status\)/);
+  // Three buckets only: new/untracked, deleted, everything else (modified,
+  // renamed, conflict) -- the operator named exactly three categories.
+  assert.match(main, /git-file-status-\$\{glyph\.bucket\}/);
+  assert.match(main, /bucket: 'new'/);
+  assert.match(main, /bucket: 'deleted'/);
+  assert.match(main, /bucket: 'modified'/);
+});
+
+test("Changes tab has a per-file checkbox independent of the diff-preview row click", () => {
+  assert.match(main, /data-git-pending-file-select/);
+  // The checkbox's delegated handler must come before the diff-preview
+  // row-click handler and return, so checking a box never also changes
+  // which file's diff is shown -- they must never interfere.
+  const selectIndex = main.indexOf("event.target.closest('[data-git-pending-file-select]')");
+  const rowIndex = main.indexOf("event.target.closest('[data-git-pending-file]')");
+  assert.ok(selectIndex > -1 && rowIndex > -1 && selectIndex < rowIndex);
+  assert.match(main, /pendingCommitSelection/);
+  assert.match(html, /id="git-pending-select-all"/);
+  assert.match(main, /getElementById\('git-pending-select-all'\)/);
+});
+
+test("committing an empty selection refuses instead of creating an empty commit", () => {
+  assert.match(main, /if \(!pendingCommitSelection\.size\) \{ notify\('Select at least one file to commit\.'\); return; \}/);
+  // Everything selected omits `files` entirely -- the default request shape
+  // stays identical to before this task, per the spec's boundary.
+  assert.match(main, /allSelected/);
+  assert.doesNotMatch(main, /files: \[\.\.\.pendingGitFiles\]/);
+});
+
+test("a pending-file row keeps keyboard activation despite becoming a div", () => {
+  // <button> couldn't legally nest the per-file checkbox, so the row became
+  // <div role="button" tabindex="0"> -- which drops Enter/Space activation
+  // unless wired back manually. Caught in review, not by a user report.
+  assert.match(main, /role="button" tabindex="0"/);
+  assert.match(main, /event\.key !== 'Enter' && event\.key !== ' '/);
+  assert.match(main, /pendingFile\.click\(\);/);
+});
+
+test("a click on the checkbox's label never also fires the row's diff-select", () => {
+  // Clicking a <label> wrapping an <input> can land on the label itself
+  // (its padding/flex box), not the input -- closest() only searches
+  // ancestors, so a data-git-pending-file-select match requires the click's
+  // real target to already be the input. The browser separately forwards a
+  // synthesized click straight at the input in that case, so a guard on the
+  // label's own class is what stops the row's diff-select branch from
+  // firing for the label click itself.
+  const guardIndex = main.indexOf("event.target.closest('.git-pending-file-checkbox')");
+  const rowIndex = main.indexOf("event.target.closest('[data-git-pending-file]')");
+  assert.ok(guardIndex > -1 && rowIndex > -1 && guardIndex < rowIndex);
+});
