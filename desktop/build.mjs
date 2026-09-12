@@ -6,6 +6,7 @@ cpSync('src/index.html', 'dist/index.html');
 cpSync('src/editor-window.html', 'dist/editor-window.html');
 cpSync('src/styles.css', 'dist/styles.css');
 cpSync('src/components.css', 'dist/components.css');
+cpSync('src/file-icons', 'dist/file-icons', { recursive: true });
 await build({
   entryPoints: ['src/main.js', 'src/editor-window.js'],
   bundle: true,
