@@ -6118,7 +6118,14 @@ document.addEventListener('click', (event) => {
   }
 });
 document.addEventListener('click', (event) => {
-  if (!event.target.closest('.git-context-control')) closeGitContextMenus();
+  // composedPath(), not event.target.closest(...): an earlier handler on this
+  // same click (the "+ New branch" trigger, Cancel) can replace the menu's
+  // innerHTML synchronously, detaching the original target from the DOM --
+  // closest() on a detached node returns null and this misreads its own
+  // in-menu click as an outside one, closing the menu the instant it repaints.
+  // composedPath() reflects the tree as it was at dispatch time, unaffected
+  // by any mutation a same-tick handler makes afterward.
+  if (!event.composedPath().some((node) => node.classList?.contains('git-context-control'))) closeGitContextMenus();
 });
 document.getElementById('workspace-tree')?.addEventListener('contextmenu', openWorkspaceContextMenu);
 
