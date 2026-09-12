@@ -52,7 +52,7 @@ import { loadGatePolicy } from "./application/change-review/gate-policy.js";
 import { installProjectSkill, projectSkillSourceNeedsNetwork, skillSourceNeedsNetwork, updateProjectSkill } from "./application/skills/skill-install.js";
 import { registerProject, refreshProjectRepositoryState } from "./application/tasks/project-commands.js";
 import { LocalGitRepository } from "./adapters/local-git-repository.js";
-import { GitUnavailableError } from "./adapters/git-command.js";
+import { GitRepositoryMissingError, GitUnavailableError } from "./adapters/git-command.js";
 import { fallbackTerminalTitle, type TerminalAgentProvider } from "./application/terminal-history/agent-terminal.js";
 import { resolveProviderSessionId } from "./application/terminal-history/provider-session-id.js";
 
@@ -106,6 +106,7 @@ type ActiveAgentPrompt = {
 const activeAgentPrompts = new Map<string, ActiveAgentPrompt>();
 
 function gitError(error: unknown, fallback = "GIT_FAILED"): { code: string; message: string } {
+  if (error instanceof GitRepositoryMissingError) return { code: "GIT_REPOSITORY_MISSING", message: error.message };
   const unavailable = error instanceof GitUnavailableError
     || (error && typeof error === "object" && "code" in error && error.code === "ENOENT");
   return {

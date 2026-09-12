@@ -14,6 +14,14 @@ export class GitUnavailableError extends Error {
   }
 }
 
+export class GitRepositoryMissingError extends Error {
+  readonly code = "GIT_REPOSITORY_MISSING";
+
+  constructor() {
+    super("This folder is no longer a Git repository.");
+  }
+}
+
 /** Desktop apps inherit the launcher's environment, not the operator's login
     shell. Resolve standard Git for Windows locations before falling back to
     PATH, while leaving a deliberate ADE_GIT_COMMAND override untouched. */
@@ -89,4 +97,10 @@ export async function executeGit(args: string[], options?: { cwd?: string; env?:
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") throw new GitUnavailableError();
     throw error;
   }
+}
+
+export async function isInsideGitWorkTree(directory: string): Promise<boolean> {
+  return executeGit(["rev-parse", "--is-inside-work-tree"], { cwd: directory })
+    .then(() => true)
+    .catch(() => false);
 }
