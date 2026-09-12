@@ -39,3 +39,20 @@ test("workspace inspection rejects clearly when .git was removed, instead of cra
   const directory = await mkdtemp(join(tmpdir(), "ade-workspace-status-no-repo-"));
   await assert.rejects(() => inspectGitWorkspace(directory), GitRepositoryMissingError);
 });
+
+test("a newly created branch with no commits yet still appears in the branch list", async () => {
+  // for-each-ref refs/heads only lists refs that point at a real commit --
+  // a branch just `git switch -c`-ed on a repository with zero commits has
+  // no commit to point at yet, so it is invisible to for-each-ref even
+  // though `branch --show-current` correctly reports it as current. Without
+  // this, the dropdown read as "no local branches found" right after
+  // creating the very branch it is now on.
+  const directory = await mkdtemp(join(tmpdir(), "ade-workspace-status-unborn-branch-"));
+  await git(directory, "init", "-q");
+  await git(directory, "switch", "-c", "feature/unborn", "-q");
+
+  const workspace = await inspectGitWorkspace(directory);
+
+  assert.equal(workspace.currentBranch, "feature/unborn");
+  assert.deepEqual(workspace.branches, ["feature/unborn"]);
+});
