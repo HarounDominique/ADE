@@ -94,5 +94,10 @@ test("initializing a repository requires confirmation and leaves a real working 
   assert.equal(result.operation, "init");
   const check = await execFile("git", ["rev-parse", "--is-inside-work-tree"], { cwd: root });
   assert.equal(check.stdout.trim(), "true");
+  // A bare `git init` inherits the operator's own global init.defaultBranch,
+  // which is `main` on at least one real machine -- Assay's own auto-init
+  // pins `master` explicitly, regardless of that config.
+  const branch = await execFile("git", ["branch", "--show-current"], { cwd: root });
+  assert.equal(branch.stdout.trim(), "master");
   await rm(root, { recursive: true, force: true });
 });
