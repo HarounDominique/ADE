@@ -1723,6 +1723,8 @@ test("file-type icons are vendored, mapped, and copied into the build", () => {
   // vendored file, not a guess (see desktop/src/file-icons/).
   assert.match(fileIconMap, /dart: 'dart'/);
   assert.match(fileIconMap, /db: 'database'/);
+  assert.match(fileIconMap, /class: 'javaclass'/);
+  assert.match(fileIconMap, /jar: 'jar'/);
   assert.match(fileIconMap, /'\.gitkeep': 'git'/);
   assert.match(fileIconMap, /if \(lower\.endsWith\('\.css\.map'\)\) return 'css-map';/);
   assert.match(fileIconLicense, /MIT License/);
