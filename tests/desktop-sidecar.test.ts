@@ -208,6 +208,29 @@ test("desktop sidecar process answers over stdin/stdout", async () => {
   rmSync(directory, { recursive: true, force: true });
 });
 
+test("desktop sidecar reports a removed .git as GIT_REPOSITORY_MISSING, not a raw exec failure", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-process-"));
+  const notARepository = mkdtempSync(join(tmpdir(), "ade-sidecar-no-repo-"));
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: join(directory, "ade.db") },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    child.stdin.write(JSON.stringify({ id: "pending-1", method: "git.pending", params: { repositoryPath: notARepository } }) + "\n");
+    const [output] = await once(child.stdout, "data");
+    const response = JSON.parse(output.toString()) as { id: string; error: { code: string } };
+    assert.equal(response.id, "pending-1");
+    assert.equal(response.error.code, "GIT_REPOSITORY_MISSING");
+  } finally {
+    child.kill();
+    await once(child, "close");
+    rmSync(directory, { recursive: true, force: true });
+    rmSync(notARepository, { recursive: true, force: true });
+  }
+});
+
 test("desktop sidecar's git.init updates the Project's stored Git state, not just the filesystem", async () => {
   // A Project registered before `git init` runs is persisted with
   // versionControl: "none". Without refreshing that stored row after init,

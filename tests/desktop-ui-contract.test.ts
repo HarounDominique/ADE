@@ -1891,3 +1891,17 @@ test("New File / New Directory are wired to the workspace tree, not just drawn",
   // A new file is opened immediately, the way a new directory has nothing to open.
   assert.match(main, /if \(kind === 'file'\) await openFileInADE\(createdPath\);/);
 });
+
+test("a Project whose .git was removed externally recovers instead of crashing", () => {
+  // for-each-ref/git status/etc. all fail once .git is gone, including from
+  // the unattended background poll. The sidecar now rejects that with a
+  // typed GIT_REPOSITORY_MISSING code instead of the raw exec error; the
+  // frontend must re-sync live (the same path Git-init already uses) rather
+  // than popping the modal error dialog for something the operator did not
+  // just do.
+  assert.match(main, /if \(response\.error\.code === 'GIT_REPOSITORY_MISSING'\) \{\n(?:.*\n){0,6}? {10}await refreshProjectContext\(projectSnapshot\);/);
+  // The GIT_REPOSITORY_MISSING branch must return before reaching the
+  // generic fallthrough -- it must appear earlier in the listener than the
+  // showOperationError call it exists to bypass.
+  assert.ok(main.indexOf("response.error.code === 'GIT_REPOSITORY_MISSING'") < main.indexOf('showOperationError(response.error, contextPurpose);'));
+});
