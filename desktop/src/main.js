@@ -1156,9 +1156,22 @@ let workspaceContextMenuTargetPath = null;
 let newEntryDialogKind = 'file';
 let newEntryDialogParentPath = null;
 
+let selectedDirectoryPath = null;
+
 function relevantWorkspaceDirectory() {
+  if (selectedDirectoryPath) return selectedDirectoryPath;
   const selectedFile = document.querySelector('[data-file-path].selected');
   return selectedFile ? pathDirname(selectedFile.dataset.filePath) : workspaceRootPath;
+}
+
+/** A directory click still toggles expand/collapse (unchanged); it also
+    becomes the create target ahead of the open file's parent, until a file is
+    opened or a different directory is clicked. */
+function selectWorkspaceDirectory(path) {
+  selectedDirectoryPath = path;
+  document.querySelectorAll('[data-directory-path].selected').forEach((entry) => entry.classList.remove('selected'));
+  const entry = [...document.querySelectorAll('[data-directory-path]')].find((candidate) => candidate.dataset.directoryPath === path);
+  entry?.classList.add('selected');
 }
 
 function closeWorkspaceContextMenu() {
@@ -1657,6 +1670,8 @@ function documentRelativePath(filePath) {
 
 function updateWorkspaceFileSelection(filePath) {
   selectedFilePath = filePath;
+  selectedDirectoryPath = null;
+  document.querySelectorAll('[data-directory-path].selected').forEach((entry) => entry.classList.remove('selected'));
   document.querySelectorAll('[data-file-path].selected').forEach((entry) => entry.classList.remove('selected'));
   const selectedEntry = [...document.querySelectorAll('[data-file-path]')].find((entry) => entry.dataset.filePath === filePath);
   selectedEntry?.classList.add('selected');
@@ -4042,7 +4057,8 @@ function renderWorkspaceEntry(entry, childMarkup = '', { showPathHint = false } 
   const path = escapeHTML(entry.path);
   if (entry.kind === 'directory') {
     const expanded = Boolean(childMarkup);
-    return `<li class="workspace-node directory" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry directory${expanded ? ' compact-branch' : ''}" type="button" data-directory-path="${path}" aria-expanded="${expanded}" aria-label="${expanded ? 'Expand' : 'Open'} ${name}"><span class="workspace-arrow" aria-hidden="true"></span><span class="workspace-glyph directory" aria-hidden="true"></span><span class="workspace-name">${name}</span></button><ul class="workspace-children" data-directory-children${expanded ? '' : ' hidden'}>${childMarkup}</ul></li>`;
+    const selected = entry.path === selectedDirectoryPath;
+    return `<li class="workspace-node directory" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry directory${expanded ? ' compact-branch' : ''}${selected ? ' selected' : ''}" type="button" data-directory-path="${path}" aria-expanded="${expanded}" aria-label="${expanded ? 'Expand' : 'Open'} ${name}"><span class="workspace-arrow" aria-hidden="true"></span><span class="workspace-glyph directory" aria-hidden="true"></span><span class="workspace-name">${name}</span></button><ul class="workspace-children" data-directory-children${expanded ? '' : ' hidden'}>${childMarkup}</ul></li>`;
   }
   if (entry.kind === 'symlink') {
     return `<li class="workspace-entry symlink" data-entry-name="${name.toLowerCase()}" title="Symlinks are not opened outside the selected Project"><span class="workspace-glyph symlink" aria-hidden="true"></span><span class="workspace-name">${name}</span></li>`;
@@ -5935,6 +5951,7 @@ document.addEventListener('click', (event) => {
   }
   const directoryEntry = event.target.closest('[data-directory-path].directory');
   if (directoryEntry) {
+    selectWorkspaceDirectory(directoryEntry.dataset.directoryPath);
     if (!explorerExpanded) void expandExplorerFrom(directoryEntry);
     else void toggleWorkspaceDirectory(directoryEntry);
     return;

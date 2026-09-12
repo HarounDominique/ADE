@@ -1719,6 +1719,15 @@ test("the Explorer offers New File / New Directory, not just Refresh", () => {
   assert.match(styles, /\.workspace-context-menu \{/);
 });
 
+test("clicking a directory selects it, and New targets the selection first", () => {
+  // A directory click still toggles expand/collapse; it also now becomes the
+  // create target, ahead of the open file's parent and ahead of the root —
+  // see SPEC-explorer-selection-and-drag-drop.md.
+  assert.match(main, /let selectedDirectoryPath = null;/);
+  assert.match(main, /entry\.path === selectedDirectoryPath/);
+  assert.match(main, /function relevantWorkspaceDirectory\(\) \{[\s\S]{0,300}selectedDirectoryPath[\s\S]{0,300}\n\}/);
+});
+
 test("New File / New Directory are wired to the workspace tree, not just drawn", () => {
   assert.match(main, /function openWorkspaceContextMenu/);
   assert.match(main, /function showWorkspaceContextMenu/);

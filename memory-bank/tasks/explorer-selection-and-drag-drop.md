@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Directory selection: `selectedDirectoryPath` state in `desktop/src/main.js`,
+- [x] Phase 1 — Directory selection: `selectedDirectoryPath` state in `desktop/src/main.js`,
   set on directory click (alongside the existing expand/collapse toggle), cleared when a
   file is opened. `renderWorkspaceEntry`'s directory branch gains the same
   `entry.path === selectedDirectoryPath` → `selected` treatment the file branch already
@@ -56,7 +56,7 @@ status: approved
 **Build Status**: NOT_STARTED
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
