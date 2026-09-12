@@ -4,7 +4,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { createCodeEditorSurface, formatterParserForPath, languageLabelForPath } from './code-editor.js';
-import { fileExtension, pathBaseName, pathDirname, pathSegments } from './paths.js';
+import { fileExtension, pathBaseName, pathDirname, pathSegments, pathsEqual } from './paths.js';
 import { iconForFileName } from './file-icon-map.js';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
@@ -4603,7 +4603,7 @@ async function expandExplorerFrom(button) {
   for (const segment of segments) {
     currentPath = `${currentPath}/${segment}`;
     const matchingButton = [...document.querySelectorAll('[data-directory-path].directory')]
-      .find((candidate) => candidate.dataset.directoryPath === currentPath);
+      .find((candidate) => pathsEqual(candidate.dataset.directoryPath, currentPath));
     if (!matchingButton) break;
     if (matchingButton.getAttribute('aria-expanded') !== 'true') await toggleWorkspaceDirectory(matchingButton);
   }
@@ -4616,7 +4616,7 @@ async function revealSelectedFileBranch(filePath = selectedFilePath) {
   for (const segment of segments.slice(0, -1)) {
     currentPath = `${currentPath}/${segment}`;
     const directoryButton = [...document.querySelectorAll('[data-directory-path].directory')]
-      .find((candidate) => candidate.dataset.directoryPath === currentPath);
+      .find((candidate) => pathsEqual(candidate.dataset.directoryPath, currentPath));
     if (!directoryButton) return;
     if (directoryButton.getAttribute('aria-expanded') !== 'true') await toggleWorkspaceDirectory(directoryButton);
   }
@@ -4636,7 +4636,7 @@ async function expandWorkspaceTreeTo(directoryPath) {
   for (const segment of segments) {
     currentPath = `${currentPath}/${segment}`;
     const directoryButton = [...document.querySelectorAll('[data-directory-path].directory')]
-      .find((candidate) => candidate.dataset.directoryPath === currentPath);
+      .find((candidate) => pathsEqual(candidate.dataset.directoryPath, currentPath));
     if (!directoryButton) return;
     if (directoryButton.getAttribute('aria-expanded') !== 'true') await toggleWorkspaceDirectory(directoryButton);
   }
