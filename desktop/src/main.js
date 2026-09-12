@@ -4804,6 +4804,16 @@ async function connectSidecar(snapshot) {
           renderAppVersion(appVersion, { status: 'UNREACHABLE', message: response.error.message });
           return;
         }
+        if (response.error.code === 'GIT_REPOSITORY_MISSING') {
+          // A Project's .git can vanish outside Assay (Finder, terminal, another
+          // tool) while it is still active -- including discovered by the
+          // unattended background poll, with no operator action in progress.
+          // Re-sync from the same live filesystem check the rest of the app
+          // already trusts, and say so quietly rather than with a modal.
+          await refreshProjectContext(projectSnapshot);
+          notify('Git was no longer found for this Project.');
+          return;
+        }
         const feedback = document.getElementById('agent-feedback');
         if (feedback) feedback.textContent = 'The operation needs attention.';
         if (contextPurpose === 'git-pending' && pendingGitRequestPath !== workspaceRootPath) requestPendingGitChanges(workspaceRootPath, { showLoading: true });

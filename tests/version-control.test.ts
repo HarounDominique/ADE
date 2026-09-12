@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { inspectPendingGitChanges, listGitCommits, listUnpushedCommits, readGitCommitDiff, readPendingGitDiff } from "../src/application/git/version-control.js";
+import { GitRepositoryMissingError } from "../src/adapters/git-command.js";
 
 const execFile = promisify(execFileCallback);
 
@@ -113,4 +114,19 @@ test("version control read model handles a repository with no commits yet", asyn
   // above -- it never appears in the batch `git diff` output; only a
   // per-file diff surfaces it, via the existing --no-index fallback.
   assert.match((await readPendingGitDiff(directory, "untracked.txt")).diff, /untracked/);
+});
+
+test("pending-changes inspection rejects clearly when .git was removed, instead of crashing", async () => {
+  // A Project registered while it had Git can lose its .git externally
+  // (Finder, terminal, another tool) while it is still the active Project.
+  // git status fails outright on a plain directory -- the raw exec error
+  // used to surface straight to the operator as a crash dialog, including
+  // from the unattended background poll.
+  const directory = await mkdtemp(join(tmpdir(), "ade-version-control-no-repo-"));
+  await assert.rejects(() => inspectPendingGitChanges(directory), (error: unknown) => {
+    assert.ok(error instanceof GitRepositoryMissingError);
+    assert.equal(error.code, "GIT_REPOSITORY_MISSING");
+    return true;
+  });
+  await assert.rejects(() => readPendingGitDiff(directory, "whatever.txt"), GitRepositoryMissingError);
 });
