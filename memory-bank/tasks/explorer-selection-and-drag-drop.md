@@ -16,12 +16,11 @@ status: approved
   Test strategy: `node --check desktop/src/main.js`; contract-test additions in this same
   phase (per the precedent set in the prior task) for the new state/render logic.
 
-- [ ] Phase 2 — `/seed:creative`: drag-and-drop visual design. Decide the drop-target
-  highlight (valid vs. invalid target), whether/how a dragged item's own row is dimmed,
-  and confirm no confirmation dialog is used (already decided during spec review — this
-  pass finalizes the visual language, reusing existing tokens, not the immediate-move
-  decision itself). Required before Phase 4 can be built — an open design decision per
-  `complexity-routing.md`.
+- [x] Phase 2 — `/seed:creative`: drag-and-drop visual design. Approved:
+  `memory-bank/creative/explorer-selection-and-drag-drop-ui-ux.md` — background tint
+  (reusing `--blue`) on a legal drop target, native "not-allowed" cursor for an illegal
+  one (no new red/error state), `.dragging { opacity: .55 }` on the source row, same
+  tint (softer) on `#workspace-tree` itself for root-drop.
   (satisfies: SPEC-explorer-selection-and-drag-drop.md#structure — "finalized in the /seed:creative pass")
 
 - [ ] Phase 3 — Backend: `move_workspace_entry`/`move_workspace_entry_in` in
