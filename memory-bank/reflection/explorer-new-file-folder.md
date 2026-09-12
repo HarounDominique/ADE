@@ -23,7 +23,7 @@ tree had no directory-selection concept at all at the time (confirmed by grep: c
 directory only toggles expand/collapse via `toggleWorkspaceDirectory`, never gains a
 `.selected` class the way a file does). This was the smallest well-defined reading of an
 ambiguous spec phrase, and it was documented as a deviation at the time — but it is not
-what a JetBrains user expects, and the operator asked for exactly this gap (create inside
+what an operator used to a conventional desktop IDE expects, and the operator asked for exactly this gap (create inside
 a *selected directory*, not just near a selected file) as their first follow-up. The
 build behaved exactly as specified; the spec's own assumption under-covered the real
 requirement. See `[[spec-assumption-verification]]`.

@@ -4,7 +4,7 @@ status: approved
 
 ## Objective
 
-Add JetBrains-style "New File" / "New Directory" creation to Assay's desktop Explorer.
+Add familiar desktop-IDE-style "New File" / "New Directory" creation to Assay's desktop Explorer.
 An operator can right-click a folder (or the empty tree background) to get a positioned
 context menu with "New File" / "New Directory", or use a "New" toolbar button with the
 same two entries. Either opens a small name-entry dialog; on confirm, Assay creates the
@@ -130,7 +130,7 @@ contract is untouched.
 - Before touching `write_file_in`'s existing "must already exist" contract — this task is
   additive only.
 - Before adding inline tree rename/contenteditable naming — the dialog-based naming here is
-  a deliberate simplification versus true JetBrains inline-rename; expanding to inline
+  a deliberate simplification versus true inline-rename in a tree view; expanding to inline
   editing is a separate decision.
 - Before reusing or modifying `create_project_directory` (the New Project command) — it
   looks similar but is intentionally unjailed (creates outside the workspace) with its own

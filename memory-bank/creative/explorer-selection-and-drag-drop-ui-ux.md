@@ -3,7 +3,7 @@
 ## Step 1 — does this actually need a design pass?
 
 The spec's Boundaries already resolved the bigger question (no confirmation dialog —
-immediate move + toast, matching JetBrains). What's still open: how a valid drop target
+immediate move + toast, matching the reference desktop-IDE convention). What's still open: how a valid drop target
 is visually distinguished from an invalid one, whether the dragged row itself gets any
 treatment, and how "drop on empty tree space to move to root" reads visually. None of
 these are pinned down by a Boundary line, and the spec explicitly deferred them here
@@ -87,7 +87,7 @@ the dragged row, no red/error state) — only the event mechanism moved to match
 codebase's own precedent: `mousedown`/`mousemove`/`mouseup` with a ghost element that
 tracks the cursor (mirroring `trackTabDrag`/`finishTabDrag`), legality determined by
 `document.elementFromPoint()` under the cursor rather than native `dragover` targets, and
-no explicit "illegal" cursor treatment (simply no highlight, matching JetBrains' own
+no explicit "illegal" cursor treatment (simply no highlight, matching the same convention's own
 "nothing lights up" convention for an invalid target) since there is no native drag
 cursor to borrow in this mechanism. See
 `agent-rules/_learned/` for the extracted rule once this task reaches `/seed:reflect`.
