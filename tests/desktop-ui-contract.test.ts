@@ -1708,3 +1708,13 @@ test("preferences let the operator switch the workflow off, and say who can over
   assert.match(main, /developmentWorkflow: settings\?\.developmentWorkflow !== false/, "an unstated preference reads as on");
   assert.match(main, /saveUserSettings\(\{ turnChime, developmentWorkflow, updateFeedUrl \}\)/);
 });
+
+test("the Explorer offers New File / New Directory, not just Refresh", () => {
+  // JetBrains-style: a toolbar action and a positioned context menu, both
+  // landing on the same name dialog — see SPEC-explorer-new-file-folder.md.
+  assert.match(html, /data-action="new-workspace-entry"/);
+  assert.match(html, /id="workspace-context-menu"[\s\S]*data-action="new-workspace-file"[\s\S]*data-action="new-workspace-directory"/);
+  assert.match(html, /id="new-entry-dialog"/);
+  assert.match(html, /id="new-entry-name"/);
+  assert.match(styles, /\.workspace-context-menu \{/);
+});
