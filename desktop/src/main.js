@@ -1174,16 +1174,21 @@ function selectWorkspaceDirectory(path) {
   entry?.classList.add('selected');
 }
 
+let workspaceContextMenuEntry = null;
+
 function closeWorkspaceContextMenu() {
   const menu = document.getElementById('workspace-context-menu');
   if (menu) menu.hidden = true;
   workspaceContextMenuTargetPath = null;
+  workspaceContextMenuEntry = null;
 }
 
-function showWorkspaceContextMenu(x, y, targetPath) {
+function showWorkspaceContextMenu(x, y, targetPath, entry = null) {
   const menu = document.getElementById('workspace-context-menu');
   if (!menu || !targetPath) return;
   workspaceContextMenuTargetPath = targetPath;
+  workspaceContextMenuEntry = entry;
+  menu.querySelectorAll('[data-workspace-entry-action]').forEach((item) => { item.hidden = !entry; });
   menu.hidden = false;
   const maxLeft = window.innerWidth - menu.offsetWidth - 8;
   const maxTop = window.innerHeight - menu.offsetHeight - 8;
@@ -1194,7 +1199,8 @@ function showWorkspaceContextMenu(x, y, targetPath) {
 /** Right-click resolves its own create target from whatever was under the
     cursor -- the clicked directory, the parent of a clicked file, or the
     Project root for empty tree space -- rather than trusting a path a
-    previous open left lying around. */
+    previous open left lying around. Rename/Delete need a concrete existing
+    entry, which empty tree space never provides. */
 function openWorkspaceContextMenu(event) {
   const directoryEntry = event.target.closest('[data-directory-path].directory');
   const fileEntry = event.target.closest('[data-file-path].file');
@@ -1205,7 +1211,89 @@ function openWorkspaceContextMenu(event) {
       : workspaceRootPath;
   if (!targetPath) return;
   event.preventDefault();
-  showWorkspaceContextMenu(event.clientX, event.clientY, targetPath);
+  const entry = directoryEntry
+    ? { path: directoryEntry.dataset.directoryPath, kind: 'directory' }
+    : fileEntry
+      ? { path: fileEntry.dataset.filePath, kind: 'file' }
+      : null;
+  showWorkspaceContextMenu(event.clientX, event.clientY, targetPath, entry);
+}
+
+function deleteWorkspaceEntryFromUI(path, kind) {
+  if (!nativeInvoke) { notify('Deleting files requires the local desktop runtime.'); return; }
+  requestConfirmation({
+    eyebrow: 'DELETE',
+    title: `Delete ${pathBaseName(path)}?`,
+    copy: kind === 'directory'
+      ? 'This permanently removes the folder and everything inside it. This cannot be undone.'
+      : 'This permanently removes the file. This cannot be undone.',
+    confirmLabel: 'Delete',
+    tone: 'danger',
+  }, () => {
+    void (async () => {
+      try {
+        await nativeInvoke('delete_workspace_entry', { path });
+        for (const record of [...openDocuments]) {
+          if (isDescendantOrSame(record.path, path)) await closeDocumentTabNow(record.id);
+        }
+        if (selectedDirectoryPath && isDescendantOrSame(selectedDirectoryPath, path)) selectedDirectoryPath = null;
+        if (selectedFilePath && isDescendantOrSame(selectedFilePath, path)) selectedFilePath = null;
+        await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
+      } catch (error) {
+        notify(error instanceof Error ? error.message : 'Unable to delete the entry.');
+      }
+    })();
+  });
+}
+
+let renameEntryPath = null;
+let renameEntryKind = 'file';
+
+function openRenameEntryDialog(path, kind) {
+  renameEntryPath = path;
+  renameEntryKind = kind;
+  const dialog = document.getElementById('rename-entry-dialog');
+  const nameInput = document.getElementById('rename-entry-name');
+  if (nameInput) nameInput.value = pathBaseName(path);
+  if (dialog?.showModal) dialog.showModal();
+  requestAnimationFrame(() => { nameInput?.focus(); nameInput?.select(); });
+}
+
+function closeRenameEntryDialog() {
+  document.getElementById('rename-entry-dialog')?.close();
+  renameEntryPath = null;
+}
+
+/** An open file's tab is rewritten in place -- never closed and reopened --
+    so its buffer and any unsaved edits survive the rename. A renamed
+    directory instead closes any tabs nested under it: rewriting every
+    nested tab's path is disproportionate here (SPEC-explorer-delete-and-rename.md#boundaries). */
+async function renameWorkspaceEntryFromUI(path, kind, name) {
+  if (!nativeInvoke) { notify('Renaming requires the local desktop runtime.'); return; }
+  const renamedPath = await nativeInvoke('rename_workspace_entry', { path, name });
+  if (kind === 'file') {
+    const openTab = openDocuments.find((record) => record.path === path);
+    if (openTab) {
+      openTab.path = renamedPath;
+      openTab.name = pathBaseName(renamedPath);
+      openTab.relativePath = documentRelativePath(renamedPath);
+      renderDocumentTabs();
+      if (openTab.id === activeDocumentId) {
+        document.getElementById('document-title').textContent = openTab.name;
+        document.getElementById('document-path').textContent = renamedPath;
+      }
+    }
+    if (selectedFilePath === path) selectedFilePath = renamedPath;
+  } else {
+    for (const record of [...openDocuments]) {
+      if (isDescendantOrSame(record.path, path)) await closeDocumentTabNow(record.id);
+    }
+    if (selectedDirectoryPath === path) selectedDirectoryPath = renamedPath;
+    else if (selectedDirectoryPath && isDescendantOrSame(selectedDirectoryPath, path)) selectedDirectoryPath = null;
+    if (selectedFilePath && isDescendantOrSame(selectedFilePath, path)) selectedFilePath = null;
+  }
+  await loadWorkspaceTree(workspaceRootPath, nativeInvoke, { animate: true });
+  await expandWorkspaceTreeTo(pathDirname(renamedPath));
 }
 
 function openNewEntryDialog(kind, parentPath) {
@@ -5496,6 +5584,22 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     closeNewEntryDialog();
     return;
   }
+  if (item.dataset.action === 'delete-workspace-entry') {
+    const entry = workspaceContextMenuEntry;
+    closeWorkspaceContextMenu();
+    if (entry) deleteWorkspaceEntryFromUI(entry.path, entry.kind);
+    return;
+  }
+  if (item.dataset.action === 'rename-workspace-entry') {
+    const entry = workspaceContextMenuEntry;
+    closeWorkspaceContextMenu();
+    if (entry) openRenameEntryDialog(entry.path, entry.kind);
+    return;
+  }
+  if (item.dataset.action === 'close-rename-entry-dialog') {
+    closeRenameEntryDialog();
+    return;
+  }
   if (item.dataset.action === 'refresh-tree') {
     window.clearTimeout(workspaceSearchTimer);
     workspaceTreeToken += 1;
@@ -6357,6 +6461,23 @@ document.getElementById('new-entry-form')?.addEventListener('submit', async (eve
     closeNewEntryDialog();
   } catch (error) {
     notify(error instanceof Error ? error.message : `Unable to create the new ${kind === 'directory' ? 'directory' : 'file'}.`);
+  } finally {
+    if (button) button.disabled = false;
+  }
+});
+document.getElementById('rename-entry-form')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const name = document.getElementById('rename-entry-name')?.value.trim();
+  const path = renameEntryPath;
+  const kind = renameEntryKind;
+  if (!name || !path) return;
+  const button = document.getElementById('rename-entry-button');
+  if (button) button.disabled = true;
+  try {
+    await renameWorkspaceEntryFromUI(path, kind, name);
+    closeRenameEntryDialog();
+  } catch (error) {
+    notify(error instanceof Error ? error.message : 'Unable to rename the entry.');
   } finally {
     if (button) button.disabled = false;
   }

@@ -25,7 +25,7 @@ status: approved
   additions for the new markup in this same phase, per the precedent set in both prior
   Explorer tasks.
 
-- [ ] Phase 3 — Frontend logic: context menu becomes target-aware (existing entry's path
+- [x] Phase 3 — Frontend logic: context menu becomes target-aware (existing entry's path
   + kind, not just a create-parent), `deleteWorkspaceEntryFromUI` (confirm → invoke →
   force-close affected tabs via `closeDocumentTabNow` → refresh), rename dialog open/
   submit (invoke → update an open file's tab in place, or close tabs nested under a
@@ -64,3 +64,10 @@ status: approved
   on the Project root itself), but the backend command must not depend on the frontend
   never sending that path — fixed before commit, with a new test
   (`rename_workspace_entry_rejects_renaming_the_project_root_itself`) covering it.
+- Phase 3 review: the initial draft cleared `selectedDirectoryPath` on a delete/rename
+  affecting it, but forgot the symmetric case for `selectedFilePath` — a deleted or
+  directory-renamed-away file could leave `selectedFilePath` pointing at a path that no
+  longer exists, exactly the stale-state failure mode
+  `agent-rules/_learned/spec-writing.md#mutating-operation-feedback` names. Fixed before
+  commit in both `deleteWorkspaceEntryFromUI` and the directory branch of
+  `renameWorkspaceEntryFromUI`.
