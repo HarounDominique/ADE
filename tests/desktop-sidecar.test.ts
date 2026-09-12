@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
-import { spawn } from "node:child_process";
+import { spawn, execFile as execFileCallback } from "node:child_process";
+import { promisify } from "node:util";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,6 +13,8 @@ import { Project } from "../src/domain/project.js";
 import { Task } from "../src/domain/task.js";
 import { agentTurnUsage, handleDesktopRequest, persistAgentPressure, readAgentPressure, summarizeAgentActivity } from "../src/desktop-sidecar.js";
 import type { Readable } from "node:stream";
+
+const execFile = promisify(execFileCallback);
 
 type SidecarMessage = { id?: string; type?: string; [key: string]: unknown };
 
@@ -228,6 +231,37 @@ test("desktop sidecar reports a removed .git as GIT_REPOSITORY_MISSING, not a ra
     await once(child, "close");
     rmSync(directory, { recursive: true, force: true });
     rmSync(notARepository, { recursive: true, force: true });
+  }
+});
+
+test("desktop sidecar's git.commit.create forwards a file subset to createCommit", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-process-"));
+  const repositoryPath = mkdtempSync(join(tmpdir(), "ade-sidecar-commit-subset-"));
+  await execFile("git", ["init", "-q"], { cwd: repositoryPath });
+  await execFile("git", ["config", "user.email", "ade@example.test"], { cwd: repositoryPath });
+  await execFile("git", ["config", "user.name", "ADE Test"], { cwd: repositoryPath });
+  writeFileSync(join(repositoryPath, "first.txt"), "first");
+  writeFileSync(join(repositoryPath, "second.txt"), "second");
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: join(directory, "ade.db") },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    child.stdin.write(JSON.stringify({ id: "commit-1", method: "git.commit.create", params: { repositoryPath, intent: "test: first only", actor: "human", reason: "test", confirmed: true, files: ["first.txt"] } }) + "\n");
+    const [output] = await once(child.stdout, "data");
+    const response = JSON.parse(output.toString()) as { id: string; result?: { operation: string } };
+    assert.equal(response.id, "commit-1");
+    assert.equal(response.result?.operation, "commit.create");
+    const log = await execFile("git", ["log", "-1", "--name-only", "--format="], { cwd: repositoryPath });
+    assert.equal(log.stdout.trim(), "first.txt");
+  } finally {
+    child.kill();
+    await once(child, "close");
+    rmSync(directory, { recursive: true, force: true });
+    rmSync(repositoryPath, { recursive: true, force: true });
   }
 });
 
