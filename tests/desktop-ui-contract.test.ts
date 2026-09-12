@@ -1756,8 +1756,21 @@ test("a Project with no Git offers to initialize one, instead of a disabled drop
   assert.match(main, /data-init-git-repository/);
   assert.match(main, /event\.target\.closest\('\[data-init-git-repository\]'\)/);
   assert.match(main, /function initGitRepositoryFromUI/);
-  assert.match(main, /method: 'git\.init'/);
-  assert.match(main, /refreshProjectContext\(projectSnapshot\)/);
+  assert.match(main, /'git\.init'/);
+});
+
+test("Git init refreshes the UI only once the sidecar actually finishes, not on send", () => {
+  // sidecar_request (Rust) only writes to stdin and returns -- it does not
+  // wait for the correlated response. Chaining .then() directly off it races
+  // ahead of the real git init, leaving the dropdown stuck on "No Git". The
+  // fix routes through sendContextRequest's pendingContextRequests/id
+  // correlation (the same mechanism switch-branch and push already use) so
+  // refreshProjectContext only runs once 'sidecar:response' actually reports
+  // operation: 'init'.
+  assert.doesNotMatch(main, /nativeInvoke\('sidecar_request', \{ request: JSON\.stringify\(\{\s*id: `git\.init-/);
+  assert.match(main, /sendContextRequest\('git\.init', \{ repositoryPath: activeRepositoryPath\(\)/);
+  assert.match(main, /'init-git-repository'/);
+  assert.match(main, /contextPurpose === 'init-git-repository' && response\.result\?\.operation === 'init'/);
 });
 
 test("the tree expand/collapse control lives in the sidebar gap, not the Explorer row", () => {
