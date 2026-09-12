@@ -113,6 +113,8 @@ const byExtension = {
   slim: 'ruby',
   php: 'php',
   java: 'java',
+  class: 'javaclass',
+  jar: 'jar',
   kt: 'kotlin',
   swift: 'swift',
   c: 'c',
