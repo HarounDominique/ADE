@@ -87,3 +87,22 @@ test("version control read model exposes tracked, staged and untracked pending f
   assert.match((await readPendingGitDiff(directory, "tracked.txt")).diff, /changed/);
   assert.match((await readPendingGitDiff(directory, "new.txt")).diff, /new/);
 });
+
+test("version control read model handles a repository with no commits yet", async () => {
+  // `git diff HEAD` fails outright on a freshly `git init`-ed repository --
+  // there is no HEAD to diff against until the first commit exists. Every
+  // file present is effectively new, same as the untracked case above.
+  const directory = await mkdtemp(join(tmpdir(), "ade-version-control-no-head-"));
+  await git(directory, "init", "-q");
+  await writeFile(join(directory, "staged.txt"), "staged\n");
+  await git(directory, "add", "staged.txt");
+  await writeFile(join(directory, "untracked.txt"), "untracked\n");
+  const pending = await inspectPendingGitChanges(directory);
+  assert.deepEqual(pending.files.map((file) => file.path).sort(), ["staged.txt", "untracked.txt"]);
+  assert.match(pending.diff, /staged/);
+  assert.match((await readPendingGitDiff(directory, "staged.txt")).diff, /staged/);
+  // untracked.txt is never in the index, so -- same as the untracked case
+  // above -- it never appears in the batch `git diff` output; only a
+  // per-file diff surfaces it, via the existing --no-index fallback.
+  assert.match((await readPendingGitDiff(directory, "untracked.txt")).diff, /untracked/);
+});
