@@ -15,7 +15,7 @@ status: approved
   (satisfies: SPEC-explorer-new-file-folder.md#structure, #style, #test-strategy — backend half)
   Test strategy: `cd desktop/src-tauri && cargo check && cargo test`.
 
-- [ ] Phase 2 — Frontend markup + styling: "New" toolbar button in `.explorer-actions`
+- [x] Phase 2 — Frontend markup + styling: "New" toolbar button in `.explorer-actions`
   (`desktop/src/index.html`), positioned context-menu container
   (`#workspace-context-menu`), `#new-entry-dialog` (task-dialog shape, reusing existing
   `.task-dialog`/`.dialog-actions`/input CSS), and `.workspace-context-menu` styling in
@@ -61,3 +61,8 @@ status: approved
   the recorded batch result via `-- --skip terminal_pty_accepts_input_after_the_shell_is_ready`;
   not fixed, out of scope. Flagging for a human/`/seed:reflect` follow-up, not silently
   ignoring it.
+- Phase 2: added `tests/desktop-ui-contract.test.ts` coverage for this phase's own markup
+  now (RED→GREEN within the phase) rather than batching all contract-test additions into
+  Phase 4 as originally planned — keeps each phase's TDD cycle self-contained. Phase 3
+  will add its own JS-wiring assertions the same way; Phase 4 stays a regression run +
+  manual pass, no new assertions required there. Self-directed, no scope change.
