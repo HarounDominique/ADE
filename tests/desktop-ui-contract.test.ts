@@ -1719,6 +1719,16 @@ test("the Explorer offers New File / New Directory, not just Refresh", () => {
   assert.match(styles, /\.workspace-context-menu \{/);
 });
 
+test("Explorer entries can open an integrated terminal there, or reveal in the file manager", () => {
+  assert.match(html, /id="workspace-context-menu"[\s\S]*data-action="open-workspace-entry-terminal"[\s\S]*data-action="reveal-workspace-entry-in-file-manager"/);
+  assert.match(main, /function createTerminalTab\(\{[\s\S]{0,200}cwd = workspaceRootPath[\s\S]{0,50}\} = \{\}\)/);
+  assert.match(main, /completionCwd: cwd,/);
+  assert.match(main, /nativeInvoke\('terminal_start', \{ sessionId: tab\.id, cwd: tab\.completionCwd \}\)/);
+  assert.match(main, /function openWorkspaceEntryInTerminal/);
+  assert.match(main, /function revealWorkspaceEntryInFileManager/);
+  assert.match(main, /nativeInvoke\('reveal_in_file_manager', \{ path \}\)/);
+});
+
 test("the Explorer context menu offers Rename and Delete for an existing entry", () => {
   assert.match(html, /id="workspace-context-menu"[\s\S]*data-action="rename-workspace-entry"[\s\S]*data-action="delete-workspace-entry"/);
   assert.match(html, /id="rename-entry-dialog"/);
