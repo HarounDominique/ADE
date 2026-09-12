@@ -80,3 +80,15 @@ status: approved
   spec/plan should have checked the existing create-branch/push-origin template closely
   enough to notice it doesn't actually await completion via the raw promise either — see
   reflection for the resulting learned rule.
+
+- Phase 3 manual verification, round 3: after Git init succeeds and the UI refreshes
+  correctly, switching Projects in the project selector threw "Command failed:
+  /usr/bin/git diff HEAD --binary — fatal: ambiguous argument 'HEAD': unknown revision".
+  Root cause: `inspectPendingGitChanges`/`readPendingGitDiff` in `src/application/git/
+  version-control.ts` unconditionally diffed against `HEAD`, which does not exist in a
+  repository with zero commits — exactly the state a `git init` just produced, and
+  exactly the state this task exists to make reachable from the UI, so it was never
+  exercised before this feature existed. Fixed by resolving whether `HEAD` exists
+  (`git rev-parse --verify HEAD`) and falling back to Git's well-known empty-tree hash
+  (`4b825dc642cb6eb9a060e54bf8d69288fbee4904`) as the diff base otherwise, so a
+  commit-less repository reads as "everything pending is new" instead of erroring.
