@@ -948,6 +948,54 @@ fn move_workspace_entry_in(
     Ok(target.to_string_lossy().into_owned())
 }
 
+#[tauri::command]
+fn delete_workspace_entry(workspace: tauri::State<'_, WorkspaceRoot>, path: String) -> Result<(), String> {
+    delete_workspace_entry_in(&workspace, &path)
+}
+
+/// Permanent, not OS-trash -- decided during spec review to avoid a new
+/// dependency and a cross-platform trash-path surface. The confirmation
+/// dialog on the frontend is the only safety net; this function trusts that
+/// gate has already been passed.
+fn delete_workspace_entry_in(workspace: &WorkspaceRoot, path: &str) -> Result<(), String> {
+    let target = workspace.resolve(path)?;
+    if target.is_dir() {
+        std::fs::remove_dir_all(&target).map_err(|error| error.to_string())
+    } else {
+        std::fs::remove_file(&target).map_err(|error| error.to_string())
+    }
+}
+
+#[tauri::command]
+fn rename_workspace_entry(
+    workspace: tauri::State<'_, WorkspaceRoot>,
+    path: String,
+    name: String,
+) -> Result<String, String> {
+    rename_workspace_entry_in(&workspace, &path, &name)
+}
+
+/// A rename within the same parent -- reuses `validate_new_entry_name`, the
+/// same rule `create_workspace_*_in` enforces for a brand-new name.
+fn rename_workspace_entry_in(workspace: &WorkspaceRoot, path: &str, name: &str) -> Result<String, String> {
+    let source = workspace.resolve(path)?;
+    let trimmed = validate_new_entry_name(name)?;
+    let parent = source.parent().ok_or_else(|| "Cannot rename the Project root".to_string())?;
+    // Re-resolved, not trusted as-is: if `source` were the Project root itself,
+    // its filesystem parent sits outside the jail, and `resolve()` is what
+    // catches that rather than a bare `.parent()` silently writing there.
+    let resolved_parent = workspace.resolve(&parent.to_string_lossy())?;
+    let target = resolved_parent.join(trimmed);
+    if target == source {
+        return Ok(source.to_string_lossy().into_owned());
+    }
+    if target.exists() {
+        return Err(format!("{} already exists.", target.display()));
+    }
+    std::fs::rename(&source, &target).map_err(|error| error.to_string())?;
+    Ok(target.to_string_lossy().into_owned())
+}
+
 fn write_file_in(workspace: &WorkspaceRoot, path: &str, content: &str) -> Result<(), String> {
     let file = workspace.resolve(path)?;
     if !file.is_file() {
@@ -1520,6 +1568,8 @@ pub fn run() {
             create_workspace_directory,
             create_workspace_file,
             move_workspace_entry,
+            delete_workspace_entry,
+            rename_workspace_entry,
             open_terminal,
             open_document,
             sidecar_start,
@@ -1535,9 +1585,10 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        create_workspace_directory_in, create_workspace_file_in, list_directory_in,
-        move_workspace_entry_in, open_document_in, open_file_in, open_local_url,
-        open_terminal_in, project_context_for, search_directory_in, SEARCH_RESULT_LIMIT,
+        create_workspace_directory_in, create_workspace_file_in, delete_workspace_entry_in,
+        list_directory_in, move_workspace_entry_in, open_document_in, open_file_in,
+        open_local_url, open_terminal_in, project_context_for, rename_workspace_entry_in,
+        search_directory_in, SEARCH_RESULT_LIMIT,
         read_file_in, start_terminal_pty, terminal_exec_in, write_file_in, SidecarSupervisor,
         WorkspaceRoot, MAX_FILE_PREVIEW_BYTES,
     };
@@ -2140,6 +2191,133 @@ mod tests {
 
         assert!(result.is_ok());
         assert!(root.join("notes.md").is_file());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn delete_workspace_entry_removes_a_file() {
+        let root = fixture_root("delete-workspace-file");
+        fs::write(root.join("notes.md"), "hello").expect("seed file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        delete_workspace_entry_in(&workspace, &root.join("notes.md").to_string_lossy()).expect("delete file");
+
+        assert!(!root.join("notes.md").exists());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn delete_workspace_entry_removes_a_directory_and_its_contents() {
+        let root = fixture_root("delete-workspace-directory");
+        fs::create_dir_all(root.join("nested/child")).expect("seed nested directories");
+        fs::write(root.join("nested/child/notes.md"), "hello").expect("seed nested file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        delete_workspace_entry_in(&workspace, &root.join("nested").to_string_lossy()).expect("delete directory");
+
+        assert!(!root.join("nested").exists());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn delete_workspace_entry_rejects_a_nonexistent_path() {
+        let root = fixture_root("delete-workspace-missing");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = delete_workspace_entry_in(&workspace, &root.join("missing.md").to_string_lossy());
+
+        assert!(result.is_err());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn rename_workspace_entry_renames_a_file() {
+        let root = fixture_root("rename-workspace-file");
+        fs::write(root.join("old.md"), "hello").expect("seed file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let renamed = rename_workspace_entry_in(&workspace, &root.join("old.md").to_string_lossy(), "new.md")
+            .expect("rename file");
+
+        assert!(!root.join("old.md").exists());
+        assert!(root.join("new.md").is_file());
+        let expected = workspace.resolve(&root.to_string_lossy()).expect("resolve root").join("new.md");
+        assert_eq!(renamed, expected.to_string_lossy());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn rename_workspace_entry_renames_a_directory() {
+        let root = fixture_root("rename-workspace-directory");
+        fs::create_dir_all(root.join("old-name")).expect("seed directory");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        rename_workspace_entry_in(&workspace, &root.join("old-name").to_string_lossy(), "new-name")
+            .expect("rename directory");
+
+        assert!(!root.join("old-name").exists());
+        assert!(root.join("new-name").is_dir());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn rename_workspace_entry_rejects_a_separator_in_the_new_name() {
+        let root = fixture_root("rename-workspace-separator");
+        fs::write(root.join("old.md"), "hello").expect("seed file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = rename_workspace_entry_in(&workspace, &root.join("old.md").to_string_lossy(), "a/b.md");
+
+        assert!(result.is_err());
+        assert!(root.join("old.md").exists());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn rename_workspace_entry_rejects_a_destination_collision() {
+        let root = fixture_root("rename-workspace-collision");
+        fs::write(root.join("old.md"), "source").expect("seed source file");
+        fs::write(root.join("existing.md"), "already here").expect("seed colliding file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = rename_workspace_entry_in(&workspace, &root.join("old.md").to_string_lossy(), "existing.md");
+
+        assert!(result.is_err());
+        assert_eq!(fs::read_to_string(root.join("existing.md")).expect("read"), "already here");
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn rename_workspace_entry_is_a_no_op_when_the_new_name_matches_the_current_one() {
+        let root = fixture_root("rename-workspace-noop");
+        fs::write(root.join("notes.md"), "hello").expect("seed file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = rename_workspace_entry_in(&workspace, &root.join("notes.md").to_string_lossy(), "notes.md");
+
+        assert!(result.is_ok());
+        assert!(root.join("notes.md").is_file());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn rename_workspace_entry_rejects_renaming_the_project_root_itself() {
+        let root = fixture_root("rename-workspace-root");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = rename_workspace_entry_in(&workspace, &root.to_string_lossy(), "renamed-root");
+
+        assert!(result.is_err());
+        assert!(root.exists(), "the root must not be renamed out from under the selected Project");
         fs::remove_dir_all(root).expect("remove fixture");
     }
 

@@ -15,7 +15,7 @@ actually meant — surface the gap as an explicit assumption for human confirmat
 of quietly picking the easiest-to-implement reading.
 
 ### mutating-operation-feedback
-_derived_from: reflection/explorer-selection-and-drag-drop.md · evidence_count: 1 · last_validated: 2026-09-12_
+_derived_from: reflection/explorer-selection-and-drag-drop.md, reflection/explorer-delete-and-rename.md · evidence_count: 2 · last_validated: 2026-09-12_
 
 When a spec covers a mutating UI operation (create, move, rename, delete), its Boundaries
 must state explicitly what visible feedback proves the operation succeeded and what
@@ -24,3 +24,9 @@ gaps in one task took this exact shape: a full tree-reload silently re-collapsin
 target directory (operator had to notice and ask), and a moved item's stale selection
 state pointing at a path that no longer existed (caught only in review). Ask "what does
 the operator see that confirms this worked" as its own spec question, every time.
+
+Second occurrence (`explorer-delete-and-rename`): `selectedDirectoryPath` was correctly
+cleared on an affecting delete/rename but the symmetric `selectedFilePath` case was
+missed in the first draft — same shape of stale reference, this time caught in review
+before the operator ever saw it. That task's manual-verification pass raised zero
+follow-ups, the first of its arc to do so.
