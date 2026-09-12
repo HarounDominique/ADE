@@ -5,6 +5,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { createCodeEditorSurface, formatterParserForPath, languageLabelForPath } from './code-editor.js';
 import { fileExtension, pathBaseName, pathDirname, pathSegments } from './paths.js';
+import { iconForFileName } from './file-icon-map.js';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 const panels = [...document.querySelectorAll('.view')];
@@ -4153,7 +4154,7 @@ function renderWorkspaceEntry(entry, childMarkup = '', { showPathHint = false } 
   if (entry.kind === 'directory') {
     const expanded = Boolean(childMarkup);
     const selected = entry.path === selectedDirectoryPath;
-    return `<li class="workspace-node directory" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry directory${expanded ? ' compact-branch' : ''}${selected ? ' selected' : ''}" type="button" data-directory-path="${path}" aria-expanded="${expanded}" aria-label="${expanded ? 'Expand' : 'Open'} ${name}"><span class="workspace-arrow" aria-hidden="true"></span><span class="workspace-glyph directory" aria-hidden="true"></span><span class="workspace-name">${name}</span></button><ul class="workspace-children" data-directory-children${expanded ? '' : ' hidden'}>${childMarkup}</ul></li>`;
+    return `<li class="workspace-node directory" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry directory${expanded ? ' compact-branch' : ''}${selected ? ' selected' : ''}" type="button" data-directory-path="${path}" aria-expanded="${expanded}" aria-label="${expanded ? 'Expand' : 'Open'} ${name}"><span class="workspace-arrow" aria-hidden="true"></span><img class="workspace-folder-icon" src="file-icons/folder-base.svg" alt="" /><span class="workspace-name">${name}</span></button><ul class="workspace-children" data-directory-children${expanded ? '' : ' hidden'}>${childMarkup}</ul></li>`;
   }
   if (entry.kind === 'symlink') {
     return `<li class="workspace-entry symlink" data-entry-name="${name.toLowerCase()}" title="Symlinks are not opened outside the selected Project"><span class="workspace-glyph symlink" aria-hidden="true"></span><span class="workspace-name">${name}</span></li>`;
@@ -4165,7 +4166,11 @@ function renderWorkspaceEntry(entry, childMarkup = '', { showPathHint = false } 
   const pathHint = showPathHint ? `<span class="workspace-path-hint" title="${escapeHTML(relativePath)}">${escapeHTML(parentPath)}</span>` : '';
   const resultClass = showPathHint ? ' search-result' : '';
   const fileLabel = showPathHint ? `<span class="workspace-result-copy"><span class="workspace-name">${name}</span>${pathHint}</span>` : `<span class="workspace-name">${name}</span>`;
-  return `<li class="workspace-node file" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry file${selected ? ' selected' : ''}${resultClass}" type="button" data-file-path="${path}" aria-current="${selected ? 'page' : 'false'}" aria-label="Open ${name} in ${escapeHTML(parentPath)}"><span class="workspace-glyph file" aria-hidden="true"></span>${fileLabel}</button></li>`;
+  const icon = iconForFileName(entry.name);
+  const glyph = icon
+    ? `<img class="workspace-file-icon" src="file-icons/${icon}.svg" alt="" />`
+    : `<span class="workspace-glyph file" aria-hidden="true"></span>`;
+  return `<li class="workspace-node file" data-entry-name="${name.toLowerCase()}"><button class="workspace-entry file${selected ? ' selected' : ''}${resultClass}" type="button" data-file-path="${path}" aria-current="${selected ? 'page' : 'false'}" aria-label="Open ${name} in ${escapeHTML(parentPath)}">${glyph}${fileLabel}</button></li>`;
 }
 
 function renderWorkspaceEntries(entries) {

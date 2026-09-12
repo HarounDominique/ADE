@@ -1725,6 +1725,16 @@ test("file-type icons are vendored, mapped, and copied into the build", () => {
   }
 });
 
+test("Explorer file and directory icons come from the vendored set, not a generic glyph", () => {
+  // An unmapped extension keeps the original CSS-drawn glyph -- never a
+  // broken <img> -- see file-icon-map.js#iconForFileName's null fallback.
+  assert.match(main, /import \{ iconForFileName \} from '\.\/file-icon-map\.js';/);
+  assert.match(main, /const icon = iconForFileName\(entry\.name\);/);
+  assert.match(main, /src="file-icons\/\$\{icon\}\.svg"/);
+  assert.match(main, /src="file-icons\/folder-base\.svg"/);
+  assert.match(styles, /\.workspace-file-icon, \.workspace-folder-icon \{/);
+});
+
 test("the tree expand/collapse control lives in the sidebar gap, not the Explorer row", () => {
   // Moved next to .sidebar-collapse, which already floats in this same gap
   // via --sidebar-control-y (computed by syncSidebarControlAnchor) -- centered
