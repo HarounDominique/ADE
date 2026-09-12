@@ -14,7 +14,7 @@ status: approved
   (satisfies: SPEC-explorer-open-in-terminal-and-file-manager.md#structure, #style, #test-strategy — backend half)
   Test strategy: `cd desktop/src-tauri && cargo check && cargo test`.
 
-- [ ] Phase 2 — Frontend: two more `[data-workspace-entry-action]` items in
+- [x] Phase 2 — Frontend: two more `[data-workspace-entry-action]` items in
   `#workspace-context-menu` ("Open in Terminal", "Reveal in File Manager"); `createTerminalTab`
   gains an optional `cwd` option (default `workspaceRootPath`, every existing call site
   unaffected); `startTerminal` uses `tab.completionCwd` instead of the hardcoded
@@ -56,3 +56,12 @@ status: approved
   `cargo test`, exactly what `open_file_in`'s own existing tests already avoid (they
   cover only its rejections). Matches established precedent; satisfies the same intent
   without the side effect.
+- Phase 2 review: an unstarted terminal tab (created but never yet typed into) now
+  freezes its `cwd` at creation time (`tab.completionCwd`) instead of reading the live
+  `workspaceRootPath` lazily when it actually starts. Only observable if the operator
+  creates an idle tab, switches Projects, then types into that same idle tab for the
+  first time — an already-started tab is completely unaffected (it keeps running
+  wherever it started, exactly as before; `terminalTabs` is never reset on a Project
+  switch). Judged an accidental side effect of the original hardcoding rather than a
+  relied-upon behavior, and not worth the extra complexity of a lazy re-read to preserve
+  exactly; flagged here rather than silently accepted.
