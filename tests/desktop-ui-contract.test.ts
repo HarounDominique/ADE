@@ -1719,6 +1719,21 @@ test("the Explorer offers New File / New Directory, not just Refresh", () => {
   assert.match(styles, /\.workspace-context-menu \{/);
 });
 
+test("the Explorer context menu offers Rename and Delete for an existing entry", () => {
+  assert.match(html, /id="workspace-context-menu"[\s\S]*data-action="rename-workspace-entry"[\s\S]*data-action="delete-workspace-entry"/);
+  assert.match(html, /id="rename-entry-dialog"/);
+  assert.match(html, /id="rename-entry-name"/);
+});
+
+test("Delete confirms then closes affected tabs; Rename updates an open tab in place", () => {
+  assert.match(main, /function deleteWorkspaceEntryFromUI/);
+  assert.match(main, /nativeInvoke\('delete_workspace_entry', \{ path \}\)/);
+  assert.match(main, /await closeDocumentTabNow\(record\.id\)/);
+  assert.match(main, /function openRenameEntryDialog/);
+  assert.match(main, /nativeInvoke\('rename_workspace_entry', \{ path, name \}\)/);
+  assert.match(main, /openTab\.relativePath = documentRelativePath\(renamedPath\)/);
+});
+
 test("clicking a directory selects it, and New targets the selection first", () => {
   // A directory click still toggles expand/collapse; it also now becomes the
   // create target, ahead of the open file's parent and ahead of the root —
