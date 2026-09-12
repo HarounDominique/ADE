@@ -83,8 +83,19 @@ it replaces).
 
 ## What this costs
 
-51 small SVG files (typically 1-3KB each, so well under 150KB total added to the bundle),
+144 small SVG files (~590KB total added to the bundle — negligible for a desktop app),
 one flat mapping module with no runtime dependency, two CSS rules, and a `LICENSE` file
 carrying the upstream project's real MIT text plus a one-line NOTICE naming the actual
 project and URL. Nothing here needs its own follow-up design pass; extending the mapping
 later is a one-line addition per entry.
+
+## Update — coverage expanded post-manual-verification
+
+The operator asked for broader coverage after the first pass shipped (53 icons, ~216KB).
+Extended to 144 vendored files / 163 mapped filenames+extensions, every one individually
+checked against the upstream listing before being added (a handful of natural guesses —
+`.bat`/`.cmd` batch files — had no dedicated upstream icon and were left unmapped rather
+than forced onto a wrong icon). The default folder icon was also recolored from the
+upstream default (a brown/tan `#8d6e63`) to a blue matching this app's own `--blue`
+accent (`#4d8fd6` body, `#cfe4f7` flap) — a direct edit to the vendored SVG's fill
+values, permitted under MIT modification rights, still fully attributed.
