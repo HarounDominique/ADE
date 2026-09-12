@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Backend: `create_workspace_file`/`create_workspace_file_in` and
+- [x] Phase 1 — Backend: `create_workspace_file`/`create_workspace_file_in` and
   `create_workspace_directory`/`create_workspace_directory_in` in `desktop/src-tauri/src/lib.rs`,
   registered in `generate_handler![...]`, plus Rust unit tests in the existing
   `#[cfg(test)] mod tests` block (happy path, empty/`.`/`..`/separator name rejected,
@@ -49,11 +49,15 @@ status: approved
 **Build Status**: NOT_STARTED
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 1, step 3: `tests::terminal_pty_accepts_input_after_the_shell_is_ready` fails
+  (timeout) in this sandbox on unmodified `master` too (confirmed via `git stash`) —
+  pre-existing, unrelated to this task's PTY-unrelated filesystem commands. Excluded from
+  the recorded batch result via `-- --skip terminal_pty_accepts_input_after_the_shell_is_ready`;
+  not fixed, out of scope. Flagging for a human/`/seed:reflect` follow-up, not silently
+  ignoring it.
