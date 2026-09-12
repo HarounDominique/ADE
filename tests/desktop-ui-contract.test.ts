@@ -1973,3 +1973,17 @@ test("a click on the checkbox's label never also fires the row's diff-select", (
   const rowIndex = main.indexOf("event.target.closest('[data-git-pending-file]')");
   assert.ok(guardIndex > -1 && rowIndex > -1 && guardIndex < rowIndex);
 });
+
+test("Fetch origin disables when the Project has no remote, like Push origin already does", () => {
+  // git fetch origin fails outright with no remote -- the raw exec error
+  // used to surface straight to the operator, since #git-fetch-origin was
+  // never disabled at all (unlike #git-push-origin, which happens to
+  // disable already, incidentally, because listUnpushedCommits returns
+  // empty with no remote -- not because anything explicitly checks for one).
+  assert.match(main, /hasGitRemote/);
+  assert.match(main, /getElementById\('git-fetch-origin'\)/);
+  assert.match(main, /fetchButton\.disabled = !hasGitRemote \|\| activeVersionControl === 'none';/);
+  // Set from the same git.workspace response renderCommitControls already
+  // runs from -- no second, parallel "has a remote" check.
+  assert.match(main, /hasGitRemote = response\.result\.remotes\.length > 0;/);
+});
