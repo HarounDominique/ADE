@@ -36,7 +36,7 @@ status: approved
   Test strategy: `node --check desktop/src/main.js`; contract-test additions for the
   tab-close/tab-update logic in this same phase.
 
-- [ ] Phase 4 — Verification: full regression (`npm test`, `cargo test`), then a manual
+- [x] Phase 4 — Verification: full regression (`npm test`, `cargo test`), then a manual
   pass by the operator in `npm run desktop:dev` (delete a file with its tab open — tab
   closes; delete a directory containing open tabs — all close; rename an open file — tab
   updates in place, buffer survives; rename a directory containing open tabs — those
@@ -49,10 +49,10 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
+**Build Status**: DONE
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 1, 3: 1, 4: 1}
+**Step Attempts**: {2: 1, 3: 1, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
