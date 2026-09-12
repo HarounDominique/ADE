@@ -27,3 +27,10 @@ status: approved
 None. Confirmed the bug directly against real `git` (`git init` on this machine
 produces `main`) before writing the fix — the operator's report was the trigger, not
 the only evidence.
+
+## Reflection (inline, fast-path)
+
+One-line root cause, one-line fix, verified against real `git` before and after —
+exactly the shape a fast-path task should take. No new rule extracted: this is a
+plain environment-dependent default, not a recurring failure pattern like the
+zero-commit-repository class this session's other tasks surfaced repeatedly.
