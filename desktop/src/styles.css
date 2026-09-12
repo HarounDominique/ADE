@@ -351,6 +351,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .workspace-entry.selected { color: var(--text); background: #1b3140; }
 .workspace-entry.selected .workspace-glyph.file { border-color: var(--cyan); }
 :root[data-theme="light"] .workspace-entry.selected { background: #d9edf3; }
+.workspace-entry.dragging { opacity: .55; }
+.workspace-entry.workspace-drop-target { background: color-mix(in srgb, var(--blue) 22%, var(--panel-soft)); }
+#workspace-tree.workspace-drop-target { background: color-mix(in srgb, var(--blue) 10%, var(--panel-soft)); }
+.workspace-drag-ghost { position: fixed; top: 0; left: 0; z-index: 40; padding: 6px 11px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--panel-raised); box-shadow: 0 10px 24px #0006; color: var(--text-soft); font-size: 12px; pointer-events: none; }
 
 @media (max-width: 1180px) {
   .explorer-heading { padding-right: 2px; padding-left: 2px; }

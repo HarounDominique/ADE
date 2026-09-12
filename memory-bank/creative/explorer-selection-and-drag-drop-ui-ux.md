@@ -70,3 +70,24 @@ a bigger, unambiguous target.
 Three small CSS rules, one JS legality check reused for both the highlight and (already
 planned) drop dispatch, one `.dragging` class lifecycle. No new dependencies, no new
 color semantics, nothing that needs its own follow-up design pass.
+
+## Correction made during Phase 4 (build-time, not re-litigated with the operator)
+
+This doc originally specified native HTML5 `draggable`/`dragover`/`drop` events, relying
+on the browser's own cursor for "not allowed" on an illegal target. Phase 4's own test
+batch caught that this codebase already tried exactly that approach for detaching a
+document tab into its own window, and abandoned it — `main.js`'s
+`documentTabStrip`/`finishTabDrag` comment: "the HTML drag reported nothing usable about
+a drop that left the window" in this Tauri WebView. `tests/desktop-ui-contract.test.ts`
+has an explicit `assert.doesNotMatch(main, /draggable="true"/)` guarding against
+reintroducing it.
+
+The **visual outcome approved above is unchanged** (tint on a legal target, opacity on
+the dragged row, no red/error state) — only the event mechanism moved to match this
+codebase's own precedent: `mousedown`/`mousemove`/`mouseup` with a ghost element that
+tracks the cursor (mirroring `trackTabDrag`/`finishTabDrag`), legality determined by
+`document.elementFromPoint()` under the cursor rather than native `dragover` targets, and
+no explicit "illegal" cursor treatment (simply no highlight, matching JetBrains' own
+"nothing lights up" convention for an invalid target) since there is no native drag
+cursor to borrow in this mechanism. See
+`agent-rules/_learned/` for the extracted rule once this task reaches `/seed:reflect`.
