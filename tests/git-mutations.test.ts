@@ -27,6 +27,66 @@ test("git mutations require confirmation and preserve attribution", async () => 
   assert.match(commit.output, /\[feature\/test/);
 });
 
+test("committing a subset of files stages exactly those, leaving the rest pending", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-git-mut-subset-"));
+  await initRepository(root);
+  await writeFile(join(root, "first.txt"), "first");
+  await writeFile(join(root, "second.txt"), "second");
+  await execFile("git", ["add", "--all"], { cwd: root });
+  await execFile("git", ["commit", "-qm", "chore: seed"], { cwd: root });
+  await writeFile(join(root, "first.txt"), "first changed");
+  await writeFile(join(root, "second.txt"), "second changed");
+
+  await createCommit({ directory: root, message: "test: first only", actor: "human", reason: "test", confirmed: true, files: ["first.txt"] });
+
+  const log = await execFile("git", ["log", "-1", "--name-only", "--format="], { cwd: root });
+  assert.equal(log.stdout.trim(), "first.txt");
+  const status = await execFile("git", ["status", "--short"], { cwd: root });
+  assert.match(status.stdout, /second\.txt/);
+  assert.doesNotMatch(status.stdout, /first\.txt/);
+});
+
+test("committing a subset already-staged outside Assay ignores the extra staged file", async () => {
+  // The selection is the source of truth, not whatever the index already held --
+  // git reset runs first so a file staged from outside Assay (a terminal `git
+  // add`) never sneaks into a commit the operator only checked one file for.
+  const root = await mkdtemp(join(tmpdir(), "ade-git-mut-outside-stage-"));
+  await initRepository(root);
+  await writeFile(join(root, "first.txt"), "first");
+  await writeFile(join(root, "second.txt"), "second");
+  await execFile("git", ["add", "--all"], { cwd: root });
+
+  await createCommit({ directory: root, message: "test: first only", actor: "human", reason: "test", confirmed: true, files: ["first.txt"] });
+
+  const log = await execFile("git", ["log", "-1", "--name-only", "--format="], { cwd: root });
+  assert.equal(log.stdout.trim(), "first.txt");
+});
+
+test("committing with files omitted keeps today's stage-everything behavior", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-git-mut-default-"));
+  await initRepository(root);
+  await writeFile(join(root, "first.txt"), "first");
+  await writeFile(join(root, "second.txt"), "second");
+
+  await createCommit({ directory: root, message: "test: everything", actor: "human", reason: "test", confirmed: true });
+
+  const log = await execFile("git", ["log", "-1", "--name-only", "--format="], { cwd: root });
+  assert.deepEqual(log.stdout.trim().split("\n").sort(), ["first.txt", "second.txt"]);
+});
+
+test("committing a subset is safe on a repository with no commits yet", async () => {
+  // git reset (no args) has to work on an unborn HEAD, not just a normal one --
+  // this session hit the zero-commit-repository invariant three times already
+  // in unrelated code paths, so this is checked directly before it can regress.
+  const root = await mkdtemp(join(tmpdir(), "ade-git-mut-unborn-"));
+  await initRepository(root);
+  await writeFile(join(root, "only.txt"), "only");
+
+  const commit = await createCommit({ directory: root, message: "test: first commit ever", actor: "human", reason: "test", confirmed: true, files: ["only.txt"] });
+
+  assert.match(commit.output, /test: first commit ever/);
+});
+
 test("direct push also requires explicit confirmation", async () => {
   await assert.rejects(pushBranch({ directory: "/tmp", actor: "human", reason: "publish", confirmed: false }), /explicit confirmation/);
 });

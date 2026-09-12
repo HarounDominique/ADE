@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Sidecar: `createCommit` gains optional `files?: string[]`
+- [x] Phase 1 — Sidecar: `createCommit` gains optional `files?: string[]`
   (`git reset` then `git add -- <files>` or `git add --all`); `git.commit.create`'s
   dispatch forwards `params.files` when present. `git.commit.push`/Ship untouched. No
   creative needed — direct extension of an already-tested function's signature.
@@ -42,14 +42,15 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
+**Build Status**: RUNNING
+**Current Phase**: 1
+**Current Step**: 5/6
 **Step Attempts**: {2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 1: none. Added one extra test beyond the spec's Test strategy ("committing a
+  subset already-staged outside Assay ignores the extra staged file") to directly
+  exercise the `git reset` determinism claim, not just infer it from the other cases.
