@@ -19,7 +19,7 @@ status: approved
   `tests/desktop-ui-contract.test.ts` for the trigger/cancel/form/dispatch wiring, same
   phase, per this session's convention.
 
-- [ ] Phase 2 — Verification: full regression (`npm test`), then a manual pass by the
+- [x] Phase 2 — Verification: full regression (`npm test`), then a manual pass by the
   operator in `npm run desktop:dev` (open a Project with Git, open the branch dropdown,
   click "+ New branch", type a name, confirm; verify the current-branch label, the
   dropdown's list, and the version-control view all reflect the new branch without a
@@ -32,12 +32,13 @@ status: approved
 
 ## Execution State
 
-**Build Status**: RUNNING
+**Build Status**: DONE
 **Current Phase**: 2
-**Current Step**: 3/6
+**Current Step**: 6/6
 **Step Attempts**: {2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
-**Can Resume**: YES
+**Can Resume**: NO — all phases complete, operator confirmed the fix in `npm run
+desktop:dev` after two verification rounds (see Deviations)
 
 ## Deviations
 
