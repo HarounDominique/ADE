@@ -854,10 +854,10 @@ function renderSnapshot(snapshot) {
   if (branchName) branchName.textContent = hasProject ? currentBranch : noneLabel;
   const branchButton = document.getElementById('branch-context-button');
   if (branchButton) {
-    const branchable = hasProject && hasGit;
+    const branchable = hasProject;
     branchButton.disabled = !branchable;
     branchButton.setAttribute('aria-disabled', String(!branchable));
-    branchButton.title = !hasProject ? 'No Project is open' : hasGit ? 'Switch local branch' : 'This project is not a Git repository';
+    branchButton.title = !hasProject ? 'No Project is open' : hasGit ? 'Switch local branch' : 'Initialize a Git repository';
   }
   const terminalCwd = document.getElementById('terminal-cwd');
   if (terminalCwd) terminalCwd.textContent = activeProject.repositoryPath;
@@ -1009,7 +1009,6 @@ function requestTaskDetail(taskId) {
 }
 
 function toggleGitContextMenu(kind) {
-  if (kind === 'branch' && activeVersionControl === 'none') return;
   const menu = document.getElementById(`${kind}-context-menu`);
   const button = document.getElementById(`${kind}-context-button`);
   if (!menu || !button) return;
@@ -1023,6 +1022,8 @@ function toggleGitContextMenu(kind) {
     if (!projectCatalogLoaded) void sendContextRequest('project.list', {}, 'projects');
   } else if (kind === 'task') {
     renderTaskContextMenu();
+  } else if (kind === 'branch' && activeVersionControl === 'none') {
+    menu.innerHTML = '<button class="git-context-option" type="button" role="menuitem" data-init-git-repository>Initialize Git repository</button>';
   } else {
     menu.innerHTML = '<p class="git-context-empty">Loading branches…</p>';
     void sendContextRequest('git.workspace', { repositoryPath: activeRepositoryPath() }, 'branches');
@@ -1085,6 +1086,24 @@ async function switchProjectFromContext(project) {
     notify(error instanceof Error ? error.message : 'Project switch failed.');
     console.warn('Project switch unavailable:', error);
   }
+}
+
+function initGitRepositoryFromUI() {
+  closeGitContextMenus();
+  if (!nativeInvoke) { notify('Initializing Git requires the local desktop runtime.'); return; }
+  requestConfirmation({
+    eyebrow: 'GIT OPERATION',
+    title: 'Initialize a Git repository here?',
+    copy: `Creates a new Git repository at the root of ${activeProject.name}.`,
+    confirmLabel: 'Initialize',
+  }, async () => {
+    try {
+      await sendContextRequest('git.init', { repositoryPath: activeRepositoryPath(), actor: 'human', reason: 'Git repository initialized from Assay', confirmed: true }, 'init-git-repository');
+    } catch (error) {
+      notify('Unable to initialize the Git repository.');
+      console.warn(error);
+    }
+  });
 }
 
 async function switchBranchFromContext(branch) {
@@ -4936,6 +4955,11 @@ async function connectSidecar(snapshot) {
         renderCommitControls();
         return;
       }
+      if (contextPurpose === 'init-git-repository' && response.result?.operation === 'init') {
+        notify('Git repository initialized.');
+        await refreshProjectContext(projectSnapshot);
+        return;
+      }
       if (response.type?.startsWith('runtime.') && response.status) {
         renderRuntimeStatus(response.status);
         if (response.type === 'runtime.event') renderRuntimeEvent(response.taskId, response.event);
@@ -5987,6 +6011,10 @@ document.addEventListener('click', (event) => {
   const branchOption = event.target.closest('[data-branch-name]');
   if (branchOption) {
     void switchBranchFromContext(branchOption.dataset.branchName);
+    return;
+  }
+  if (event.target.closest('[data-init-git-repository]')) {
+    initGitRepositoryFromUI();
     return;
   }
   const taskOption = event.target.closest('[data-task-context-id]');

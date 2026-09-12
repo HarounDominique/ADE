@@ -1743,6 +1743,36 @@ test("Explorer file and directory icons come from the vendored set, not a generi
   assert.match(styles, /\.workspace-file-icon, \.workspace-folder-icon \{/);
 });
 
+test("a Project with no Git offers to initialize one, instead of a disabled dropdown", () => {
+  // The branch button stays enabled whenever a Project is open, not only
+  // when it already has Git -- its dropdown offers the way in.
+  assert.doesNotMatch(main, /const branchable = hasProject && hasGit;/);
+  assert.match(main, /const branchable = hasProject;/);
+  assert.doesNotMatch(main, /if \(kind === 'branch' && activeVersionControl === 'none'\) return;/);
+  // The generic [data-action] dispatcher only ever wires elements present at
+  // page load -- this menu content is built later via innerHTML, so it is
+  // delegated the same way every other dynamic git-context-menu item already
+  // is (data-branch-name, data-project-id, ...), not through data-action.
+  assert.match(main, /data-init-git-repository/);
+  assert.match(main, /event\.target\.closest\('\[data-init-git-repository\]'\)/);
+  assert.match(main, /function initGitRepositoryFromUI/);
+  assert.match(main, /'git\.init'/);
+});
+
+test("Git init refreshes the UI only once the sidecar actually finishes, not on send", () => {
+  // sidecar_request (Rust) only writes to stdin and returns -- it does not
+  // wait for the correlated response. Chaining .then() directly off it races
+  // ahead of the real git init, leaving the dropdown stuck on "No Git". The
+  // fix routes through sendContextRequest's pendingContextRequests/id
+  // correlation (the same mechanism switch-branch and push already use) so
+  // refreshProjectContext only runs once 'sidecar:response' actually reports
+  // operation: 'init'.
+  assert.doesNotMatch(main, /nativeInvoke\('sidecar_request', \{ request: JSON\.stringify\(\{\s*id: `git\.init-/);
+  assert.match(main, /sendContextRequest\('git\.init', \{ repositoryPath: activeRepositoryPath\(\)/);
+  assert.match(main, /'init-git-repository'/);
+  assert.match(main, /contextPurpose === 'init-git-repository' && response\.result\?\.operation === 'init'/);
+});
+
 test("the tree expand/collapse control lives in the sidebar gap, not the Explorer row", () => {
   // Moved next to .sidebar-collapse, which already floats in this same gap
   // via --sidebar-control-y (computed by syncSidebarControlAnchor) -- centered
