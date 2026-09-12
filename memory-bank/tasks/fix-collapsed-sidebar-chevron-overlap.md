@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Offset `.sidebar-collapsed .sidebar-collapse`'s `top` further down than
+- [x] Phase 1 — Offset `.sidebar-collapsed .sidebar-collapse`'s `top` further down than
   the raw `--sidebar-control-y` anchor, so the chevron clears the last nav icon instead
   of overlapping it. Expanded-state positioning untouched. Fast-path: single CSS fix,
   no creative needed.
@@ -16,14 +16,22 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
+**Build Status**: DONE
 **Current Phase**: —
 **Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Step Attempts**: {2: 1, 3: 1, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+None — matched the spec exactly.
+
+## Reflection (fast-path, inline)
+
+Diagnosed by reading `syncSidebarControlAnchor()`'s calculation rather than guessing: it
+degrades to sitting exactly at the nav's bottom edge once the Explorer is hidden and the
+nav's own bottom margin/border are zeroed in collapsed mode, so a translate(-50%,-50%)
+button centered there necessarily overlaps upward. A pure CSS offset on top of the
+existing JS-computed anchor was enough — no JS change needed. Not novel enough for its
+own learned rule.
