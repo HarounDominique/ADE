@@ -1718,3 +1718,17 @@ test("the Explorer offers New File / New Directory, not just Refresh", () => {
   assert.match(html, /id="new-entry-name"/);
   assert.match(styles, /\.workspace-context-menu \{/);
 });
+
+test("New File / New Directory are wired to the workspace tree, not just drawn", () => {
+  assert.match(main, /function openWorkspaceContextMenu/);
+  assert.match(main, /function showWorkspaceContextMenu/);
+  assert.match(main, /function closeWorkspaceContextMenu/);
+  assert.match(main, /function openNewEntryDialog/);
+  // Right-click anywhere in the tree resolves a create target: the clicked
+  // directory, the parent of a clicked file, or the Project root — never a
+  // raw path the frontend invented on its own.
+  assert.match(main, /addEventListener\('contextmenu', openWorkspaceContextMenu\)/);
+  assert.match(main, /nativeInvoke\(command, \{ parentPath, name \}\)/);
+  // A new file is opened immediately, the way a new directory has nothing to open.
+  assert.match(main, /if \(kind === 'file'\) await openFileInADE\(createdPath\);/);
+});
