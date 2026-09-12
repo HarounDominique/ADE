@@ -16,7 +16,7 @@ operator has clicked:
 2. **Drag-and-drop move**: a file or directory can be dragged and dropped onto another
    directory (or onto empty tree space, to move it to the Project root) to move it there
    on disk, immediately, with a toast on success or failure — no confirmation dialog,
-   matching how JetBrains IDEs handle this.
+   matching a familiar desktop IDE convention.
 
 Success: an operator can direct "New" at the folder they just clicked, and reorganize
 files by dragging them, without a terminal or an external file manager.
@@ -145,7 +145,7 @@ const selected = entry.path === selectedDirectoryPath;
   that changes their existing signature — this task only changes what `main.js` passes
   as `parentPath` (via `relevantWorkspaceDirectory()`), not the commands themselves.
 - Before adding a confirmation dialog to the move flow — explicitly decided against
-  (immediate move + toast, matching JetBrains) during spec review; revisit only if the
+  (immediate move + toast, matching the reference desktop-IDE convention) during spec review; revisit only if the
   operator asks for it after using the feature.
 
 **Never:**

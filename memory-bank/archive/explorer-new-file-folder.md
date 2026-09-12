@@ -7,7 +7,8 @@
 
 ## What was built
 
-JetBrains-style "New File" / "New Directory" creation for Assay's desktop Explorer:
+"New File" / "New Directory" creation for Assay's desktop Explorer, in the style of a
+familiar desktop IDE:
 
 - **Backend** (`desktop/src-tauri/src/lib.rs`): `create_workspace_file` and
   `create_workspace_directory` Tauri commands, each a thin wrapper over a testable `_in`
