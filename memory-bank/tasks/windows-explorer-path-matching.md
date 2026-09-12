@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — `pathsEqual()` in `paths.js`; all three Explorer path-matching call
+- [x] Phase 1 — `pathsEqual()` in `paths.js`; all three Explorer path-matching call
   sites in `main.js` switch from `===` to it; new `tests/paths.test.ts`. Fast-path:
   single new utility function plus a mechanical swap at three call sites, no creative
   needed.
@@ -19,14 +19,19 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: DONE
+**Current Phase**: 1
+**Current Step**: 6/6
+**Step Attempts**: {2: 1, 3: 0, 4: 0}
 **Last Block Rule**: none
-**Can Resume**: YES
+**Can Resume**: NO — complete; no live manual verification possible (Windows-only bug
+on a macOS development machine), covered by the unit test instead
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- The new test file's import from `desktop/src/paths.js` initially failed `tsc
+  --noEmit` (TS7016, no declaration file) until spotting the established convention
+  `tests/project-context.test.ts` already uses for this exact situation
+  (`// @ts-expect-error The browser-loaded helper has no declaration file by design.`)
+  and mirroring it. Not a design deviation, just a missed existing convention on first
+  pass.
