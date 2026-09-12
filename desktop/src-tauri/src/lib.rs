@@ -977,11 +977,14 @@ fn project_context_for(
 /// here deadlocks the whole window the moment the operator clicks the
 /// button, rather than opening anything.
 #[tauri::command]
-async fn select_project_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
+async fn select_project_directory(
+    app: tauri::AppHandle,
+    title: Option<String>,
+) -> Result<Option<String>, String> {
     let selection = app
         .dialog()
         .file()
-        .set_title("Add project to Assay")
+        .set_title(title.as_deref().unwrap_or("Add project to Assay"))
         .blocking_pick_folder();
     match selection {
         None => Ok(None),
@@ -990,6 +993,32 @@ async fn select_project_directory(app: tauri::AppHandle) -> Result<Option<String
             .map(|path| Some(path.to_string_lossy().into_owned()))
             .map_err(|error| error.to_string()),
     }
+}
+
+/// The other half of "Add project": `select_project_directory` only ever
+/// points at something that already exists, so a from-scratch Project needs
+/// its own `mkdir`. The name is a path segment, not a path -- accepting one
+/// would let a crafted name (`../elsewhere`) write outside the folder the
+/// operator just chose in the picker.
+#[tauri::command]
+fn create_project_directory(location: String, name: String) -> Result<String, String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err("Project name cannot be empty.".to_string());
+    }
+    if trimmed == "." || trimmed == ".." || trimmed.contains('/') || trimmed.contains('\\') {
+        return Err("Project name cannot contain a path separator.".to_string());
+    }
+    let parent = PathBuf::from(&location);
+    if !parent.is_dir() {
+        return Err(format!("{} is not a directory.", parent.display()));
+    }
+    let project_path = parent.join(trimmed);
+    if project_path.exists() {
+        return Err(format!("{} already exists.", project_path.display()));
+    }
+    std::fs::create_dir_all(&project_path).map_err(|error| error.to_string())?;
+    Ok(project_path.to_string_lossy().into_owned())
 }
 
 /// Which Project the shell should open, when the operator's environment names
@@ -1388,6 +1417,7 @@ pub fn run() {
             terminal_stop_all,
             project_id,
             select_project_directory,
+            create_project_directory,
             open_terminal,
             open_document,
             sidecar_start,
