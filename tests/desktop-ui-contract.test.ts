@@ -1749,7 +1749,13 @@ test("a Project with no Git offers to initialize one, instead of a disabled drop
   assert.doesNotMatch(main, /const branchable = hasProject && hasGit;/);
   assert.match(main, /const branchable = hasProject;/);
   assert.doesNotMatch(main, /if \(kind === 'branch' && activeVersionControl === 'none'\) return;/);
-  assert.match(main, /data-action="init-git-repository"/);
+  // The generic [data-action] dispatcher only ever wires elements present at
+  // page load -- this menu content is built later via innerHTML, so it is
+  // delegated the same way every other dynamic git-context-menu item already
+  // is (data-branch-name, data-project-id, ...), not through data-action.
+  assert.match(main, /data-init-git-repository/);
+  assert.match(main, /event\.target\.closest\('\[data-init-git-repository\]'\)/);
+  assert.match(main, /function initGitRepositoryFromUI/);
   assert.match(main, /method: 'git\.init'/);
   assert.match(main, /refreshProjectContext\(projectSnapshot\)/);
 });
