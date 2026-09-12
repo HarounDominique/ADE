@@ -60,3 +60,23 @@ status: approved
   `data-action` on dynamically-created markup — is invisible to every contract test that
   only checks the attribute string exists in `main.js`, not that anything actually reads
   it for that element.
+
+- Phase 3 manual verification, round 2: after the dispatch fix above, the operator
+  reported the repository now initializes but the branch dropdown still reads "No Git"
+  instead of updating. Root cause: `sidecar_request` (Rust, `desktop/src-tauri/src/
+  lib.rs`) only writes the JSON-RPC request to the sidecar's stdin and returns — it does
+  not wait for or correlate the actual response. `initGitRepositoryFromUI` chained
+  `refreshProjectContext(projectSnapshot)` directly off that promise, so it ran on send,
+  not on completion — a race that usually lost, since `git init` had not finished before
+  the re-fetched `project_context` was read. Every other Git mutation in this codebase
+  (`switch-branch`, `git-commit-local`, `git-push-origin`) already avoids this by going
+  through `sendContextRequest`, which registers the request's `id` in
+  `pendingContextRequests` and only runs its follow-up once the `sidecar:response` Tauri
+  event actually correlates back to it. Fixed by rewriting `initGitRepositoryFromUI` to
+  use that same path (`sendContextRequest('git.init', ..., 'init-git-repository')`) and
+  adding a `contextPurpose === 'init-git-repository'` branch in the response listener
+  that calls `refreshProjectContext` only once `response.result?.operation === 'init'`.
+  This is the same bug class as the dispatch fix above, one layer deeper: this task's own
+  spec/plan should have checked the existing create-branch/push-origin template closely
+  enough to notice it doesn't actually await completion via the raw promise either — see
+  reflection for the resulting learned rule.
