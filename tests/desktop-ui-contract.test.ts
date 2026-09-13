@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+// The static desktop module is intentionally outside tsconfig's TypeScript include.
+// @ts-expect-error The browser-loaded helper has no declaration file by design.
+import { snippetCatalog } from "../desktop/src/editor-snippets.js";
 
 const html = readFileSync(new URL("../desktop/src/index.html", import.meta.url), "utf8");
 const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "utf8");
@@ -2021,6 +2024,47 @@ test("editor Tab accepts an autocomplete suggestion before falling through to in
   assert.notEqual(tabAcceptIndex, -1);
   assert.notEqual(indentWithTabKeymapIndex, -1);
   assert.ok(tabAcceptIndex < indentWithTabKeymapIndex);
+});
+
+test("editor snippet expansion wires a per-language completion source on both engines, alongside completeAnyWord", () => {
+  // CodeMirror: codeMirrorSnippetExtension wraps the active language's
+  // catalog entries and is threaded through the same compartment swap that
+  // already reconfigures the language on file open -- scoped to that one
+  // file, unlike completeAnyWord's global fallback.
+  assert.match(codeEditor, /function codeMirrorSnippetExtension\(label\)/);
+  assert.match(codeEditor, /codeEditorLanguage\.reconfigure\(language \? \[language\(\), codeMirrorSnippetExtension\(definition\.label\)\] : \[\]\)/);
+  // Monaco: one registerCompletionItemProvider call per catalog language
+  // that has a monacoLanguage id, generic over monacoLanguageDefinitions so
+  // later phases' languages are picked up with no new wiring code.
+  assert.match(codeEditor, /function registerMonacoSnippetProviders\(\)/);
+  assert.match(codeEditor, /for \(const definition of monacoLanguageDefinitions\)/);
+  assert.match(codeEditor, /registerCompletionItemProvider\(definition\.monacoLanguage,/);
+  assert.match(codeEditor, /InsertAsSnippet/);
+  // Registered once at module load -- inside loadMonaco's already-singleton
+  // promise -- not once per editor instance/window.
+  assert.match(codeEditor, /configureMonacoThemes\(\);\s*\n\s*registerMonacoSnippetProviders\(\);/);
+  // completeAnyWord/acceptCompletion from editor-autocomplete stay
+  // untouched -- this is a second, additional source, not a replacement.
+  assert.match(codeEditor, /EditorState\.languageData\.of\(\(\) => \[\{ autocomplete: completeAnyWord \}\]\)/);
+  assert.match(codeEditor, /key: 'Tab', run: acceptCompletion/);
+});
+
+test("snippet catalog seeds Java, Go, Python, JavaScript and TypeScript per Phase 1 scope", () => {
+  for (const label of ["Java", "Go", "Python", "JavaScript", "TypeScript"]) {
+    assert.ok(snippetCatalog[label], `expected a snippetCatalog entry for ${label}`);
+  }
+  // Java and Go are Tier A + Tier B languages: both a non-empty structural
+  // skeleton set and at least one iconic idiom.
+  for (const label of ["Java", "Go"]) {
+    assert.ok(snippetCatalog[label].structural.length > 0, `${label} should have structural entries`);
+    assert.ok(snippetCatalog[label].idioms.length > 0, `${label} should have idiom entries`);
+  }
+  // Python/JavaScript/TypeScript are excluded from Tier A authoring (their
+  // CodeMirror packages already ship structural snippets) but still carry
+  // the spec-named Tier B idioms.
+  assert.ok(snippetCatalog.Python.idioms.some((entry: { label: string }) => entry.label === "main"));
+  assert.ok(snippetCatalog.JavaScript.idioms.some((entry: { label: string }) => entry.label === "clg"));
+  assert.ok(snippetCatalog.TypeScript.idioms.some((entry: { label: string }) => entry.label === "clg"));
 });
 
 test("'Go to file' popup opens on either platform's shortcut and reuses the existing file search", () => {

@@ -1,0 +1,67 @@
+/** Abbreviation-triggered snippet content and translation, shared by both
+    editor engines. `${name}` marks a placeholder field (repeats of the same
+    name are linked/mirrored fields); `${}` marks the final cursor stop after
+    Tab-ing through the rest. This is CodeMirror's own native snippet syntax,
+    so only Monaco's side needs translating -- see toMonacoSnippet below. */
+export const snippetCatalog = {
+  Java: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'indexed for loop', template: 'for (int ${i} = 0; ${i} < ${limit}; ${i}++) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'method', template: '${returnType} ${name}(${params}) {\n\t${}\n}' },
+      { label: 'class', detail: 'class', template: 'class ${Name} {\n\t${}\n}' },
+    ],
+    idioms: [
+      { label: 'sout', detail: 'System.out.println', template: 'System.out.println(${});' },
+      { label: 'psvm', detail: 'public static void main', template: 'public static void main(String[] args) {\n\t${}\n}' },
+    ],
+  },
+  Go: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if ${condition} {\n\t${}\n}' },
+      { label: 'for', detail: 'indexed for loop', template: 'for ${i} := 0; ${i} < ${limit}; ${i}++ {\n\t${}\n}' },
+      { label: 'while', detail: 'for as while', template: 'for ${condition} {\n\t${}\n}' },
+      { label: 'fun', detail: 'function', template: 'func ${name}(${params}) {\n\t${}\n}' },
+      { label: 'struct', detail: 'struct', template: 'type ${Name} struct {\n\t${}\n}' },
+    ],
+    idioms: [
+      { label: 'main', detail: 'main function', template: 'func main() {\n\t${}\n}' },
+      { label: 'iferr', detail: 'error check', template: 'if err != nil {\n\treturn ${err}\n}' },
+    ],
+  },
+  Python: {
+    structural: [],
+    idioms: [
+      { label: 'main', detail: '__main__ guard', template: 'if __name__ == "__main__":\n\t${}' },
+    ],
+  },
+  JavaScript: {
+    structural: [],
+    idioms: [{ label: 'clg', detail: 'console.log', template: 'console.log(${});' }],
+  },
+  TypeScript: {
+    structural: [],
+    idioms: [{ label: 'clg', detail: 'console.log', template: 'console.log(${});' }],
+  },
+  // ... the remaining 18 languages (C++, C, C#, PHP, Rust, Kotlin, Swift,
+  // Ruby, Scala, Dart, Objective-C, Lua, Perl, PowerShell, Shell, F#, Elixir,
+  // R), each with a `structural` array in the same shape, authored during
+  // the build phase that covers it, following this exact format and the
+  // per-language exceptions (no class, no while, etc.) named in the spec's
+  // Scope section.
+};
+
+/** The one translation this needs -- neutral ${name}/${} to Monaco's own
+    numbered ${n:name}/$0 syntax. Linked fields (the same name appearing more
+    than once) get the same number; the first ${} found becomes $0; a
+    template with no placeholders at all passes through unchanged. */
+export function toMonacoSnippet(template) {
+  const seen = new Map();
+  let next = 1;
+  return template.replace(/\$\{([^}]*)\}/g, (_, name) => {
+    if (name === '') return '$0';
+    if (!seen.has(name)) seen.set(name, next++);
+    return `\${${seen.get(name)}:${name}}`;
+  });
+}

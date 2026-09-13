@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Mechanism + seed content (Java, Go, Python, JavaScript, TypeScript).
+- [x] Phase 1 — Mechanism + seed content (Java, Go, Python, JavaScript, TypeScript).
   Creates `desktop/src/editor-snippets.js` (`snippetCatalog`, `toMonacoSnippet`), wires
   both engines in `desktop/src/code-editor.js` (`codeMirrorSnippetExtension` +
   `codeEditorLanguage.reconfigure` change; the Monaco `registerCompletionItemProvider`
@@ -62,12 +62,15 @@ status: approved
 ## Execution State
 
 **Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Current Phase**: 1
+**Current Step**: 6/6
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-None yet.
+Phase 1: none. Spec's assumptions about the code-editor.js call site
+(`definition.label` in scope, `loadMonaco()`'s singleton promise as the one-time Monaco
+registration hook) both matched the actual code exactly. All build steps green on
+first attempt.
