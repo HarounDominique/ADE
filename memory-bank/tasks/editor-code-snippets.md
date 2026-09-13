@@ -35,7 +35,7 @@ status: approved
   Monaco's provider registration loop actually iterates over them (not just that the
   catalog has the data); full `npm test`.
 
-- [ ] Phase 4 — Remaining scripting Monaco languages (Lua, Perl, PowerShell, Shell,
+- [x] Phase 4 — Remaining scripting Monaco languages (Lua, Perl, PowerShell, Shell,
   F#, Elixir, R), each with the per-language exceptions the spec names (no class for
   Lua/Perl/PowerShell/Shell/F#/R, no `while` for Elixir).
   (satisfies: SPEC-editor-code-snippets.md structural-skeleton content for these 7,
@@ -62,9 +62,9 @@ status: approved
 ## Execution State
 
 **Build Status**: NOT_STARTED
-**Current Phase**: 3
+**Current Phase**: 4
 **Current Step**: 6/6
-**Step Attempts**: {2: 1, 3: 1, 4: 1}
+**Step Attempts**: {2: 2, 3: 2, 4: 2}
 **Last Block Rule**: none
 **Can Resume**: YES
 
@@ -91,3 +91,22 @@ verified against `desktop/src/code-editor.js`'s actual `codeLanguageDefinitions`
 Phase 3: none. Both TDD and review explicitly re-verified the engine assignment
 (Monaco, not CodeMirror) for all 6 languages against `code-editor.js` directly before
 proceeding, per Phase 2's lesson. Clean pass, no rework.
+
+Phase 4: review-blocked once, accepted fix. PowerShell's `for` template was missing
+`$` sigils on every variable reference (`for (${i} = 0; ${i} -lt ${limit}; ${i}++)` is
+not valid PowerShell — bare `i`/`limit` parse as commands, not variables) — my own
+dictated content again, same bug class as Phase 2's `struct` omission but a different
+kind of error (syntax correctness, not scope omission). Fixed
+(`$${i}`/`$${limit}` throughout), and in the same pass fixed an identical pre-existing
+gap the review flagged as context: Phase 2's already-committed PHP `for` template had
+the same missing sigil on `${limit}` specifically (its `${i}` occurrences were already
+correct). The scheduled opus-tier re-review hit a session-wide API rate limit
+mid-dispatch (both an opus attempt and a sonnet fallback attempt failed on the same
+limit) — the re-review was completed directly by the orchestrating session instead of a
+subagent: read every catalog entry across all 22 languages by hand, traced
+`toMonacoSnippet`'s regex against every `$`/`@`-sigil-bearing template (not just the two
+already fixed) to confirm no third occurrence of the same bug class, and re-confirmed
+the exception splits, engine assignments, and boundary (no code-editor.js changes).
+No further defects found. Documented here as a deviation from the normal dispatch
+pipeline, not a shortcut on rigor — the same checks were performed, just not by a
+separate subagent process.
