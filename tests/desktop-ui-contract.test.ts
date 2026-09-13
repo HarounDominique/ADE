@@ -2306,3 +2306,17 @@ test("both quick-open popups close on a click outside their content, like Escape
   assert.match(main, /getElementById\('quick-open-dialog'\)\?\.addEventListener\('click', closeDialogOnBackdropClick\)/);
   assert.match(main, /getElementById\('recent-files-dialog'\)\?\.addEventListener\('click', closeDialogOnBackdropClick\)/);
 });
+
+test("selecting the Changes tab always forces a fresh pending-changes read, by keyboard or by menu", () => {
+  // Keyboard tab navigation (Arrow/Home/End on .version-control-tabs) used to
+  // switch panels without ever refreshing -- unlike the mouse-click handler
+  // on the same tabs, which already forces a read. Both must now match.
+  assert.match(
+    main,
+    /version-control-tabs'\)\?\.addEventListener\('keydown'[\s\S]{0,600}renderVersionControlTabs\(nextTab\.dataset\.versionControlTab\);[\s\S]{0,120}requestVersionControlData\(workspaceRootPath, \{ force: true \}\);/,
+  );
+
+  // Re-entering Version control from another top-level view must also force
+  // a read, not rely on the 1500ms freshness throttle.
+  assert.match(main, /if \(view === 'changes'\) requestVersionControlData\(workspaceRootPath, \{ force: true \}\);/);
+});

@@ -5651,7 +5651,7 @@ function showView(view) {
   mainContent?.classList.toggle('agent-focus', view === 'agents');
   mainContent?.classList.toggle('version-control-focus', view === 'changes');
   if (mainContent) mainContent.scrollTop = 0;
-  if (view === 'changes') requestVersionControlData(workspaceRootPath);
+  if (view === 'changes') requestVersionControlData(workspaceRootPath, { force: true });
   if (view === 'agents') { requestAgentSessions(workspaceRootPath); requestAgentPressure(); requestAgentUsage(); }
 }
 
@@ -6777,6 +6777,7 @@ document.querySelector('.version-control-tabs')?.addEventListener('keydown', (ev
   const nextTab = tabs[nextIndex];
   renderVersionControlTabs(nextTab.dataset.versionControlTab);
   nextTab.focus();
+  requestVersionControlData(workspaceRootPath, { force: true });
 });
 document.getElementById('git-history-filter')?.addEventListener('input', (event) => {
   gitHistoryFilter = event.target.value;
