@@ -36,7 +36,7 @@ import { turnWrites } from "./application/agents/turn-checkpoint.js";
 import { askBriefing, composeAgentPrompt } from "./application/structural-context/ask-briefing.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
-import { commitAndPush, createBranch, createCommit, createPullRequest, createWorktree, discardFileChanges, fetchOrigin, initializeRepository, pushBranch, switchBranch } from "./application/git/git-mutations.js";
+import { commitAndPush, createBranch, createCommit, createPullRequest, createStash, createWorktree, discardFileChanges, fetchOrigin, initializeRepository, pushBranch, switchBranch } from "./application/git/git-mutations.js";
 import { inspectPendingGitChanges, listGitCommits, readGitCommitDiff, readPendingGitDiff } from "./application/git/version-control.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
@@ -573,6 +573,11 @@ export async function runDesktopSidecar(): Promise<void> {
         const params = request.params;
         if (!params?.repositoryPath || !params.file || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, file, actor and reason are required" } })}\n`);
         else void discardFileChanges({ directory: params.repositoryPath, file: params.file, untracked: params.untracked === true, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error, "GIT_MUTATION_BLOCKED") })}\n`));
+      } else if (request.method === "git.stash.create") {
+        const params = request.params;
+        if (!params?.repositoryPath || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, actor and reason are required" } })}\n`);
+        else if (!Array.isArray(params.files) || !params.files.length) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "files is required and must be non-empty" } })}\n`);
+        else void createStash({ directory: params.repositoryPath, files: params.files, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error, "GIT_MUTATION_BLOCKED") })}\n`));
       } else if (request.method === "git.workspace") {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);

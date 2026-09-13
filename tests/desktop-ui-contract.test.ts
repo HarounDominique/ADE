@@ -1955,6 +1955,24 @@ test("committing an empty selection refuses instead of creating an empty commit"
   assert.doesNotMatch(main, /files: \[\.\.\.pendingGitFiles\]/);
 });
 
+test("a Stash button beside Commit sends exactly the checked files, never omitting the pathspec", () => {
+  // Stash's whole contract is "only what's checked" -- unlike Commit's
+  // allSelected-omission optimization, the pathspec is always explicit.
+  assert.match(html, /id="git-stash-checked"/);
+  const stashHandler = main.slice(main.indexOf("document.getElementById('git-stash-checked')?.addEventListener('click'"), main.indexOf("document.getElementById('worktree-form')"));
+  assert.match(stashHandler, /if \(!pendingCommitSelection\.size\) \{ notify\('Select at least one file to stash\.'\); return; \}/);
+  assert.match(stashHandler, /const files = \[\.\.\.pendingCommitSelection\];/);
+  assert.match(stashHandler, /requestConfirmation\(/);
+  assert.match(stashHandler, /method: 'git\.stash\.create'|sendContextRequest\('git\.stash\.create'/);
+  assert.match(stashHandler, /files,|files: files/);
+  assert.doesNotMatch(stashHandler, /allSelected/);
+  // A fire-and-forget dispatch alone is not feedback: every sibling mutation
+  // (commit, push, fetch) has a success-response branch that notifies and
+  // refreshes -- stash needs the same, not just a transport-failure .catch().
+  assert.match(main, /contextPurpose === 'git-stash-create' && response\.result\?\.operation === 'stash\.create'/);
+  assert.match(main, /'git-stash-create': 'stash',/);
+});
+
 test("a pending-file row keeps keyboard activation despite becoming a div", () => {
   // <button> couldn't legally nest the per-file checkbox, so the row became
   // <div role="button" tabindex="0"> -- which drops Enter/Space activation

@@ -108,7 +108,7 @@ document.getElementById('git-stash-checked')?.addEventListener('click', () => {
   requestConfirmation({
     eyebrow: 'STASH',
     title: `Stash ${files.length} file${files.length === 1 ? '' : 's'}?`,
-    copy: 'Checked changes are moved out of the working tree. Apply them again later from Repository actions.',
+    copy: 'Checked changes are moved out of the working tree. Recover them with git stash pop or git stash apply from a terminal.',
     confirmLabel: 'Stash',
   }, () => sendContextRequest('git.stash.create', {
     repositoryPath: workspaceRootPath, files,
@@ -116,6 +116,29 @@ document.getElementById('git-stash-checked')?.addEventListener('click', () => {
   }, 'git-stash-create'));
 });
 ```
+
+Corrected 2026-09-14, found in Phase 1 review: this copy originally referenced
+"Repository actions" as where to apply a stash back — that surface doesn't exist
+until Phase 2. Phase 2 must update this string once the stash list actually ships,
+back to pointing at it (`Repository actions`) instead of the terminal instruction
+above — tracked as part of Phase 2's own scope, not a separate task.
+
+Also added in the same review pass: the success-response branch in the sidecar
+response listener (`desktop/src/main.js`), matching every sibling mutation
+(`git-commit-local`, `git-push-origin`, `git-fetch`) — the original Style section
+omitted this and the request-dispatch snippet's own `.catch()` only covers transport
+failure, not git failure or (silently) success:
+
+```js
+if (contextPurpose === 'git-stash-create' && response.result?.operation === 'stash.create') {
+  notify(response.result.message ?? 'Changes stashed.');
+  requestVersionControlData(workspaceRootPath, { force: true });
+  return;
+}
+```
+
+Plus a `'git-stash-create': 'stash'` entry in `operationErrorCopy`'s purpose map, so a
+failure reads "Assay could not stash." instead of the generic fallback.
 
 ## Test strategy
 
