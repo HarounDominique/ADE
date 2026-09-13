@@ -24,8 +24,9 @@ import { EditorState, Compartment, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { openSearchPanel } from '@codemirror/search';
-import { completeAnyWord, acceptCompletion } from '@codemirror/autocomplete';
+import { completeAnyWord, acceptCompletion, completeFromList, snippetCompletion } from '@codemirror/autocomplete';
 import { pathBaseName, fileExtension } from './paths.js';
+import { snippetCatalog, toMonacoSnippet } from './editor-snippets.js';
 
 /** Monaco is a singleton for the page: loading it twice would define its themes
     twice and cost the download again. */
@@ -127,6 +128,36 @@ function configureMonacoThemes() {
   });
 }
 
+/** One registerCompletionItemProvider call per catalog language that has a
+    Monaco language id, generic over monacoLanguageDefinitions so a later
+    phase's languages are picked up with no new wiring -- content only.
+    Monaco's provider registration is global per language id, not per editor
+    instance, so this runs once, from inside loadMonaco's own singleton-
+    cached promise, the same place configureMonacoThemes already treats
+    Monaco setup as one-time regardless of how many editor surfaces (windows)
+    end up sharing this module. */
+function registerMonacoSnippetProviders() {
+  if (!monaco) return;
+  for (const definition of monacoLanguageDefinitions) {
+    const entries = snippetCatalog[definition.label];
+    if (!entries) continue;
+    const all = [...entries.structural, ...entries.idioms];
+    if (!all.length) continue;
+    monaco.languages.registerCompletionItemProvider(definition.monacoLanguage, {
+      provideCompletionItems(model, position) {
+        const word = model.getWordUntilPosition(position);
+        const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn };
+        return { suggestions: all.map(({ label, detail, template }) => ({
+          label, detail, kind: monaco.languages.CompletionItemKind.Snippet,
+          insertText: toMonacoSnippet(template),
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          range,
+        })) };
+      },
+    });
+  }
+}
+
 export async function loadMonaco() {
   if (monaco) return monaco;
   if (!monacoLoader) {
@@ -158,6 +189,7 @@ export async function loadMonaco() {
     ]).then(([editor]) => {
       monaco = editor;
       configureMonacoThemes();
+      registerMonacoSnippetProviders();
       // Monaco arrives after the theme was chosen, so it is told which one it
       // is joining. The shell used to be asked, from a module that cannot see
       // it: the first file that needed Monaco threw instead of opening.
@@ -231,6 +263,24 @@ export function languageLabelForPath(filePath) {
 
 export function formatterParserForPath(filePath) {
   return formatterParsers[fileExtension(filePath)] ?? null;
+}
+
+/** Wraps one language's catalog entries -- its structural skeletons plus the
+    handful of well-known idioms -- as a second, per-language completion
+    source alongside completeAnyWord's buffer-word fallback below. Threaded
+    through the same codeEditorLanguage compartment swap that already
+    reconfigures the language on file open, so it is scoped to that one
+    file's active language -- unlike completeAnyWord, which stays global.
+    Never touches completeAnyWord/acceptCompletion itself. */
+function codeMirrorSnippetExtension(label) {
+  const entries = snippetCatalog[label];
+  if (!entries) return [];
+  const all = [...entries.structural, ...entries.idioms];
+  if (!all.length) return [];
+  return EditorState.languageData.of(() => [{
+    autocomplete: completeFromList(all.map(({ label, detail, template }) =>
+      snippetCompletion(template, { label, detail, type: 'keyword' }))),
+  }]);
 }
 
 /** One editing surface bound to one element. Everything the shell used to keep
@@ -339,7 +389,7 @@ export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = 
       const language = definition?.language;
       codeEditorView.dispatch({
         changes: { from: 0, to: current.length, insert: content },
-        effects: codeEditorLanguage.reconfigure(language ? language() : []),
+        effects: codeEditorLanguage.reconfigure(language ? [language(), codeMirrorSnippetExtension(definition.label)] : []),
       });
       engine = 'codemirror';
       showEngine(engine);

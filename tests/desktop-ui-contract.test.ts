@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+// The static desktop module is intentionally outside tsconfig's TypeScript include.
+// @ts-expect-error The browser-loaded helper has no declaration file by design.
+import { snippetCatalog, toMonacoSnippet } from "../desktop/src/editor-snippets.js";
 
 const html = readFileSync(new URL("../desktop/src/index.html", import.meta.url), "utf8");
 const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "utf8");
@@ -2021,6 +2024,208 @@ test("editor Tab accepts an autocomplete suggestion before falling through to in
   assert.notEqual(tabAcceptIndex, -1);
   assert.notEqual(indentWithTabKeymapIndex, -1);
   assert.ok(tabAcceptIndex < indentWithTabKeymapIndex);
+});
+
+test("editor snippet expansion wires a per-language completion source on both engines, alongside completeAnyWord", () => {
+  // CodeMirror: codeMirrorSnippetExtension wraps the active language's
+  // catalog entries and is threaded through the same compartment swap that
+  // already reconfigures the language on file open -- scoped to that one
+  // file, unlike completeAnyWord's global fallback.
+  assert.match(codeEditor, /function codeMirrorSnippetExtension\(label\)/);
+  assert.match(codeEditor, /codeEditorLanguage\.reconfigure\(language \? \[language\(\), codeMirrorSnippetExtension\(definition\.label\)\] : \[\]\)/);
+  // Monaco: one registerCompletionItemProvider call per catalog language
+  // that has a monacoLanguage id, generic over monacoLanguageDefinitions so
+  // later phases' languages are picked up with no new wiring code.
+  assert.match(codeEditor, /function registerMonacoSnippetProviders\(\)/);
+  assert.match(codeEditor, /for \(const definition of monacoLanguageDefinitions\)/);
+  assert.match(codeEditor, /registerCompletionItemProvider\(definition\.monacoLanguage,/);
+  assert.match(codeEditor, /InsertAsSnippet/);
+  // Registered once at module load -- inside loadMonaco's already-singleton
+  // promise -- not once per editor instance/window.
+  assert.match(codeEditor, /configureMonacoThemes\(\);\s*\n\s*registerMonacoSnippetProviders\(\);/);
+  // completeAnyWord/acceptCompletion from editor-autocomplete stay
+  // untouched -- this is a second, additional source, not a replacement.
+  assert.match(codeEditor, /EditorState\.languageData\.of\(\(\) => \[\{ autocomplete: completeAnyWord \}\]\)/);
+  assert.match(codeEditor, /key: 'Tab', run: acceptCompletion/);
+});
+
+test("snippet catalog seeds Java, Go, Python, JavaScript and TypeScript per Phase 1 scope", () => {
+  for (const label of ["Java", "Go", "Python", "JavaScript", "TypeScript"]) {
+    assert.ok(snippetCatalog[label], `expected a snippetCatalog entry for ${label}`);
+  }
+  // Java and Go are Tier A + Tier B languages: both a non-empty structural
+  // skeleton set and at least one iconic idiom.
+  for (const label of ["Java", "Go"]) {
+    assert.ok(snippetCatalog[label].structural.length > 0, `${label} should have structural entries`);
+    assert.ok(snippetCatalog[label].idioms.length > 0, `${label} should have idiom entries`);
+  }
+  // Python/JavaScript/TypeScript are excluded from Tier A authoring (their
+  // CodeMirror packages already ship structural snippets) but still carry
+  // the spec-named Tier B idioms.
+  assert.ok(snippetCatalog.Python.idioms.some((entry: { label: string }) => entry.label === "main"));
+  assert.ok(snippetCatalog.JavaScript.idioms.some((entry: { label: string }) => entry.label === "clg"));
+  assert.ok(snippetCatalog.TypeScript.idioms.some((entry: { label: string }) => entry.label === "clg"));
+});
+
+test("snippet catalog seeds C++, C, C#, PHP and Rust per Phase 2 scope", () => {
+  for (const label of ["C++", "C", "C#", "PHP", "Rust"]) {
+    assert.ok(snippetCatalog[label], `expected a snippetCatalog entry for ${label}`);
+    assert.ok(snippetCatalog[label].structural.length > 0, `${label} should have structural entries`);
+  }
+  // C++, C, C# and Rust each fold a main-function idiom into Tier B, same as Go did in Phase 1.
+  for (const label of ["C++", "C", "C#", "Rust"]) {
+    assert.ok(
+      snippetCatalog[label].idioms.some((entry: { label: string }) => entry.label === "main"),
+      `${label} should have a main idiom`,
+    );
+  }
+  // Rust's class-or-equivalent entry is a `struct`, not a `class` -- per the
+  // spec's documented exception for C, Rust and Go.
+  const rustStructural = snippetCatalog.Rust.structural as Array<{ label: string }>;
+  assert.ok(rustStructural.some((entry) => entry.label === "struct"));
+  assert.ok(!rustStructural.some((entry) => entry.label === "class"));
+  // C's class-or-equivalent entry is likewise a `struct`, not a `class` -- the
+  // spec Scope groups C with Rust and Go. Its template is C's own declaration
+  // form (`struct Name { ... };`, trailing semicolon), not Go's `type X struct`.
+  const cStructural = snippetCatalog.C.structural as Array<{ label: string; template: string }>;
+  const cStruct = cStructural.find((entry) => entry.label === "struct");
+  assert.ok(cStruct, "C should have a `struct` structural snippet");
+  assert.equal(cStruct.template, "struct ${Name} {\n\t${}\n};");
+  assert.ok(!cStructural.some((entry) => entry.label === "class"));
+  assert.ok(
+    !snippetCatalog.C.idioms.some((entry: { label: string }) => entry.label === "class" || entry.label === "struct"),
+  );
+  // PHP likewise has no struct/class idiom-vs-structural mismatch: its
+  // class-or-equivalent lives in `structural` only, not duplicated as an idiom.
+  assert.ok(
+    !snippetCatalog.PHP.idioms.some((entry: { label: string }) => entry.label === "class" || entry.label === "struct"),
+  );
+});
+
+test("PHP's indexed-for template keeps its literal $ sigil untouched while ${i} still gets numbered by toMonacoSnippet", () => {
+  const phpFor = snippetCatalog.PHP.structural.find((entry: { label: string }) => entry.label === "for");
+  assert.ok(phpFor, "expected PHP to have a 'for' structural snippet");
+  // EVERY variable reference carries the sigil -- the bound `$i` and the
+  // `$limit` it is compared against alike. Checking only `$i`'s linkage is
+  // what let a bare `limit` ship: in PHP a bare word there is a constant
+  // lookup, not the variable the loop means.
+  assert.equal(
+    toMonacoSnippet(phpFor.template),
+    'for ($${1:i} = 0; $${1:i} < $${2:limit}; $${1:i}++) {\n\t$0\n}',
+  );
+});
+
+test("PowerShell's indexed-for template sigils every variable reference, same as PHP's", () => {
+  const psFor = snippetCatalog.PowerShell.structural.find((entry: { label: string }) => entry.label === "for");
+  assert.ok(psFor, "expected PowerShell to have a 'for' structural snippet");
+  // PowerShell requires `$` on every variable USE, not just declaration, so
+  // all three `i` references and the `limit` reference need it. Same
+  // literal-`$` + `${name}` mechanism PHP established in Phase 2.
+  assert.equal(
+    toMonacoSnippet(psFor.template),
+    'for ($${1:i} = 0; $${1:i} -lt $${2:limit}; $${1:i}++) {\n\t$0\n}',
+  );
+});
+
+test("snippet catalog seeds Kotlin, Swift, Ruby, Scala, Dart and Objective-C per Phase 3 scope", () => {
+  for (const label of ["Kotlin", "Swift", "Ruby", "Scala", "Dart", "Objective-C"]) {
+    assert.ok(snippetCatalog[label], `expected a snippetCatalog entry for ${label}`);
+    const structural = snippetCatalog[label].structural as Array<{ label: string }>;
+    // None of these six is in the spec's documented "no class-or-equivalent"
+    // or "no while" exceptions lists, so all get the full structural set.
+    assert.equal(structural.length, 5, `${label} should have 5 structural entries (if/for/while/fun/class)`);
+    for (const expected of ["if", "for", "while", "fun", "class"]) {
+      assert.ok(
+        structural.some((entry) => entry.label === expected),
+        `${label} should have a '${expected}' structural snippet`,
+      );
+    }
+  }
+  // Kotlin and Dart both require an explicit entry-point function to run, so
+  // each gets a `main` idiom -- same iconic-entry-point pattern as Go/Java/C/C++/C#/Rust.
+  for (const label of ["Kotlin", "Dart"]) {
+    assert.ok(
+      snippetCatalog[label].idioms.some((entry: { label: string }) => entry.label === "main"),
+      `${label} should have a main idiom`,
+    );
+  }
+  // Swift, Ruby, Scala and Objective-C deliberately have no idioms -- not
+  // invented just for Tier B coverage, per spec. Asserted explicitly (===0)
+  // rather than skipped, so this proves "deliberately empty", not "unchecked".
+  for (const label of ["Swift", "Ruby", "Scala", "Objective-C"]) {
+    assert.equal(snippetCatalog[label].idioms.length, 0, `${label} should have no idioms`);
+  }
+});
+
+test("snippet catalog seeds Lua, Perl, PowerShell, Shell, F#, Elixir and R per Phase 4 scope", () => {
+  for (const label of ["Lua", "Perl", "PowerShell", "Shell", "F#", "Elixir", "R"]) {
+    assert.ok(snippetCatalog[label], `expected a snippetCatalog entry for ${label}`);
+  }
+  // Six of the seven have no class-or-equivalent concept reached for in
+  // ordinary code, per spec: if/for/while/fun only, 4 structural entries,
+  // and explicitly no class/struct/module-labeled entry among them (a count
+  // check alone wouldn't catch a wrong 4th entry silently replacing `while`).
+  for (const label of ["Lua", "Perl", "PowerShell", "Shell", "F#", "R"]) {
+    const structural = snippetCatalog[label].structural as Array<{ label: string }>;
+    assert.equal(structural.length, 4, `${label} should have 4 structural entries (if/for/while/fun)`);
+    for (const expected of ["if", "for", "while", "fun"]) {
+      assert.ok(
+        structural.some((entry) => entry.label === expected),
+        `${label} should have a '${expected}' structural snippet`,
+      );
+    }
+    assert.ok(
+      !structural.some((entry) => entry.label === "class" || entry.label === "struct" || entry.label === "module"),
+      `${label} should have no class-or-equivalent structural snippet`,
+    );
+  }
+  // Elixir is the one exception in the other direction: it DOES get a
+  // class-or-equivalent (`defmodule`, labeled `module`), but has NO `while`
+  // (the language doesn't have one; recursion is idiomatic instead) -- also
+  // 4 structural entries, but a different 4 than the other six.
+  const elixirStructural = snippetCatalog.Elixir.structural as Array<{ label: string }>;
+  assert.equal(elixirStructural.length, 4, "Elixir should have 4 structural entries (if/for/fun/module)");
+  for (const expected of ["if", "for", "fun", "module"]) {
+    assert.ok(
+      elixirStructural.some((entry) => entry.label === expected),
+      `Elixir should have a '${expected}' structural snippet`,
+    );
+  }
+  assert.ok(!elixirStructural.some((entry) => entry.label === "while"), "Elixir should have no 'while' snippet");
+  // None of this phase's seven languages gets a Tier B idiom -- asserted
+  // explicitly (===0) rather than skipped, so this proves "deliberately
+  // empty", not "unchecked", matching the Phase 3 convention.
+  for (const label of ["Lua", "Perl", "PowerShell", "Shell", "F#", "Elixir", "R"]) {
+    assert.equal(snippetCatalog[label].idioms.length, 0, `${label} should have no idioms`);
+  }
+});
+
+test("snippet catalog covers every language named in the spec's Scope section -- the completeness check, not a human recount", () => {
+  // The full approved scope: the 3 languages covered by their own CodeMirror
+  // package's bundled snippets (structural: [], idioms carry this catalog's
+  // Tier B additions only) plus the 20 authored across Phases 1-4.
+  const expectedLabels = [
+    "JavaScript", "TypeScript", "Python",
+    "Java", "Go", "C++", "C", "C#", "PHP", "Rust",
+    "Kotlin", "Swift", "Ruby", "Scala", "Dart", "Objective-C",
+    "Lua", "Perl", "PowerShell", "Shell", "F#", "Elixir", "R",
+  ];
+  const actualLabels = Object.keys(snippetCatalog);
+  for (const label of expectedLabels) {
+    assert.ok(Object.prototype.hasOwnProperty.call(snippetCatalog, label), `snippetCatalog is missing '${label}'`);
+  }
+  assert.equal(
+    actualLabels.length,
+    expectedLabels.length,
+    `snippetCatalog has ${actualLabels.length} languages, expected exactly ${expectedLabels.length} -- ` +
+      "an extra or missing entry means Scope and the catalog have drifted apart",
+  );
+  // Every entry, without exception, must have both keys -- code-editor.js
+  // spreads both unconditionally and would throw on a missing one.
+  for (const label of actualLabels) {
+    assert.ok(Array.isArray(snippetCatalog[label].structural), `${label}.structural must be an array`);
+    assert.ok(Array.isArray(snippetCatalog[label].idioms), `${label}.idioms must be an array`);
+  }
 });
 
 test("'Go to file' popup opens on either platform's shortcut and reuses the existing file search", () => {
