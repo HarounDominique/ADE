@@ -6121,11 +6121,19 @@ document.getElementById('git-pending-select-all')?.addEventListener('change', (e
 });
 document.getElementById('confirm-dialog')?.addEventListener('close', () => { pendingConfirmation = null; });
 document.getElementById('quick-open-input')?.addEventListener('input', (event) => { scheduleQuickOpenSearch(event.target.value); });
-document.getElementById('quick-open-input')?.addEventListener('keydown', (event) => {
+document.addEventListener('keydown', (event) => {
+  // Delegated at document level, scoped to the dialog being open -- the
+  // WebView does not reliably deliver ArrowUp/ArrowDown to a listener
+  // attached directly to the focused <input> itself, unlike every other
+  // keyboard interaction in this file, which is already delegated the
+  // same way (the Escape-closes-menu handlers, the pending-file row's
+  // Enter/Space handler, ...).
+  if (!document.getElementById('quick-open-dialog')?.open) return;
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Enter') return;
   const results = document.getElementById('quick-open-results');
   const rows = results ? [...results.querySelectorAll('[data-quick-open-path]')] : [];
+  if (!rows.length) return;
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    if (!rows.length) return;
     event.preventDefault();
     const delta = event.key === 'ArrowDown' ? 1 : -1;
     quickOpenActiveIndex = (quickOpenActiveIndex + delta + rows.length) % rows.length;
@@ -6133,11 +6141,9 @@ document.getElementById('quick-open-input')?.addEventListener('keydown', (event)
     rows[quickOpenActiveIndex]?.scrollIntoView({ block: 'nearest' });
     return;
   }
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    const active = rows[quickOpenActiveIndex] ?? rows[0];
-    if (active) void chooseQuickOpenResult(active.dataset.quickOpenPath);
-  }
+  event.preventDefault();
+  const active = rows[quickOpenActiveIndex] ?? rows[0];
+  if (active) void chooseQuickOpenResult(active.dataset.quickOpenPath);
 });
 document.addEventListener('click', (event) => {
   const quickOpenResult = event.target.closest('[data-quick-open-path]');

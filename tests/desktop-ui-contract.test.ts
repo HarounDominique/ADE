@@ -2026,3 +2026,16 @@ test("the Go to file popup never stacks over an already-open dialog", () => {
   // safer than closing the other dialog out from under an unsaved form.
   assert.match(main, /if \(document\.querySelector\('dialog\[open\]'\)\) return;/);
 });
+
+test("Go to file's arrow-key/Enter navigation is delegated at document level, not on the input", () => {
+  // The WebView did not reliably deliver ArrowUp/ArrowDown to a listener
+  // attached directly to the focused <input> -- reported by the operator
+  // (typing, Enter, and click all worked; arrow-key navigation silently did
+  // nothing). Every other keyboard interaction in this file is already
+  // delegated at document level (Escape-closes-menu, the pending-file row's
+  // Enter/Space handler, ...); this fix matches that proven pattern instead
+  // of the one-off input-local listener that didn't work.
+  assert.doesNotMatch(main, /getElementById\('quick-open-input'\)\?\.addEventListener\('keydown'/);
+  assert.match(main, /if \(!document\.getElementById\('quick-open-dialog'\)\?\.open\) return;/);
+  assert.match(main, /event\.key !== 'ArrowDown' && event\.key !== 'ArrowUp' && event\.key !== 'Enter'/);
+});
