@@ -4520,6 +4520,67 @@ function scheduleWorkspaceFileSearch(query) {
   }, 140);
 }
 
+let quickOpenSearchId = 0;
+let quickOpenSearchTimer = null;
+let quickOpenActiveIndex = -1;
+
+function quickOpenRowMarkup(entry, index) {
+  const relative = documentRelativePath(entry.path);
+  const icon = iconForFileName(entry.name);
+  const glyph = icon
+    ? `<img class="workspace-file-icon" src="file-icons/${icon}.svg" alt="" />`
+    : `<span class="workspace-glyph file" aria-hidden="true"></span>`;
+  return `<li class="quick-open-result${index === quickOpenActiveIndex ? ' active' : ''}" role="option" data-quick-open-path="${escapeHTML(entry.path)}" data-quick-open-index="${index}">${glyph}<span class="quick-open-result-label"><strong>${escapeHTML(entry.name)}</strong><small>${escapeHTML(relative)}</small></span></li>`;
+}
+
+function openQuickOpenDialog() {
+  const dialog = document.getElementById('quick-open-dialog');
+  const input = document.getElementById('quick-open-input');
+  const results = document.getElementById('quick-open-results');
+  if (!dialog?.showModal || !input || !results) return;
+  // showModal() throws on a dialog already open -- reachable if the
+  // shortcut fires twice, or if it fires while a different dialog (New
+  // Task, Commit, ...) is already open, which would otherwise stack two
+  // modals rather than replace one.
+  if (document.querySelector('dialog[open]')) return;
+  input.value = '';
+  quickOpenActiveIndex = -1;
+  results.innerHTML = '<li class="quick-open-hint">Type to search files</li>';
+  dialog.showModal();
+  requestAnimationFrame(() => input.focus());
+}
+
+function scheduleQuickOpenSearch(query) {
+  window.clearTimeout(quickOpenSearchTimer);
+  const search = ++quickOpenSearchId;
+  const needle = query.trim();
+  const results = document.getElementById('quick-open-results');
+  quickOpenActiveIndex = -1;
+  if (!needle) {
+    if (results) results.innerHTML = '<li class="quick-open-hint">Type to search files</li>';
+    return;
+  }
+  quickOpenSearchTimer = window.setTimeout(() => void runQuickOpenSearch(needle, search), 140);
+}
+
+async function runQuickOpenSearch(query, search) {
+  const invoke = nativeInvoke ?? window.__TAURI__?.core?.invoke;
+  const results = document.getElementById('quick-open-results');
+  if (!invoke || !results) return;
+  const matches = await invoke('search_directory', { path: workspaceRootPath, query }).catch(() => []);
+  if (search !== quickOpenSearchId) return;
+  const files = matches.filter((entry) => entry.kind === 'file');
+  quickOpenActiveIndex = files.length ? 0 : -1;
+  results.innerHTML = files.length
+    ? files.map((entry, index) => quickOpenRowMarkup(entry, index)).join('')
+    : '<li class="quick-open-hint">No matching files.</li>';
+}
+
+async function chooseQuickOpenResult(path) {
+  document.getElementById('quick-open-dialog')?.close();
+  if (path) await openFileInADE(path);
+}
+
 async function renderCompactWorkspacePath(rootEntries, filePath, invoke) {
   if (!pathInsideRoot(filePath)) return renderWorkspaceEntries(rootEntries);
   const segments = pathSegments(documentRelativePath(filePath));
@@ -6059,7 +6120,37 @@ document.getElementById('git-pending-select-all')?.addEventListener('change', (e
   updatePendingCommitSelectionUI();
 });
 document.getElementById('confirm-dialog')?.addEventListener('close', () => { pendingConfirmation = null; });
+document.getElementById('quick-open-input')?.addEventListener('input', (event) => { scheduleQuickOpenSearch(event.target.value); });
+document.addEventListener('keydown', (event) => {
+  // Delegated at document level, scoped to the dialog being open -- the
+  // WebView does not reliably deliver ArrowUp/ArrowDown to a listener
+  // attached directly to the focused <input> itself, unlike every other
+  // keyboard interaction in this file, which is already delegated the
+  // same way (the Escape-closes-menu handlers, the pending-file row's
+  // Enter/Space handler, ...).
+  if (!document.getElementById('quick-open-dialog')?.open) return;
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Enter') return;
+  const results = document.getElementById('quick-open-results');
+  const rows = results ? [...results.querySelectorAll('[data-quick-open-path]')] : [];
+  if (!rows.length) return;
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    const delta = event.key === 'ArrowDown' ? 1 : -1;
+    quickOpenActiveIndex = (quickOpenActiveIndex + delta + rows.length) % rows.length;
+    rows.forEach((row, index) => row.classList.toggle('active', index === quickOpenActiveIndex));
+    rows[quickOpenActiveIndex]?.scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  event.preventDefault();
+  const active = rows[quickOpenActiveIndex] ?? rows[0];
+  if (active) void chooseQuickOpenResult(active.dataset.quickOpenPath);
+});
 document.addEventListener('click', (event) => {
+  const quickOpenResult = event.target.closest('[data-quick-open-path]');
+  if (quickOpenResult) {
+    void chooseQuickOpenResult(quickOpenResult.dataset.quickOpenPath);
+    return;
+  }
   const historyPaneToggle = event.target.closest('[data-history-pane-toggle]');
   if (historyPaneToggle) {
     const pane = historyPaneToggle.dataset.historyPaneToggle;
@@ -6300,6 +6391,16 @@ document.addEventListener('keydown', (event) => {
   if (!pendingFile || event.target.matches('input')) return;
   event.preventDefault();
   pendingFile.click();
+});
+document.addEventListener('keydown', (event) => {
+  // Ctrl+Shift+N on Windows/Linux, Cmd+Shift+O on macOS -- accepting either
+  // combination on any platform is strictly more forgiving than picking one
+  // by sniffing the platform, and costs nothing.
+  const isGoToFile = (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'n')
+    || (event.metaKey && event.shiftKey && event.key.toLowerCase() === 'o');
+  if (!isGoToFile) return;
+  event.preventDefault();
+  openQuickOpenDialog();
 });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && document.getElementById('workspace-context-menu')?.hidden === false) closeWorkspaceContextMenu();
