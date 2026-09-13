@@ -8,7 +8,7 @@
 
 Permitir arrancar, depurar y detener las aplicaciones del Project desde la propia shell, con configuraciones declaradas, puertos visibles y evidencia atribuible, sin memorizar comandos ni abrir una terminal para cada servicio.
 
-El escenario que gobierna el diseño es el Project fullstack: un backend y un cliente que se arrancan juntos, cada uno en su puerto, y que el usuario levanta decenas de veces al día mientras dirige agentes. IntelliJ y WebStorm son la referencia de *flujo* —una configuración seleccionable, un arranque normal y un arranque con depuración—, no de superficie: ADE toma el control, no el modelo de IDE completo.
+El escenario que gobierna el diseño es el Project fullstack: un backend y un cliente que se arrancan juntos, cada uno en su puerto, y que el usuario levanta decenas de veces al día mientras dirige agentes. Los IDEs de escritorio habituales para JVM/JS son la referencia de *flujo* —una configuración seleccionable, un arranque normal y un arranque con depuración—, no de superficie: ADE toma el control, no el modelo de IDE completo.
 
 Este módulo es la capa de usuario sobre [local-runtime](SPEC-local-runtime.md#runtime-contract). No define un supervisor propio.
 
