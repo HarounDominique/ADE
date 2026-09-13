@@ -2096,11 +2096,25 @@ async function activateDocumentTab(id, { focus = true } = {}) {
   scrollDocumentTabIntoView(id);
 }
 
+const recentFilesLimit = 20;
+let recentFiles = [];
+
+/** Every path through openFileInADE counts as "recently opened" -- a brand
+    new tab, reactivating an already-open one, and focusing a file detached
+    into its own window alike. Called from inside that one function rather
+    than at each call site, so no future caller of openFileInADE can forget
+    to record it. */
+function recordRecentFile(filePath) {
+  if (!filePath) return;
+  recentFiles = [filePath, ...recentFiles.filter((path) => path !== filePath)].slice(0, recentFilesLimit);
+}
+
 async function openFileInADE(filePath) {
   if (!nativeInvoke) {
     notify('Opening files requires the local desktop runtime.');
     return;
   }
+  recordRecentFile(filePath);
   showView('editor');
   /** The file may have left for a window of its own; clicking it in the tree
       brings that window forward instead of making a second owner. */
@@ -4577,8 +4591,23 @@ async function runQuickOpenSearch(query, search) {
 }
 
 async function chooseQuickOpenResult(path) {
-  document.getElementById('quick-open-dialog')?.close();
+  // Shared by both the Go to file and Recent files popups -- whichever one
+  // is actually open (the dialog-stacking guard already guarantees at most
+  // one is) is the one to close, not a hardcoded id.
+  document.querySelector('dialog[open]')?.close();
   if (path) await openFileInADE(path);
+}
+
+function openRecentFilesDialog() {
+  const dialog = document.getElementById('recent-files-dialog');
+  const results = document.getElementById('recent-files-results');
+  if (!dialog?.showModal || !results) return;
+  if (document.querySelector('dialog[open]')) return;
+  quickOpenActiveIndex = recentFiles.length ? 0 : -1;
+  results.innerHTML = recentFiles.length
+    ? recentFiles.map((path, index) => quickOpenRowMarkup({ path, name: pathBaseName(path) }, index)).join('')
+    : '<li class="quick-open-hint">No recently opened files.</li>';
+  dialog.showModal();
 }
 
 async function renderCompactWorkspacePath(rootEntries, filePath, invoke) {
@@ -6122,15 +6151,20 @@ document.getElementById('git-pending-select-all')?.addEventListener('change', (e
 document.getElementById('confirm-dialog')?.addEventListener('close', () => { pendingConfirmation = null; });
 document.getElementById('quick-open-input')?.addEventListener('input', (event) => { scheduleQuickOpenSearch(event.target.value); });
 document.addEventListener('keydown', (event) => {
-  // Delegated at document level, scoped to the dialog being open -- the
-  // WebView does not reliably deliver ArrowUp/ArrowDown to a listener
-  // attached directly to the focused <input> itself, unlike every other
-  // keyboard interaction in this file, which is already delegated the
-  // same way (the Escape-closes-menu handlers, the pending-file row's
+  // Delegated at document level, scoped to whichever of these two popups is
+  // open -- the WebView does not reliably deliver ArrowUp/ArrowDown to a
+  // listener attached directly to a focused <input>, unlike every other
+  // keyboard interaction in this file, which is already delegated the same
+  // way (the Escape-closes-menu handlers, the pending-file row's
   // Enter/Space handler, ...).
-  if (!document.getElementById('quick-open-dialog')?.open) return;
+  const openResultsId = document.getElementById('quick-open-dialog')?.open
+    ? 'quick-open-results'
+    : document.getElementById('recent-files-dialog')?.open
+      ? 'recent-files-results'
+      : null;
+  if (!openResultsId) return;
   if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Enter') return;
-  const results = document.getElementById('quick-open-results');
+  const results = document.getElementById(openResultsId);
   const rows = results ? [...results.querySelectorAll('[data-quick-open-path]')] : [];
   if (!rows.length) return;
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -6401,6 +6435,12 @@ document.addEventListener('keydown', (event) => {
   if (!isGoToFile) return;
   event.preventDefault();
   openQuickOpenDialog();
+});
+document.addEventListener('keydown', (event) => {
+  const isRecentFiles = (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'e';
+  if (!isRecentFiles) return;
+  event.preventDefault();
+  openRecentFilesDialog();
 });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && document.getElementById('workspace-context-menu')?.hidden === false) closeWorkspaceContextMenu();

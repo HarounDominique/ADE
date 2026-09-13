@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Frontend: `recentFiles`/`recordRecentFile` MRU tracking hooked into
+- [x] Phase 1 — Frontend: `recentFiles`/`recordRecentFile` MRU tracking hooked into
   `openFileInADE`; `recent-files-dialog` markup; `openRecentFilesDialog()` reusing
   `quickOpenRowMarkup`; `Ctrl/Cmd+E` trigger and document-delegated keyboard nav,
   both mirroring `go-to-file-popup`'s corrected patterns exactly. No backend change.
@@ -28,14 +28,27 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: RUNNING
+**Current Phase**: 1
+**Current Step**: 5/6
+**Step Attempts**: {2: 0, 3: 0, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 1: the shared arrow-key/Enter delegated listener (from `go-to-file-popup`)
+  had to be genuinely generalized, not just reused as-is, since it was originally
+  scoped to `quick-open-dialog`'s own `.open` state specifically. Generalized it to
+  pick whichever of the two dialogs is currently open; updated `chooseQuickOpenResult`
+  to close `document.querySelector('dialog[open]')` generically rather than a
+  hardcoded id, since it is now shared by both popups. One pre-existing regression
+  test's exact-string assertion (for the old, dialog-specific form) was updated to
+  match the generalized code rather than duplicating the whole listener to keep that
+  literal string unchanged — the invariant it protects (arrow keys work when
+  delegated, not attached to an input) is unaffected and still asserted.
+- Minor accepted simplification, not treated as a blocking finding in review:
+  `recordRecentFile` runs before the file's actual load completes, so a file that
+  fails to open (e.g. deleted mid-flight) still gets recorded as "recently opened."
+  Matches this task's deliberately small scope; not worth the restructuring needed to
+  gate on success.
