@@ -45,19 +45,31 @@ status: approved
   already exists — silently doing nothing in that case, rather than closing the other
   dialog out from under a possibly-unsaved form.
 
-- Phase 2 manual verification: the operator reported everything working except
-  arrow-key navigation — typing, Enter, and click all worked, but ArrowUp/ArrowDown
-  produced no visible change at all. Root cause not fully isolated (could not be
-  reproduced or inspected directly — no GUI automation in this environment, per
-  `agent-rules/_learned/gui-automation-unsafe-in-this-environment`), but the keydown
-  listener was attached directly to `#quick-open-input`, the one keyboard handler in
-  this task that did *not* follow this file's own established convention: every other
-  keyboard interaction already in this codebase (Escape-closes-menu handlers, the
-  pending-file row's Enter/Space handler from `changes-tab-status-glyphs-and-
-  selective-commit`) is delegated at `document` level, scoped by a condition, rather
-  than attached to the specific element expected to have focus. Rewritten to match
-  that same pattern — a `document`-level `keydown` listener scoped to
-  `document.getElementById('quick-open-dialog')?.open` — which the operator confirmed
-  fixed it. Worth treating as a real, if not fully explained, WebView-specific
-  reliability difference between an element-local and a document-delegated listener
-  for arrow keys specifically, not just a style preference.
+- Phase 2 manual verification, round 1: the operator reported everything working
+  except arrow-key navigation — typing, Enter, and click all worked, but
+  ArrowUp/ArrowDown produced no visible change at all. Could not be reproduced or
+  inspected directly (no GUI automation in this environment, per
+  `agent-rules/_learned/gui-automation-unsafe-in-this-environment`). Hypothesized the
+  keydown listener being attached directly to `#quick-open-input` instead of
+  delegated at `document` level (the pattern every *other* keyboard interaction in
+  this file already uses) and rewrote it to match — **this hypothesis was wrong**, see
+  round 2.
+
+- Phase 2 manual verification, round 2: the operator retested after the document-
+  delegation change with the identical symptom — proving the JS event handling was
+  never the actual problem, in either form. The real cause: `.quick-open-result.active`
+  set only `background: var(--panel-raised)` (this task's own original CSS). In this
+  app's light theme, `--panel: #ffffff` and `--panel-raised: #fdfeff`
+  (`desktop/src/styles.css`) are visually indistinguishable — the JS was almost
+  certainly updating the `.active` class correctly the whole time; the highlight was
+  just never visible against a light-theme dialog. Every *other* active-row indicator
+  in this codebase (`.git-pending-file.active`, `.git-commit-file.active`) already
+  avoids this exact trap by mixing in `var(--blue)` via `color-mix()` plus a
+  theme-independent `box-shadow: inset 3px 0 0 var(--blue)` accent stripe, rather than
+  relying on two panel tokens being different enough — this task's original CSS was
+  the one exception to that proven pattern too. Matched it. Two real lessons from one
+  bug: (1) don't debug a "nothing happens" report by assuming the event layer without
+  checking contrast/rendering first, especially once a plausible JS fix demonstrably
+  doesn't change the symptom; (2) new UI in this codebase should reuse
+  `color-mix(in srgb, var(--blue) N%, var(--panel))` + the inset box-shadow for any
+  "active/selected row" indicator, not a bare panel-token swap.

@@ -134,7 +134,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .quick-open-dialog input[type="text"] { margin-bottom: 8px; }
 .quick-open-results { display: grid; gap: 1px; max-height: min(420px, 60vh); margin: 0; padding: 0; overflow: auto; list-style: none; }
 .quick-open-result { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 8px 10px; border-radius: 4px; cursor: pointer; }
-.quick-open-result.active, .quick-open-result:hover { background: var(--panel-raised); }
+.quick-open-result:hover { background: var(--panel-raised); }
+.quick-open-result.active { background: color-mix(in srgb, var(--blue) 12%, var(--panel)); box-shadow: inset 3px 0 0 var(--blue); }
 .quick-open-result-label { display: grid; min-width: 0; gap: 1px; }
 .quick-open-result-label strong { overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .quick-open-result-label small { overflow: hidden; color: var(--muted); font: 11px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
