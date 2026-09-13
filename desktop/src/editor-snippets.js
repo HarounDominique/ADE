@@ -83,7 +83,7 @@ export const snippetCatalog = {
   PHP: {
     structural: [
       { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
-      { label: 'for', detail: 'indexed for loop', template: 'for ($${i} = 0; $${i} < ${limit}; $${i}++) {\n\t${}\n}' },
+      { label: 'for', detail: 'indexed for loop', template: 'for ($${i} = 0; $${i} < $${limit}; $${i}++) {\n\t${}\n}' },
       { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
       { label: 'fun', detail: 'function', template: 'function ${name}(${params}) {\n\t${}\n}' },
       { label: 'class', detail: 'class', template: 'class ${Name} {\n\t${}\n}' },
@@ -162,11 +162,69 @@ export const snippetCatalog = {
     ],
     idioms: [],
   },
-  // ... the remaining 7 languages (Lua, Perl, PowerShell, Shell, F#, Elixir,
-  // R), each with a `structural` array in the same shape, authored during
-  // the build phase that covers it, following this exact format and the
-  // per-language exceptions (no class, no while, etc.) named in the spec's
-  // Scope section.
+  Lua: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if ${condition} then\n\t${}\nend' },
+      { label: 'for', detail: 'numeric for loop', template: 'for ${i} = 1, ${limit} do\n\t${}\nend' },
+      { label: 'while', detail: 'while loop', template: 'while ${condition} do\n\t${}\nend' },
+      { label: 'fun', detail: 'function', template: 'function ${name}(${params})\n\t${}\nend' },
+    ],
+    idioms: [],
+  },
+  Perl: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'foreach loop', template: 'for my $${item} (@${array}) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'subroutine', template: 'sub ${name} {\n\t${}\n}' },
+    ],
+    idioms: [],
+  },
+  PowerShell: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'indexed for loop', template: 'for ($${i} = 0; $${i} -lt $${limit}; $${i}++) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'function', template: 'function ${Name} {\n\tparam(${params})\n\t${}\n}' },
+    ],
+    idioms: [],
+  },
+  Shell: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if [ ${condition} ]; then\n\t${}\nfi' },
+      { label: 'for', detail: 'for loop', template: 'for ${item} in ${list}; do\n\t${}\ndone' },
+      { label: 'while', detail: 'while loop', template: 'while [ ${condition} ]; do\n\t${}\ndone' },
+      { label: 'fun', detail: 'function', template: '${name}() {\n\t${}\n}' },
+    ],
+    idioms: [],
+  },
+  'F#': {
+    structural: [
+      { label: 'if', detail: 'if expression', template: 'if ${condition} then\n\t${}' },
+      { label: 'for', detail: 'for loop', template: 'for ${item} in ${iterable} do\n\t${}' },
+      { label: 'while', detail: 'while loop', template: 'while ${condition} do\n\t${}' },
+      { label: 'fun', detail: 'let binding', template: 'let ${name} ${params} =\n\t${}' },
+    ],
+    idioms: [],
+  },
+  Elixir: {
+    structural: [
+      { label: 'if', detail: 'if expression', template: 'if ${condition} do\n\t${}\nend' },
+      { label: 'for', detail: 'for comprehension', template: 'for ${item} <- ${iterable} do\n\t${}\nend' },
+      { label: 'fun', detail: 'function definition', template: 'def ${name}(${params}) do\n\t${}\nend' },
+      { label: 'module', detail: 'module (class-equivalent)', template: 'defmodule ${Name} do\n\t${}\nend' },
+    ],
+    idioms: [],
+  },
+  R: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'for loop', template: 'for (${item} in ${iterable}) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'function', template: '${name} <- function(${params}) {\n\t${}\n}' },
+    ],
+    idioms: [],
+  },
 };
 
 /** The one translation this needs -- neutral ${name}/${} to Monaco's own

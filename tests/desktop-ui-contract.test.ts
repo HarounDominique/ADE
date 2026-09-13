@@ -2105,9 +2105,25 @@ test("snippet catalog seeds C++, C, C#, PHP and Rust per Phase 2 scope", () => {
 test("PHP's indexed-for template keeps its literal $ sigil untouched while ${i} still gets numbered by toMonacoSnippet", () => {
   const phpFor = snippetCatalog.PHP.structural.find((entry: { label: string }) => entry.label === "for");
   assert.ok(phpFor, "expected PHP to have a 'for' structural snippet");
+  // EVERY variable reference carries the sigil -- the bound `$i` and the
+  // `$limit` it is compared against alike. Checking only `$i`'s linkage is
+  // what let a bare `limit` ship: in PHP a bare word there is a constant
+  // lookup, not the variable the loop means.
   assert.equal(
     toMonacoSnippet(phpFor.template),
-    'for ($${1:i} = 0; $${1:i} < ${2:limit}; $${1:i}++) {\n\t$0\n}',
+    'for ($${1:i} = 0; $${1:i} < $${2:limit}; $${1:i}++) {\n\t$0\n}',
+  );
+});
+
+test("PowerShell's indexed-for template sigils every variable reference, same as PHP's", () => {
+  const psFor = snippetCatalog.PowerShell.structural.find((entry: { label: string }) => entry.label === "for");
+  assert.ok(psFor, "expected PowerShell to have a 'for' structural snippet");
+  // PowerShell requires `$` on every variable USE, not just declaration, so
+  // all three `i` references and the `limit` reference need it. Same
+  // literal-`$` + `${name}` mechanism PHP established in Phase 2.
+  assert.equal(
+    toMonacoSnippet(psFor.template),
+    'for ($${1:i} = 0; $${1:i} -lt $${2:limit}; $${1:i}++) {\n\t$0\n}',
   );
 });
 
@@ -2137,6 +2153,49 @@ test("snippet catalog seeds Kotlin, Swift, Ruby, Scala, Dart and Objective-C per
   // invented just for Tier B coverage, per spec. Asserted explicitly (===0)
   // rather than skipped, so this proves "deliberately empty", not "unchecked".
   for (const label of ["Swift", "Ruby", "Scala", "Objective-C"]) {
+    assert.equal(snippetCatalog[label].idioms.length, 0, `${label} should have no idioms`);
+  }
+});
+
+test("snippet catalog seeds Lua, Perl, PowerShell, Shell, F#, Elixir and R per Phase 4 scope", () => {
+  for (const label of ["Lua", "Perl", "PowerShell", "Shell", "F#", "Elixir", "R"]) {
+    assert.ok(snippetCatalog[label], `expected a snippetCatalog entry for ${label}`);
+  }
+  // Six of the seven have no class-or-equivalent concept reached for in
+  // ordinary code, per spec: if/for/while/fun only, 4 structural entries,
+  // and explicitly no class/struct/module-labeled entry among them (a count
+  // check alone wouldn't catch a wrong 4th entry silently replacing `while`).
+  for (const label of ["Lua", "Perl", "PowerShell", "Shell", "F#", "R"]) {
+    const structural = snippetCatalog[label].structural as Array<{ label: string }>;
+    assert.equal(structural.length, 4, `${label} should have 4 structural entries (if/for/while/fun)`);
+    for (const expected of ["if", "for", "while", "fun"]) {
+      assert.ok(
+        structural.some((entry) => entry.label === expected),
+        `${label} should have a '${expected}' structural snippet`,
+      );
+    }
+    assert.ok(
+      !structural.some((entry) => entry.label === "class" || entry.label === "struct" || entry.label === "module"),
+      `${label} should have no class-or-equivalent structural snippet`,
+    );
+  }
+  // Elixir is the one exception in the other direction: it DOES get a
+  // class-or-equivalent (`defmodule`, labeled `module`), but has NO `while`
+  // (the language doesn't have one; recursion is idiomatic instead) -- also
+  // 4 structural entries, but a different 4 than the other six.
+  const elixirStructural = snippetCatalog.Elixir.structural as Array<{ label: string }>;
+  assert.equal(elixirStructural.length, 4, "Elixir should have 4 structural entries (if/for/fun/module)");
+  for (const expected of ["if", "for", "fun", "module"]) {
+    assert.ok(
+      elixirStructural.some((entry) => entry.label === expected),
+      `Elixir should have a '${expected}' structural snippet`,
+    );
+  }
+  assert.ok(!elixirStructural.some((entry) => entry.label === "while"), "Elixir should have no 'while' snippet");
+  // None of this phase's seven languages gets a Tier B idiom -- asserted
+  // explicitly (===0) rather than skipped, so this proves "deliberately
+  // empty", not "unchecked", matching the Phase 3 convention.
+  for (const label of ["Lua", "Perl", "PowerShell", "Shell", "F#", "Elixir", "R"]) {
     assert.equal(snippetCatalog[label].idioms.length, 0, `${label} should have no idioms`);
   }
 });
