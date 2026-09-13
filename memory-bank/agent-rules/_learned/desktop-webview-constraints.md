@@ -47,3 +47,20 @@ against acting twice). Both were missing from `changes-tab-status-glyphs-and-
 selective-commit`'s own spec and its first implementation pass, caught only in
 review. Treat this pair as a checklist item any time a spec or build phase proposes
 this exact conversion, not something to discover by testing.
+
+### diagnose-invisible-changes-by-layer-not-by-recency
+_derived_from: reflection/go-to-file-popup.md · evidence_count: 1 · last_validated: 2026-09-13_
+
+A report of "nothing visibly happens" is a rendering claim, not an event-handling
+claim — diagnose it by checking what should be *visible* (CSS contrast, a class
+actually being applied, layout) before re-reaching for the most recently-seen bug
+class in this codebase (event delegation, keyboard activation, ...), even when that
+class fits the symptom's shape superficially. `go-to-file-popup`'s arrow-key
+navigation looked identical to two earlier, real delegation bugs in this same
+session, so delegation was fixed first — but the operator's retest showed the
+identical symptom, meaning the JS was never broken; the `.active` class was toggling
+correctly the whole time, invisible only because `--panel`/`--panel-raised` are
+indistinguishable in this app's light theme. **A fix that demonstrably does not
+change the reported symptom is itself evidence the hypothesis was wrong** — that
+result should redirect the search to a different layer (JS vs. CSS vs. state)
+immediately, not prompt a second fix attempt within the same layer.

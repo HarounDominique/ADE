@@ -2001,3 +2001,41 @@ test("editor Replace binding exists on both engines, alongside their already-def
   assert.match(codeEditor, /monaco\.KeyMod\.CtrlCmd \| monaco\.KeyCode\.KeyR/);
   assert.match(codeEditor, /startFindReplaceAction/);
 });
+
+test("'Go to file' popup opens on either platform's shortcut and reuses the existing file search", () => {
+  assert.match(html, /id="quick-open-dialog"/);
+  assert.match(html, /id="quick-open-input"/);
+  assert.match(html, /id="quick-open-results"/);
+  assert.match(main, /event\.ctrlKey && event\.shiftKey && event\.key\.toLowerCase\(\) === 'n'/);
+  assert.match(main, /event\.metaKey && event\.shiftKey && event\.key\.toLowerCase\(\) === 'o'/);
+  assert.match(main, /function openQuickOpenDialog/);
+  assert.match(main, /function scheduleQuickOpenSearch/);
+  assert.match(main, /function runQuickOpenSearch/);
+  // No second, parallel filename-search implementation -- the same backend
+  // command and the same file-open entry point every other part of the app
+  // already uses.
+  assert.match(main, /invoke\('search_directory', \{ path: workspaceRootPath, query/);
+  assert.match(main, /entry\.kind === 'file'/);
+  assert.match(main, /openFileInADE\(/);
+});
+
+test("the Go to file popup never stacks over an already-open dialog", () => {
+  // dialog.showModal() throws on a dialog already open -- reachable if the
+  // shortcut fires twice, or fires while a different dialog (New Task,
+  // Commit, ...) is already open. Silently doing nothing in that case is
+  // safer than closing the other dialog out from under an unsaved form.
+  assert.match(main, /if \(document\.querySelector\('dialog\[open\]'\)\) return;/);
+});
+
+test("Go to file's arrow-key/Enter navigation is delegated at document level, not on the input", () => {
+  // The WebView did not reliably deliver ArrowUp/ArrowDown to a listener
+  // attached directly to the focused <input> -- reported by the operator
+  // (typing, Enter, and click all worked; arrow-key navigation silently did
+  // nothing). Every other keyboard interaction in this file is already
+  // delegated at document level (Escape-closes-menu, the pending-file row's
+  // Enter/Space handler, ...); this fix matches that proven pattern instead
+  // of the one-off input-local listener that didn't work.
+  assert.doesNotMatch(main, /getElementById\('quick-open-input'\)\?\.addEventListener\('keydown'/);
+  assert.match(main, /if \(!document\.getElementById\('quick-open-dialog'\)\?\.open\) return;/);
+  assert.match(main, /event\.key !== 'ArrowDown' && event\.key !== 'ArrowUp' && event\.key !== 'Enter'/);
+});
