@@ -1987,3 +1987,17 @@ test("Fetch origin disables when the Project has no remote, like Push origin alr
   // runs from -- no second, parallel "has a remote" check.
   assert.match(main, /hasGitRemote = response\.result\.remotes\.length > 0;/);
 });
+
+test("editor Replace binding exists on both engines, alongside their already-default find/next/previous", () => {
+  // Mod-f (find), F3/Mod-g (next), Shift-F3/Shift-Mod-g (previous) are
+  // already the default in both CodeMirror's basicSetup (bundles
+  // @codemirror/search's searchKeymap transitively via the codemirror
+  // metapackage) and Monaco's own find controller -- confirmed by reading
+  // each engine's actual source, not assumed. Only Replace is missing: Mod-r
+  // was never bound anywhere, and Monaco's own replace action defaults to
+  // Mod-h/Cmd-Alt-f, not Mod-r.
+  assert.match(codeEditor, /from '@codemirror\/search'/);
+  assert.match(codeEditor, /key: 'Mod-r', run: openSearchPanel/);
+  assert.match(codeEditor, /monaco\.KeyMod\.CtrlCmd \| monaco\.KeyCode\.KeyR/);
+  assert.match(codeEditor, /startFindReplaceAction/);
+});
