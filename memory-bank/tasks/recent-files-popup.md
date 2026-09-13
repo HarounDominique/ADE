@@ -16,7 +16,7 @@ status: approved
   Test strategy: `node --check desktop/src/main.js`; contract-test additions in
   `tests/desktop-ui-contract.test.ts`, same phase per this session's convention.
 
-- [ ] Phase 2 — Verification: full regression (`npm test`), then a manual pass by the
+- [x] Phase 2 — Verification: full regression (`npm test`), then a manual pass by the
   operator in `npm run desktop:dev` (open a few files, confirm most-recent-first
   order, confirm re-opening moves an entry to the top instead of duplicating it,
   confirm arrow-key navigation AND its active-row highlight are visible on this
@@ -28,12 +28,13 @@ status: approved
 
 ## Execution State
 
-**Build Status**: RUNNING
-**Current Phase**: 1
-**Current Step**: 5/6
+**Build Status**: DONE
+**Current Phase**: 2
+**Current Step**: 6/6
 **Step Attempts**: {2: 0, 3: 0, 4: 1}
 **Last Block Rule**: none
-**Can Resume**: YES
+**Can Resume**: NO — all phases complete, operator confirmed in `npm run
+desktop:dev`; follow-up request (click-outside-to-close) tracked as a new task
 
 ## Deviations
 
