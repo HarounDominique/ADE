@@ -1760,6 +1760,8 @@ function renderPendingGitChanges(result) {
     checkbox must never re-fetch or repaint the whole list. */
 function updatePendingCommitSelectionUI() {
   const selectAll = document.getElementById('git-pending-select-all');
+  const stashButton = document.getElementById('git-stash-checked');
+  if (stashButton) stashButton.disabled = pendingCommitSelection.size === 0 || activeVersionControl === 'none';
   if (!selectAll) return;
   const total = pendingGitFiles.length;
   const selected = pendingCommitSelection.size;
@@ -5127,6 +5129,11 @@ async function connectSidecar(snapshot) {
         requestVersionControlData(workspaceRootPath);
         return;
       }
+      if (contextPurpose === 'git-stash-create' && response.result?.operation === 'stash.create') {
+        notify(response.result.message ?? 'Changes stashed.');
+        requestVersionControlData(workspaceRootPath, { force: true });
+        return;
+      }
       if (contextPurpose === 'switch-branch' && response.result?.operation === 'branch.switch') {
         const path = activeRepositoryPath();
         if (path) await refreshGitWorkspace(path, nativeInvoke);
@@ -5689,6 +5696,7 @@ function operationErrorCopy(technical, purpose) {
     'git-commit-local': 'commit',
     'git-push-origin': 'push',
     'git-fetch': 'fetch',
+    'git-stash-create': 'stash',
     'run-start': 'start the run',
     'run-stop': 'stop the run',
     'agent-prompt': 'send the agent message',
@@ -6158,6 +6166,19 @@ document.getElementById('git-commit-form')?.addEventListener('submit', (event) =
   /** A commit made while a Task is selected belongs to that Task's trail; the
       sidecar records the operation only when it is told which one. */
   void sendContextRequest('git.commit.create', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), ...(selectedTaskId ? { taskId: selectedTaskId } : {}), ...(allSelected ? {} : { files: [...pendingCommitSelection] }), reason: 'Local commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-local').catch((error) => notify(error instanceof Error ? error.message : 'Commit failed.'));
+});
+document.getElementById('git-stash-checked')?.addEventListener('click', () => {
+  if (!pendingCommitSelection.size) { notify('Select at least one file to stash.'); return; }
+  const files = [...pendingCommitSelection];
+  requestConfirmation({
+    eyebrow: 'STASH',
+    title: `Stash ${files.length} file${files.length === 1 ? '' : 's'}?`,
+    copy: 'Checked changes are moved out of the working tree. Recover them with git stash pop or git stash apply from a terminal.',
+    confirmLabel: 'Stash',
+  }, () => sendContextRequest('git.stash.create', {
+    repositoryPath: workspaceRootPath, files,
+    reason: 'Stash requested from Version control', actor: 'human', confirmed: true,
+  }, 'git-stash-create').catch((error) => notify(error instanceof Error ? error.message : 'Stash failed.')));
 });
 document.getElementById('worktree-form')?.addEventListener('submit', (event) => {
   event.preventDefault();
