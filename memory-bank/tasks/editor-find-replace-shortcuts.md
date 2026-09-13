@@ -14,7 +14,7 @@ status: approved
   Test strategy: `node --check desktop/src/main.js`; contract-test additions in
   `tests/desktop-ui-contract.test.ts` reading `code-editor.js`.
 
-- [ ] Phase 2 — Verification: full regression (`npm test`), then a manual pass by the
+- [x] Phase 2 — Verification: full regression (`npm test`), then a manual pass by the
   operator in `npm run desktop:dev` — this phase is the real substance of this task,
   not a formality: confirm find/next/previous already work unmodified on a
   CodeMirror-backed file (e.g. `.js`) and a Monaco-backed one (e.g. `.go`/`.rb`);
@@ -27,14 +27,17 @@ status: approved
 
 ## Execution State
 
-**Build Status**: RUNNING
-**Current Phase**: 1
-**Current Step**: 5/6
+**Build Status**: DONE
+**Current Phase**: 2
+**Current Step**: 6/6
 **Step Attempts**: {2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
-**Can Resume**: YES
+**Can Resume**: NO — all phases complete, operator confirmed in `npm run desktop:dev`:
+find/next/previous already worked unmodified on both engines, the new replace binding
+opens correctly on both, and `Mod-r` does not trigger a WebView reload
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+None. Both phases matched the spec exactly — the spec's own investigation (reading
+each engine's source before writing it) meant there were no surprises left for the
+build or verification phases to find.
