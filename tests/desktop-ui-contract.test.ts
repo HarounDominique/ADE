@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 // The static desktop module is intentionally outside tsconfig's TypeScript include.
 // @ts-expect-error The browser-loaded helper has no declaration file by design.
-import { snippetCatalog } from "../desktop/src/editor-snippets.js";
+import { snippetCatalog, toMonacoSnippet } from "../desktop/src/editor-snippets.js";
 
 const html = readFileSync(new URL("../desktop/src/index.html", import.meta.url), "utf8");
 const main = readFileSync(new URL("../desktop/src/main.js", import.meta.url), "utf8");
@@ -2065,6 +2065,50 @@ test("snippet catalog seeds Java, Go, Python, JavaScript and TypeScript per Phas
   assert.ok(snippetCatalog.Python.idioms.some((entry: { label: string }) => entry.label === "main"));
   assert.ok(snippetCatalog.JavaScript.idioms.some((entry: { label: string }) => entry.label === "clg"));
   assert.ok(snippetCatalog.TypeScript.idioms.some((entry: { label: string }) => entry.label === "clg"));
+});
+
+test("snippet catalog seeds C++, C, C#, PHP and Rust per Phase 2 scope", () => {
+  for (const label of ["C++", "C", "C#", "PHP", "Rust"]) {
+    assert.ok(snippetCatalog[label], `expected a snippetCatalog entry for ${label}`);
+    assert.ok(snippetCatalog[label].structural.length > 0, `${label} should have structural entries`);
+  }
+  // C++, C, C# and Rust each fold a main-function idiom into Tier B, same as Go did in Phase 1.
+  for (const label of ["C++", "C", "C#", "Rust"]) {
+    assert.ok(
+      snippetCatalog[label].idioms.some((entry: { label: string }) => entry.label === "main"),
+      `${label} should have a main idiom`,
+    );
+  }
+  // Rust's class-or-equivalent entry is a `struct`, not a `class` -- per the
+  // spec's documented exception for C, Rust and Go.
+  const rustStructural = snippetCatalog.Rust.structural as Array<{ label: string }>;
+  assert.ok(rustStructural.some((entry) => entry.label === "struct"));
+  assert.ok(!rustStructural.some((entry) => entry.label === "class"));
+  // C's class-or-equivalent entry is likewise a `struct`, not a `class` -- the
+  // spec Scope groups C with Rust and Go. Its template is C's own declaration
+  // form (`struct Name { ... };`, trailing semicolon), not Go's `type X struct`.
+  const cStructural = snippetCatalog.C.structural as Array<{ label: string; template: string }>;
+  const cStruct = cStructural.find((entry) => entry.label === "struct");
+  assert.ok(cStruct, "C should have a `struct` structural snippet");
+  assert.equal(cStruct.template, "struct ${Name} {\n\t${}\n};");
+  assert.ok(!cStructural.some((entry) => entry.label === "class"));
+  assert.ok(
+    !snippetCatalog.C.idioms.some((entry: { label: string }) => entry.label === "class" || entry.label === "struct"),
+  );
+  // PHP likewise has no struct/class idiom-vs-structural mismatch: its
+  // class-or-equivalent lives in `structural` only, not duplicated as an idiom.
+  assert.ok(
+    !snippetCatalog.PHP.idioms.some((entry: { label: string }) => entry.label === "class" || entry.label === "struct"),
+  );
+});
+
+test("PHP's indexed-for template keeps its literal $ sigil untouched while ${i} still gets numbered by toMonacoSnippet", () => {
+  const phpFor = snippetCatalog.PHP.structural.find((entry: { label: string }) => entry.label === "for");
+  assert.ok(phpFor, "expected PHP to have a 'for' structural snippet");
+  assert.equal(
+    toMonacoSnippet(phpFor.template),
+    'for ($${1:i} = 0; $${1:i} < ${2:limit}; $${1:i}++) {\n\t$0\n}',
+  );
 });
 
 test("'Go to file' popup opens on either platform's shortcut and reuses the existing file search", () => {
