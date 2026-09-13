@@ -6150,6 +6150,17 @@ document.getElementById('git-pending-select-all')?.addEventListener('change', (e
 });
 document.getElementById('confirm-dialog')?.addEventListener('close', () => { pendingConfirmation = null; });
 document.getElementById('quick-open-input')?.addEventListener('input', (event) => { scheduleQuickOpenSearch(event.target.value); });
+/** A click that lands on the dialog element itself, not a descendant, is a
+    click on the backdrop -- every real control inside either popup is a
+    descendant element, never the dialog root. Scoped to these two popups
+    only: the app's form-style dialogs (New Task, Commit, ...) keep their
+    current behavior, since discarding a half-filled form on an accidental
+    outside click would lose work an Escape-closing picker never risks. */
+function closeDialogOnBackdropClick(event) {
+  if (event.target === event.currentTarget) event.currentTarget.close();
+}
+document.getElementById('quick-open-dialog')?.addEventListener('click', closeDialogOnBackdropClick);
+document.getElementById('recent-files-dialog')?.addEventListener('click', closeDialogOnBackdropClick);
 document.addEventListener('keydown', (event) => {
   // Delegated at document level, scoped to whichever of these two popups is
   // open -- the WebView does not reliably deliver ArrowUp/ArrowDown to a
