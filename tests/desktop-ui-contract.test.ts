@@ -2200,6 +2200,34 @@ test("snippet catalog seeds Lua, Perl, PowerShell, Shell, F#, Elixir and R per P
   }
 });
 
+test("snippet catalog covers every language named in the spec's Scope section -- the completeness check, not a human recount", () => {
+  // The full approved scope: the 3 languages covered by their own CodeMirror
+  // package's bundled snippets (structural: [], idioms carry this catalog's
+  // Tier B additions only) plus the 20 authored across Phases 1-4.
+  const expectedLabels = [
+    "JavaScript", "TypeScript", "Python",
+    "Java", "Go", "C++", "C", "C#", "PHP", "Rust",
+    "Kotlin", "Swift", "Ruby", "Scala", "Dart", "Objective-C",
+    "Lua", "Perl", "PowerShell", "Shell", "F#", "Elixir", "R",
+  ];
+  const actualLabels = Object.keys(snippetCatalog);
+  for (const label of expectedLabels) {
+    assert.ok(Object.prototype.hasOwnProperty.call(snippetCatalog, label), `snippetCatalog is missing '${label}'`);
+  }
+  assert.equal(
+    actualLabels.length,
+    expectedLabels.length,
+    `snippetCatalog has ${actualLabels.length} languages, expected exactly ${expectedLabels.length} -- ` +
+      "an extra or missing entry means Scope and the catalog have drifted apart",
+  );
+  // Every entry, without exception, must have both keys -- code-editor.js
+  // spreads both unconditionally and would throw on a missing one.
+  for (const label of actualLabels) {
+    assert.ok(Array.isArray(snippetCatalog[label].structural), `${label}.structural must be an array`);
+    assert.ok(Array.isArray(snippetCatalog[label].idioms), `${label}.idioms must be an array`);
+  }
+});
+
 test("'Go to file' popup opens on either platform's shortcut and reuses the existing file search", () => {
   assert.match(html, /id="quick-open-dialog"/);
   assert.match(html, /id="quick-open-input"/);
