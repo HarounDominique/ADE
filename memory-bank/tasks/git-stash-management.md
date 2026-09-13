@@ -24,7 +24,7 @@ status: approved
   pass); contract-test additions for the button's markup and disabled-state binding;
   full `npm test`.
 
-- [ ] Phase 2 — Stash list, Apply, Drop. `listStashes` read query, `applyStash`/
+- [x] Phase 2 — Stash list, Apply, Drop. `listStashes` read query, `applyStash`/
   `dropStash` mutations, their sidecar dispatch, and the list surface inside
   `Repository actions` with per-entry Apply/Drop. Depends on Phase 1 only for the
   `Stash` button existing to have produced something to list — no shared code.
@@ -55,10 +55,10 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: 1
+**Build Status**: DONE
+**Current Phase**: 2
 **Current Step**: 6/6
-**Step Attempts**: {2: 3, 3: 3, 4: 3}
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
@@ -85,3 +85,8 @@ proceed given both findings were small, real, and already understood — not a r
 failure on the same issue. Third review pass PASSED clean, plus one more cosmetic fix
 taken on its own non-blocking note (redundant "Stashed: Stashed from Assay (N files)"
 toast text, simplified to just the message).
+
+Phase 2: none. Clean pass, first review attempt PASS — the success-response-branch
+gap from Phase 1 was explicitly re-scrutinized and not repeated for any of
+create/apply/drop. Stash button copy correctly reverted to reference Repository
+actions now that the list surface exists.

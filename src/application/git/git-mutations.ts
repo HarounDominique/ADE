@@ -81,6 +81,18 @@ export async function createStash(
   return { operation: "stash.create", message, output: result.stdout.trim(), actor: input.actor, reason: input.reason };
 }
 
+export async function applyStash(input: ConfirmedOperation & { ref: string }) {
+  assertConfirmed(input);
+  const result = await executeGit(["stash", "apply", input.ref], { cwd: input.directory });
+  return { operation: "stash.apply", ref: input.ref, output: result.stdout.trim(), actor: input.actor, reason: input.reason };
+}
+
+export async function dropStash(input: ConfirmedOperation & { ref: string }) {
+  assertConfirmed(input);
+  await executeGit(["stash", "drop", input.ref], { cwd: input.directory });
+  return { operation: "stash.drop", ref: input.ref, actor: input.actor, reason: input.reason };
+}
+
 export async function initializeRepository(input: ConfirmedOperation) {
   assertConfirmed(input);
   // A bare `git init` inherits the operator's own global init.defaultBranch --
