@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Frontend: `quick-open-dialog` markup in `index.html`; global keydown
+- [x] Phase 1 — Frontend: `quick-open-dialog` markup in `index.html`; global keydown
   trigger (`Ctrl+Shift+N`/`Cmd+Shift+O`); `scheduleQuickOpenSearch`/
   `runQuickOpenSearch` mirroring the Explorer's existing search shape; keyboard nav
   (arrows/Enter/Escape); row selection calling `openFileInADE`; CSS for the results
@@ -28,14 +28,19 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: RUNNING
+**Current Phase**: 1
+**Current Step**: 5/6
+**Step Attempts**: {2: 0, 3: 0, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 1 review (step 4), caught before the operator ever saw it: `showModal()`
+  throws on a `<dialog>` already open. `openQuickOpenDialog()` had no guard against
+  this — reachable if the shortcut fires twice in a row, or fires while a different
+  dialog (New Task, Commit, ...) is already open, which would otherwise stack two
+  modals rather than replace one. Fixed with an early return when any `dialog[open]`
+  already exists — silently doing nothing in that case, rather than closing the other
+  dialog out from under a possibly-unsaved form.
