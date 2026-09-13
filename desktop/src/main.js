@@ -1704,6 +1704,11 @@ function gitStatusGlyph(status) {
   return { symbol: 'º', bucket: 'modified' };
 }
 
+function closeGitPendingFileContextMenu() {
+  const menu = document.getElementById('git-pending-file-context-menu');
+  if (menu) menu.hidden = true;
+}
+
 function gitFileLabelMarkup(file) {
   const path = workspaceGitRelativePath(file?.path);
   const segments = pathSegments(path);
@@ -5813,6 +5818,26 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
     if (entry) deleteWorkspaceEntryFromUI(entry.path, entry.kind);
     return;
   }
+  if (item.dataset.action === 'discard-pending-file') {
+    const menu = document.getElementById('git-pending-file-context-menu');
+    const path = menu?.dataset.targetPath;
+    const untracked = menu?.dataset.targetUntracked === 'true';
+    closeGitPendingFileContextMenu();
+    if (!path) return;
+    requestConfirmation({
+      eyebrow: 'DISCARD CHANGES',
+      title: `Discard changes to ${pathBaseName(path)}?`,
+      copy: untracked
+        ? `${path} is a new file with no committed version — discarding deletes it. This cannot be undone.`
+        : `${path} is restored to its last committed version. This cannot be undone.`,
+      confirmLabel: 'Discard',
+      tone: 'danger',
+    }, () => sendContextRequest('git.discard.file', {
+      repositoryPath: workspaceRootPath, file: path, untracked,
+      reason: 'Discard requested from Version control', actor: 'human', confirmed: true,
+    }, 'git-discard-file'));
+    return;
+  }
   if (item.dataset.action === 'rename-workspace-entry') {
     const entry = workspaceContextMenuEntry;
     closeWorkspaceContextMenu();
@@ -6326,6 +6351,27 @@ document.addEventListener('click', (event) => {
   if (!event.composedPath().some((node) => node.classList?.contains('git-context-control'))) closeGitContextMenus();
 });
 document.getElementById('workspace-tree')?.addEventListener('contextmenu', openWorkspaceContextMenu);
+/** Mirrors openWorkspaceContextMenu/showWorkspaceContextMenu's viewport
+    clamping, collapsed to one target since this menu has exactly one item --
+    no per-entry show/hide branching needed the way the Explorer's menu has. */
+function openGitPendingFileContextMenu(event) {
+  const row = event.target.closest('[data-git-pending-file]');
+  if (!row) return;
+  event.preventDefault();
+  const path = row.dataset.gitPendingFile;
+  const file = pendingGitFiles.find((entry) => entry.path === path);
+  if (!file) return;
+  const menu = document.getElementById('git-pending-file-context-menu');
+  if (!menu) return;
+  menu.dataset.targetPath = path;
+  menu.dataset.targetUntracked = String(gitStatusGlyph(file.status).bucket === 'new');
+  menu.hidden = false;
+  const maxX = window.innerWidth - menu.offsetWidth - 8;
+  const maxY = window.innerHeight - menu.offsetHeight - 8;
+  menu.style.left = `${Math.min(event.clientX, maxX)}px`;
+  menu.style.top = `${Math.min(event.clientY, maxY)}px`;
+}
+document.getElementById('git-pending-files')?.addEventListener('contextmenu', openGitPendingFileContextMenu);
 
 /** Same-path-string prefix check the backend's `starts_with` makes, used to
     skip highlighting (and to refuse) a move into the dragged item itself or
@@ -6424,6 +6470,7 @@ document.getElementById('workspace-tree')?.addEventListener('mousedown', (event)
 });
 document.addEventListener('click', (event) => {
   if (!event.target.closest('#workspace-context-menu') && !event.target.closest('[data-action="new-workspace-entry"]')) closeWorkspaceContextMenu();
+  if (!event.target.closest('#git-pending-file-context-menu')) closeGitPendingFileContextMenu();
 });
 document.addEventListener('keydown', (event) => {
   // The pending-file row became a `<div role="button">` (a native <button>
@@ -6455,6 +6502,7 @@ document.addEventListener('keydown', (event) => {
 });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && document.getElementById('workspace-context-menu')?.hidden === false) closeWorkspaceContextMenu();
+  if (event.key === 'Escape' && document.getElementById('git-pending-file-context-menu')?.hidden === false) closeGitPendingFileContextMenu();
 });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {

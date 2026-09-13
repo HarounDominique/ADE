@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { createBranch, createCommit, createWorktree, initializeRepository, pushBranch, switchBranch } from "../src/application/git/git-mutations.js";
+import { createBranch, createCommit, createWorktree, discardFileChanges, initializeRepository, pushBranch, switchBranch } from "../src/application/git/git-mutations.js";
 const execFile = promisify(execFileCallback);
 
 /** A fixture repository owns its identity. Inheriting the machine's global
@@ -143,6 +143,70 @@ test("worktree creation requires confirmation and returns its branch", async () 
   assert.equal(worktree.branch, "feature/worktree");
   await execFile("git", ["worktree", "remove", "--force", target], { cwd: root });
   await rm(target, { recursive: true, force: true });
+});
+
+test("discarding a modified tracked file restores its committed content", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-git-discard-modified-"));
+  await initRepository(root);
+  await writeFile(join(root, "note.txt"), "committed");
+  await execFile("git", ["add", "--all"], { cwd: root });
+  await execFile("git", ["commit", "-qm", "chore: seed"], { cwd: root });
+  await writeFile(join(root, "note.txt"), "edited locally");
+
+  const result = await discardFileChanges({ directory: root, file: "note.txt", untracked: false, actor: "human", reason: "test", confirmed: true });
+
+  assert.equal(result.operation, "discard.file");
+  const content = await execFile("git", ["show", "HEAD:note.txt"], { cwd: root });
+  const { readFile } = await import("node:fs/promises");
+  assert.equal((await readFile(join(root, "note.txt"), "utf8")), content.stdout);
+});
+
+test("discarding a deleted tracked file restores it from HEAD", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-git-discard-deleted-"));
+  await initRepository(root);
+  await writeFile(join(root, "note.txt"), "committed");
+  await execFile("git", ["add", "--all"], { cwd: root });
+  await execFile("git", ["commit", "-qm", "chore: seed"], { cwd: root });
+  await rm(join(root, "note.txt"));
+
+  await discardFileChanges({ directory: root, file: "note.txt", untracked: false, actor: "human", reason: "test", confirmed: true });
+
+  const { readFile } = await import("node:fs/promises");
+  assert.equal(await readFile(join(root, "note.txt"), "utf8"), "committed");
+});
+
+test("discarding an untracked file removes it from disk", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-git-discard-untracked-"));
+  await initRepository(root);
+  await writeFile(join(root, "note.txt"), "committed");
+  await execFile("git", ["add", "--all"], { cwd: root });
+  await execFile("git", ["commit", "-qm", "chore: seed"], { cwd: root });
+  await writeFile(join(root, "new.txt"), "brand new");
+
+  await discardFileChanges({ directory: root, file: "new.txt", untracked: true, actor: "human", reason: "test", confirmed: true });
+
+  const { access } = await import("node:fs/promises");
+  await assert.rejects(access(join(root, "new.txt")));
+});
+
+test("discarding a staged-but-uncommitted new file unstages then removes it", async () => {
+  // Staged via `git add` but never committed -- the new file is still bucket
+  // "new" per gitStatusGlyph, so the frontend still sends untracked: true.
+  // The mutation's own `git reset` must unstage it before `git clean -f` can
+  // see and remove it (clean ignores staged files that git no longer treats
+  // as untracked).
+  const root = await mkdtemp(join(tmpdir(), "ade-git-discard-staged-new-"));
+  await initRepository(root);
+  await writeFile(join(root, "note.txt"), "committed");
+  await execFile("git", ["add", "--all"], { cwd: root });
+  await execFile("git", ["commit", "-qm", "chore: seed"], { cwd: root });
+  await writeFile(join(root, "staged-new.txt"), "staged but never committed");
+  await execFile("git", ["add", "staged-new.txt"], { cwd: root });
+
+  await discardFileChanges({ directory: root, file: "staged-new.txt", untracked: true, actor: "human", reason: "test", confirmed: true });
+
+  const { access } = await import("node:fs/promises");
+  await assert.rejects(access(join(root, "staged-new.txt")));
 });
 
 test("initializing a repository requires confirmation and leaves a real working tree", async () => {

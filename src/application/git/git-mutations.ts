@@ -54,6 +54,20 @@ export async function commitAndPush(input: ConfirmedOperation & { message: strin
   return { operation: "commit.push", commit: commit.commit, branch: push.branch, output: `${commit.output}\n${push.output}`.trim(), actor: input.actor, reason: input.reason };
 }
 
+export async function discardFileChanges(input: ConfirmedOperation & { file: string; untracked: boolean }) {
+  assertConfirmed(input);
+  // `git reset` unstages unconditionally first -- a file the operator staged
+  // outside Assay (a terminal `git add`) still needs the same untracked path,
+  // and `git clean -f` only sees a file git no longer treats as staged.
+  await executeGit(["reset", "--", input.file], { cwd: input.directory });
+  if (input.untracked) {
+    await executeGit(["clean", "-f", "--", input.file], { cwd: input.directory });
+  } else {
+    await executeGit(["checkout", "--", input.file], { cwd: input.directory });
+  }
+  return { operation: "discard.file", file: input.file, actor: input.actor, reason: input.reason };
+}
+
 export async function initializeRepository(input: ConfirmedOperation) {
   assertConfirmed(input);
   // A bare `git init` inherits the operator's own global init.defaultBranch --

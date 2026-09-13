@@ -2281,6 +2281,21 @@ test("'Recent files' popup tracks openFileInADE and reuses go-to-file's row mark
   assert.match(main, isRecentFilesTrigger);
 });
 
+test("a pending file in Version control Changes offers Discard changes on right-click", () => {
+  // Mirrors the Explorer's own #workspace-context-menu shape -- a plain
+  // container of role="menuitem" buttons -- rather than inventing a second
+  // contextmenu-triggered menu convention.
+  assert.match(html, /id="git-pending-file-context-menu"[\s\S]*role="menu"[\s\S]*data-action="discard-pending-file"/);
+  assert.match(main, /function openGitPendingFileContextMenu/);
+  assert.match(main, /function closeGitPendingFileContextMenu/);
+  assert.match(main, /getElementById\('git-pending-files'\)\?\.addEventListener\('contextmenu', openGitPendingFileContextMenu\)/);
+  // Wired into the same outside-click and Escape handlers that already
+  // close #workspace-context-menu, rather than a second parallel pair.
+  assert.match(main, /if \(!event\.target\.closest\('#workspace-context-menu'\)[\s\S]{0,200}closeWorkspaceContextMenu\(\);[\s\S]{0,200}closeGitPendingFileContextMenu\(\);/);
+  assert.match(main, /document\.getElementById\('workspace-context-menu'\)\?\.hidden === false\)[\s\S]{0,50}closeWorkspaceContextMenu\(\);[\s\S]{0,200}closeGitPendingFileContextMenu\(\);/);
+  assert.match(main, /sendContextRequest\('git\.discard\.file', \{/);
+});
+
 test("both quick-open popups close on a click outside their content, like Escape already does", () => {
   // event.target === event.currentTarget is the standard <dialog> backdrop-
   // click detection: every real control inside the dialog is a descendant
