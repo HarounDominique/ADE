@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — `closeDialogOnBackdropClick`, attached to both `quick-open-dialog` and
+- [x] Phase 1 — `closeDialogOnBackdropClick`, attached to both `quick-open-dialog` and
   `recent-files-dialog`. Fast-path: single small shared handler, no creative needed.
   (satisfies: SPEC-quick-open-close-on-backdrop-click.md#objective, #structure, #style)
   Test strategy: `node --check desktop/src/main.js`; contract-test addition; full
@@ -14,14 +14,19 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: DONE
+**Current Phase**: 1
+**Current Step**: 6/6
+**Step Attempts**: {2: 1, 3: 0, 4: 0}
 **Last Block Rule**: none
-**Can Resume**: YES
+**Can Resume**: NO — complete, awaiting operator confirmation in `npm run desktop:dev`
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+None.
+
+## Reflection (inline, fast-path)
+
+Standard `<dialog>` backdrop-click pattern (`event.target === event.currentTarget`),
+scoped to exactly the two popups asked about. No new rule — a well-known pattern, not
+a recurring failure mode.

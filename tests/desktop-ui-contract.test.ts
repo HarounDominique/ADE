@@ -2054,3 +2054,14 @@ test("'Recent files' popup tracks openFileInADE and reuses go-to-file's row mark
   const isRecentFilesTrigger = /const isRecentFiles = \(event\.ctrlKey \|\| event\.metaKey\) && !event\.shiftKey && event\.key\.toLowerCase\(\) === 'e';/;
   assert.match(main, isRecentFilesTrigger);
 });
+
+test("both quick-open popups close on a click outside their content, like Escape already does", () => {
+  // event.target === event.currentTarget is the standard <dialog> backdrop-
+  // click detection: every real control inside the dialog is a descendant
+  // element, never the dialog root itself, so a click landing exactly on
+  // the dialog element means it landed on the backdrop.
+  assert.match(main, /function closeDialogOnBackdropClick/);
+  assert.match(main, /event\.target === event\.currentTarget/);
+  assert.match(main, /getElementById\('quick-open-dialog'\)\?\.addEventListener\('click', closeDialogOnBackdropClick\)/);
+  assert.match(main, /getElementById\('recent-files-dialog'\)\?\.addEventListener\('click', closeDialogOnBackdropClick\)/);
+});
