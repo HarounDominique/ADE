@@ -27,9 +27,15 @@ Python are excluded from Tier A authoring — `@codemirror/lang-javascript` and
 `def` snippets (confirmed by reading both packages' dist files directly), so nothing
 new is needed there for structural skeletons.
 
-Authored (CodeMirror-engine languages): Java, C++, C, C#, PHP, Rust.
-Authored (Monaco-engine languages): Go, Kotlin, Swift, Ruby, Scala, Dart, Objective-C,
-Lua, Perl, PowerShell, Shell, F#, Elixir, R.
+Authored (CodeMirror-engine languages): Java, C++, PHP, Rust. Corrected 2026-09-13,
+found in Phase 2 review: C and C# are actually Monaco-engine in this app
+(`desktop/src/code-editor.js`'s `monacoLanguageDefinitions`, not `codeLanguageDefinitions`)
+— an error in this spec's original draft, not in the shipped code. The catalog itself
+is engine-neutral by design (one neutral template, translated per engine at wiring
+time), so this misclassification had no effect on the content authored.
+
+Authored (Monaco-engine languages): C, C#, Go, Kotlin, Swift, Ruby, Scala, Dart,
+Objective-C, Lua, Perl, PowerShell, Shell, F#, Elixir, R.
 
 Class-or-equivalent is a `struct` for C, Rust and Go, a `defmodule` for Elixir, and is
 omitted (documented, not silently missing) for Lua, Perl, PowerShell, Shell, F# and R —
@@ -39,10 +45,13 @@ Elixir also omits `while` (the language has none; recursion is idiomatic instead
 
 **Tier B — iconic idioms**, deliberately small (1-2 per language), only where one is
 genuinely well-known, not invented for coverage: Java (`sout`, `psvm`), Go (`iferr`,
-plus a `main` skeleton folded into Tier A's function example for that language), Python
-(`main` → the `__name__ == "__main__"` guard), JavaScript/TypeScript (`clg` →
-`console.log`). This is a starter set, not a claim of parity with a mature IDE's
-built-up idiom library — stated explicitly in Boundaries.
+plus a `main` skeleton), Python (`main` → the `__name__ == "__main__"` guard),
+JavaScript/TypeScript (`clg` → `console.log`). Updated 2026-09-13 per Phase 2 review:
+C++, C, C# and Rust each also fold in a `main` skeleton — the same iconic-entry-point
+idiom as Go and Java's `psvm`, accepted as in-scope rather than a drift from this list
+(a compiled language's `main` function is exactly the kind of "genuinely well-known,
+not invented" idiom this tier is for). This remains a starter set, not a claim of
+parity with a mature IDE's built-up idiom library — stated explicitly in Boundaries.
 
 **Excluded entirely** (config/markup/data formats, not "code" in the sense these
 constructs apply to): CSS, HTML, JSON, Markdown, SQL, XML, GraphQL, Protocol Buffers,

@@ -21,7 +21,7 @@ status: approved
   language with a `monacoLanguage` id; catalog-shape assertions for these 5 languages
   specifically (not yet the full Scope list — that's Phase 5). Full `npm test`.
 
-- [ ] Phase 2 — C-family + Rust (C++, C, C#, PHP, Rust). All CodeMirror-engine
+- [x] Phase 2 — C-family + Rust (C++, C, C#, PHP, Rust). All CodeMirror-engine
   languages — reuses Phase 1's `codeMirrorSnippetExtension` mechanism unchanged, no new
   wiring. Rust's class-or-equivalent is `struct` per the spec's documented exception.
   (satisfies: SPEC-editor-code-snippets.md structural-skeleton content for these 5)
@@ -62,9 +62,9 @@ status: approved
 ## Execution State
 
 **Build Status**: NOT_STARTED
-**Current Phase**: 1
+**Current Phase**: 2
 **Current Step**: 6/6
-**Step Attempts**: {2: 1, 3: 1, 4: 1}
+**Step Attempts**: {2: 2, 3: 2, 4: 2}
 **Last Block Rule**: none
 **Can Resume**: YES
 
@@ -74,3 +74,16 @@ Phase 1: none. Spec's assumptions about the code-editor.js call site
 (`definition.label` in scope, `loadMonaco()`'s singleton promise as the one-time Monaco
 registration hook) both matched the actual code exactly. All build steps green on
 first attempt.
+
+Phase 2: review-blocked once, accepted fix. The orchestrator-dictated content for `C`
+omitted a `struct` class-or-equivalent entry, contradicting the spec's own Scope text
+(C explicitly grouped with Rust/Go as needing one) — a real bug in this session's
+content, not the TDD agent's error. Fixed (`struct ${Name} {\n\t${}\n};`) and the test
+that had wrongly codified the omission as correct was corrected to require it. Re-review
+passed and additionally caught, non-blocking: a test gap (C's `main` idiom went
+unasserted — fixed), and two spec-text errors — C and C# are actually Monaco-engine in
+this app, not CodeMirror as originally drafted, and Tier B's idiom list hadn't been
+updated to include the `main` skeleton this phase gave C++/C/C#/Rust. Both corrected in
+the spec directly (dated addenda, not silently rewritten history). All content fixes
+verified against `desktop/src/code-editor.js`'s actual `codeLanguageDefinitions`/
+`monacoLanguageDefinitions` rather than assumed.

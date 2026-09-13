@@ -44,12 +44,69 @@ export const snippetCatalog = {
     structural: [],
     idioms: [{ label: 'clg', detail: 'console.log', template: 'console.log(${});' }],
   },
-  // ... the remaining 18 languages (C++, C, C#, PHP, Rust, Kotlin, Swift,
-  // Ruby, Scala, Dart, Objective-C, Lua, Perl, PowerShell, Shell, F#, Elixir,
-  // R), each with a `structural` array in the same shape, authored during
-  // the build phase that covers it, following this exact format and the
-  // per-language exceptions (no class, no while, etc.) named in the spec's
-  // Scope section.
+  'C++': {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'indexed for loop', template: 'for (int ${i} = 0; ${i} < ${limit}; ${i}++) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'function', template: '${returnType} ${name}(${params}) {\n\t${}\n}' },
+      { label: 'class', detail: 'class', template: 'class ${Name} {\npublic:\n\t${}\n};' },
+    ],
+    idioms: [
+      { label: 'main', detail: 'main function', template: 'int main() {\n\t${}\n\treturn 0;\n}' },
+    ],
+  },
+  C: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'indexed for loop', template: 'for (int ${i} = 0; ${i} < ${limit}; ${i}++) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'function', template: '${returnType} ${name}(${params}) {\n\t${}\n}' },
+      { label: 'struct', detail: 'struct', template: 'struct ${Name} {\n\t${}\n};' },
+    ],
+    idioms: [
+      { label: 'main', detail: 'main function', template: 'int main(void) {\n\t${}\n\treturn 0;\n}' },
+    ],
+  },
+  'C#': {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'indexed for loop', template: 'for (int ${i} = 0; ${i} < ${limit}; ${i}++) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'method', template: '${returnType} ${Name}(${params})\n{\n\t${}\n}' },
+      { label: 'class', detail: 'class', template: 'class ${Name}\n{\n\t${}\n}' },
+    ],
+    idioms: [
+      { label: 'main', detail: 'Main method', template: 'static void Main(string[] args)\n{\n\t${}\n}' },
+    ],
+  },
+  PHP: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'indexed for loop', template: 'for ($${i} = 0; $${i} < ${limit}; $${i}++) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'function', template: 'function ${name}(${params}) {\n\t${}\n}' },
+      { label: 'class', detail: 'class', template: 'class ${Name} {\n\t${}\n}' },
+    ],
+    idioms: [],
+  },
+  Rust: {
+    structural: [
+      { label: 'if', detail: 'if expression', template: 'if ${condition} {\n\t${}\n}' },
+      { label: 'for', detail: 'for loop', template: 'for ${item} in ${iterable} {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while ${condition} {\n\t${}\n}' },
+      { label: 'fun', detail: 'function', template: 'fn ${name}(${params}) {\n\t${}\n}' },
+      { label: 'struct', detail: 'struct', template: 'struct ${Name} {\n\t${}\n}' },
+    ],
+    idioms: [
+      { label: 'main', detail: 'main function', template: 'fn main() {\n\t${}\n}' },
+    ],
+  },
+  // ... the remaining 13 languages (Kotlin, Swift, Ruby, Scala, Dart,
+  // Objective-C, Lua, Perl, PowerShell, Shell, F#, Elixir, R), each with a
+  // `structural` array in the same shape, authored during the build phase
+  // that covers it, following this exact format and the per-language
+  // exceptions (no class, no while, etc.) named in the spec's Scope section.
 };
 
 /** The one translation this needs -- neutral ${name}/${} to Monaco's own
