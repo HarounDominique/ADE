@@ -2187,7 +2187,46 @@ mod tests {
 
         assert!(!root.join("notes.md").exists());
         assert!(root.join("target/notes.md").is_file());
-        let expected = workspace.resolve(&root.to_string_lossy()).expect("resolve root").join("target/notes.md");
+        // A literal "target/notes.md" is one raw component to Path::join on
+        // Windows, not two -- filesystem operations tolerate the embedded
+        // forward slash at the OS level (the .is_file() check above works
+        // fine), but a *textual* comparison does not: the real result is
+        // genuinely native-separator, and comparing it against a string that
+        // still carries the literal `/` failed only on Windows CI. Two
+        // chained .join() calls produce a properly native-separator path.
+        let expected = workspace.resolve(&root.to_string_lossy()).expect("resolve root").join("target").join("notes.md");
+        assert_eq!(moved, expected.to_string_lossy());
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn move_workspace_entry_moves_a_file_into_a_nested_destination() {
+        // A deeper destination than the sibling test above, so the returned
+        // path's textual equality is checked past a single directory level
+        // too -- the same class of bug (a hand-written expected string with
+        // an embedded `/` instead of a proper multi-component join) could
+        // just as easily hide one level down.
+        let root = fixture_root("move-workspace-file-nested");
+        fs::create_dir_all(root.join("target").join("nested")).expect("seed nested target directory");
+        fs::write(root.join("notes.md"), "hello").expect("seed file");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let moved = move_workspace_entry_in(
+            &workspace,
+            &root.join("notes.md").to_string_lossy(),
+            &root.join("target").join("nested").to_string_lossy(),
+        )
+        .expect("move file");
+
+        assert!(!root.join("notes.md").exists());
+        let expected = workspace
+            .resolve(&root.to_string_lossy())
+            .expect("resolve root")
+            .join("target")
+            .join("nested")
+            .join("notes.md");
+        assert!(expected.is_file());
         assert_eq!(moved, expected.to_string_lossy());
         fs::remove_dir_all(root).expect("remove fixture");
     }

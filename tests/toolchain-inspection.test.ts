@@ -21,3 +21,12 @@ test("toolchain inspection reports the entry points implied by Project manifests
   assert.equal(statuses[1]?.command, "python");
   assert.equal(statuses[1]?.source, "pyproject.toml");
 });
+
+test("toolchain inspection reports nothing for a Project with no recognized manifests", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-toolchains-empty-"));
+  await writeFile(join(root, "README.md"), "# empty project\n", "utf8");
+
+  const statuses = await inspectProjectToolchains(root);
+
+  assert.deepEqual(statuses, []);
+});

@@ -86,10 +86,14 @@ async function probe(id: string, label: string, command: string, args: readonly 
     const append = (chunk: Buffer | string) => { output += chunk.toString(); };
     child.stdout?.on("data", append);
     child.stderr?.on("data", append);
+    // Windows CI runners (and slower real Windows machines) measurably lag
+    // POSIX ones for a cold process spawn -- 1.5s was tight enough to read a
+    // genuinely present npm as "unavailable" purely from spawn latency, not
+    // from anything actually wrong.
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
       resolve({ ...base, available: false, error: "version check timed out" });
-    }, 1_500);
+    }, 4_000);
     child.once("error", (error) => {
       clearTimeout(timer);
       resolve({ ...base, available: false, error: error.message });
