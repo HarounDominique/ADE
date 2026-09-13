@@ -2002,6 +2002,27 @@ test("editor Replace binding exists on both engines, alongside their already-def
   assert.match(codeEditor, /startFindReplaceAction/);
 });
 
+test("editor Tab accepts an autocomplete suggestion before falling through to indent, on CodeMirror", () => {
+  // completeAnyWord is wired as a languageData source so every CodeMirror
+  // language falls back to buffer-word suggestions, even the six
+  // @codemirror/lang-* packages (C++, Java, PHP, Rust, JSON, YAML) that
+  // register no completion source of their own.
+  assert.match(codeEditor, /EditorState\.languageData\.of\(\(\) => \[\{ autocomplete: completeAnyWord \}\]\)/);
+  // acceptCompletion returns false with no popup open, so the keymap falls
+  // through to indentWithTab for ordinary Tab-to-indent -- but only if the
+  // Tab/acceptCompletion entry is resolved first, i.e. appears earlier in
+  // the same keymap.of([...]) array. A presence-only check would pass even
+  // if Tab never actually reached acceptCompletion.
+  const tabAcceptIndex = codeEditor.indexOf("key: 'Tab', run: acceptCompletion");
+  // lastIndexOf, not indexOf: 'indentWithTab' also appears earlier as the
+  // import declaration, which would make this pass regardless of where the
+  // keymap entry itself sits relative to Tab/acceptCompletion.
+  const indentWithTabKeymapIndex = codeEditor.lastIndexOf('indentWithTab');
+  assert.notEqual(tabAcceptIndex, -1);
+  assert.notEqual(indentWithTabKeymapIndex, -1);
+  assert.ok(tabAcceptIndex < indentWithTabKeymapIndex);
+});
+
 test("'Go to file' popup opens on either platform's shortcut and reuses the existing file search", () => {
   assert.match(html, /id="quick-open-dialog"/);
   assert.match(html, /id="quick-open-input"/);
