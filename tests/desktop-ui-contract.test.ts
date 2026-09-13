@@ -2036,6 +2036,21 @@ test("Go to file's arrow-key/Enter navigation is delegated at document level, no
   // Enter/Space handler, ...); this fix matches that proven pattern instead
   // of the one-off input-local listener that didn't work.
   assert.doesNotMatch(main, /getElementById\('quick-open-input'\)\?\.addEventListener\('keydown'/);
-  assert.match(main, /if \(!document\.getElementById\('quick-open-dialog'\)\?\.open\) return;/);
+  assert.match(main, /document\.getElementById\('quick-open-dialog'\)\?\.open\s*\n\s*\? 'quick-open-results'/);
   assert.match(main, /event\.key !== 'ArrowDown' && event\.key !== 'ArrowUp' && event\.key !== 'Enter'/);
+});
+
+test("'Recent files' popup tracks openFileInADE and reuses go-to-file's row markup and keyboard nav", () => {
+  assert.match(html, /id="recent-files-dialog"/);
+  assert.match(html, /id="recent-files-results"/);
+  assert.match(main, /function recordRecentFile/);
+  // Called from inside openFileInADE, not a second, parallel MRU-tracking
+  // site -- every path through that function (a new tab, reactivating an
+  // already-open one, focusing a file detached into its own window) counts.
+  assert.match(main, /async function openFileInADE\(filePath\) \{\n {2}if \(!nativeInvoke\) \{\n {4}notify\('Opening files requires the local desktop runtime\.'\);\n {4}return;\n {2}\}\n {2}recordRecentFile\(filePath\);/);
+  assert.match(main, /function openRecentFilesDialog/);
+  // Reuses quickOpenRowMarkup rather than a second row-rendering function.
+  assert.match(main, /recentFiles\.map\(\(path, index\) => quickOpenRowMarkup\(/);
+  const isRecentFilesTrigger = /const isRecentFiles = \(event\.ctrlKey \|\| event\.metaKey\) && !event\.shiftKey && event\.key\.toLowerCase\(\) === 'e';/;
+  assert.match(main, isRecentFilesTrigger);
 });
