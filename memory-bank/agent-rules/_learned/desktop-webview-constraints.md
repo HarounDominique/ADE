@@ -64,3 +64,23 @@ indistinguishable in this app's light theme. **A fix that demonstrably does not
 change the reported symptom is itself evidence the hypothesis was wrong** — that
 result should redirect the search to a different layer (JS vs. CSS vs. state)
 immediately, not prompt a second fix attempt within the same layer.
+
+### suspect-webview-cache-before-the-mechanism
+_derived_from: reflection/editor-code-snippets.md · evidence_count: 1 · last_validated: 2026-09-13_
+
+A manual-verification failure reported immediately after a code change in
+`npm run desktop:dev` — especially one that headless/isolated testing of the same
+production code already proved correct — may be a stale cached WebView bundle, not a
+real bug. `editor-code-snippets` burned far more session time chasing a phantom
+CodeMirror completion-filtering bug (headless reproductions of the exact wiring, live
+`console.error` instrumentation read back through the operator's own devtools, several
+kill+rebuild+restart cycles) than the entire 5-phase build that preceded it — the
+mechanism turned out to have been correct the whole time; a later restart cycle fixed
+it with *no code change at all* between the failing and passing runs. Before deep
+debugging a manual-verification failure: (1) if isolated/headless testing of the exact
+production code already confirms the logic is correct, treat that as strong evidence
+against a code bug: (2) do a full `pkill` of both the `tauri dev` process and the
+compiled `target/debug/<app>` binary, then a fresh `npm run desktop:dev`, before
+trusting a live-app negative result — a single restart is not always enough to
+guarantee the WebView reloads fresh assets rather than serving a cached bundle from
+before the change.
