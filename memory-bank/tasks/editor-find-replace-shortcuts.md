@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — `@codemirror/search` added as a direct dependency; `Mod-r` keymap entry
+- [x] Phase 1 — `@codemirror/search` added as a direct dependency; `Mod-r` keymap entry
   on the CodeMirror side (`openSearchPanel`); `Ctrl/Cmd+R` command on the Monaco side
   (`editor.action.startFindReplaceAction`). No creative needed — both engines' own
   existing extension points, one line each.
@@ -27,9 +27,9 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
+**Build Status**: RUNNING
+**Current Phase**: 1
+**Current Step**: 5/6
 **Step Attempts**: {2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
