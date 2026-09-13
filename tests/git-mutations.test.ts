@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { createBranch, createCommit, createStash, createWorktree, discardFileChanges, initializeRepository, pushBranch, switchBranch } from "../src/application/git/git-mutations.js";
+import { applyStash, createBranch, createCommit, createStash, createWorktree, discardFileChanges, dropStash, initializeRepository, pushBranch, switchBranch } from "../src/application/git/git-mutations.js";
 const execFile = promisify(execFileCallback);
 
 /** A fixture repository owns its identity. Inheriting the machine's global
@@ -255,6 +255,50 @@ test("stashing with an empty files array throws instead of stashing everything",
   const root = await mkdtemp(join(tmpdir(), "ade-git-stash-empty-"));
   await initRepository(root);
   await assert.rejects(() => createStash({ directory: root, files: [], actor: "human", reason: "test", confirmed: true }), /at least one file/);
+});
+
+test("applying a stash restores the files while the stash entry remains listed", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-git-stash-apply-"));
+  await initRepository(root);
+  await writeFile(join(root, "note.txt"), "committed");
+  await execFile("git", ["add", "--all"], { cwd: root });
+  await execFile("git", ["commit", "-qm", "chore: seed"], { cwd: root });
+  await writeFile(join(root, "note.txt"), "edited locally");
+
+  await assert.rejects(() => applyStash({ directory: root, ref: "stash@{0}", actor: "human", reason: "test", confirmed: false }), /confirmation/);
+  await createStash({ directory: root, files: ["note.txt"], actor: "human", reason: "test", confirmed: true });
+  const { readFile } = await import("node:fs/promises");
+  assert.equal(await readFile(join(root, "note.txt"), "utf8"), "committed");
+
+  const result = await applyStash({ directory: root, ref: "stash@{0}", actor: "human", reason: "test", confirmed: true });
+
+  assert.equal(result.operation, "stash.apply");
+  assert.equal(await readFile(join(root, "note.txt"), "utf8"), "edited locally");
+  const list = await execFile("git", ["stash", "list"], { cwd: root });
+  assert.match(list.stdout, /stash@\{0\}/);
+});
+
+test("dropping a stash removes the entry without touching the working tree", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ade-git-stash-drop-"));
+  await initRepository(root);
+  await writeFile(join(root, "note.txt"), "committed");
+  await execFile("git", ["add", "--all"], { cwd: root });
+  await execFile("git", ["commit", "-qm", "chore: seed"], { cwd: root });
+  await writeFile(join(root, "note.txt"), "edited locally");
+  await createStash({ directory: root, files: ["note.txt"], actor: "human", reason: "test", confirmed: true });
+  const { readFile } = await import("node:fs/promises");
+  assert.equal(await readFile(join(root, "note.txt"), "utf8"), "committed");
+
+  await assert.rejects(() => dropStash({ directory: root, ref: "stash@{0}", actor: "human", reason: "test", confirmed: false }), /confirmation/);
+  const result = await dropStash({ directory: root, ref: "stash@{0}", actor: "human", reason: "test", confirmed: true });
+
+  assert.equal(result.operation, "stash.drop");
+  const list = await execFile("git", ["stash", "list"], { cwd: root });
+  assert.equal(list.stdout.trim(), "");
+  // Dropping never touches the working tree -- the file stays exactly as it
+  // was before the drop (still the pre-stash committed content, since drop
+  // does not apply the stash).
+  assert.equal(await readFile(join(root, "note.txt"), "utf8"), "committed");
 });
 
 test("initializing a repository requires confirmation and leaves a real working tree", async () => {

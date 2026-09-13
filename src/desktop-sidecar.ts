@@ -36,8 +36,8 @@ import { turnWrites } from "./application/agents/turn-checkpoint.js";
 import { askBriefing, composeAgentPrompt } from "./application/structural-context/ask-briefing.js";
 import { inspectGitWorkspace } from "./application/git/workspace-status.js";
 import { inspectGitHub } from "./application/git/github-status.js";
-import { commitAndPush, createBranch, createCommit, createPullRequest, createStash, createWorktree, discardFileChanges, fetchOrigin, initializeRepository, pushBranch, switchBranch } from "./application/git/git-mutations.js";
-import { inspectPendingGitChanges, listGitCommits, readGitCommitDiff, readPendingGitDiff } from "./application/git/version-control.js";
+import { applyStash, commitAndPush, createBranch, createCommit, createPullRequest, createStash, createWorktree, discardFileChanges, dropStash, fetchOrigin, initializeRepository, pushBranch, switchBranch } from "./application/git/git-mutations.js";
+import { inspectPendingGitChanges, listGitCommits, listStashes, readGitCommitDiff, readPendingGitDiff } from "./application/git/version-control.js";
 import { buildKnowledgeGraph } from "./application/knowledge/knowledge-graph.js";
 import { loadServiceDefinitions } from "./application/local-runtime/service-config.js";
 import { loadRunConfigurations, saveRunConfigurations } from "./application/local-runtime/run-config.js";
@@ -59,7 +59,7 @@ import { resolveProviderSessionId } from "./application/terminal-history/provide
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; settings?: Partial<UserSettings>; prompt?: string; commit?: string; file?: string; untracked?: boolean; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean; workflowMode?: WorkflowMode; result?: WorkflowResult; files?: string[] };
+  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; settings?: Partial<UserSettings>; prompt?: string; commit?: string; file?: string; untracked?: boolean; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean; workflowMode?: WorkflowMode; result?: WorkflowResult; files?: string[]; ref?: string };
 };
 
 export type DesktopResponse = {
@@ -560,6 +560,10 @@ export async function runDesktopSidecar(): Promise<void> {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
         else void inspectPendingGitChanges(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error) })}\n`));
+      } else if (request.method === "git.stash.list") {
+        const directory = request.params?.repositoryPath;
+        if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+        else void listStashes(directory).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error) })}\n`));
       } else if (request.method === "git.pending.diff") {
         const directory = request.params?.repositoryPath;
         const file = request.params?.file;
@@ -578,6 +582,14 @@ export async function runDesktopSidecar(): Promise<void> {
         if (!params?.repositoryPath || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, actor and reason are required" } })}\n`);
         else if (!Array.isArray(params.files) || !params.files.length) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "files is required and must be non-empty" } })}\n`);
         else void createStash({ directory: params.repositoryPath, files: params.files, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error, "GIT_MUTATION_BLOCKED") })}\n`));
+      } else if (request.method === "git.stash.apply") {
+        const params = request.params;
+        if (!params?.repositoryPath || !params.ref || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, ref, actor and reason are required" } })}\n`);
+        else void applyStash({ directory: params.repositoryPath, ref: params.ref, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error, "GIT_MUTATION_BLOCKED") })}\n`));
+      } else if (request.method === "git.stash.drop") {
+        const params = request.params;
+        if (!params?.repositoryPath || !params.ref || !params.actor || !params.reason) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, ref, actor and reason are required" } })}\n`);
+        else void dropStash({ directory: params.repositoryPath, ref: params.ref, actor: params.actor, reason: params.reason, confirmed: params.confirmed === true }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`)).catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: gitError(error, "GIT_MUTATION_BLOCKED") })}\n`));
       } else if (request.method === "git.workspace") {
         const directory = request.params?.repositoryPath;
         if (!directory) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
