@@ -55,3 +55,19 @@ same state, discovered a full task later on the very Project the operator used t
 the *first* task's own fix. Confirms this is not a one-off spec gap but a durable blind
 spot: every git read path in this codebase needs its own independent check against a
 zero-commit repository, not an inference from sibling paths already fixed.
+
+### overloaded-feature-term-disambiguation
+_derived_from: reflection/editor-autocomplete.md · evidence_count: 1 · last_validated: 2026-09-13_
+
+When a requested feature name is colloquially overloaded across genuinely different
+mechanisms (here: "autocomplete" meaning both a suggestion popup *and* abbreviation-
+triggered snippet/live-template expansion, e.g. `sout` + Tab → boilerplate), a single
+clarifying question aimed at one axis of ambiguity (semantic/LSP vs. syntactic, in this
+case) can still leave a second, orthogonal meaning unaddressed — even when the
+request's own wording already hints at it ("que el editor te recomiende o autocomplete
+sintaxis"). `editor-autocomplete` shipped exactly what its spec described and the
+operator confirmed it works, then immediately asked for the other meaning as a
+follow-up. Enumerate the distinct mechanisms an overloaded term could refer to as part
+of Step 1's assumption list, not just the axis that seems most in question, so a
+clarifying question (or an explicit assumption) covers all of them in one pass instead
+of shipping the first meaning and discovering the second from a follow-up request.
