@@ -23,6 +23,7 @@ import { tags } from '@lezer/highlight';
 import { EditorState, Compartment, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
+import { openSearchPanel } from '@codemirror/search';
 import { pathBaseName, fileExtension } from './paths.js';
 
 /** Monaco is a singleton for the page: loading it twice would define its themes
@@ -257,6 +258,13 @@ export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = 
           keymap.of([
             indentWithTab,
             { key: 'Mod-s', run: () => { void onSave(); return true; } },
+            // Find (Mod-f), next/previous match (F3/Mod-g, Shift-F3/Shift-Mod-g)
+            // are already bound by basicSetup's own bundled searchKeymap
+            // (@codemirror/search, pulled in transitively through the
+            // codemirror metapackage). Only Replace had no binding -- the
+            // search panel this opens already renders a replace UI inline
+            // once open, so no separate replace-panel exists to target.
+            { key: 'Mod-r', run: openSearchPanel, preventDefault: true },
           ]),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) onChange();
@@ -291,6 +299,12 @@ export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = 
     });
     monacoEditor.onDidChangeModelContent(() => onChange());
     monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { void onSave(); });
+    // Find (Mod-f) and next/previous match (F3/Mod-g, Shift-F3/Shift-Mod-g)
+    // are already Monaco's own defaults. Its own Replace action defaults to
+    // Mod-h (Mac: Cmd-Alt-f), not Mod-r -- remapped here to match.
+    monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyR, () => {
+      monacoEditor.getAction('editor.action.startFindReplaceAction')?.run();
+    });
     return monacoEditor;
   }
 
