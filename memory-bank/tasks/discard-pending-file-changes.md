@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Backend mutation + sidecar dispatch + right-click menu, end to end.
+- [x] Phase 1 — Backend mutation + sidecar dispatch + right-click menu, end to end.
   Small enough to be one phase: the mutation, its sidecar wiring, the context-menu
   markup/handlers, and the discard action are all one cohesive unit with no natural
   seam to split on. (satisfies: SPEC-discard-pending-file-changes.md#structure, #style)
@@ -27,13 +27,20 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: DONE
+**Current Phase**: 1
+**Current Step**: 6/6
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-None yet.
+`openGitPendingFileContextMenu`'s definition was moved from the spec's suggested
+location (near `gitFileLabelMarkup`) to further down in `main.js` (near the new
+`contextmenu` listener) — placing it at the spec's suggested spot broke two
+pre-existing contract tests asserting source-order between two occurrences of the
+same selector string. Safe (function hoisting), verified in review; code itself
+unchanged. All build steps green on first attempt otherwise. Manual verification
+(new/modified/deleted buckets in `npm run desktop:dev`) still outstanding — mandatory
+before archiving.
