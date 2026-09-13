@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Universal buffer-word fallback + Tab-to-accept on CodeMirror; manual
+- [x] Phase 1 — Universal buffer-word fallback + Tab-to-accept on CodeMirror; manual
   confirmation that Monaco's pre-existing defaults genuinely hold in this app. Delivers
   the whole spec in one commit-worthy increment — no design fork, no phase boundary
   worth splitting on. (satisfies: SPEC-editor-autocomplete.md#structure, #style)
@@ -31,13 +31,20 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: DONE
+**Current Phase**: 1
+**Current Step**: 6/6
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-None yet.
+None from the spec's substance. One unspecified detail resolved by judgment: the spec
+didn't say where in `desktop/package.json`'s dependency list to insert
+`@codemirror/autocomplete` (the existing `@codemirror/*` block isn't strictly
+alphabetical — `@codemirror/search` is already out of order). Placed it alphabetically,
+ahead of `@codemirror/lang-cpp`. Reviewed and accepted, not a blocking finding.
+
+All build steps green on the first attempt — RED/GREEN, batch test (532/532 TypeScript
++ desktop build), and code review all passed without a retry.
