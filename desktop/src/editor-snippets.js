@@ -102,11 +102,71 @@ export const snippetCatalog = {
       { label: 'main', detail: 'main function', template: 'fn main() {\n\t${}\n}' },
     ],
   },
-  // ... the remaining 13 languages (Kotlin, Swift, Ruby, Scala, Dart,
-  // Objective-C, Lua, Perl, PowerShell, Shell, F#, Elixir, R), each with a
-  // `structural` array in the same shape, authored during the build phase
-  // that covers it, following this exact format and the per-language
-  // exceptions (no class, no while, etc.) named in the spec's Scope section.
+  Kotlin: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'for-in loop', template: 'for (${item} in ${iterable}) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'function', template: 'fun ${name}(${params}) {\n\t${}\n}' },
+      { label: 'class', detail: 'class', template: 'class ${Name} {\n\t${}\n}' },
+    ],
+    idioms: [{ label: 'main', detail: 'main function', template: 'fun main() {\n\t${}\n}' }],
+  },
+  Swift: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if ${condition} {\n\t${}\n}' },
+      { label: 'for', detail: 'for-in loop', template: 'for ${item} in ${iterable} {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while ${condition} {\n\t${}\n}' },
+      { label: 'fun', detail: 'function', template: 'func ${name}(${params}) {\n\t${}\n}' },
+      { label: 'class', detail: 'class', template: 'class ${Name} {\n\t${}\n}' },
+    ],
+    idioms: [],
+  },
+  Ruby: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if ${condition}\n\t${}\nend' },
+      { label: 'for', detail: 'each loop', template: '${iterable}.each do |${item}|\n\t${}\nend' },
+      { label: 'while', detail: 'while loop', template: 'while ${condition}\n\t${}\nend' },
+      { label: 'fun', detail: 'method', template: 'def ${name}(${params})\n\t${}\nend' },
+      { label: 'class', detail: 'class', template: 'class ${Name}\n\t${}\nend' },
+    ],
+    idioms: [],
+  },
+  Scala: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'for comprehension', template: 'for (${item} <- ${iterable}) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'method', template: 'def ${name}(${params}) = {\n\t${}\n}' },
+      { label: 'class', detail: 'class', template: 'class ${Name} {\n\t${}\n}' },
+    ],
+    idioms: [],
+  },
+  Dart: {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'indexed for loop', template: 'for (var ${i} = 0; ${i} < ${limit}; ${i}++) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'function', template: '${returnType} ${name}(${params}) {\n\t${}\n}' },
+      { label: 'class', detail: 'class', template: 'class ${Name} {\n\t${}\n}' },
+    ],
+    idioms: [{ label: 'main', detail: 'main function', template: 'void main() {\n\t${}\n}' }],
+  },
+  'Objective-C': {
+    structural: [
+      { label: 'if', detail: 'if statement', template: 'if (${condition}) {\n\t${}\n}' },
+      { label: 'for', detail: 'indexed for loop', template: 'for (int ${i} = 0; ${i} < ${limit}; ${i}++) {\n\t${}\n}' },
+      { label: 'while', detail: 'while loop', template: 'while (${condition}) {\n\t${}\n}' },
+      { label: 'fun', detail: 'method', template: '- (${returnType})${name} {\n\t${}\n}' },
+      { label: 'class', detail: 'interface (class-equivalent)', template: '@interface ${Name} : NSObject\n${}\n@end' },
+    ],
+    idioms: [],
+  },
+  // ... the remaining 7 languages (Lua, Perl, PowerShell, Shell, F#, Elixir,
+  // R), each with a `structural` array in the same shape, authored during
+  // the build phase that covers it, following this exact format and the
+  // per-language exceptions (no class, no while, etc.) named in the spec's
+  // Scope section.
 };
 
 /** The one translation this needs -- neutral ${name}/${} to Monaco's own

@@ -27,7 +27,7 @@ status: approved
   (satisfies: SPEC-editor-code-snippets.md structural-skeleton content for these 5)
   Test strategy: catalog-shape assertions for these 5 languages; full `npm test`.
 
-- [ ] Phase 3 — JVM/mobile Monaco languages (Kotlin, Swift, Ruby, Scala, Dart,
+- [x] Phase 3 — JVM/mobile Monaco languages (Kotlin, Swift, Ruby, Scala, Dart,
   Objective-C). All Monaco-engine — Phase 1's generic registration loop picks these up
   automatically once the catalog has entries; no new wiring code, content only.
   (satisfies: SPEC-editor-code-snippets.md structural-skeleton content for these 6)
@@ -62,9 +62,9 @@ status: approved
 ## Execution State
 
 **Build Status**: NOT_STARTED
-**Current Phase**: 2
+**Current Phase**: 3
 **Current Step**: 6/6
-**Step Attempts**: {2: 2, 3: 2, 4: 2}
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
@@ -87,3 +87,7 @@ updated to include the `main` skeleton this phase gave C++/C/C#/Rust. Both corre
 the spec directly (dated addenda, not silently rewritten history). All content fixes
 verified against `desktop/src/code-editor.js`'s actual `codeLanguageDefinitions`/
 `monacoLanguageDefinitions` rather than assumed.
+
+Phase 3: none. Both TDD and review explicitly re-verified the engine assignment
+(Monaco, not CodeMirror) for all 6 languages against `code-editor.js` directly before
+proceeding, per Phase 2's lesson. Clean pass, no rework.

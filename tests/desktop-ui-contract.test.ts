@@ -2111,6 +2111,36 @@ test("PHP's indexed-for template keeps its literal $ sigil untouched while ${i} 
   );
 });
 
+test("snippet catalog seeds Kotlin, Swift, Ruby, Scala, Dart and Objective-C per Phase 3 scope", () => {
+  for (const label of ["Kotlin", "Swift", "Ruby", "Scala", "Dart", "Objective-C"]) {
+    assert.ok(snippetCatalog[label], `expected a snippetCatalog entry for ${label}`);
+    const structural = snippetCatalog[label].structural as Array<{ label: string }>;
+    // None of these six is in the spec's documented "no class-or-equivalent"
+    // or "no while" exceptions lists, so all get the full structural set.
+    assert.equal(structural.length, 5, `${label} should have 5 structural entries (if/for/while/fun/class)`);
+    for (const expected of ["if", "for", "while", "fun", "class"]) {
+      assert.ok(
+        structural.some((entry) => entry.label === expected),
+        `${label} should have a '${expected}' structural snippet`,
+      );
+    }
+  }
+  // Kotlin and Dart both require an explicit entry-point function to run, so
+  // each gets a `main` idiom -- same iconic-entry-point pattern as Go/Java/C/C++/C#/Rust.
+  for (const label of ["Kotlin", "Dart"]) {
+    assert.ok(
+      snippetCatalog[label].idioms.some((entry: { label: string }) => entry.label === "main"),
+      `${label} should have a main idiom`,
+    );
+  }
+  // Swift, Ruby, Scala and Objective-C deliberately have no idioms -- not
+  // invented just for Tier B coverage, per spec. Asserted explicitly (===0)
+  // rather than skipped, so this proves "deliberately empty", not "unchecked".
+  for (const label of ["Swift", "Ruby", "Scala", "Objective-C"]) {
+    assert.equal(snippetCatalog[label].idioms.length, 0, `${label} should have no idioms`);
+  }
+});
+
 test("'Go to file' popup opens on either platform's shortcut and reuses the existing file search", () => {
   assert.match(html, /id="quick-open-dialog"/);
   assert.match(html, /id="quick-open-input"/);
