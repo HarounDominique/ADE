@@ -24,6 +24,7 @@ import { EditorState, Compartment, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { openSearchPanel } from '@codemirror/search';
+import { completeAnyWord, acceptCompletion } from '@codemirror/autocomplete';
 import { pathBaseName, fileExtension } from './paths.js';
 
 /** Monaco is a singleton for the page: loading it twice would define its themes
@@ -255,7 +256,9 @@ export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = 
           bracketMatching(),
           indentOnInput(),
           EditorView.lineWrapping,
+          EditorState.languageData.of(() => [{ autocomplete: completeAnyWord }]),
           keymap.of([
+            { key: 'Tab', run: acceptCompletion },
             indentWithTab,
             { key: 'Mod-s', run: () => { void onSave(); return true; } },
             // Find (Mod-f), next/previous match (F3/Mod-g, Shift-F3/Shift-Mod-g)
