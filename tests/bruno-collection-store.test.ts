@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readRequestFile, writeRequestFile, readEnvironmentFile, writeEnvironmentFile } from "../src/adapters/bruno-collection-store.js";
-import type { HttpRequest, HttpEnvironment } from "../src/domain/http-request.js";
+import { readRequestFile, writeRequestFile, readEnvironmentFile, writeEnvironmentFile, listHttpCollectionTree } from "../src/adapters/bruno-collection-store.js";
+import type { HttpRequest, HttpEnvironment, HttpCollectionFolderNode, HttpCollectionRequestNode, HttpCollectionEnvironmentNode } from "../src/domain/http-request.js";
 
 const tempDir = () => mkdtemp(join(tmpdir(), "ade-http-"));
 
@@ -119,4 +119,49 @@ test("an environment's non-secret variable round-trips; a secret variable's name
   assert.equal(roundTripped.variables[1]?.key, "apiKey");
   assert.equal(roundTripped.variables[1]?.secret, true);
   assert.equal(roundTripped.variables[1]?.value, "");
+});
+
+test("listHttpCollectionTree returns an empty tree for a missing directory, not an error", async () => {
+  const directory = await tempDir();
+  const tree = await listHttpCollectionTree(join(directory, "does-not-exist"));
+  assert.deepEqual(tree, []);
+});
+
+test("listHttpCollectionTree walks folders, requests and an environments/ folder, skipping non-.bru files", async (t) => {
+  const directory = await tempDir();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+
+  const request: HttpRequest = {
+    id: "ignored-on-write", name: "List users", method: "GET", url: "{{baseUrl}}/users",
+    headers: [], params: [], auth: { type: "none" }, body: { type: "none" },
+  };
+  await writeRequestFile(join(directory, "List users.bru"), request);
+  await writeRequestFile(join(directory, "Auth", "Login.bru"), { ...request, name: "Login", method: "POST" });
+
+  const environment: HttpEnvironment = { id: "ignored-on-write", name: "ignored-on-write", variables: [{ key: "baseUrl", value: "http://localhost:3000", secret: false }] };
+  await writeEnvironmentFile(join(directory, "environments", "Local.bru"), environment);
+
+  await mkdir(directory, { recursive: true });
+  await writeFile(join(directory, ".gitkeep"), "");
+
+  const tree = await listHttpCollectionTree(directory);
+
+  const rootRequest = tree.find((node): node is HttpCollectionRequestNode => node.type === "request" && node.path === "List users.bru");
+  assert.equal(rootRequest?.name, "List users");
+  assert.equal(rootRequest?.method, "GET");
+
+  const authFolder = tree.find((node): node is HttpCollectionFolderNode => node.type === "folder" && node.path === "Auth");
+  assert.ok(authFolder, "Auth/ is listed as a folder node");
+  const loginRequest = authFolder?.children.find((node): node is HttpCollectionRequestNode => node.type === "request");
+  assert.equal(loginRequest?.name, "Login");
+  assert.equal(loginRequest?.method, "POST");
+  assert.equal(loginRequest?.path, "Auth/Login.bru");
+
+  const environmentsFolder = tree.find((node): node is HttpCollectionFolderNode => node.type === "folder" && node.path === "environments");
+  const localEnvironment = environmentsFolder?.children.find((node): node is HttpCollectionEnvironmentNode => node.type === "environment");
+  assert.equal(localEnvironment?.name, "Local");
+  assert.equal(localEnvironment?.path, "environments/Local.bru");
+
+  // .gitkeep is neither a folder nor a .bru file, so it contributes no node at all.
+  assert.equal(tree.length, 3);
 });

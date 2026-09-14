@@ -2,7 +2,7 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Module id: http-client -->
 
-**Estado:** planned — spec en revisión, nada implementado. La verificación técnica y de licencia de [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md) ya está hecha; el contrato queda cerrado en lo arquitectónico y pendiente sólo de aprobación humana y de la implementación.
+**Estado:** in-progress — Phases 1-4 implementadas y verificadas (dominio, motor de ejecución, historial/evidencia, superficie `Requests` en la shell). Queda Phase 5 (boundary de red no-localhost, barrido de criterios de aceptación).
 
 ## Objective
 
@@ -120,6 +120,8 @@ Tests de parseo y escritura de ficheros `.bru` contra el formato real de Bruno, 
 ## Implementation status
 
 Phase 1 (dominio + E/S de colecciones `.bru`) implementada. [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md) verificó que los cinco paquetes del motor de Bruno son Node MIT independientes de Electron/React; Phase 2 confirmó además, contra su API real, que sólo `@usebruno/lang` y `@usebruno/filestore` terminan consumidos directamente — `@usebruno/requests` y `@usebruno/js` cubren OAuth2/Digest/gRPC/WebSocket/scripting, ninguno dentro del contrato `HttpAuth`/`HttpBody` de esta spec, así que no se vendorizan; la ejecución HTTP usa `axios` directamente (ver la corrección de alcance en el ADR).
+
+Phase 2 (motor de ejecución, `axios`, redacción de secretos en headers y body) y Phase 3 (historial por Project, evidencia de Task vía el mismo mecanismo de `run-configurations`, sin gate) implementadas. Phase 4 implementa la superficie `Requests`: CRUD de colecciones por RPC (`http.collection.list`/`.request.save`/`.environment.save`/`.request.get`/`.environment.get`) y la vista completa en la shell (árbol de colecciones, editor de petición con tabs Params/Headers/Body/Auth/Assertions, panel de respuesta con divisor redimensionable real, selector de entorno). `Requests` ya es la sexta entrada de navegación, entre `Agents` y `Version control` — ver [SPEC-desktop-shell.md#information-architecture](SPEC-desktop-shell.md#information-architecture).
 
 ## Open Questions
 

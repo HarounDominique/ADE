@@ -14,7 +14,7 @@ import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Project } from "../src/domain/project.js";
 import { Task } from "../src/domain/task.js";
 import { agentTurnUsage, handleDesktopRequest, persistAgentPressure, readAgentPressure, summarizeAgentActivity } from "../src/desktop-sidecar.js";
-import type { HttpRequest } from "../src/domain/http-request.js";
+import type { HttpRequest, HttpEnvironment } from "../src/domain/http-request.js";
 import type { Readable } from "node:stream";
 
 const execFile = promisify(execFileCallback);
@@ -246,6 +246,64 @@ test("desktop sidecar prunes Http request evidence beyond the Project's policy, 
     child.kill();
     await once(child, "close");
     await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("desktop sidecar lists an empty Http collection tree for a Project with none yet, and reflects a saved request and environment", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-http-collection-"));
+  const databasePath = join(directory, "ade.db");
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: databasePath },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    const lines = readSidecarLines(child.stdout);
+
+    child.stdin.write(`${JSON.stringify({ id: "list-empty", method: "http.collection.list", params: { repositoryPath: directory } }) }\n`);
+    const empty = await lines.waitFor((message) => message.id === "list-empty") as { result: unknown[] };
+    assert.deepEqual(empty.result, []);
+
+    const httpRequest: HttpRequest = { id: "ignored-on-write", name: "List users", method: "GET", url: "{{baseUrl}}/users", headers: [], params: [], auth: { type: "none" }, body: { type: "none" } };
+    child.stdin.write(`${JSON.stringify({ id: "save-request", method: "http.collection.request.save", params: { repositoryPath: directory, collectionPath: "Auth/List users.bru", httpRequest } }) }\n`);
+    const savedRequest = await lines.waitFor((message) => message.id === "save-request") as { result: { path: string; saved: boolean } };
+    assert.equal(savedRequest.result.saved, true);
+    assert.equal(savedRequest.result.path, "Auth/List users.bru");
+
+    const httpEnvironment: HttpEnvironment = { id: "ignored-on-write", name: "ignored-on-write", variables: [{ key: "baseUrl", value: "http://localhost:3000", secret: false }] };
+    child.stdin.write(`${JSON.stringify({ id: "save-environment", method: "http.collection.environment.save", params: { repositoryPath: directory, collectionPath: "environments/Local.bru", httpEnvironment } }) }\n`);
+    const savedEnvironment = await lines.waitFor((message) => message.id === "save-environment") as { result: { saved: boolean } };
+    assert.equal(savedEnvironment.result.saved, true);
+
+    child.stdin.write(`${JSON.stringify({ id: "list-after-save", method: "http.collection.list", params: { repositoryPath: directory } }) }\n`);
+    const afterSave = await lines.waitFor((message) => message.id === "list-after-save") as { result: Array<{ type: string; name: string; path: string; children?: Array<{ type: string; name: string }> }> };
+    const authFolder = afterSave.result.find((node) => node.type === "folder" && node.path === "Auth");
+    assert.equal(authFolder?.children?.[0]?.name, "List users");
+    const environmentsFolder = afterSave.result.find((node) => node.type === "folder" && node.path === "environments");
+    assert.equal(environmentsFolder?.children?.[0]?.name, "Local");
+
+    // The tree lists only id/name/method per request (SPEC-http-client.md#request-and-collection-contract);
+    // the Requests view (Phase 4b) needs the full HttpRequest to populate the editor when a tree
+    // node is clicked, so a single request is readable by its collection-relative path too.
+    child.stdin.write(`${JSON.stringify({ id: "get-request", method: "http.collection.request.get", params: { repositoryPath: directory, collectionPath: "Auth/List users.bru" } }) }\n`);
+    const gotRequest = await lines.waitFor((message) => message.id === "get-request") as { result: HttpRequest };
+    assert.equal(gotRequest.result.name, "List users");
+    assert.equal(gotRequest.result.method, "GET");
+    assert.equal(gotRequest.result.url, "{{baseUrl}}/users");
+
+    // Same gap, mirrored for environments: the tree lists only id/name per environment node, but
+    // the Requests view needs the full variable set (including secret values) to actually
+    // substitute `{{variable}}` tokens when the operator picks an environment and sends a request.
+    child.stdin.write(`${JSON.stringify({ id: "get-environment", method: "http.collection.environment.get", params: { repositoryPath: directory, collectionPath: "environments/Local.bru" } }) }\n`);
+    const gotEnvironment = await lines.waitFor((message) => message.id === "get-environment") as { result: HttpEnvironment };
+    assert.equal(gotEnvironment.result.name, "Local");
+    assert.deepEqual(gotEnvironment.result.variables, [{ key: "baseUrl", value: "http://localhost:3000", secret: false }]);
+  } finally {
+    child.kill();
+    await once(child, "close");
     rmSync(directory, { recursive: true, force: true });
   }
 });
