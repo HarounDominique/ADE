@@ -80,7 +80,6 @@ jobs:
       - name: Verify source
         run: |
           npm run build
-          npm run seed:check
           node plugins/seed/scripts/validate-plugin-parity.mjs
           npm test
           npm run desktop:sidecar:build

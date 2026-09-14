@@ -29,19 +29,23 @@ const skillsRoot = join(root, codex.skills.replace(/^\.\//, ""));
 const entries = await readdir(skillsRoot, { withFileTypes: true });
 const skills = entries.filter((entry) => entry.isDirectory());
 assert(skills.length > 0, "Codex plugin must publish at least one skill");
-const expectedSkills = [
-  "seed-archive", "seed-build", "seed-creative", "seed-doctor", "seed-go",
-  "seed-init", "seed-plan", "seed-reflect", "seed-roadmap", "seed-spec",
-  "seed-spec-sync", "seed-upgrade", "seed-verify", "seed-workflow",
-];
-for (const expected of expectedSkills) {
-  assert(skills.some((skill) => skill.name === expected), `Codex plugin is missing ${expected}`);
-}
+const commandsRoot = join(root, "commands");
+const commands = (await readdir(commandsRoot, { withFileTypes: true }))
+  .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+  .map((entry) => `seed-${entry.name.slice(0, -3)}`)
+  .sort();
+const publishedSkills = skills.map((skill) => skill.name).sort();
+const hostSkills = ["seed-workflow"];
+const expectedSkills = [...commands, ...hostSkills].sort();
+assert(JSON.stringify(publishedSkills) === JSON.stringify(expectedSkills),
+  `Codex skills must map to Claude commands plus host skills. Commands=${commands.join(",")} skills=${publishedSkills.join(",")}`);
 for (const skill of skills) {
   const path = join(skillsRoot, skill.name, "SKILL.md");
   await requireFile(path);
   const body = await readFile(path, "utf8");
   assert(body.startsWith("---\n"), `${skill.name}: SKILL.md is missing frontmatter`);
+  assert(new RegExp(`^name: ${skill.name}$`, "m").test(body), `${skill.name}: frontmatter name must match its directory`);
+  assert(/^description: .+$/m.test(body), `${skill.name}: frontmatter description is required`);
   assert(!body.includes("${CLAUDE_PLUGIN_ROOT}"), `${skill.name}: Codex skill contains a Claude-only root placeholder`);
 }
 
