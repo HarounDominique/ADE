@@ -70,7 +70,7 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | run-configurations | [SPEC-run-configurations.md](SPEC-run-configurations.md) | Configuraciones de arranque y depuración del Project, puertos y consola por ejecución | local-runtime, desktop-shell, workspace-core | in-progress | — |
 | agent-terminal-history | [SPEC-agent-terminal-history.md](SPEC-agent-terminal-history.md) | Historial de terminales con agente, reanudación por id, títulos y popup del dock | workspace-core, agent-providers, desktop-shell | done | — |
 | structural-gate | [SPEC-structural-gate.md](SPEC-structural-gate.md) | Veredicto estructural externo (ASK) como gate citable del Task, opt-in por política | changes-review-governance, native-skills | in-progress | — |
-| http-client | [SPEC-http-client.md](SPEC-http-client.md) | Cliente de peticiones HTTP embebido, colecciones versionables y evidencia de ejecución por Task | project-task-workflow, changes-review-governance, workspace-core, desktop-shell | planned | — |
+| http-client | [SPEC-http-client.md](SPEC-http-client.md) | Cliente de peticiones HTTP embebido, colecciones versionables y evidencia de ejecución por Task | project-task-workflow, changes-review-governance, workspace-core, desktop-shell | done | — |
 
 `done` identifica capacidades implementadas y verificadas; `planned` identifica una spec aprobada para una iteración posterior, todavía no implementada.
 
@@ -345,6 +345,21 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-13 — v0.2.0-packaged-release — Primer release empaquetado publicado en GitHub mediante el workflow de tag: `.dmg` macOS, `.deb` Ubuntu e instalador Windows construidos en sus runners nativos. El log de Windows de esa corrida reveló dos defectos nuevos ajenos a los anteriores —una comparación de ruta con `/` embebido en un literal que `.join()` no reparte de nuevo en Windows, y un timeout de inspección de toolchain demasiado corto (1500 ms → 4000 ms)—, corregidos antes de que la publicación quedara verde. La numeración de este paquete es la del semver del binario, independiente de las slices `v0.1`-`v0.4` de este nexus.
 - 2026-09-13 — editor-navigation-shortcuts-and-quick-open — Buscar (`Mod-f`), siguiente coincidencia (`F3`/`Mod-g`) y anterior (`Shift-F3`/`Shift-Mod-g`) ya funcionaban sin cambios en CodeMirror y Monaco; sólo Reemplazar (`Mod-r`) carecía de atajo en ambos motores. Se añaden además dos popups de apertura rápida de fichero por teclado, ninguno en la topbar: `Go to file` (`Ctrl+Shift+N`/`Cmd+Shift+O`) filtra en vivo sobre el mismo `search_directory` del Explorer con navegación de flechas, y `Recent files` (`Ctrl+E`/`Cmd+E`) lista los últimos 20 ficheros abiertos en la sesión. Ambos se cierran con Escape o con un click en el fondo del `<dialog>`. Se propagó a `SPEC-file-workspace`, `SPEC-desktop-shell` y enmienda la afirmación de `SPEC-git-collaboration` de que el filtro del Explorer era el único buscador de ficheros. Baseline: 531 tests TypeScript y 52 Rust.
 - 2026-09-14 — http-client-spec — Se documenta el módulo `http-client`: cliente de peticiones HTTP embebido, colecciones versionables en `.ade/http/` y evidencia de ejecución atribuible a Task, vendorizando el motor de Bruno (`@usebruno/lang`, `@usebruno/requests`, `@usebruno/js`, `@usebruno/common`, `@usebruno/filestore` — paquetes Node MIT, verificados independientes de Electron/React vía `@usebruno/cli`) en lugar de construir un cliente desde cero o embeber su aplicación de escritorio completa. La decisión, las alternativas descartadas (Hoppscotch, cliente propio, app de Bruno embebida entera) y la verificación de licencias quedan en [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md). El módulo añade una sexta entrada de navegación, `Requests`, entre `Agents` y `Version control`, anotada como extensión planeada en `SPEC-desktop-shell`. Una ejecución con `assertions` es evidencia citable pero no se conecta al pipeline de gates. Queda `planned`: la verificación técnica está hecha, la implementación no ha empezado.
+- 2026-09-14 — http-client-build — Se implementan las cinco fases del módulo `http-client`:
+  dominio y E/S de colecciones `.bru` (vendorizando `@usebruno/filestore`/`@usebruno/lang`),
+  motor de ejecución sobre `axios` directo (`@usebruno/requests` se instaló, se auditó y se
+  descartó por superficie innecesaria — OAuth2/Digest/gRPC/WebSocket no usados por el contrato
+  `HttpAuth`/`HttpBody` — ver corrección de alcance en [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md)),
+  historial por Project y evidencia de Task vía el mismo mecanismo de `run-configurations`, CRUD
+  de colecciones por RPC, la superficie `Requests` completa en la shell (sexta entrada de
+  navegación, entre `Agents` y `Version control` — `SPEC-desktop-shell` actualizada), diálogo
+  `Ask first` por loopback y borrado con confirmación. Dos bloqueos de review corregidos en el
+  camino (evidencia sin política de poda; secreto sin redactar en el body de respuesta) y uno
+  final (spec/código desincronizados en el alcance real de `Ask first`, ya sincronizado). Un
+  hallazgo de seguridad real —path traversal en los métodos RPC de colección— se cerró con un
+  guard de contención compartido antes de cerrar la tarea. La baseline de 573 tests TypeScript
+  sube a 642 con el módulo completo; build y bundle esbuild limpios. Los siete criterios de
+  aceptación del spec están cubiertos por tests reales. El módulo pasa a `done`.
 
 ## Automatic Reconciliation Log
 

@@ -294,9 +294,10 @@ test("every message can be copied, whatever the clipboard does", () => {
 
 test("navigation runs from the work outward", () => {
   // Order is part of the contract: Projects and Agents are where work starts,
-  // Version control is where it is judged, and Editor is the escape hatch.
+  // Requests sits between building the change and reviewing it (Version control) --
+  // SPEC-http-client.md#decisions -- and Editor is the escape hatch.
   const order = [...html.matchAll(/<button class="nav-item[^"]*" data-view="([a-z]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(order, ["projects", "agents", "changes", "knowledge", "editor"]);
+  assert.deepEqual(order, ["projects", "agents", "requests", "changes", "knowledge", "editor"]);
   assert.match(html, /data-view="knowledge"[\s\S]*?<span>Context<\/span>/);
   assert.doesNotMatch(html, /<span>Project context<\/span>/);
 });

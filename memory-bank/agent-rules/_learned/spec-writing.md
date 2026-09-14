@@ -71,6 +71,21 @@ the *first* task's own fix. Confirms this is not a one-off spec gap but a durabl
 spot: every git read path in this codebase needs its own independent check against a
 zero-commit repository, not an inference from sibling paths already fixed.
 
+### verify-full-crud-exists-before-scoping-a-consuming-ui-phase
+_derived_from: reflection/http-client.md · evidence_count: 1 · last_validated: 2026-09-14_
+
+Before writing a roadmap phase that builds a UI to browse/edit/manage a resource, check
+that every operation the UI will need (list, get-one, save, delete — not just whichever
+subset an earlier phase happened to build for its own narrower purpose) already exists
+as a backend/RPC method. `http-client`'s Phase 1 built single-file `.bru` read/write
+because that's what round-trip testing needed; nobody revisited whether a whole
+directory tree could be *listed*, or a single file *fetched by path for editing*, until
+Phase 4 (the UI phase) actually needed both and neither existed. The roadmap had to be
+corrected mid-build, splitting Phase 4 into a backend sub-step before the UI sub-step
+could start. A `/seed:plan` pass for any resource-management UI phase should explicitly
+enumerate list/get/save/delete against what's already built, not assume execution-path
+coverage implies CRUD coverage.
+
 ### overloaded-feature-term-disambiguation
 _derived_from: reflection/editor-autocomplete.md · evidence_count: 1 · last_validated: 2026-09-13_
 
