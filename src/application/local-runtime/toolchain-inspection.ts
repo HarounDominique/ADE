@@ -72,7 +72,10 @@ function identifier(prefix: string, name: string): string {
   return `${prefix}${name}`.replaceAll(/[^a-z0-9-]+/gi, "-").replaceAll(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
 }
 
-async function probe(id: string, label: string, command: string, args: readonly string[], source: string, cwd: string, environment: NodeJS.ProcessEnv): Promise<ToolchainStatus> {
+/** Exported so `src/application/local-runtime/database-toolchain.ts` can reuse this exact
+    read-only `--version` probe for `psql`/`mysql`/`sqlite3`, instead of a second implementation of
+    the same spawn/timeout/output handling. */
+export async function probe(id: string, label: string, command: string, args: readonly string[], source: string, cwd: string, environment: NodeJS.ProcessEnv): Promise<ToolchainStatus> {
   const base = { id, label, command, source };
   return new Promise((resolve) => {
     // A toolchain probe is a question, not a window: on Windows every one of

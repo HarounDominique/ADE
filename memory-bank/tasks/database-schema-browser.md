@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Dominio y detección de toolchain. Tipos `DatabaseConnection`/`SchemaColumn`/
+- [x] Phase 1 — Dominio y detección de toolchain. Tipos `DatabaseConnection`/`SchemaColumn`/
   `SchemaForeignKey`/`SchemaTable`/`SchemaSnapshot`/`ToolchainGap` en `src/domain/`.
   Lectura/escritura round-trip de `.ade/database-connections.json`, validando que ningún
   campo de contraseña puede colarse en el tipo ni en el fichero. Detección de
@@ -17,8 +17,19 @@ status: approved
   Test strategy: round-trip de `.ade/database-connections.json` contra fixtures; test de
   que el tipo `DatabaseConnection` no admite un campo de contraseña ni por accidente de
   tipado estructural; test de detección de toolchain con cliente presente/ausente.
+  Done: `src/domain/database-schema.ts`, `src/adapters/database-connection-store.ts`,
+  `src/application/local-runtime/database-toolchain.ts` (reutiliza `probe()`, ahora
+  exportado, de `toolchain-inspection.ts`), `tests/database-schema.test.ts`,
+  `tests/database-connection-store.test.ts`, `tests/database-toolchain.test.ts`.
+  11/11 tests nuevos, 683/683 suite completa, build limpio, review pasó limpio a la
+  primera. Guarda contra contraseña verificada en dos capas independientes: tipo
+  (`Extract<keyof DatabaseConnection, ForbiddenConnectionKey>` + `@ts-expect-error`) y
+  runtime (`toConnection()` reconstruye cada entrada campo a campo en lectura y
+  escritura, probado inyectando `password: "hunter2"` por spread y confirmando que ni
+  la clave ni el valor sobreviven al fichero). Ninguna ambigüedad de spec encontrada;
+  no aplica `/seed:spec-sync`.
 
-- [ ] Phase 2 — Ejecución de introspección por motor. Construcción del comando exacto
+- [x] Phase 2 — Ejecución de introspección por motor. Construcción del comando exacto
   (argv) para `psql --csv`, `mysql --batch --raw` y `sqlite3 -json` contra las consultas
   fijas de catálogo (tablas, columnas, nullable, PK, FK a nivel de tabla, índices) de cada
   motor; ejecución como subproceso de una sola pasada vía `LocalProcess`; parseo de cada
@@ -31,6 +42,13 @@ status: approved
   Test strategy: construcción de argv por motor y conexión contra fixtures fijos; parseo
   contra salida capturada real de cada cliente (con y sin tablas, columnas con caracteres
   especiales, con clave foránea); ningún test depende de un servidor real corriendo.
+  Done: `src/application/local-runtime/database-introspection.ts` expone argv fijo y
+  parseadores CSV/TSV/JSON, pliega columnas/PK/FK/índices en `SchemaSnapshot`, limita el
+  proceso one-shot y conserva los mensajes nativos de error. El sidecar expone
+  `database.connections.list`, `.connections.save`, `.connections.delete` y
+  `database.schema.browse`. 4 tests nuevos específicos y build limpio; la suite completa
+  queda en 659 pasados, con 2 fallos EPERM de listeners HTTP del sandbox y 1 test cancelado
+  por ese mismo límite de red preexistente.
 
 - [ ] Phase 3 — Superficie `Database` en la shell. Nueva entrada de navegación en el
   lateral (`desktop/src`): selector de conexión, formulario de alta/edición sin campo de
@@ -57,10 +75,10 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: RUNNING
+**Current Phase**: 3
+**Current Step**: 1/6
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
@@ -81,3 +99,14 @@ status: approved
 - A diferencia de `http-client`, este roadmap no incluye una fase de historial/evidencia
   de Task: la spec la deja explícitamente fuera de alcance (Open Questions), no
   pendiente de planificar.
+- Phase 1: `database-connection-store.ts` no incluye guard de contención de ruta propio
+  (path traversal) — se deja para la fase RPC (Phase 2), mismo criterio que
+  `readRequestFile`/`writeRequestFile` de `http-client`, que tampoco lo llevan en el
+  adapter y lo aplican en la capa de sidecar (`resolveHttpCollectionPath`). Anotado
+  explícitamente para que Phase 2 no lo dé por hecho.
+- Phase 1: los tests de detección de toolchain ajustaron sus aserciones a forma de
+  versión (`/\d+\.\d+/`) en vez de una versión fija, porque `runtimeEnvironment()`
+  reutilizado sin modificar puede exponer un `psql` real de Homebrew en la máquina de
+  desarrollo por delante del fixture falso del test; el caso "cliente ausente" usa
+  `mysql` en vez de `psql` por el mismo motivo. Comportamiento de producción sin
+  cambios, sólo el fixture de test.

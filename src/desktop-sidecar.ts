@@ -58,11 +58,14 @@ import { resolveProviderSessionId } from "./application/terminal-history/provide
 import { executeHttpRequest } from "./adapters/http-request-executor.js";
 import { deleteCollectionEntry, listHttpCollectionTree, readEnvironmentFile, readRequestFile, writeRequestFile, writeEnvironmentFile } from "./adapters/bruno-collection-store.js";
 import type { HttpEnvironment, HttpRequest } from "./domain/http-request.js";
+import type { DatabaseConnection } from "./domain/database-schema.js";
+import { loadDatabaseConnections, saveDatabaseConnections } from "./adapters/database-connection-store.js";
+import { introspectDatabaseSchema } from "./application/local-runtime/database-introspection.js";
 
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; settings?: Partial<UserSettings>; prompt?: string; commit?: string; file?: string; untracked?: boolean; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean; workflowMode?: WorkflowMode; result?: WorkflowResult; files?: string[]; ref?: string; httpRequest?: HttpRequest; httpEnvironment?: HttpEnvironment; limit?: number; collectionPath?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; settings?: Partial<UserSettings>; prompt?: string; commit?: string; file?: string; untracked?: boolean; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean; workflowMode?: WorkflowMode; result?: WorkflowResult; files?: string[]; ref?: string; httpRequest?: HttpRequest; httpEnvironment?: HttpEnvironment; limit?: number; collectionPath?: string; databaseConnection?: DatabaseConnection; databaseConnections?: DatabaseConnection[]; connectionId?: string };
 };
 
 export type DesktopResponse = {
@@ -704,6 +707,14 @@ export async function runDesktopSidecar(): Promise<void> {
         void detectRunConfigurationsFor(request);
       } else if (request.method === "toolchain.inspect") {
         void inspectProjectToolchainsFor(request);
+      } else if (request.method === "database.connections.list") {
+        void listDatabaseConnections(request);
+      } else if (request.method === "database.connections.save") {
+        void saveDatabaseConnection(request);
+      } else if (request.method === "database.connections.delete") {
+        void deleteDatabaseConnection(request);
+      } else if (request.method === "database.schema.browse") {
+        void browseDatabaseSchema(request);
       } else if (request.method === "run.save") {
         void saveRunConfigurationsFor(request);
       } else if (request.method === "terminal.history.save") {
@@ -930,6 +941,58 @@ async function inspectProjectToolchainsFor(request: DesktopRequest): Promise<voi
     process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "TOOLCHAIN_INSPECT_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
   }
 }
+
+function databaseConnectionsPath(repositoryPath: string): string { return join(repositoryPath, ".ade", "database-connections.json"); }
+
+async function listDatabaseConnections(request: DesktopRequest): Promise<void> {
+  const repositoryPath = request.params?.repositoryPath;
+  if (!repositoryPath) return writeSidecarError(request, "INVALID_PARAMS", "repositoryPath is required");
+  try { process.stdout.write(`${JSON.stringify({ id: request.id, result: await loadDatabaseConnections(databaseConnectionsPath(repositoryPath)) })}\n`); }
+  catch (error) { writeSidecarError(request, "DATABASE_CONNECTIONS_LIST_FAILED", errorMessage(error)); }
+}
+
+async function saveDatabaseConnection(request: DesktopRequest): Promise<void> {
+  const repositoryPath = request.params?.repositoryPath;
+  const connection = request.params?.databaseConnection;
+  if (!repositoryPath || !connection) return writeSidecarError(request, "INVALID_PARAMS", "repositoryPath and databaseConnection are required");
+  try {
+    const path = databaseConnectionsPath(repositoryPath);
+    const connections = [...await loadDatabaseConnections(path)];
+    const index = connections.findIndex((candidate) => candidate.id === connection.id);
+    if (index >= 0) connections[index] = connection;
+    else connections.push(connection);
+    await saveDatabaseConnections(path, connections);
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: connection })}\n`);
+  } catch (error) { writeSidecarError(request, "DATABASE_CONNECTION_SAVE_FAILED", errorMessage(error)); }
+}
+
+async function deleteDatabaseConnection(request: DesktopRequest): Promise<void> {
+  const repositoryPath = request.params?.repositoryPath;
+  const connectionId = request.params?.connectionId;
+  if (!repositoryPath || !connectionId) return writeSidecarError(request, "INVALID_PARAMS", "repositoryPath and connectionId are required");
+  try {
+    const path = databaseConnectionsPath(repositoryPath);
+    const connections = [...await loadDatabaseConnections(path)];
+    await saveDatabaseConnections(path, connections.filter((connection) => connection.id !== connectionId));
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: { connectionId, deleted: true } })}\n`);
+  } catch (error) { writeSidecarError(request, "DATABASE_CONNECTION_DELETE_FAILED", errorMessage(error)); }
+}
+
+async function browseDatabaseSchema(request: DesktopRequest): Promise<void> {
+  const repositoryPath = request.params?.repositoryPath;
+  const connectionId = request.params?.connectionId;
+  if (!repositoryPath || !connectionId) return writeSidecarError(request, "INVALID_PARAMS", "repositoryPath and connectionId are required");
+  try {
+    const connections = await loadDatabaseConnections(databaseConnectionsPath(repositoryPath));
+    const connection = connections.find((candidate) => candidate.id === connectionId);
+    if (!connection) return writeSidecarError(request, "DATABASE_CONNECTION_NOT_FOUND", `Unknown database connection: ${connectionId}`);
+    const result = await introspectDatabaseSchema(new LocalProcess(), connection, repositoryPath);
+    process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`);
+  } catch (error) { writeSidecarError(request, "DATABASE_SCHEMA_BROWSE_FAILED", errorMessage(error)); }
+}
+
+function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+function writeSidecarError(request: DesktopRequest, code: string, message: string): void { process.stdout.write(`${JSON.stringify({ id: request.id, error: { code, message } })}\n`); }
 
 async function saveRunConfigurationsFor(request: DesktopRequest): Promise<void> {
   const { repositoryPath, configurations } = request.params ?? {};
