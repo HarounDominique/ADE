@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Dominio y E/S de colecciones. Vendorizar `@usebruno/lang` y
+- [x] Phase 1 — Dominio y E/S de colecciones. Vendorizar `@usebruno/lang` y
   `@usebruno/filestore` en el sidecar; tipos `HttpRequest`/`HttpEnvironment`/colección;
   lectura y escritura de `.ade/http/*.bru` round-trip sin pérdida. Sin superficie de
   usuario. (satisfies: SPEC-http-client.md#product-contract,
@@ -14,6 +14,9 @@ status: approved
   Test strategy: parseo/escritura contra ficheros `.bru` reales (incluida compatibilidad
   con colecciones creadas por la CLI/app de Bruno), sustitución de variables con
   entorno no definido.
+  Done: `src/domain/http-request.ts`, `src/adapters/bruno-collection-store.ts`,
+  `tests/http-request.test.ts`, `tests/bruno-collection-store.test.ts`. 573/573 tests,
+  build limpio, review pasó en el segundo intento (ver Deviations).
 
 - [ ] Phase 2 — Motor de ejecución en el sidecar. Vendorizar `@usebruno/requests`;
   método `http.request.execute` corre la petición desde el sidecar (nunca el webview),
@@ -81,3 +84,23 @@ status: approved
 - Complejidad leída como `designed`, no `nexus`: aunque el módulo es grande, es un único
   módulo con una decisión de diseño abierta (superficie de navegación, Phase 4) y no
   agrupa varias capacidades que exijan spec-nexus propio dentro de esta tarea.
+- Phase 1 review (step 4, attempt 1) bloqueó: `package.json`/`package-lock.json` añadió
+  `@usebruno/filestore`, `@usebruno/lang` y `nanoid` como dependencias reales sin
+  actualizar `desktop/THIRD_PARTY_LICENSES.md`, que ADR-0059 exige explícitamente al
+  ocurrir justo esa condición. Corregido: las tres filas ya están en la tabla.
+- `nanoid@3.3.19` no es una dependencia elegida por esta tarea: el bundle CJS de
+  `@usebruno/filestore@0.12.0` hace `require('nanoid')` en tiempo de ejecución pero su
+  propio `package.json` no lo declara en `dependencies` (sólo `@types/nanoid`) — un
+  hueco real del paquete vendorizado, no una decisión de diseño. Se fija en major 3
+  porque nanoid 4+ dejó de soportar `require()` CJS, que es como el bundle lo consume.
+- `@usebruno/lang` queda como dependencia directa de `package.json` sin ningún `import`
+  propio en `src/`: sólo se alcanza transitivamente a través de `@usebruno/filestore`.
+  Se mantiene directa (no sólo transitiva) porque ADR-0059 la nombra explícitamente como
+  una de las cinco piezas del "motor vendorizado" a efectos de inventario de licencias;
+  si una fase posterior necesita llamarla directamente, no hace falta añadirla de nuevo.
+- Phase 1 reveló un gap real de contrato (`HttpRequest.params` no distingue query/path).
+  No amerita `/seed:spec-sync` completo: nada más cita
+  `SPEC-http-client.md#request-and-collection-contract` todavía, así que no hay
+  propagación cruzada que hacer. Se registró directamente como Open Question nueva en
+  `SPEC-http-client.md`, a decidir antes de que Phase 2 dependa del contrato de
+  `params`.
