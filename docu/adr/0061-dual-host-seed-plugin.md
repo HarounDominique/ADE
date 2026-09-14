@@ -64,7 +64,9 @@ una segunda variante que pueda divergir.
 - Checkout limpio: ambos repositorios validan sin depender de cambios no
   commiteados ni de la presencia del repositorio hermano `seed`.
 - CI declara runners Ubuntu y Windows para la matriz y Ubuntu, macOS y Windows
-  para release. El run remoto `34849044364` confirmó Linux; Windows alcanzó
-  641/642 tests y falló en `toolchain-inspection`, fuera del alcance SEED.
-- La certificación remota de los commits duales actuales queda pendiente hasta
-  que el branch que contiene `3fed695`, `e60f09b` y `dfbe5f9` se publique.
+  para release. El run remoto certificado `34861539431`, sobre `7aeb6df`, pasó
+  la validación SEED en ambos runners y publicó los artefactos
+  `seed-parity-linux` y `seed-parity-windows`. Windows completó además tests,
+  compilación, empaquetado y smoke test.
+- El empaquetado Linux general puede continuar más tiempo que la validación del
+  plugin; no cambia la evidencia específica de paridad ya publicada.
