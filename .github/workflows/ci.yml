@@ -51,6 +51,12 @@ jobs:
       - name: Typecheck
         run: npm run build
 
+      - name: Validate dual-host SEED plugin
+        run: npm run seed:check
+
+      - name: Validate vendored SEED parity
+        run: node plugins/seed/scripts/validate-plugin-parity.mjs
+
       - name: Build sidecar
         run: npm run desktop:sidecar:build
 
