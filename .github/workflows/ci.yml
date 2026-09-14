@@ -52,7 +52,15 @@ jobs:
         run: npm run build
 
       - name: Validate vendored SEED parity
-        run: node plugins/seed/scripts/validate-plugin-parity.mjs
+        run: node plugins/seed/scripts/validate-plugin-parity.mjs | tee "seed-parity-${{ matrix.platform }}.txt"
+
+      - name: Upload SEED parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-parity-${{ matrix.platform }}
+          path: seed-parity-${{ matrix.platform }}.txt
+          if-no-files-found: error
 
       - name: Build sidecar
         run: npm run desktop:sidecar:build
