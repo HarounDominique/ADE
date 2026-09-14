@@ -33,7 +33,7 @@ status: approved
   `tests/desktop-ui-contract.test.ts` additions, manual toggle check in
   `npm run desktop:dev`.
 
-- [ ] Phase 3 — HTML preview toggle (security-critical): `isHtmlPath`; `Preview` renders
+- [x] Phase 3 — HTML preview toggle (security-critical): `isHtmlPath`; `Preview` renders
   inside `<iframe sandbox srcdoc="...">` **without** `allow-scripts`; `Source` reuses the
   existing `@codemirror/lang-html` surface (`ADR-0023`) — no new editor. New
   `tests/html-preview.test.ts`, mirroring `tests/markdown-preview.test.ts`'s method:
@@ -124,3 +124,18 @@ status: approved
   to extract the shared factory first (lower total debt, touches already-pinned Markdown
   code). Proceeding with the established pattern for Phase 3 to keep the roadmap moving;
   this is the tradeoff being made, not an oversight.
+- Phase 3 (security-critical): `htmlPreviewSandbox()` returns `''` — the empty/bare
+  `sandbox` form, which is the maximally restrictive one (opts into every platform
+  restriction; a token would opt back out of one). Set statically in `index.html`'s
+  initial markup (attribute present from parse time, no dynamic iframe creation) and
+  redundantly via `setAttribute` before `.srcdoc` is assigned. `htmlPreviewSrcdoc()`
+  deliberately does not escape/strip content — safety is the sandbox, not content
+  transformation, matching ADR-0060's decision. Review traced every `sandbox`/`srcdoc`
+  occurrence in the diff by hand (one static, one dynamic call site; exactly one
+  `.srcdoc =` in the whole bundle) and confirmed PASS with high confidence, not on the
+  strength of the implementer's claim alone. Dropped one over-strict RED test ("the
+  literal string `allow-scripts` never appears anywhere in the shipped shell") that
+  collided with legitimate explanatory comments documenting *why* it's omitted;
+  replaced by structural assertions on the actual builder function's return value and
+  call-site coverage — accepted as the stronger, more precise test.
+- No spec ambiguity or gap surfaced in Phase 3 — `/seed:spec-sync` not needed.

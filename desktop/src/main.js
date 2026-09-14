@@ -2048,7 +2048,7 @@ function updateDocumentEditState() {
   const discardButton = document.getElementById('discard-file');
   const formatButton = document.getElementById('format-document');
   const kindElement = document.getElementById('document-kind');
-  const editable = Boolean(activeDocument?.kind === 'text' && editor && (!editor.hidden || markdownPreviewVisible() || svgPreviewVisible()));
+  const editable = Boolean(activeDocument?.kind === 'text' && editor && (!editor.hidden || markdownPreviewVisible() || svgPreviewVisible() || htmlPreviewVisible()));
   const wasDirty = documentDirty;
   documentDirty = editable && codeEditorValue() !== documentOriginalContent;
   if (saveButton) saveButton.disabled = !documentDirty;
@@ -2066,6 +2066,7 @@ function updateDocumentEditState() {
   // Formatting and discarding rewrite the buffer the preview is showing.
   if (markdownPreviewVisible()) void renderMarkdownPreview();
   if (svgPreviewVisible()) void renderSvgPreview();
+  if (htmlPreviewVisible()) void renderHtmlPreview();
   // The tab record carries the state the tree reads, so the tree is repainted
   // after it has been written -- before that write, a file that was just saved
   // still looks unsaved.
@@ -2166,6 +2167,7 @@ async function renderActiveDocument({ focus = false } = {}) {
     await setCodeEditorContent('');
     await syncMarkdownPreview();
     await syncSvgPreview();
+    await syncHtmlPreview();
     await syncImagePreview();
     updateDocumentEditState();
     decorateWorkspaceTree();
@@ -2198,6 +2200,7 @@ async function renderActiveDocument({ focus = false } = {}) {
   if (isText) restoreDocumentCaret(record);
   await syncMarkdownPreview();
   await syncSvgPreview();
+  await syncHtmlPreview();
   await syncImagePreview();
   updateDocumentEditState();
   decorateWorkspaceTree();
@@ -2206,6 +2209,7 @@ async function renderActiveDocument({ focus = false } = {}) {
   if (isText && focus) {
     if (markdownPreviewVisible()) document.getElementById('document-preview')?.focus();
     else if (svgPreviewVisible()) document.getElementById('document-svg-preview')?.focus();
+    else if (htmlPreviewVisible()) document.getElementById('document-html-preview')?.focus();
     else editorSurface?.focus();
   }
 }
@@ -2694,6 +2698,10 @@ function isSvgPath(filePath = '') {
   return ['svg'].includes(fileExtension(filePath));
 }
 
+function isHtmlPath(filePath = '') {
+  return ['html', 'htm'].includes(fileExtension(filePath));
+}
+
 /** The MIME type the base64 bytes from `read_file_in` decode as, for the
     `data:` URL fed to the preview `<img>`. `jpg` and `jpeg` both resolve to
     `image/jpeg`, matching `isImagePath`'s whitelist. */
@@ -2957,6 +2965,118 @@ async function toggleSvgPreview() {
   await syncSvgPreview();
   updateDocumentEditState();
   if (record.svgPreview) document.getElementById('document-svg-preview')?.focus();
+  else editorSurface?.focus();
+}
+
+/** HTML gets the same Preview/Source toggle as Markdown and SVG, namespaced to
+    its own localStorage key and its own per-record flag so switching a
+    Markdown or SVG tab's preference never flips an HTML tab's. Unlike SVG,
+    an .html file is fully executable markup, not a format the platform
+    already refuses to execute -- so Preview renders inside
+    `<iframe sandbox srcdoc="...">` with `allow-scripts` deliberately omitted
+    (ADR-0060). That omission is the entire mechanism relied on here: it is
+    what keeps a `<script>` or an inline handler like `onerror=` from ever
+    running, exactly as `tests/markdown-preview.test.ts` requires for
+    Markdown, restated for a format that cannot be made safe by escaping
+    alone. `Source` reuses the existing CodeMirror `lang-html` surface
+    (ADR-0023) -- no new editor. */
+const htmlPreviewStorageKey = 'ade-html-preview';
+let htmlPreviewPreference = true;
+try { htmlPreviewPreference = localStorage.getItem(htmlPreviewStorageKey) !== 'source'; } catch { htmlPreviewPreference = true; }
+
+/** A record only renders as the HTML preview once it is readable text with an
+    `.html`/`.htm` path; anything else stays with the editor's own loading,
+    binary and failure states. */
+function documentIsRenderableHtml(record) {
+  return Boolean(record && record.state === 'ready' && record.kind === 'text' && isHtmlPath(record.path));
+}
+
+/** The one and only sandbox value this codebase ever sets on the HTML preview
+    iframe. Supplying the `sandbox` attribute at all opts an iframe into every
+    platform restriction (script execution, same-origin access, top-level
+    navigation, popups, form submission, modals...); each space-separated
+    token in its *value* opts back out of exactly one. This value opts back
+    out of nothing, so nothing that was blocked becomes allowed again -- in
+    particular `allow-scripts` is never present, so an embedded `<script>` or
+    an inline `onerror=`/`javascript:` handler never executes. Pulled into its
+    own function so tests/html-preview.test.ts asserts directly against what
+    ships, not a copy of it. */
+function htmlPreviewSandbox() {
+  return '';
+}
+
+/** The exact text handed to the iframe's `srcdoc` -- unmodified from the
+    document's own content. Unlike Markdown's `html: false` escaping, this
+    does not alter, strip or sanitize the source at all (ADR-0060 rejected
+    DOMPurify for this phase): the safety guarantee is entirely
+    `htmlPreviewSandbox()`, applied to the same iframe in the same step (see
+    renderHtmlPreview below). A `<script>` reaching this string intact is
+    expected and correct -- the sandbox is what keeps it from running, not
+    this function. */
+function htmlPreviewSrcdoc(source = '') {
+  return source;
+}
+
+async function renderHtmlPreview() {
+  const frame = document.getElementById('document-html');
+  const record = documentTabById(activeDocumentId);
+  if (!frame || !documentIsRenderableHtml(record)) return;
+  // The editor holds the text that is actually on screen, including edits that
+  // have not been saved, so the preview reads from it rather than from the
+  // record's last written buffer -- the same rule renderMarkdownPreview and
+  // renderSvgPreview follow.
+  const source = codeEditorValue() || (record.buffer ?? '');
+  frame.setAttribute('sandbox', htmlPreviewSandbox());
+  frame.srcdoc = htmlPreviewSrcdoc(source);
+}
+
+/** One place decides which of the two surfaces the panel is showing, so the
+    toggle, the tab switch and a document that stops being HTML all end up
+    with the same account of it -- the same role syncMarkdownPreview and
+    syncSvgPreview play for their formats. */
+async function syncHtmlPreview() {
+  const content = document.getElementById('document-content');
+  const preview = document.getElementById('document-html-preview');
+  const toggle = document.getElementById('html-preview-toggle');
+  if (!content || !preview) return;
+  const record = documentTabById(activeDocumentId);
+  const renderable = documentIsRenderableHtml(record);
+  if (renderable && record.htmlPreview === undefined) record.htmlPreview = htmlPreviewPreference;
+  const rendered = renderable && record.htmlPreview === true;
+  if (toggle) {
+    toggle.hidden = !renderable;
+    toggle.disabled = !renderable;
+    toggle.textContent = rendered ? 'Source text' : 'Preview';
+    toggle.setAttribute('aria-pressed', String(rendered));
+    const label = rendered ? 'Show HTML source text' : 'Show HTML preview';
+    toggle.setAttribute('aria-label', label);
+    toggle.title = label;
+  }
+  preview.hidden = !rendered;
+  if (rendered) {
+    content.hidden = true;
+    await renderHtmlPreview();
+    return;
+  }
+  if (record?.state === 'ready' && record.kind === 'text') content.hidden = false;
+}
+
+function htmlPreviewVisible() {
+  const preview = document.getElementById('document-html-preview');
+  return Boolean(preview && !preview.hidden);
+}
+
+async function toggleHtmlPreview() {
+  const record = documentTabById(activeDocumentId);
+  if (!documentIsRenderableHtml(record)) return;
+  record.htmlPreview = !(record.htmlPreview ?? htmlPreviewPreference);
+  // The last choice is the one the next HTML file opens with, so a reader and
+  // an author each keep the surface they work in.
+  htmlPreviewPreference = record.htmlPreview;
+  try { localStorage.setItem(htmlPreviewStorageKey, record.htmlPreview ? 'preview' : 'source'); } catch { /* Persistence is optional. */ }
+  await syncHtmlPreview();
+  updateDocumentEditState();
+  if (record.htmlPreview) document.getElementById('document-html-preview')?.focus();
   else editorSurface?.focus();
 }
 
@@ -6947,6 +7067,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'toggle-svg-preview') {
     void toggleSvgPreview();
+    return;
+  }
+  if (item.dataset.action === 'toggle-html-preview') {
+    void toggleHtmlPreview();
     return;
   }
   if (item.dataset.action === 'format-document') {
