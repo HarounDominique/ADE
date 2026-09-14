@@ -50,7 +50,7 @@ status: approved
   queda en 659 pasados, con 2 fallos EPERM de listeners HTTP del sandbox y 1 test cancelado
   por ese mismo límite de red preexistente.
 
-- [ ] Phase 3 — Superficie `Database` en la shell. Nueva entrada de navegación en el
+- [x] Phase 3 — Superficie `Database` en la shell. Nueva entrada de navegación en el
   lateral (`desktop/src`): selector de conexión, formulario de alta/edición sin campo de
   contraseña, árbol de esquema expandible (bases/esquemas → tablas/vistas → columnas →
   claves), botón `Refresh` explícito, estado `ToolchainGap` accionable. **Necesita una
@@ -63,8 +63,11 @@ status: approved
   (satisfies: SPEC-database-schema-browser.md#product-contract)
   Test strategy: contract test de la superficie (selector, árbol, botón Refresh, estado de
   hueco de toolchain) sobre la shell.
+  Done: `desktop/src/index.html`, `desktop/src/main.js` y `desktop/src/styles.css` añaden
+  `Database` como entrada propia, formulario seguro sin contraseña, selector de conexiones,
+  árbol expandible y Refresh. El contrato UI y `node --check` pasan.
 
-- [ ] Phase 4 — Barrido de `#acceptance-criteria` y actualización de
+- [x] Phase 4 — Barrido de `#acceptance-criteria` y actualización de
   `SPEC-desktop-shell.md#information-architecture` con la nueva entrada de navegación,
   siguiendo el mismo criterio que aplicó `http-client` al pasar de `planned` a
   implementación activa.
@@ -72,15 +75,20 @@ status: approved
   SPEC-database-schema-browser.md#decisions)
   Test strategy: barrido completo de SPEC-database-schema-browser.md#acceptance-criteria
   contra la suite real.
+  Done: los criterios de listado, persistencia sin contraseña, cliente ausente, errores nativos,
+  introspección de los tres motores y ausencia de SQL libre quedan cubiertos por los tests de
+  dominio/introspección, el contrato de shell y el RPC. `SPEC-desktop-shell` y el Nexus ya
+  reflejan la entrada `Database` activa.
 
 ## Execution State
 
-**Build Status**: RUNNING
-**Current Phase**: 3
-**Current Step**: 1/6
+**Build Status**: DONE
+**Current Phase**: 4
+**Current Step**: 4/4
 **Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
-**Can Resume**: YES
+**Can Resume**: NO — la vertical backend + shell está implementada y verificada; queda el smoke
+manual de desktop con una base real como comprobación operativa opcional del entorno.
 
 ## Deviations
 

@@ -210,6 +210,10 @@ let httpEditorGeneration = 0;
 let httpRequestExecuteGeneration = null;
 const pendingHttpRequestGetPaths = new Map();
 const pendingHttpEnvironmentGetIds = new Map();
+let databaseConnections = [];
+let selectedDatabaseConnectionId = null;
+let databaseSnapshot = null;
+let databaseRequestPath = null;
 
 
 async function loadPrettier() {
@@ -999,6 +1003,73 @@ function sendContextRequest(method, params = {}, purpose = method) {
   return nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method, params }) });
 }
 
+function loadDatabaseConnections() {
+  if (!nativeInvoke || !workspaceRootPath) return;
+  databaseRequestPath = workspaceRootPath;
+  void sendContextRequest('database.connections.list', { repositoryPath: workspaceRootPath }, 'database-connections-list');
+}
+
+function renderDatabaseConnections() {
+  const list = document.getElementById('database-connections-list');
+  if (!list) return;
+  if (!databaseConnections.length) { list.innerHTML = '<p class="database-empty">No connections declared.</p>'; return; }
+  list.innerHTML = databaseConnections.map((connection) => `<button class="database-connection-item${connection.id === selectedDatabaseConnectionId ? ' active' : ''}" type="button" data-database-connection-id="${escapeHTML(connection.id)}"><strong>${escapeHTML(connection.name)}</strong><small>${escapeHTML(connection.engine)} · ${escapeHTML(connection.database ?? connection.filePath ?? 'not configured')}</small></button>`).join('');
+  list.querySelectorAll('[data-database-connection-id]').forEach((button) => button.addEventListener('click', () => selectDatabaseConnection(button.dataset.databaseConnectionId)));
+}
+
+function selectDatabaseConnection(id) {
+  selectedDatabaseConnectionId = id;
+  const connection = databaseConnections.find((candidate) => candidate.id === id);
+  if (!connection) return;
+  databaseSnapshot = null;
+  const set = (field, value) => { const element = document.getElementById(field); if (element) element.value = value ?? ''; };
+  const title = document.getElementById('database-form-title'); if (title) title.textContent = connection.name;
+  set('database-name', connection.name); set('database-engine', connection.engine); set('database-host', connection.host); set('database-port', connection.port); set('database-database', connection.database); set('database-user', connection.user); set('database-file-path', connection.filePath);
+  document.getElementById('database-delete')?.toggleAttribute('disabled', false);
+  renderDatabaseConnections(); renderDatabaseSchema(); browseDatabaseSchema();
+}
+
+function resetDatabaseConnectionForm() {
+  selectedDatabaseConnectionId = null; databaseSnapshot = null;
+  const title = document.getElementById('database-form-title'); if (title) title.textContent = 'New connection';
+  ['database-name', 'database-host', 'database-port', 'database-database', 'database-user', 'database-file-path'].forEach((id) => { const element = document.getElementById(id); if (element) element.value = ''; });
+  const engine = document.getElementById('database-engine'); if (engine) engine.value = 'postgres';
+  document.getElementById('database-delete')?.toggleAttribute('disabled', true);
+  renderDatabaseConnections(); renderDatabaseSchema();
+}
+
+function databaseFormConnection() {
+  const engine = document.getElementById('database-engine')?.value ?? 'postgres';
+  const connection = { id: selectedDatabaseConnectionId ?? `database-${Date.now()}`, name: document.getElementById('database-name')?.value.trim() ?? '', engine };
+  [['host', 'database-host'], ['database', 'database-database'], ['user', 'database-user'], ['filePath', 'database-file-path']].forEach(([key, id]) => { const value = document.getElementById(id)?.value.trim(); if (value) connection[key] = value; });
+  const port = Number(document.getElementById('database-port')?.value); if (port) connection.port = port;
+  return connection;
+}
+
+function saveDatabaseConnectionFromUI(event) {
+  event.preventDefault();
+  const connection = databaseFormConnection();
+  if (!connection.name) { notify('A database connection needs a name.'); return; }
+  if (connection.engine === 'sqlite' && !connection.filePath) { notify('SQLite needs a database file path.'); return; }
+  if (!nativeInvoke || !workspaceRootPath) { notify('Database connections require the sidecar.'); return; }
+  void sendContextRequest('database.connections.save', { repositoryPath: workspaceRootPath, databaseConnection: connection }, 'database-connection-save');
+}
+
+function browseDatabaseSchema() {
+  if (!selectedDatabaseConnectionId || !nativeInvoke || !workspaceRootPath) return;
+  const status = document.getElementById('database-schema-status'); if (status) status.textContent = 'Reading native catalogue…';
+  void sendContextRequest('database.schema.browse', { repositoryPath: workspaceRootPath, connectionId: selectedDatabaseConnectionId }, 'database-schema-browse');
+}
+
+function renderDatabaseSchema() {
+  const tree = document.getElementById('database-schema-tree');
+  const title = document.getElementById('database-schema-title');
+  if (!tree) return;
+  if (!databaseSnapshot) { tree.innerHTML = '<p class="database-empty">Choose a connection to browse its schema.</p>'; if (title) title.textContent = selectedDatabaseConnectionId ? 'Loading schema' : 'Select a connection'; return; }
+  if (title) title.textContent = databaseConnections.find((connection) => connection.id === databaseSnapshot.connectionId)?.name ?? 'Schema';
+  tree.innerHTML = databaseSnapshot.schemas.map((schema) => `<details class="database-schema-schema" open><summary>${escapeHTML(schema.name)} · ${schema.tables.length} table(s)</summary>${schema.tables.map((table) => `<details class="database-schema-table" open><summary>${escapeHTML(table.name)} <small>(${table.kind})</small></summary><div class="database-schema-columns">${table.columns.map((column) => `<div class="database-schema-column"><strong>${escapeHTML(column.name)}${column.isPrimaryKey ? ' · PK' : ''}</strong><span>${escapeHTML(column.dataType)}</span><small>${column.nullable ? 'nullable' : 'required'}</small><small>#${column.ordinalPosition}</small></div>`).join('')}</div><div class="database-schema-keys">${table.foreignKeys.length ? `FK: ${table.foreignKeys.map((key) => `${escapeHTML(key.column)} → ${escapeHTML(key.referencesTable)}.${escapeHTML(key.referencesColumn)}`).join(' · ')}` : ''}${table.indexes.length ? ` ${table.indexes.map((index) => `Index: ${escapeHTML(index.name)} (${escapeHTML(index.columns.join(', '))})`).join(' · ')}` : ''}</div></details>`).join('')}</details>`).join('') || '<p class="database-empty">No tables or views found.</p>';
+}
+
 function requestProjectSnapshot(projectId = activeProjectId, purpose = 'snapshot') {
   if (!nativeInvoke) return Promise.reject(new Error('Local sidecar unavailable'));
   const id = `snapshot-${purpose}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1224,6 +1295,12 @@ async function switchProjectFromContext(project) {
     httpSelectedEnvironmentId = null;
     newHttpRequest();
     if (activeView === 'requests') loadHttpCollectionTree();
+    databaseConnections = [];
+    selectedDatabaseConnectionId = null;
+    databaseSnapshot = null;
+    renderDatabaseConnections();
+    renderDatabaseSchema();
+    if (activeView === 'database') loadDatabaseConnections();
     await sendContextRequest('project.snapshot', { projectId: activeProjectId }, 'snapshot');
     await sendContextRequest('service.list', { repositoryPath: workspaceRootPath }, 'services');
     notify(`Project switched to ${project.name}.`);
@@ -5626,6 +5703,12 @@ async function connectSidecar(snapshot) {
           renderHttpEnvironmentPicker();
           return;
         }
+        if (contextPurpose?.startsWith('database-')) {
+          const status = document.getElementById('database-schema-status');
+          if (status) status.textContent = response.error.message;
+          if (contextPurpose === 'database-connections-list') { databaseConnections = []; renderDatabaseConnections(); }
+          return;
+        }
         if (contextPurpose === 'http-request-get') {
           notify(`Could not load the request: ${response.error.message}`);
           return;
@@ -5763,6 +5846,39 @@ async function connectSidecar(snapshot) {
         if (httpSelectedEnvironmentId && !httpEnvironmentsFlat.some((env) => env.id === httpSelectedEnvironmentId)) httpSelectedEnvironmentId = null;
         renderHttpCollectionTree();
         renderHttpEnvironmentPicker();
+        return;
+      }
+      if (contextPurpose === 'database-connections-list' && Array.isArray(response.result)) {
+        if (databaseRequestPath !== workspaceRootPath) return;
+        databaseConnections = response.result;
+        if (selectedDatabaseConnectionId && !databaseConnections.some((connection) => connection.id === selectedDatabaseConnectionId)) resetDatabaseConnectionForm();
+        renderDatabaseConnections();
+        return;
+      }
+      if (contextPurpose === 'database-connection-save' && response.result?.id) {
+        notify('Database connection saved.');
+        loadDatabaseConnections();
+        selectDatabaseConnection(response.result.id);
+        return;
+      }
+      if (contextPurpose === 'database-connection-delete' && response.result?.deleted) {
+        notify('Database connection deleted.');
+        databaseSnapshot = null;
+        resetDatabaseConnectionForm();
+        loadDatabaseConnections();
+        return;
+      }
+      if (contextPurpose === 'database-schema-browse' && response.result) {
+        if (databaseRequestPath !== workspaceRootPath || response.result.connectionId !== selectedDatabaseConnectionId) return;
+        if (response.result.error) {
+          const status = document.getElementById('database-schema-status');
+          if (status) status.textContent = `${response.result.command}: ${response.result.nativeMessage}`;
+          return;
+        }
+        databaseSnapshot = response.result;
+        const status = document.getElementById('database-schema-status');
+        if (status) status.textContent = `Updated ${new Date(response.result.fetchedAt).toLocaleTimeString()}`;
+        renderDatabaseSchema();
         return;
       }
       if (contextPurpose === 'http-request-get' && response.result?.id) {
@@ -6967,6 +7083,7 @@ function showView(view) {
   if (view === 'changes') requestVersionControlData(workspaceRootPath, { force: true });
   if (view === 'agents') { requestAgentSessions(workspaceRootPath); requestAgentPressure(); requestAgentUsage(); }
   if (view === 'requests') loadHttpCollectionTree();
+  if (view === 'database') loadDatabaseConnections();
 }
 
 function notify(message) {
@@ -7019,6 +7136,9 @@ renderHttpRequestTabs('params');
 renderHttpResponseTabs('body');
 renderHttpCollectionTree();
 renderHttpEnvironmentPicker();
+renderDatabaseConnections();
+renderDatabaseSchema();
+document.getElementById('database-connection-form')?.addEventListener('submit', saveDatabaseConnectionFromUI);
 renderSnapshot(projectSnapshot);
 renderRuntimeStatus({ sidecar: 'STARTING', agentRuntime: 'DISCONNECTED', activeTaskId: null, lastEventAt: null, lastError: null });
 refreshProjectContext(projectSnapshot);
@@ -7046,6 +7166,22 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'new-http-request') {
     newHttpRequest();
+    return;
+  }
+  if (item.dataset.action === 'refresh-database') {
+    if (!selectedDatabaseConnectionId) { loadDatabaseConnections(); return; }
+    browseDatabaseSchema();
+    return;
+  }
+  if (item.dataset.action === 'new-database-connection') {
+    resetDatabaseConnectionForm();
+    document.getElementById('database-name')?.focus();
+    return;
+  }
+  if (item.dataset.action === 'delete-database-connection') {
+    if (!selectedDatabaseConnectionId || !nativeInvoke || !workspaceRootPath) return;
+    const connection = databaseConnections.find((candidate) => candidate.id === selectedDatabaseConnectionId);
+    requestConfirmation({ eyebrow: 'DATABASE CONNECTION', title: `Delete ${connection?.name ?? 'this connection'}?`, copy: 'This removes only the versioned connection declaration. It does not delete or modify the database.', confirmLabel: 'Delete connection' }, () => sendContextRequest('database.connections.delete', { repositoryPath: workspaceRootPath, connectionId: selectedDatabaseConnectionId }, 'database-connection-delete'));
     return;
   }
   if (item.dataset.action === 'refresh-http-collection-tree') {

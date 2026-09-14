@@ -299,9 +299,26 @@ test("navigation runs from the work outward", () => {
   // Requests sits between building the change and reviewing it (Version control) --
   // SPEC-http-client.md#decisions -- and Editor is the escape hatch.
   const order = [...html.matchAll(/<button class="nav-item[^"]*" data-view="([a-z]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(order, ["projects", "agents", "requests", "changes", "knowledge", "editor"]);
+  assert.deepEqual(order, ["projects", "agents", "requests", "database", "changes", "knowledge", "editor"]);
   assert.match(html, /data-view="knowledge"[\s\S]*?<span>Context<\/span>/);
   assert.doesNotMatch(html, /<span>Project context<\/span>/);
+});
+
+test("Database exposes a read-only schema browser with connection controls", () => {
+  assert.match(html, /data-view="database"[\s\S]*?<span>Database<\/span>/);
+  assert.match(html, /data-panel="database"/);
+  assert.match(html, /id="database-connections-list"/);
+  assert.match(html, /id="database-connection-form"/);
+  assert.match(html, /id="database-engine"/);
+  assert.match(html, /data-action="refresh-database"/);
+  assert.match(html, /id="database-schema-tree"/);
+  assert.match(main, /database\.connections\.list/);
+  assert.match(main, /database\.connections\.save/);
+  assert.match(main, /database\.connections\.delete/);
+  assert.match(main, /database\.schema\.browse/);
+  assert.match(main, /requestConfirmation\(\{[\s\S]*?DATABASE CONNECTION/);
+  assert.doesNotMatch(html, /id="database-password"/);
+  assert.doesNotMatch(main, /databasePassword|database_password/);
 });
 
 test("the terminal opens in the theme already on screen, in full colour", () => {

@@ -2,7 +2,7 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Module id: database-schema-browser -->
 
-**Estado:** planned — spec aprobada, pendiente de implementación. Ver `memory-bank/tasks/database-schema-browser.md` para el roadmap de fases.
+**Estado:** done — implementación backend y superficie Database verificadas. Ver `memory-bank/tasks/database-schema-browser.md` para el detalle de fases y límites de verificación.
 
 ## Objective
 
