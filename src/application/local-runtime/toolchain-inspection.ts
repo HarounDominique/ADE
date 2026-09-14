@@ -81,7 +81,11 @@ async function probe(id: string, label: string, command: string, args: readonly 
     // applies here too -- otherwise a version manager's node, cargo or java
     // reads as "unavailable" in this preview and as present the moment the
     // operator actually runs it.
-    const child = crossSpawn(command, [...args], { cwd, env: environment, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    // Windows does not consistently resolve npm's .cmd shim through a direct
+    // spawn, even when the directory is present in PATH. Keep the public
+    // status command as `npm`, but invoke the concrete shim on that host.
+    const executable = process.platform === "win32" && command === "npm" ? "npm.cmd" : command;
+    const child = crossSpawn(executable, [...args], { cwd, env: environment, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     let output = "";
     const append = (chunk: Buffer | string) => { output += chunk.toString(); };
     child.stdout?.on("data", append);
