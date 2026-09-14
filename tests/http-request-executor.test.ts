@@ -98,6 +98,13 @@ test("a GET request executes against the real server and captures status, header
   assert.equal(lastReceived?.method, "GET");
 });
 
+test("the raw response body reaches the caller for live display, even though it is never part of the persisted HttpExecution contract", async () => {
+  const execution = await exec(baseRequest());
+  assert.ok(execution.responseBody && typeof execution.responseBody === "object");
+  assert.equal((execution.responseBody as { ok: boolean }).ok, true);
+  assert.equal((execution.responseBody as { method: string }).method, "GET");
+});
+
 test("stamps taskId and environmentId onto the execution when provided", async () => {
   const environment: HttpEnvironment = { id: "env-1", name: "Local", variables: [] };
   const execution = await executeHttpRequest({
@@ -342,4 +349,33 @@ test("a secret variable used in both a header value and the URL is never returne
   assert.notEqual(execution.responseHeaders?.["x-echo-url"], undefined);
   assert.doesNotMatch(execution.responseHeaders?.["x-echo-url"] ?? "", /s3cr3t-value/);
   assert.doesNotMatch(execution.responseHeaders?.["x-echo-custom"] ?? "", /s3cr3t-value/);
+});
+
+test("a secret substituted into the request body and echoed back in the response body is never returned in plaintext", async () => {
+  const environment: HttpEnvironment = {
+    id: "env-1",
+    name: "Local",
+    variables: [{ key: "apiToken", value: "s3cr3t-body-value", secret: true }],
+  };
+  resetLastReceived();
+  const execution = await exec(
+    baseRequest({
+      method: "POST",
+      url: `${baseUrl}/echo`,
+      body: { type: "json", content: JSON.stringify({ token: "{{apiToken}}" }) },
+    }),
+    environment,
+  );
+
+  // The real server-side capture proves the actual secret was really sent over the wire.
+  assert.match(lastReceived?.body ?? "", /s3cr3t-body-value/);
+
+  // The server echoes the request body back inside `received` — exactly the real-world
+  // "API echoes what you sent" shape that must never leak the secret in plaintext.
+  const serialized = JSON.stringify(execution);
+  assert.doesNotMatch(serialized, /s3cr3t-body-value/);
+  const received = (execution.responseBody as { received?: string } | undefined)?.received;
+  assert.notEqual(received, undefined);
+  assert.doesNotMatch(received ?? "", /s3cr3t-body-value/);
+  assert.match(received ?? "", /\[REDACTED\]/);
 });

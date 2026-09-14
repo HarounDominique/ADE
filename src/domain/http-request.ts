@@ -64,6 +64,40 @@ export type HttpExecution = {
   assertionResults?: readonly { assertion: HttpAssertion; passed: boolean }[];
 };
 
+/** One node of a collection tree as `src/adapters/bruno-collection-store.ts`'s
+    `listHttpCollectionTree` walks `.ade/http/`. `path` is always relative to the root the tree
+    was listed from, forward-slash-joined regardless of platform, since the UI (Phase 4b) and the
+    save RPCs both address a file by that relative path, not an absolute one. A `.bru` file whose
+    immediate parent directory is named `environments` is an `HttpCollectionEnvironmentNode`
+    rather than a request — Bruno's own convention keeps environment files in an `environments/`
+    folder alongside (not inside) the request tree they apply to, and `@usebruno/filestore` itself
+    exposes separate `parseRequest`/`parseEnvironment` functions rather than one that tells the two
+    apart, so the directory convention is the only signal available to route a file to the right
+    parser without opening and inspecting its content first. */
+export type HttpCollectionNode = HttpCollectionFolderNode | HttpCollectionRequestNode | HttpCollectionEnvironmentNode;
+
+export type HttpCollectionFolderNode = {
+  type: "folder";
+  name: string;
+  path: string;
+  children: readonly HttpCollectionNode[];
+};
+
+export type HttpCollectionRequestNode = {
+  type: "request";
+  id: string;
+  name: string;
+  method: HttpRequest["method"];
+  path: string;
+};
+
+export type HttpCollectionEnvironmentNode = {
+  type: "environment";
+  id: string;
+  name: string;
+  path: string;
+};
+
 /** The plain object shape `@usebruno/filestore`'s `parseRequest`/`stringifyRequest` read and
     write for `{ format: 'bru' }`, restricted to the fields Phase 1 cares about. Bruno's own
     model carries a lot more (scripts, vars, oauth2, examples, …); we round-trip only what our

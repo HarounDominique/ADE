@@ -71,12 +71,16 @@ const sidebarCollapsedStorageKey = `ade-sidebar-collapsed:${activeProjectId}`;
 const collapsedSidebarWidth = 52;
 const historyPaneStorageKey = 'ade-history-pane-layout';
 const changesPaneStorageKey = 'ade-changes-pane-layout';
+const requestsSplitResizer = document.getElementById('requests-split-resizer');
+const requestsSplitStorageKey = `ade-requests-split-height:${activeProjectId}`;
 let terminalHeight = 138;
 let terminalResizeState = null;
 let terminalFitFrame = null;
 let terminalSizeTransitionTimer = null;
 let sidebarWidth = 246;
 let sidebarResizeState = null;
+let requestsSplitHeight = 240;
+let requestsSplitResizeState = null;
 let sidebarCollapsed = false;
 let sidebarAnimationTimer = null;
 let activeServiceId = null;
@@ -176,6 +180,29 @@ const pendingSnapshotProjects = new Map();
 const pendingToolchainInspectionPaths = new Map();
 const taskDetailMarkup = new Map();
 const pendingProjectRemovals = new Map();
+
+/** State for the Requests view (SPEC-http-client.md, Phase 4b). `httpRequestForm` is the
+    HttpRequest currently in the editor -- new or loaded from a tree node -- edited in place by
+    the row editors and read fields; `httpSelectedRequestPath` is its collection-relative path
+    once saved (or loaded), null for an unsaved new request. `httpEnvironmentContents` caches full
+    HttpEnvironment objects (with variables) fetched on demand: the tree/picker only ever carries
+    id/name for an environment (SPEC-http-client.md#request-and-collection-contract's
+    HttpCollectionEnvironmentNode), never its variables. */
+let httpCollectionTree = [];
+let httpTreeRequestPath = null;
+let httpCollapsedHttpFolders = new Set();
+let httpEnvironmentsFlat = [];
+const httpEnvironmentContents = new Map();
+let httpSelectedEnvironmentId = null;
+let httpSelectedRequestPath = null;
+let httpRequestForm = createBlankHttpRequestForm();
+let httpRequestTab = 'params';
+let httpResponseTab = 'body';
+let httpRequestSending = false;
+let httpLastResponse = null;
+let httpPendingSavePath = null;
+const pendingHttpRequestGetPaths = new Map();
+const pendingHttpEnvironmentGetIds = new Map();
 
 
 async function loadPrettier() {
@@ -328,6 +355,30 @@ function setTerminalHeight(nextHeight, persist = true) {
   scheduleTerminalFit();
   if (persist) {
     try { localStorage.setItem(terminalStorageKey, String(terminalHeight)); } catch { /* Persistence is optional. */ }
+  }
+}
+
+/** A fixed 50/50 split is wrong for both directions of use: a large JSON response needs more
+    height than the request fields, and the inverse is true while editing long headers — the
+    creative doc (memory-bank/creative/http-client-ui-ux.md) calls this out explicitly rather than
+    leaving it as a nice-to-have, mirroring the terminal dock's own resizer exactly (grip,
+    pointer/keyboard resize, persisted per Project) instead of introducing a second mechanism. */
+function requestsSplitHeightBounds() {
+  const min = 120;
+  const container = document.getElementById('requests-split');
+  const total = container?.getBoundingClientRect().height ?? 0;
+  const resizerHeight = requestsSplitResizer?.getBoundingClientRect().height ?? 7;
+  return { min, max: Math.max(min, Math.round(total - resizerHeight - min)) };
+}
+
+function setRequestsSplitHeight(nextHeight, persist = true) {
+  const bounds = requestsSplitHeightBounds();
+  requestsSplitHeight = Math.max(bounds.min, Math.min(bounds.max, Math.round(nextHeight)));
+  document.documentElement.style.setProperty('--requests-request-height', `${requestsSplitHeight}px`);
+  requestsSplitResizer?.setAttribute('aria-valuemax', String(bounds.max));
+  requestsSplitResizer?.setAttribute('aria-valuenow', String(requestsSplitHeight));
+  if (persist) {
+    try { localStorage.setItem(requestsSplitStorageKey, String(requestsSplitHeight)); } catch { /* Persistence is optional. */ }
   }
 }
 
@@ -760,6 +811,38 @@ setSidebarCollapsed(sidebarCollapsed, { persist: false });
 syncSidebarControlAnchor();
 window.addEventListener('resize', syncSidebarControlAnchor);
 
+try {
+  const storedRequestsSplitHeight = Number(localStorage.getItem(requestsSplitStorageKey));
+  if (Number.isFinite(storedRequestsSplitHeight)) requestsSplitHeight = storedRequestsSplitHeight;
+} catch { /* Persistence is optional. */ }
+setRequestsSplitHeight(requestsSplitHeight, false);
+requestsSplitResizer?.addEventListener('pointerdown', (event) => {
+  event.preventDefault();
+  requestsSplitResizeState = { pointerId: event.pointerId, startY: event.clientY, startHeight: requestsSplitHeight };
+  requestsSplitResizer.setPointerCapture?.(event.pointerId);
+});
+requestsSplitResizer?.addEventListener('pointermove', (event) => {
+  if (!requestsSplitResizeState || event.pointerId !== requestsSplitResizeState.pointerId) return;
+  setRequestsSplitHeight(requestsSplitResizeState.startHeight + event.clientY - requestsSplitResizeState.startY, false);
+});
+const finishRequestsSplitResize = (event) => {
+  if (!requestsSplitResizeState || (event?.pointerId !== undefined && event.pointerId !== requestsSplitResizeState.pointerId)) return;
+  setRequestsSplitHeight(requestsSplitHeight);
+  requestsSplitResizeState = null;
+};
+requestsSplitResizer?.addEventListener('pointerup', finishRequestsSplitResize);
+requestsSplitResizer?.addEventListener('pointercancel', finishRequestsSplitResize);
+requestsSplitResizer?.addEventListener('keydown', (event) => {
+  const step = event.shiftKey ? 48 : 16;
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault();
+    setRequestsSplitHeight(requestsSplitHeight + (event.key === 'ArrowDown' ? step : -step));
+  }
+  if (event.key === 'Home') { event.preventDefault(); setRequestsSplitHeight(requestsSplitHeightBounds().min); }
+  if (event.key === 'End') { event.preventDefault(); setRequestsSplitHeight(requestsSplitHeightBounds().max); }
+});
+window.addEventListener('resize', () => setRequestsSplitHeight(requestsSplitHeight, false));
+
 terminalResizer?.addEventListener('pointerdown', (event) => {
   if (event.target.closest('#terminal-size-toggle')) return;
   clearTerminalSizeTransition();
@@ -1124,6 +1207,16 @@ async function switchProjectFromContext(project) {
     await refreshGitWorkspace(workspaceRootPath, nativeInvoke);
     requestAgentSessions(workspaceRootPath);
     resetRunControlForProject();
+    // Collections, the loaded request/environment and the last response all belong to the
+    // Project being left; carrying them over would let the operator send a stale request's
+    // fields against the new Project's URL/environment. `newHttpRequest` clears the form; the
+    // tree reload only happens if Requests is the active view, same as every other view here.
+    httpCollectionTree = [];
+    httpEnvironmentsFlat = [];
+    httpEnvironmentContents.clear();
+    httpSelectedEnvironmentId = null;
+    newHttpRequest();
+    if (activeView === 'requests') loadHttpCollectionTree();
     await sendContextRequest('project.snapshot', { projectId: activeProjectId }, 'snapshot');
     await sendContextRequest('service.list', { repositoryPath: workspaceRootPath }, 'services');
     notify(`Project switched to ${project.name}.`);
@@ -4880,6 +4973,10 @@ async function connectSidecar(snapshot) {
       if (agentMessageRequestSession) pendingAgentMessageSessions.delete(String(response.id));
       const deletedAgentSessionId = pendingAgentSessionDeletes.get(String(response.id));
       if (deletedAgentSessionId) pendingAgentSessionDeletes.delete(String(response.id));
+      const httpRequestGetPath = pendingHttpRequestGetPaths.get(String(response.id));
+      if (httpRequestGetPath) pendingHttpRequestGetPaths.delete(String(response.id));
+      const httpEnvironmentGetId = pendingHttpEnvironmentGetIds.get(String(response.id));
+      if (httpEnvironmentGetId) pendingHttpEnvironmentGetIds.delete(String(response.id));
       if (contextPurpose === 'git-pending') pendingGitRefreshInFlight = false;
       const toolchainInspectionPath = pendingToolchainInspectionPaths.get(String(response.id));
       if (toolchainInspectionPath) {
@@ -4993,6 +5090,32 @@ async function connectSidecar(snapshot) {
           notify('Git was no longer found for this Project.');
           return;
         }
+        if (contextPurpose === 'http-collection-list') {
+          httpCollectionTree = [];
+          httpEnvironmentsFlat = [];
+          renderHttpCollectionTree();
+          renderHttpEnvironmentPicker();
+          return;
+        }
+        if (contextPurpose === 'http-request-get') {
+          notify(`Could not load the request: ${response.error.message}`);
+          return;
+        }
+        if (contextPurpose === 'http-environment-get') {
+          notify(`Could not load the environment: ${response.error.message}`);
+          return;
+        }
+        if (contextPurpose === 'http-request-save') {
+          httpPendingSavePath = null;
+          notify(`Could not save the request: ${response.error.message}`);
+          return;
+        }
+        if (contextPurpose === 'http-request-execute') {
+          httpRequestSending = false;
+          updateHttpSendButtonState();
+          notify(`Request failed: ${response.error.message}`);
+          return;
+        }
         const feedback = document.getElementById('agent-feedback');
         if (feedback) feedback.textContent = 'The operation needs attention.';
         if (contextPurpose === 'git-pending' && pendingGitRequestPath !== workspaceRootPath) requestPendingGitChanges(workspaceRootPath, { showLoading: true });
@@ -5095,6 +5218,45 @@ async function connectSidecar(snapshot) {
         const session = response.result;
         document.getElementById('terminal-history-dialog')?.close();
         void resumeTerminalHistorySession(session);
+        return;
+      }
+      if (contextPurpose === 'http-collection-list' && Array.isArray(response.result)) {
+        if (httpTreeRequestPath !== workspaceRootPath) return;
+        httpCollectionTree = response.result;
+        httpEnvironmentsFlat = flattenHttpEnvironments(httpCollectionTree);
+        if (httpSelectedEnvironmentId && !httpEnvironmentsFlat.some((env) => env.id === httpSelectedEnvironmentId)) httpSelectedEnvironmentId = null;
+        renderHttpCollectionTree();
+        renderHttpEnvironmentPicker();
+        return;
+      }
+      if (contextPurpose === 'http-request-get' && response.result?.id) {
+        httpRequestForm = normalizeHttpRequestForm(response.result);
+        httpSelectedRequestPath = httpRequestGetPath ?? httpSelectedRequestPath;
+        httpLastResponse = null;
+        renderHttpCollectionTree();
+        renderHttpRequestEditor();
+        renderHttpRequestTabs('params');
+        renderHttpResponseTabs('body');
+        return;
+      }
+      if (contextPurpose === 'http-environment-get' && response.result?.variables) {
+        if (httpEnvironmentGetId) httpEnvironmentContents.set(httpEnvironmentGetId, response.result);
+        return;
+      }
+      if (contextPurpose === 'http-request-save' && response.result?.saved) {
+        httpSelectedRequestPath = httpPendingSavePath ?? response.result.path;
+        httpPendingSavePath = null;
+        document.getElementById('http-save-path-dialog')?.close();
+        notify(`${httpRequestForm.name || 'Request'} saved.`);
+        renderHttpRequestEditor();
+        loadHttpCollectionTree();
+        return;
+      }
+      if (contextPurpose === 'http-request-execute' && response.result) {
+        httpRequestSending = false;
+        updateHttpSendButtonState();
+        httpLastResponse = response.result;
+        renderHttpResponse();
         return;
       }
       if (contextPurpose === 'branches' && response.result?.branches) {
@@ -5710,6 +5872,455 @@ async function restartSidecarFromUI() {
   }
 }
 
+/** ---- Requests view (SPEC-http-client.md, Phase 4b) ----
+    Rail (collection tree) + main (method/url header, request tabs, response tabs), per
+    memory-bank/creative/http-client-ui-ux.md. Request/response tabs reuse the same
+    `.version-control-tab`/`[data-*-tab]`/`[data-*-panel]` mechanism `renderVersionControlTabs`
+    already established, just under their own data attributes so the two tab groups here and the
+    Version control ones never cross-toggle each other. */
+
+function createBlankHttpRequestForm() {
+  return {
+    id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: '',
+    method: 'GET',
+    url: '',
+    headers: [],
+    params: [],
+    auth: { type: 'none' },
+    body: { type: 'none' },
+    assertions: [],
+  };
+}
+
+function normalizeHttpRequestForm(request) {
+  return {
+    id: request.id,
+    name: request.name ?? '',
+    method: request.method ?? 'GET',
+    url: request.url ?? '',
+    headers: (request.headers ?? []).map((header) => ({ ...header })),
+    params: (request.params ?? []).map((param) => ({ ...param })),
+    auth: { ...request.auth },
+    body: request.body?.type === 'form-urlencoded' || request.body?.type === 'multipart'
+      ? { ...request.body, fields: (request.body.fields ?? []).map((field) => ({ ...field })) }
+      : { ...(request.body ?? { type: 'none' }) },
+    assertions: (request.assertions ?? []).map((assertion) => ({ ...assertion })),
+  };
+}
+
+function blankHttpBody(type) {
+  if (type === 'json' || type === 'text' || type === 'xml') return { type, content: '' };
+  if (type === 'form-urlencoded') return { type, fields: [] };
+  if (type === 'multipart') return { type, fields: [] };
+  return { type: 'none' };
+}
+
+function blankHttpAuth(type) {
+  if (type === 'basic') return { type, username: '', password: '' };
+  if (type === 'bearer') return { type, token: '' };
+  if (type === 'apikey') return { type, key: '', value: '', placement: 'header' };
+  return { type: 'none' };
+}
+
+function httpRowsFor(kind) {
+  if (kind === 'params') return httpRequestForm.params;
+  if (kind === 'headers') return httpRequestForm.headers;
+  if (kind === 'body-form-urlencoded' || kind === 'body-multipart') return httpRequestForm.body.fields;
+  if (kind === 'assertions') return httpRequestForm.assertions;
+  return undefined;
+}
+
+function flattenHttpEnvironments(nodes) {
+  const result = [];
+  for (const node of nodes) {
+    if (node.type === 'environment') result.push(node);
+    else if (node.type === 'folder') result.push(...flattenHttpEnvironments(node.children));
+  }
+  return result;
+}
+
+function loadHttpCollectionTree() {
+  if (!nativeInvoke || !workspaceRootPath) return;
+  httpTreeRequestPath = workspaceRootPath;
+  void sendContextRequest('http.collection.list', { repositoryPath: workspaceRootPath }, 'http-collection-list');
+}
+
+function renderHttpCollectionTree() {
+  const tree = document.getElementById('requests-tree');
+  if (!tree) return;
+  if (!httpCollectionTree.length) {
+    tree.innerHTML = '<li class="workspace-empty">No HTTP collections yet in .ade/http/.<br><button class="text-button" type="button" data-http-tree-action="new-request">Create the first request</button></li>';
+    return;
+  }
+  tree.innerHTML = renderHttpTreeNodes(httpCollectionTree);
+}
+
+function renderHttpTreeNodes(nodes) {
+  return nodes.map((node) => renderHttpTreeNode(node)).join('');
+}
+
+function renderHttpTreeNode(node) {
+  if (node.type === 'folder') {
+    const collapsed = httpCollapsedHttpFolders.has(node.path);
+    return `<li class="workspace-node directory"><button class="workspace-entry directory${collapsed ? '' : ' compact-branch'}" type="button" data-http-folder-path="${escapeHTML(node.path)}" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escapeHTML(node.name)}"><span class="workspace-arrow" aria-hidden="true"></span><span class="workspace-name">${escapeHTML(node.name)}</span></button><ul class="workspace-children" data-directory-children${collapsed ? ' hidden' : ''}>${renderHttpTreeNodes(node.children)}</ul></li>`;
+  }
+  if (node.type === 'environment') {
+    const selected = node.id === httpSelectedEnvironmentId;
+    return `<li class="workspace-node file"><button class="workspace-entry file${selected ? ' selected' : ''}" type="button" data-http-environment-id="${escapeHTML(node.id)}" data-http-environment-path="${escapeHTML(node.path)}" aria-label="Use environment ${escapeHTML(node.name)}" title="Environment"><span class="workspace-glyph file" aria-hidden="true"></span><span class="workspace-name">${escapeHTML(node.name)}</span></button></li>`;
+  }
+  const selected = node.path === httpSelectedRequestPath;
+  return `<li class="workspace-node file"><button class="workspace-entry file${selected ? ' selected' : ''}" type="button" data-http-request-path="${escapeHTML(node.path)}" aria-label="Open ${escapeHTML(node.name)}" aria-current="${selected ? 'page' : 'false'}"><span class="requests-tree-method">${escapeHTML(node.method)}</span><span class="workspace-name">${escapeHTML(node.name)}</span></button></li>`;
+}
+
+function openHttpRequestFromTree(path) {
+  if (!nativeInvoke || !workspaceRootPath || !path) return;
+  const id = `http-request-get-${Date.now()}`;
+  pendingContextRequests.set(id, 'http-request-get');
+  pendingHttpRequestGetPaths.set(id, path);
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'http.collection.request.get', params: { repositoryPath: workspaceRootPath, collectionPath: path } }) });
+}
+
+function newHttpRequest() {
+  httpSelectedRequestPath = null;
+  httpRequestForm = createBlankHttpRequestForm();
+  httpLastResponse = null;
+  renderHttpRequestEditor();
+  renderHttpRequestTabs('params');
+  renderHttpResponseTabs('body');
+  renderHttpCollectionTree();
+}
+
+function chooseHttpEnvironment(environmentId, environmentPath) {
+  httpSelectedEnvironmentId = environmentId || null;
+  renderHttpEnvironmentPicker();
+  renderHttpCollectionTree();
+  closeHttpEnvironmentPicker();
+  // The full HttpEnvironment (with variables) isn't in the tree/picker at all -- only fetched
+  // once per environment id, and only when Send will actually need it.
+  if (environmentId && environmentPath && !httpEnvironmentContents.has(environmentId)) {
+    sendHttpEnvironmentGet(environmentId, environmentPath);
+  }
+}
+
+function sendHttpEnvironmentGet(environmentId, environmentPath) {
+  if (!nativeInvoke || !workspaceRootPath) return;
+  const id = `http-environment-get-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  pendingContextRequests.set(id, 'http-environment-get');
+  pendingHttpEnvironmentGetIds.set(id, environmentId);
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'http.collection.environment.get', params: { repositoryPath: workspaceRootPath, collectionPath: environmentPath } }) });
+}
+
+function renderHttpEnvironmentPicker() {
+  const value = document.getElementById('http-environment-value');
+  const menu = document.getElementById('http-environment-menu');
+  if (value) {
+    const selected = httpEnvironmentsFlat.find((env) => env.id === httpSelectedEnvironmentId);
+    value.textContent = selected ? selected.name : 'No environment';
+  }
+  if (!menu) return;
+  const noneRow = `<div class="picker-row${httpSelectedEnvironmentId ? '' : ' selected'}" role="none"><button class="picker-option${httpSelectedEnvironmentId ? '' : ' selected'}" type="button" role="menuitemradio" aria-checked="${!httpSelectedEnvironmentId}" data-http-environment-choice="">${selectedMarkMarkup(!httpSelectedEnvironmentId)}<span><strong>No environment</strong></span></button></div>`;
+  const rows = httpEnvironmentsFlat.map((env) => {
+    const selected = env.id === httpSelectedEnvironmentId;
+    return `<div class="picker-row${selected ? ' selected' : ''}" role="none"><button class="picker-option${selected ? ' selected' : ''}" type="button" role="menuitemradio" aria-checked="${selected}" data-http-environment-choice="${escapeHTML(env.id)}" data-http-environment-choice-path="${escapeHTML(env.path)}">${selectedMarkMarkup(selected)}<span><strong>${escapeHTML(env.name)}</strong></span></button></div>`;
+  }).join('');
+  const empty = httpEnvironmentsFlat.length ? '' : '<p class="picker-empty">No environments in this Project.</p>';
+  menu.innerHTML = `${noneRow}${empty}${rows}`;
+}
+
+function toggleHttpEnvironmentPicker() {
+  const menu = document.getElementById('http-environment-menu');
+  const button = document.getElementById('http-environment-button');
+  if (!menu || !button) return;
+  const wasOpen = !menu.hidden;
+  closeHttpEnvironmentPicker();
+  if (wasOpen) return;
+  renderHttpEnvironmentPicker();
+  menu.hidden = false;
+  button.setAttribute('aria-expanded', 'true');
+  (menu.querySelector('.picker-option.selected') ?? menu.querySelector('.picker-option'))?.focus();
+}
+
+function closeHttpEnvironmentPicker() {
+  const menu = document.getElementById('http-environment-menu');
+  if (menu) menu.hidden = true;
+  document.getElementById('http-environment-button')?.setAttribute('aria-expanded', 'false');
+}
+
+function renderKeyValueRows(rows, kind, { addLabel = '+ Add' } = {}) {
+  const rowsHtml = rows.map((row, index) => `<div class="requests-row" data-kind="${kind}" data-row-index="${index}"><input type="checkbox" class="requests-row-enabled" data-row-field="enabled"${row.enabled ? ' checked' : ''} aria-label="Row enabled" /><input type="text" class="requests-row-key" data-row-field="key" value="${escapeHTML(row.key ?? '')}" placeholder="Key" aria-label="Key" /><input type="text" class="requests-row-value" data-row-field="value" value="${escapeHTML(row.value ?? '')}" placeholder="Value" aria-label="Value" /><button type="button" class="icon-button requests-row-remove" data-row-remove aria-label="Remove row" title="Remove row">×</button></div>`).join('');
+  const empty = rows.length ? '' : '<p class="requests-body-empty">Nothing added yet.</p>';
+  return `<div class="requests-row-editor" data-kind="${kind}">${empty}${rowsHtml}<button type="button" class="text-button requests-row-add" data-row-add="${kind}">${addLabel}</button></div>`;
+}
+
+const httpAssertionTargets = ['status', 'duration', 'header', 'body'];
+const httpAssertionOperators = ['eq', 'neq', 'lt', 'lte', 'gt', 'gte', 'contains'];
+
+function renderAssertionRows(rows) {
+  const rowsHtml = rows.map((row, index) => {
+    const targetOptions = httpAssertionTargets.map((target) => `<option value="${target}"${row.target === target ? ' selected' : ''}>${target}</option>`).join('');
+    const operatorOptions = httpAssertionOperators.map((operator) => `<option value="${operator}"${row.operator === operator ? ' selected' : ''}>${operator}</option>`).join('');
+    return `<div class="requests-row requests-assertion-row" data-kind="assertions" data-row-index="${index}"><select class="requests-assertion-target" data-row-field="target" aria-label="Assertion target">${targetOptions}</select><input type="text" class="requests-assertion-path" data-row-field="path" value="${escapeHTML(row.path ?? '')}" placeholder="header name or body path" aria-label="Assertion path" /><select class="requests-assertion-operator" data-row-field="operator" aria-label="Assertion operator">${operatorOptions}</select><input type="text" class="requests-assertion-expected" data-row-field="expected" value="${escapeHTML(String(row.expected ?? ''))}" placeholder="Expected value" aria-label="Expected value" /><button type="button" class="icon-button requests-row-remove" data-row-remove aria-label="Remove assertion" title="Remove assertion">×</button></div>`;
+  }).join('');
+  const empty = rows.length ? '' : '<p class="requests-body-empty">No assertions: this execution is observational only.</p>';
+  return `<div class="requests-row-editor" data-kind="assertions">${empty}${rowsHtml}<button type="button" class="text-button requests-row-add" data-row-add="assertions">+ Add assertion</button></div>`;
+}
+
+function renderHttpParamsTab() {
+  const panel = document.getElementById('requests-panel-params');
+  if (panel) panel.innerHTML = renderKeyValueRows(httpRequestForm.params, 'params');
+}
+
+function renderHttpHeadersTab() {
+  const panel = document.getElementById('requests-panel-headers');
+  if (panel) panel.innerHTML = renderKeyValueRows(httpRequestForm.headers, 'headers');
+}
+
+function renderHttpBodyTab() {
+  const panel = document.getElementById('requests-panel-body');
+  if (!panel) return;
+  const body = httpRequestForm.body;
+  const options = ['none', 'json', 'text', 'xml', 'form-urlencoded', 'multipart']
+    .map((type) => `<option value="${type}"${body.type === type ? ' selected' : ''}>${type === 'form-urlencoded' ? 'Form URL-encoded' : type === 'multipart' ? 'Multipart' : type === 'none' ? 'None' : type.toUpperCase()}</option>`).join('');
+  let sub;
+  if (body.type === 'json' || body.type === 'text' || body.type === 'xml') {
+    sub = `<label class="sr-only" for="http-body-content">Body content</label><textarea id="http-body-content" class="requests-body-textarea" rows="10" placeholder="Body content">${escapeHTML(body.content ?? '')}</textarea>`;
+  } else if (body.type === 'form-urlencoded') {
+    sub = renderKeyValueRows(body.fields ?? [], 'body-form-urlencoded');
+  } else if (body.type === 'multipart') {
+    sub = renderKeyValueRows(body.fields ?? [], 'body-multipart');
+  } else {
+    sub = '<p class="requests-body-empty">This request has no body.</p>';
+  }
+  panel.innerHTML = `<div class="requests-body-type-row"><label class="sr-only" for="http-body-type">Body type</label><select id="http-body-type" class="requests-body-type-select">${options}</select></div><div class="requests-body-content" id="requests-body-content">${sub}</div>`;
+}
+
+function renderHttpAuthTab() {
+  const panel = document.getElementById('requests-panel-auth');
+  if (!panel) return;
+  const auth = httpRequestForm.auth;
+  const options = ['none', 'basic', 'bearer', 'apikey']
+    .map((type) => `<option value="${type}"${auth.type === type ? ' selected' : ''}>${type === 'none' ? 'None' : type === 'apikey' ? 'API key' : type[0].toUpperCase() + type.slice(1)}</option>`).join('');
+  let sub;
+  if (auth.type === 'basic') {
+    sub = `<label for="http-auth-username">Username</label><input type="text" id="http-auth-username" value="${escapeHTML(auth.username ?? '')}" autocomplete="off" /><label for="http-auth-password">Password</label><input type="password" id="http-auth-password" value="${escapeHTML(auth.password ?? '')}" autocomplete="off" />`;
+  } else if (auth.type === 'bearer') {
+    sub = `<label for="http-auth-token">Token</label><input type="text" id="http-auth-token" value="${escapeHTML(auth.token ?? '')}" autocomplete="off" />`;
+  } else if (auth.type === 'apikey') {
+    sub = `<label for="http-auth-key">Key</label><input type="text" id="http-auth-key" value="${escapeHTML(auth.key ?? '')}" autocomplete="off" /><label for="http-auth-value">Value</label><input type="text" id="http-auth-value" value="${escapeHTML(auth.value ?? '')}" autocomplete="off" /><label for="http-auth-placement">Placement</label><select id="http-auth-placement"><option value="header"${auth.placement === 'header' ? ' selected' : ''}>Header</option><option value="query"${auth.placement === 'query' ? ' selected' : ''}>Query</option></select>`;
+  } else {
+    sub = '<p class="requests-body-empty">No authentication.</p>';
+  }
+  panel.innerHTML = `<div class="requests-auth-type-row"><label class="sr-only" for="http-auth-type">Auth type</label><select id="http-auth-type" class="requests-auth-type-select">${options}</select></div><div class="requests-auth-fields" id="requests-auth-fields">${sub}</div>`;
+}
+
+function renderHttpAssertionsTab() {
+  const panel = document.getElementById('requests-panel-assertions');
+  if (panel) panel.innerHTML = renderAssertionRows(httpRequestForm.assertions ?? []);
+}
+
+function rerenderHttpRowsFor(kind) {
+  if (kind === 'params') renderHttpParamsTab();
+  else if (kind === 'headers') renderHttpHeadersTab();
+  else if (kind === 'body-form-urlencoded' || kind === 'body-multipart') renderHttpBodyTab();
+  else if (kind === 'assertions') renderHttpAssertionsTab();
+}
+
+function renderHttpRequestTabs(activeTab) {
+  httpRequestTab = activeTab;
+  document.querySelectorAll('[data-requests-tab]').forEach((tab) => {
+    const active = tab.dataset.requestsTab === activeTab;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
+  document.querySelectorAll('[data-requests-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.requestsPanel !== activeTab;
+  });
+}
+
+function renderHttpResponseTabs(activeTab) {
+  httpResponseTab = activeTab;
+  document.querySelectorAll('[data-requests-response-tab]').forEach((tab) => {
+    const active = tab.dataset.requestsResponseTab === activeTab;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
+  document.querySelectorAll('[data-requests-response-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.requestsResponsePanel !== activeTab;
+  });
+}
+
+function renderHttpRequestEditor() {
+  const methodField = document.getElementById('http-method');
+  const urlField = document.getElementById('http-url');
+  const nameField = document.getElementById('http-request-name');
+  const pathHint = document.getElementById('requests-path-hint');
+  if (methodField) methodField.value = httpRequestForm.method;
+  if (urlField) urlField.value = httpRequestForm.url;
+  if (nameField) nameField.value = httpRequestForm.name;
+  if (pathHint) pathHint.textContent = httpSelectedRequestPath ?? 'Not saved yet';
+  renderHttpParamsTab();
+  renderHttpHeadersTab();
+  renderHttpBodyTab();
+  renderHttpAuthTab();
+  renderHttpAssertionsTab();
+  renderHttpResponse();
+}
+
+function formatHttpResponseBody(body) {
+  if (body === undefined || body === null) return 'No response body.';
+  if (typeof body === 'string') {
+    try { return JSON.stringify(JSON.parse(body), null, 2); } catch { return body; }
+  }
+  try { return JSON.stringify(body, null, 2); } catch { return String(body); }
+}
+
+function httpStatusTone(status) {
+  if (status === 'error') return 'red';
+  if (typeof status !== 'number') return 'red';
+  if (status < 300) return 'green';
+  if (status < 500) return 'amber';
+  return 'red';
+}
+
+function renderHttpResponse() {
+  const meta = document.getElementById('requests-response-meta');
+  const bodyPanel = document.getElementById('requests-response-panel-body');
+  const headersPanel = document.getElementById('requests-response-panel-headers');
+  const timingPanel = document.getElementById('requests-response-panel-timing');
+  if (!meta || !bodyPanel || !headersPanel || !timingPanel) return;
+  if (!httpLastResponse) {
+    meta.innerHTML = 'Send a request to see its response.';
+    bodyPanel.textContent = 'No response yet.';
+    headersPanel.innerHTML = '<p class="requests-body-empty">No response headers.</p>';
+    timingPanel.innerHTML = '<p class="requests-body-empty">No timing recorded yet.</p>';
+    return;
+  }
+  const { status, durationMs, responseSize, responseHeaders, responseBody } = httpLastResponse;
+  const tone = httpStatusTone(status);
+  meta.innerHTML = `<span class="requests-status requests-status-${tone}">${escapeHTML(String(status))}</span><span class="requests-meta-item">${escapeHTML(String(durationMs))}ms</span>${typeof responseSize === 'number' ? `<span class="requests-meta-item">${escapeHTML(String(responseSize))} B</span>` : ''}`;
+  bodyPanel.textContent = formatHttpResponseBody(responseBody);
+  headersPanel.innerHTML = responseHeaders && Object.keys(responseHeaders).length
+    ? Object.entries(responseHeaders).map(([key, value]) => `<div class="requests-response-header-row"><code>${escapeHTML(key)}</code><span>${escapeHTML(String(value))}</span></div>`).join('')
+    : '<p class="requests-body-empty">No response headers.</p>';
+  timingPanel.innerHTML = `<div class="requests-response-header-row"><code>duration</code><span>${escapeHTML(String(durationMs))}ms</span></div>`;
+}
+
+function updateHttpSendButtonState() {
+  const button = document.getElementById('http-send-button');
+  if (!button) return;
+  button.disabled = httpRequestSending;
+  button.textContent = httpRequestSending ? 'Sending…' : 'Send';
+}
+
+/** Reads the live editor fields back into `httpRequestForm` (the single source of truth for
+    edits made through the row editors, which mutate it directly) and returns the plain
+    HttpRequest-shaped payload `http.request.execute`/`http.collection.request.save` expect. A
+    row with a blank key is dropped rather than sent, so adding a row and not filling it in
+    does not write a stray empty header/param/field. */
+function buildHttpRequestPayload() {
+  httpRequestForm.name = document.getElementById('http-request-name')?.value.trim() || 'Untitled request';
+  httpRequestForm.method = document.getElementById('http-method')?.value ?? httpRequestForm.method;
+  httpRequestForm.url = document.getElementById('http-url')?.value ?? httpRequestForm.url;
+  const cleanRows = (rows) => (rows ?? []).filter((row) => (row.key ?? '').trim().length > 0);
+  const body = httpRequestForm.body.type === 'form-urlencoded' || httpRequestForm.body.type === 'multipart'
+    ? { ...httpRequestForm.body, fields: cleanRows(httpRequestForm.body.fields) }
+    : httpRequestForm.body;
+  const payload = {
+    id: httpRequestForm.id,
+    name: httpRequestForm.name,
+    method: httpRequestForm.method,
+    url: httpRequestForm.url,
+    headers: cleanRows(httpRequestForm.headers),
+    params: cleanRows(httpRequestForm.params),
+    auth: httpRequestForm.auth,
+    body,
+  };
+  const assertions = (httpRequestForm.assertions ?? []).filter((row) => row.target && String(row.expected ?? '').length > 0);
+  if (assertions.length) payload.assertions = assertions;
+  return payload;
+}
+
+function sendHttpRequest() {
+  if (!nativeInvoke) { notify('Sending a request requires the sidecar.'); return; }
+  if (!activeProjectId) { notify('Select a Project before sending a request.'); return; }
+  if (httpRequestSending) return;
+  const httpRequest = buildHttpRequestPayload();
+  renderHttpRequestEditor();
+  if (!httpRequest.url.trim()) { notify('Enter a URL before sending.'); return; }
+  httpRequestSending = true;
+  updateHttpSendButtonState();
+  const httpEnvironment = httpSelectedEnvironmentId ? httpEnvironmentContents.get(httpSelectedEnvironmentId) : undefined;
+  const id = `http-request-execute-${Date.now()}`;
+  pendingContextRequests.set(id, 'http-request-execute');
+  const params = {
+    httpRequest,
+    projectId: activeProjectId,
+    ...(selectedTaskId ? { taskId: selectedTaskId } : {}),
+    ...(httpEnvironment ? { httpEnvironment } : {}),
+  };
+  nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method: 'http.request.execute', params }) });
+}
+
+function handleSaveHttpRequest() {
+  if (httpSelectedRequestPath) { saveHttpRequest(httpSelectedRequestPath); return; }
+  const dialog = document.getElementById('http-save-path-dialog');
+  const input = document.getElementById('http-save-path-input');
+  if (!dialog?.showModal) { notify('Saving requires a dialog that is unavailable.'); return; }
+  if (input) input.value = '';
+  dialog.showModal();
+  requestAnimationFrame(() => input?.focus());
+}
+
+/** Delegated input/change handler for the whole request panel (`.requests-request-panel`,
+    which wraps all five tabs): one listener for the type selects, the raw-body textarea, the
+    auth sub-fields, and every row editor's key/value/enabled/target/path/operator/expected
+    cell, rather than re-binding per field on every re-render. */
+function handleHttpRequestPanelInput(event) {
+  const target = event.target;
+  if (!target) return;
+  if (target.id === 'http-body-type') {
+    httpRequestForm.body = blankHttpBody(target.value);
+    renderHttpBodyTab();
+    return;
+  }
+  if (target.id === 'http-body-content') {
+    if (httpRequestForm.body.type === 'json' || httpRequestForm.body.type === 'text' || httpRequestForm.body.type === 'xml') httpRequestForm.body.content = target.value;
+    return;
+  }
+  if (target.id === 'http-auth-type') {
+    httpRequestForm.auth = blankHttpAuth(target.value);
+    renderHttpAuthTab();
+    return;
+  }
+  if (target.id === 'http-auth-username') { httpRequestForm.auth.username = target.value; return; }
+  if (target.id === 'http-auth-password') { httpRequestForm.auth.password = target.value; return; }
+  if (target.id === 'http-auth-token') { httpRequestForm.auth.token = target.value; return; }
+  if (target.id === 'http-auth-key') { httpRequestForm.auth.key = target.value; return; }
+  if (target.id === 'http-auth-value') { httpRequestForm.auth.value = target.value; return; }
+  if (target.id === 'http-auth-placement') { httpRequestForm.auth.placement = target.value; return; }
+  const row = target.closest?.('[data-kind][data-row-index]');
+  if (row && target.dataset?.rowField) {
+    const rows = httpRowsFor(row.dataset.kind);
+    const index = Number(row.dataset.rowIndex);
+    const entry = rows?.[index];
+    if (!entry) return;
+    const field = target.dataset.rowField;
+    if (field === 'enabled') entry.enabled = target.checked;
+    else entry[field] = target.value;
+  }
+}
+
+function saveHttpRequest(collectionPath) {
+  if (!nativeInvoke || !workspaceRootPath) { notify('Saving requires the sidecar.'); return; }
+  const httpRequest = buildHttpRequestPayload();
+  renderHttpRequestEditor();
+  httpPendingSavePath = collectionPath;
+  void sendContextRequest('http.collection.request.save', { repositoryPath: workspaceRootPath, collectionPath, httpRequest }, 'http-request-save');
+}
+
 function showView(view) {
   activeView = view;
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.view === view));
@@ -5721,6 +6332,7 @@ function showView(view) {
   if (mainContent) mainContent.scrollTop = 0;
   if (view === 'changes') requestVersionControlData(workspaceRootPath, { force: true });
   if (view === 'agents') { requestAgentSessions(workspaceRootPath); requestAgentPressure(); requestAgentUsage(); }
+  if (view === 'requests') loadHttpCollectionTree();
 }
 
 function notify(message) {
@@ -5768,6 +6380,11 @@ function operationErrorCopy(technical, purpose) {
 }
 
 navItems.forEach((item) => item.addEventListener('click', () => showView(item.dataset.view)));
+renderHttpRequestEditor();
+renderHttpRequestTabs('params');
+renderHttpResponseTabs('body');
+renderHttpCollectionTree();
+renderHttpEnvironmentPicker();
 renderSnapshot(projectSnapshot);
 renderRuntimeStatus({ sidecar: 'STARTING', agentRuntime: 'DISCONNECTED', activeTaskId: null, lastEventAt: null, lastError: null });
 refreshProjectContext(projectSnapshot);
@@ -5791,6 +6408,26 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   if (item.dataset.action === 'focus-search' || item.dataset.action === 'quick-open') {
     document.getElementById('workspace-filter')?.focus();
     notify('Workspace search focused.');
+    return;
+  }
+  if (item.dataset.action === 'new-http-request') {
+    newHttpRequest();
+    return;
+  }
+  if (item.dataset.action === 'refresh-http-collection-tree') {
+    loadHttpCollectionTree();
+    return;
+  }
+  if (item.dataset.action === 'save-http-request') {
+    handleSaveHttpRequest();
+    return;
+  }
+  if (item.dataset.action === 'send-http-request') {
+    sendHttpRequest();
+    return;
+  }
+  if (item.dataset.action === 'close-http-save-path-dialog') {
+    document.getElementById('http-save-path-dialog')?.close();
     return;
   }
   if (item.dataset.action === 'new-task') {
@@ -6330,6 +6967,61 @@ document.addEventListener('click', (event) => {
     requestVersionControlData(workspaceRootPath, { force: true });
     return;
   }
+  const requestsPaneToggle = event.target.closest('[data-requests-pane-toggle]');
+  if (requestsPaneToggle) {
+    const layout = document.getElementById('requests-layout');
+    const collapsed = Boolean(layout?.classList.toggle('requests-rail-collapsed'));
+    const toggle = document.getElementById('requests-rail-toggle');
+    const restore = document.getElementById('requests-rail-restore');
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+      const label = collapsed ? 'Expand collections' : 'Collapse collections';
+      toggle.setAttribute('aria-label', label);
+      toggle.title = label;
+    }
+    if (restore) { restore.tabIndex = collapsed ? 0 : -1; restore.setAttribute('aria-hidden', String(!collapsed)); }
+    return;
+  }
+  const requestsTab = event.target.closest('[data-requests-tab]');
+  if (requestsTab) { renderHttpRequestTabs(requestsTab.dataset.requestsTab); return; }
+  const requestsResponseTab = event.target.closest('[data-requests-response-tab]');
+  if (requestsResponseTab) { renderHttpResponseTabs(requestsResponseTab.dataset.requestsResponseTab); return; }
+  const httpFolderToggle = event.target.closest('[data-http-folder-path]');
+  if (httpFolderToggle) {
+    const path = httpFolderToggle.dataset.httpFolderPath;
+    if (httpCollapsedHttpFolders.has(path)) httpCollapsedHttpFolders.delete(path); else httpCollapsedHttpFolders.add(path);
+    renderHttpCollectionTree();
+    return;
+  }
+  const httpRequestNode = event.target.closest('[data-http-request-path]');
+  if (httpRequestNode) { openHttpRequestFromTree(httpRequestNode.dataset.httpRequestPath); return; }
+  const httpEnvironmentNode = event.target.closest('[data-http-environment-id]');
+  if (httpEnvironmentNode) { chooseHttpEnvironment(httpEnvironmentNode.dataset.httpEnvironmentId, httpEnvironmentNode.dataset.httpEnvironmentPath); return; }
+  const httpTreeAction = event.target.closest('[data-http-tree-action="new-request"]');
+  if (httpTreeAction) { newHttpRequest(); return; }
+  const httpRowAdd = event.target.closest('[data-row-add]');
+  if (httpRowAdd) {
+    const kind = httpRowAdd.dataset.rowAdd;
+    const rows = httpRowsFor(kind);
+    if (rows) {
+      if (kind === 'assertions') rows.push({ target: 'status', path: '', operator: 'eq', expected: '' });
+      else if (kind === 'body-multipart') rows.push({ key: '', value: '', isFile: false, enabled: true });
+      else rows.push({ key: '', value: '', enabled: true });
+      rerenderHttpRowsFor(kind);
+    }
+    return;
+  }
+  const httpRowRemove = event.target.closest('[data-row-remove]');
+  if (httpRowRemove) {
+    const row = httpRowRemove.closest('[data-kind][data-row-index]');
+    if (row) {
+      const rows = httpRowsFor(row.dataset.kind);
+      const index = Number(row.dataset.rowIndex);
+      if (rows) rows.splice(index, 1);
+      rerenderHttpRowsFor(row.dataset.kind);
+    }
+    return;
+  }
   const commitFile = event.target.closest('[data-git-commit-file]');
   if (commitFile && selectedGitCommit) {
     selectGitCommit(selectedGitCommit.hash, commitFile.dataset.gitCommitFile);
@@ -6606,6 +7298,10 @@ document.addEventListener('click', (event) => {
   const trigger = event.target.closest('.picker-button');
   if (trigger?.dataset.pickerKind === 'run') { toggleRunPicker(); return; }
   if (!event.target.closest('.run-picker')) closeRunPicker();
+  if (trigger?.dataset.pickerKind === 'http-environment') { toggleHttpEnvironmentPicker(); return; }
+  if (!event.target.closest('.requests-environment-picker')) closeHttpEnvironmentPicker();
+  const httpEnvironmentChoice = event.target.closest('[data-http-environment-choice]');
+  if (httpEnvironmentChoice) { chooseHttpEnvironment(httpEnvironmentChoice.dataset.httpEnvironmentChoice || null, httpEnvironmentChoice.dataset.httpEnvironmentChoicePath); return; }
   if (trigger) { toggleAgentPicker(trigger.dataset.pickerKind); return; }
   const defaultToggle = event.target.closest('.picker-default');
   if (defaultToggle) { toggleDefaultModel(defaultToggle.dataset.defaultModel); return; }
@@ -6869,6 +7565,52 @@ document.querySelector('.version-control-tabs')?.addEventListener('keydown', (ev
   renderVersionControlTabs(nextTab.dataset.versionControlTab);
   nextTab.focus();
   requestVersionControlData(workspaceRootPath, { force: true });
+});
+// Requests view has two independent tab groups (request sections, response sections) sharing
+// the same `.version-control-tabs`/`.version-control-tab` styling -- addressed by id here
+// rather than `document.querySelector('.version-control-tabs')` (which would only ever bind
+// to the first one in the document, the Changes/History tabs above).
+document.getElementById('requests-request-tabs')?.addEventListener('keydown', (event) => {
+  const tabs = [...document.querySelectorAll('[data-requests-tab]')];
+  const currentIndex = tabs.indexOf(event.target);
+  if (currentIndex < 0) return;
+  let nextIndex = currentIndex;
+  if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length;
+  else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+  else if (event.key === 'Home') nextIndex = 0;
+  else if (event.key === 'End') nextIndex = tabs.length - 1;
+  else return;
+  event.preventDefault();
+  const nextTab = tabs[nextIndex];
+  renderHttpRequestTabs(nextTab.dataset.requestsTab);
+  nextTab.focus();
+});
+document.getElementById('requests-response-tabs')?.addEventListener('keydown', (event) => {
+  const tabs = [...document.querySelectorAll('[data-requests-response-tab]')];
+  const currentIndex = tabs.indexOf(event.target);
+  if (currentIndex < 0) return;
+  let nextIndex = currentIndex;
+  if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length;
+  else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+  else if (event.key === 'Home') nextIndex = 0;
+  else if (event.key === 'End') nextIndex = tabs.length - 1;
+  else return;
+  event.preventDefault();
+  const nextTab = tabs[nextIndex];
+  renderHttpResponseTabs(nextTab.dataset.requestsResponseTab);
+  nextTab.focus();
+});
+document.querySelector('.requests-request-panel')?.addEventListener('input', handleHttpRequestPanelInput);
+document.querySelector('.requests-request-panel')?.addEventListener('change', handleHttpRequestPanelInput);
+document.getElementById('http-request-name')?.addEventListener('input', (event) => { httpRequestForm.name = event.target.value; });
+document.getElementById('http-method')?.addEventListener('change', (event) => { httpRequestForm.method = event.target.value; });
+document.getElementById('http-url')?.addEventListener('input', (event) => { httpRequestForm.url = event.target.value; });
+document.getElementById('http-save-path-form')?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const input = document.getElementById('http-save-path-input');
+  const path = input?.value.trim();
+  if (!path) return;
+  saveHttpRequest(path);
 });
 document.getElementById('git-history-filter')?.addEventListener('input', (event) => {
   gitHistoryFilter = event.target.value;
