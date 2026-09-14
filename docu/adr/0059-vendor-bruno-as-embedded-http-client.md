@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Date
 
@@ -30,7 +30,18 @@ Bruno se distribuye como aplicación de escritorio propia sobre Electron y React
 
 **Se publica bajo MIT, igual que Bruno y que el resto de Assay**, siguiendo el razonamiento ya fijado en ADR-0042 y ADR-0058: mismo ecosistema de licencias, sin fricción de compatibilidad, sin `NOTICE` que mantener.
 
-**Queda un spike previo a la superficie de usuario**, en la misma línea que los spikes fundacionales del Nexus (integración de runtime, resolución documental) y que el spike 004 de transporte Tauri–TypeScript. Este ADR fija la dirección arquitectónica; no fija con certeza el punto exacto del monorepo de Bruno del que se extrae el motor, porque esa verificación exige inspeccionar el código fuente real y no debe inventarse aquí. El spike debe responder, con evidencia y no con supuestos: qué paquete(s) del monorepo `usebruno/bruno` implementan parseo `.bru` y ejecución de peticiones de forma desacoplada de Electron/React; si ese código puede consumirse como dependencia de Node sin arrastrar la UI; y qué licencia declara exactamente cada paquete que se termine consumiendo (MIT en el repositorio raíz no garantiza que cada paquete interno la declare igual).
+**La verificación previa a la superficie de usuario queda hecha, no pendiente.** El monorepo `usebruno/bruno` es un workspace npm con `packages/bruno-app` (React) y `packages/bruno-electron` como únicos paquetes acoplados a UI/Electron; el resto son paquetes Node puros, publicados de forma independiente en npm y consumidos por `@usebruno/cli` —la propia CLI oficial de Bruno para correr colecciones en CI, sin Electron ni React— como prueba de que son consumibles fuera de la aplicación de escritorio:
+
+| Paquete | Versión verificada | Licencia | Rol |
+|---|---|---|---|
+| `@usebruno/lang` | 0.12.0 | MIT | conversión bidireccional `.bru` ↔ JSON |
+| `@usebruno/requests` | 0.1.0 | MIT | ejecución HTTP (sobre `axios`), proxies, gRPC |
+| `@usebruno/js` | 0.12.0 | MIT | sandbox de scripts pre/post-request y assertions (QuickJS o Node VM) |
+| `@usebruno/common` | 0.1.0 | MIT | interpolación de variables y entornos |
+| `@usebruno/filestore` | 0.1.0 | MIT | lectura/escritura de colecciones en disco |
+| `@usebruno/cli` | 1.16.0 | MIT | prueba de consumo: usa los anteriores sin Electron/React |
+
+`license.md` en la raíz del repositorio y en `packages/bruno-cli/license.md` declaran el mismo texto MIT y el mismo titular de copyright ("Anoop M D, Anusree P S and Contributors"), verificado directamente contra el repositorio el 2026-09-14. El sidecar de Assay puede consumir estos paquetes como dependencias de Node normales, sin vendorizar ni readaptar código fuente ajeno a mano.
 
 ## Alternatives Considered
 
@@ -44,7 +55,7 @@ Rechazado por lo mismo que ADR-0057 rechazó reimplementar SEED: reinventar pars
 
 ### Adoptar Hoppscotch en lugar de Bruno
 
-Considerado y descartado para esta iteración. Hoppscotch (MIT) es igualmente viable en licencia, pero su modelo de referencia es self-host con backend NestJS y Postgres propios — infraestructura que Assay ya resuelve con su sidecar y SQLite, y que se solaparía en lugar de reutilizarse. El modelo de colección de Bruno como ficheros de texto encaja sin capas intermedias con el "truth model" del Nexus; el de Hoppscotch exigiría decidir primero qué hacer con un backend que Assay no necesita. Queda registrado como alternativa válida si el spike descubre que el motor de Bruno no es extraíble de forma limpia.
+Considerado y descartado para esta iteración. Hoppscotch (MIT) es igualmente viable en licencia, pero su modelo de referencia es self-host con backend NestJS y Postgres propios — infraestructura que Assay ya resuelve con su sidecar y SQLite, y que se solaparía en lugar de reutilizarse. El modelo de colección de Bruno como ficheros de texto encaja sin capas intermedias con el "truth model" del Nexus; el de Hoppscotch exigiría decidir primero qué hacer con un backend que Assay no necesita. Queda registrado como alternativa de respaldo si en el desarrollo aparece un límite no previsto en los paquetes de Bruno ya verificados.
 
 ### No incorporar cliente HTTP y mantener la salida a una herramienta externa
 
@@ -54,6 +65,6 @@ Rechazado por ser el problema que motiva este ADR: cada salida a una herramienta
 
 - Assay gana una superficie nativa para ejecutar peticiones HTTP sin salir del shell, con colecciones versionables en el propio repositorio del Project.
 - Cualquier colección `.bru` externa es compatible sin conversión; el formato no es un silo propio de Assay.
-- El spike previo puede descubrir que el motor de Bruno no está lo bastante desacoplado de su UI para vendorizarse limpio. Si eso ocurre, esta decisión debe revisarse antes de escribir `SPEC-http-client.md#product-contract` como contrato cerrado; el spec queda `planned` hasta entonces.
-- `THIRT_PARTY_LICENSES.md` en `desktop/` debe ampliarse con las dependencias concretas que el spike identifique, con su licencia verificada paquete por paquete, no asumida desde la licencia del repositorio raíz.
+- La extracción queda verificada, no es un riesgo abierto: `@usebruno/lang`, `@usebruno/requests`, `@usebruno/js`, `@usebruno/common` y `@usebruno/filestore` son paquetes Node MIT publicados de forma independiente, y `@usebruno/cli` prueba en producción que se consumen sin Electron ni React.
+- `THIRD_PARTY_LICENSES.md` en `desktop/` debe ampliarse con estos cinco paquetes (y `@usebruno/cli` si el sidecar termina apoyándose en su capa de orquestación en vez de recomponerla) cuando la implementación los añada como dependencias reales del `package-lock.json`; esta tabla fija la versión verificada en la fecha de este ADR, no sustituye al lockfile como fuente de versiones concretas en el momento de cada release, según el mismo criterio que ya aplica ADR-0023.
 - Igual que en ADR-0057, la copia vendorizada y el repositorio `usebruno/bruno` pueden divergir con el tiempo; no hay proceso de sincronización automática y no se le debe nada al proyecto origen más allá de conservar el aviso de copyright que su licencia MIT exige.

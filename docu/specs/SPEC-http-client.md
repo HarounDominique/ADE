@@ -2,7 +2,7 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Module id: http-client -->
 
-**Estado:** planned — spec en revisión, nada implementado. Depende de la verificación del spike registrado en [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md) antes de fijar el contrato como cerrado.
+**Estado:** planned — spec en revisión, nada implementado. La verificación técnica y de licencia de [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md) ya está hecha; el contrato queda cerrado en lo arquitectónico y pendiente sólo de aprobación humana y de la implementación.
 
 ## Objective
 
@@ -119,11 +119,10 @@ Tests de parseo y escritura de ficheros `.bru` contra el formato real de Bruno, 
 
 ## Implementation status
 
-Nada implementado. Este documento y [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md) son la base para el spike que debe verificar si el motor de Bruno es extraíble de su aplicación de escritorio sin arrastrar Electron/React, y con qué licencia exacta por paquete.
+Nada implementado. [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md) ya verificó que `@usebruno/lang`, `@usebruno/requests`, `@usebruno/js`, `@usebruno/common` y `@usebruno/filestore` son paquetes Node MIT independientes de Electron/React, consumibles como dependencias normales del sidecar. La siguiente fase es planificación de build (`/seed:plan` o equivalente), no un nuevo spike de viabilidad.
 
 ## Open Questions
 
-- ¿Qué paquete(s) concretos del monorepo `usebruno/bruno` implementan parseo `.bru` y ejecución desacoplados de su UI, y son consumibles como dependencia de Node? Pendiente del spike registrado en ADR-0059.
 - ¿Debe existir una gate `http-check` opt-in, análoga a `structural-gate`, para Projects que quieran bloquear `SHIP` en una assertion HTTP fallida? Queda deliberadamente fuera de esta iteración.
 - ¿Cómo se relaciona una variable de entorno de este módulo con el puerto real que expone una configuración `run-configurations` en ejecución — sustitución automática `${port:<name>}` como ya hace `run.json`, o dos sistemas de variables independientes que el operador sincroniza a mano?
 - ¿El historial de ejecuciones tiene un límite de retención, o crece sin cota igual que puede crecer sin cota un `.ade/http/` con muchas colecciones?
