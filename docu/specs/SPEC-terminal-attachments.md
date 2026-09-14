@@ -99,11 +99,11 @@ ruta sin escapar dentro de HTML. La terminal recibe bytes de entrada mediante el
 6. La operación es utilizable por teclado, anuncia el estado de drop a tecnologías
    asistivas y no rompe el compositor multilinea ni las terminales `run` de solo salida.
 
-## Open Questions
+## Resolved Decisions
 
-- Confirmar que en `Agents` la referencia de ruta local es el comportamiento deseado, en
-  vez de leer/subir el contenido del fichero al provider.
-- El alcance inicial acepta cualquier fichero local de la máquina; las carpetas quedan
-  fuera de alcance hasta una decisión posterior.
-- Confirmar si en terminal se debe inyectar sólo la ruta o una forma provider-aware cuando
-  Claude Code esté activo.
+- `Agents` conserva una referencia local visible y sólo la incluye al pulsar `Send prompt`;
+  no lee, copia ni sube el contenido.
+- Se acepta cualquier fichero local de la máquina, también fuera del Project; las carpetas
+  quedan fuera de alcance.
+- La terminal siempre recibe únicamente la ruta absoluta con quoting del sistema; el
+  comportamiento es provider-neutral y funciona igual con Claude Code, Codex y OpenCode.

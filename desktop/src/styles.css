@@ -2265,3 +2265,9 @@ span.git-option-mark { display: inline-block; width: 12px; flex: 0 0 auto; }
 .database-schema-column small { color: var(--muted); }.database-schema-keys { margin: 0 10px 10px; color: var(--muted); font: 11px/1.5 var(--mono); }
 .database-file-field { grid-column: 1 / -1; }
 @media (max-width: 780px) { .database-layout { grid-template-columns: 1fr; }.database-form-grid { grid-template-columns: 1fr; }.database-file-field { grid-column: auto; } }
+.terminal-surface.is-drop-target, #agent-prompt-form.is-drop-target { outline: 2px dashed var(--cyan); outline-offset: -4px; }
+.agent-prompt-attachments { display: grid; gap: 5px; margin: 0 22px 8px; padding: 0; list-style: none; }
+.agent-prompt-attachments[hidden] { display: none; }
+.agent-prompt-attachments li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); color: var(--text-soft); background: var(--panel); font: 11px var(--mono); }
+.agent-prompt-attachments code { color: var(--text); }.agent-prompt-attachments small { min-width: 0; flex: 1; overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.agent-prompt-attachments button { border: 0; color: var(--muted); background: transparent; font: inherit; cursor: pointer; }.agent-prompt-attachments button:hover, .agent-prompt-attachments button:focus-visible { color: var(--red); }

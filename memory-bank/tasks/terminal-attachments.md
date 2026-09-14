@@ -19,7 +19,7 @@ status: in_progress
 - [x] Phase 2 — Drop en terminal PTY. Añadir target visual y accesible, inyectar la ruta
   mediante `terminal_input`, mantener intacta la consola `run` y cubrir el ciclo sin
   ejecución automática.
-- [ ] Phase 3 — Drop en Agents. Añadir chips de referencias al composer, envío explícito
+- [x] Phase 3 — Drop en Agents. Añadir chips de referencias al composer, envío explícito
   y preservación ante errores; mantener el contrato común para Claude Code, Codex y
   OpenCode.
 - [ ] Phase 4 — Revisión de seguridad, multiplataformidad y smoke manual. Verificar
@@ -28,9 +28,9 @@ status: in_progress
 ## Execution State
 
 **Build Status**: RUNNING
-**Current Phase**: 3
+**Current Phase**: 4
 **Current Step**: 1/6
-**Step Attempts**: {1: 1, 2: 1, 3: 0, 4: 0}
+**Step Attempts**: {1: 1, 2: 1, 3: 1, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
