@@ -6,7 +6,7 @@ generated_at: 2026-09-14
 # Agent Rules Index
 
 No rule files exist under `memory-bank/agent-rules/` itself. The `_learned/` subdirectory
-now holds 7 machine-generated rules from `/seed:reflect`; this index does not cover it —
+now holds 9 machine-generated rules from `/seed:reflect`; this index does not cover it —
 a build phase's review gate reads `_learned/` directly, since those files already conform
 by construction.
 
