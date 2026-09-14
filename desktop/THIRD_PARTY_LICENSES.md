@@ -27,6 +27,9 @@ Assay is MIT licensed and is built on work by other people. This is the inventor
 | [`postject`](https://github.com/nodejs/postject) | 1.0.0-alpha.6 | Injects the sidecar into a Node single executable application | MIT | [npm](https://www.npmjs.com/package/postject) |
 | [`@types/node`](https://github.com/DefinitelyTyped/DefinitelyTyped) | 24.13.3 | Node type definitions | MIT | [DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped) |
 | [`@types/cross-spawn`](https://github.com/DefinitelyTyped/DefinitelyTyped) | 6.0.6 | `cross-spawn` type definitions | MIT | [DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped) |
+| [`@usebruno/filestore`](https://github.com/usebruno/bruno/tree/main/packages/bruno-filestore) | 0.12.0 | Reads and writes `.bru` request/environment/collection files for the `http-client` module | MIT | [npm](https://www.npmjs.com/package/@usebruno/filestore) |
+| [`@usebruno/lang`](https://github.com/usebruno/bruno/tree/main/packages/bruno-lang) | 0.39.0 | `.bru` ⇄ JSON conversion, consumed internally by `@usebruno/filestore` | MIT | [npm](https://www.npmjs.com/package/@usebruno/lang) |
+| [`nanoid`](https://github.com/ai/nanoid) | 3.3.19 | Runtime dependency of `@usebruno/filestore`'s bundle (`require('nanoid')`) that its own `package.json` omits from `dependencies`; pinned to major 3 for CommonJS `require` compatibility | MIT | [npm](https://www.npmjs.com/package/nanoid) |
 
 ## Native shell — `desktop/src-tauri/Cargo.toml`
 
