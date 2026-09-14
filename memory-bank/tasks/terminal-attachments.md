@@ -1,7 +1,7 @@
 ---
 slug: terminal-attachments
 spec: docu/specs/SPEC-terminal-attachments.md
-status: approved
+status: in_progress
 ---
 
 ## Implementation Roadmap
@@ -13,7 +13,7 @@ status: approved
 3. Añadir referencias pendientes al composer y traducirlas al contrato común de prompt.
 4. Cerrar con revisión de seguridad, matriz de plataformas y smoke manual.
 
-- [ ] Phase 1 — Contrato de drop, normalización y quoting multiplataforma. Resolver
+- [x] Phase 1 — Contrato de drop, normalización y quoting multiplataforma. Resolver
   ficheros locales en cualquier ubicación, rechazar carpetas o tipos según decisión final
   y cubrir POSIX/Windows con tests puros.
 - [ ] Phase 2 — Drop en terminal PTY. Añadir target visual y accesible, inyectar la ruta
@@ -28,9 +28,9 @@ status: approved
 ## Execution State
 
 **Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Current Phase**: 2
+**Current Step**: 1/6
+**Step Attempts**: {1: 1, 2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
