@@ -1,7 +1,7 @@
 ---
 slug: http-client
 spec: docu/specs/SPEC-http-client.md
-status: planned
+status: approved
 ---
 
 ## Implementation Roadmap
