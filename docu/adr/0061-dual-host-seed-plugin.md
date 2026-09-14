@@ -54,3 +54,17 @@ una segunda variante que pueda divergir.
   divergencias de identidad, licencia, versión y contenido básico.
 - La verificación de ejecución real sigue dependiendo de tener cada CLI
   instalado y autenticado en la plataforma correspondiente.
+
+## Verification evidence
+
+- Standalone `seed`: `scripts/validate-plugin-parity.mjs` pasa con Claude
+  1.2.0, Codex 1.2.0 y 15 skills Codex.
+- Assay: `npm run seed:check`, el validador vendorizado, los tests específicos,
+  el typecheck, el build frontend y 54 tests Rust pasan localmente.
+- Checkout limpio: ambos repositorios validan sin depender de cambios no
+  commiteados ni de la presencia del repositorio hermano `seed`.
+- CI declara runners Ubuntu y Windows para la matriz y Ubuntu, macOS y Windows
+  para release. El run remoto `34849044364` confirmó Linux; Windows alcanzó
+  641/642 tests y falló en `toolchain-inspection`, fuera del alcance SEED.
+- La certificación remota de los commits duales actuales queda pendiente hasta
+  que el branch que contiene `3fed695`, `e60f09b` y `dfbe5f9` se publique.
