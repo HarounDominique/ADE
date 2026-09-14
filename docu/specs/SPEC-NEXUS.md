@@ -65,7 +65,7 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | native-skills | [SPEC-native-skills.md](SPEC-native-skills.md) | Catálogo, instalación, versionado y ejecución de skills | knowledge-docs, development-workflow, agent-providers | done | — |
 | git-collaboration | [SPEC-git-collaboration.md](SPEC-git-collaboration.md) | Git local, GitHub, branches, worktrees y PRs | workspace-core, changes-review-governance, agent-providers | done | — |
 | living-knowledge | [SPEC-living-knowledge.md](SPEC-living-knowledge.md) | Grafo de referencias, specs vivas, diagramas y reconciliación | knowledge-docs, native-skills, workspace-core | done | — |
-| file-workspace | [SPEC-file-workspace.md](SPEC-file-workspace.md) | Editor interno de texto, lectura/escritura segura y escape hatch externo | workspace-core, desktop-shell | done | — |
+| file-workspace | [SPEC-file-workspace.md](SPEC-file-workspace.md) | Editor interno de texto, lectura/escritura segura y escape hatch externo | workspace-core, desktop-shell | in-progress | — |
 | cross-platform-support | [SPEC-cross-platform-support.md](SPEC-cross-platform-support.md) | Fronteras de plataforma, verificación por matriz y grados de soporte | desktop-shell, workspace-core, local-runtime | in-progress | — |
 | run-configurations | [SPEC-run-configurations.md](SPEC-run-configurations.md) | Configuraciones de arranque y depuración del Project, puertos y consola por ejecución | local-runtime, desktop-shell, workspace-core | in-progress | — |
 | agent-terminal-history | [SPEC-agent-terminal-history.md](SPEC-agent-terminal-history.md) | Historial de terminales con agente, reanudación por id, títulos y popup del dock | workspace-core, agent-providers, desktop-shell | done | — |
@@ -360,6 +360,7 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
   guard de contención compartido antes de cerrar la tarea. La baseline de 573 tests TypeScript
   sube a 642 con el módulo completo; build y bundle esbuild limpios. Los siete criterios de
   aceptación del spec están cubiertos por tests reales. El módulo pasa a `done`.
+- 2026-09-14 — file-workspace — Se especifica preview de imagen raster (PNG/JPEG/GIF/WEBP/BMP/ICO, pan/zoom con `@panzoom/panzoom` MIT), SVG (alternancia `Preview`/`Source` sobre el texto ya leído, render vía `<img>`), HTML (misma alternancia, `Preview` en `iframe sandbox` sin `allow-scripts`, `Source` reutilizando `@codemirror/lang-html` ya incorporado por ADR-0023) y diagramas Mermaid MIT como código (fences ` ```mermaid ` y ficheros `.mmd`, como regla nueva del renderer `markdown-it` existente). DOMPurify se descarta para esta fase por romper el ecosistema de licencias 100% MIT-compatible; el `iframe` sandboxed resuelve el mismo invariante sin dependencia nueva. La decisión, las alternativas descartadas y la verificación de licencias quedan en [ADR-0060](../adr/0060-image-and-html-preview.md). Se propagó a `SPEC-desktop-shell` y `SPEC-workspace-core`, cuya afirmación de que todo binario sólo muestra estado explicativo queda acotada con la excepción de imagen/SVG/HTML. El módulo vuelve a `in-progress`: la implementación de esta capacidad no ha empezado.
 
 ## Automatic Reconciliation Log
 

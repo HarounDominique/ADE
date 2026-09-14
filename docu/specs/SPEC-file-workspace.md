@@ -2,7 +2,7 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Module id: file-workspace -->
 
-**Estado:** implementada — slice v0.4 multimotor validada a nivel de build y tests; bundle `.app` generado y arrancado manualmente en macOS; smoke gráfico automatizado pendiente.
+**Estado:** implementada — slice v0.4 multimotor validada a nivel de build y tests; bundle `.app` generado y arrancado manualmente en macOS; smoke gráfico automatizado pendiente. Preview de imagen raster, SVG, HTML sandboxed y diagramas Mermaid queda especificado en [ADR-0060](../adr/0060-image-and-html-preview.md); implementación pendiente.
 
 ## Objective
 
@@ -16,6 +16,9 @@ Permitir que seleccionar un fichero del Explorer lo abra dentro de ADE, mantenie
 - Cuando no existe un paquete CodeMirror oficial incorporado, la misma superficie cambia automáticamente a Monaco Editor MIT y carga sus definiciones básicas para C, C#, Go, Dart, Dockerfiles, Elixir, F#, GraphQL, Kotlin, Lua, Objective-C, Perl, PowerShell, Protocol Buffers, R, Ruby, Scala, Shell y Swift. El usuario conserva los mismos controles de apertura, edición, guardado, descarte, tema y atajos; el motor es una decisión interna por extensión.
 - `Format` aplica Prettier, también MIT, de forma explícita para JavaScript/TypeScript, JSON, CSS/SCSS, HTML, Markdown y YAML. Para Python, Rust, SQL, XML y los lenguajes fallback se conserva resaltado e indentación del motor activo hasta incorporar formatters específicos con una estrategia de ejecución y licencia revisadas.
 - Un fichero `.md` o `.markdown` se abre renderizado con markdown-it MIT (`html: false`, sin ejecutar HTML embebido del documento) y un control en la cabecera del Editor alterna entre `Preview` y `Source` sobre el mismo documento; la última elección siembra el siguiente fichero Markdown. La superficie renderizada cubre encabezados con ancla, listas de tareas inertes, tablas, código, citas e imágenes; `Save`, `Discard` y `Format` siguen operando sobre el buffer mientras el preview está visible. Un enlace relativo abre ese documento en una pestaña, un enlace `#ancla` navega dentro del documento y una dirección externa se copia al portapapeles sin sacar al webview de la shell.
+- Un fichero de imagen raster (PNG, JPEG, GIF, WEBP, BMP, ICO) abre en preview con pan/zoom mediante `@panzoom/panzoom` MIT, bajo el mismo límite de 2 MiB que el resto de la lectura; `Open externally` sigue disponible. Un `.svg` reutiliza el contenido de texto ya leído y gana la misma alternancia `Preview`/`Source` que Markdown: `Preview` lo renderiza como imagen (un SVG cargado así no ejecuta script embebido, por diseño de la plataforma), `Source` muestra el XML con CodeMirror. Ver [ADR-0060](../adr/0060-image-and-html-preview.md).
+- Un fichero `.html` o `.htm` gana la misma alternancia `Preview`/`Source` que Markdown. `Source` reutiliza `@codemirror/lang-html`, ya incorporado por [ADR-0023](../adr/0023-code-editor-and-formatting.md). `Preview` renderiza dentro de un `<iframe sandbox srcdoc>` sin `allow-scripts`: cualquier `<script>` embebido en el fichero no se ejecuta nunca, igual que Markdown no ejecuta HTML embebido; CSS, markup y SVG inline sí se pintan. Ver [ADR-0060](../adr/0060-image-and-html-preview.md).
+- Un fence ` ```mermaid ` dentro de un documento Markdown, o un fichero `.mmd` suelto, renderiza su diagrama con Mermaid MIT a SVG client-side, como una regla más del mismo renderer `markdown-it` que ya resuelve anclas de encabezado y listas de tareas. Mermaid sólo ejecuta su propio DSL de diagrama, nunca el contenido arbitrario del fichero. Ver [ADR-0060](../adr/0060-image-and-html-preview.md).
 - `Editor` permanece montado como superficie fija y exclusiva de código incluso sin documento activo; no muestra CTA de búsqueda ni paneles auxiliares de Git, agentes o documentación. El layout usa densidad de workbench y reserva el dock de terminal como superficie transversal.
 - El documento activo permanece sincronizado con la selección del Explorer y con la rama compacta que el Explorer muestra como hint.
 - La navegación de Project, la Task seleccionada y el dock de terminal no se pierden al abrir o cambiar de fichero.
@@ -34,7 +37,7 @@ Permitir que seleccionar un fichero del Explorer lo abra dentro de ADE, mantenie
 
 El frontend solicita el contenido mediante un comando Tauri dedicado (`read_file`) y persiste cambios mediante `write_file`. El backend vuelve a resolver y canonizar la ruta bajo el Project seleccionado, rechaza symlinks que escapen y devuelve un resultado estructurado con ruta relativa, tipo, tamaño, contenido o causa del rechazo. La UI no lee ni escribe el filesystem directamente.
 
-La lectura está limitada por tamaño y tipo para no bloquear el shell con artefactos grandes o binarios. La implementación usa un límite de preview de 2 MiB, clasifica contenido UTF-8 sin bytes nulos como texto y devuelve estados estructurados para el resto; no degrada silenciosamente a una apertura externa.
+La lectura está limitada por tamaño y tipo para no bloquear el shell con artefactos grandes o binarios. La implementación usa un límite de preview de 2 MiB, clasifica contenido UTF-8 sin bytes nulos como texto y devuelve estados estructurados para el resto; no degrada silenciosamente a una apertura externa. Una extensión de imagen raster conocida (PNG, JPEG, GIF, WEBP, BMP, ICO) gana una vía de lectura de bytes acotada al mismo límite de 2 MiB en lugar de clasificar sólo como `binary`; ningún otro binario gana esa vía ([ADR-0060](../adr/0060-image-and-html-preview.md)).
 
 ## Interaction states
 
@@ -42,7 +45,7 @@ El editor representa `loading`, `ready`, `empty`, `binary`, `too-large`, `failed
 
 ## Out of scope
 
-Language server, colaboración realtime, resolución de conflictos, formatters específicos para lenguajes no cubiertos por Prettier, tabs avanzadas, preview de formatos binarios y sustitución de un IDE completo.
+Language server, colaboración realtime, resolución de conflictos, formatters específicos para lenguajes no cubiertos por Prettier, tabs avanzadas y sustitución de un IDE completo. Preview de imagen raster, SVG, HTML y diagramas Mermaid queda especificado en [ADR-0060](../adr/0060-image-and-html-preview.md); el resto de formatos binarios (PDF, audio, vídeo, fuentes, comprimidos), la edición de imagen y el HTML que depende de ejecutar su propio script siguen fuera de alcance.
 
 ## Acceptance criteria
 
@@ -56,6 +59,10 @@ Language server, colaboración realtime, resolución de conflictos, formatters e
 8. ✅ Existen tests nativos, de UI y de contrato para apertura interna, edición, guardado seguro, errores, límite y escape hatch externo.
 9. ✅ El Editor muestra sintaxis y estructura de código de los lenguajes soportados, permite formateado explícito donde existe formatter aprobado y mantiene edición/guardado mediante una interfaz común, independientemente de que el motor activo sea CodeMirror o Monaco.
 10. ✅ C, C#, Go, Dart, Dockerfiles, Elixir, F#, GraphQL, Kotlin, Lua, Objective-C, Perl, PowerShell, Protocol Buffers, R, Ruby, Scala, Shell y Swift se abren con resaltado Monaco sin cambiar de vista ni perder estado dirty, guardado o descarte.
+11. Un PNG/JPEG/GIF/WEBP/BMP/ICO abre en preview con pan/zoom; `Open externally` sigue disponible y ningún otro binario gana preview.
+12. Un `.svg` alterna `Preview` (imagen, sin ejecutar script embebido) y `Source` (XML en CodeMirror).
+13. Un `.html`/`.htm` alterna `Preview` (`iframe sandbox` sin `allow-scripts`, ningún `<script>` embebido se ejecuta) y `Source` (CodeMirror `lang-html`); un test verifica que el script no se ejecuta.
+14. Un fence ` ```mermaid ` o un fichero `.mmd` renderiza su diagrama a SVG vía Mermaid, sin ejecutar contenido arbitrario del fichero.
 
 ## Verification
 
