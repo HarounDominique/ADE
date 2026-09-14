@@ -134,12 +134,30 @@ test("all HTTP-collection RPC calls go through the same sidecar_request transpor
 
 test("the request-content-fetch gap is closed: http.collection.request.get exists in the sidecar, mirroring the save method's shape", () => {
   assert.match(desktopSidecar, /request\.method === "http\.collection\.request\.get"/);
-  assert.match(desktopSidecar, /readRequestFile\(join\(params\.repositoryPath, "\.ade", "http", params\.collectionPath\)\)/);
+  assert.match(desktopSidecar, /readRequestFile\(resolvedPath\)/);
 });
 
 test("the same gap, mirrored for environments: http.collection.environment.get exists so Send can substitute {{variable}} tokens", () => {
   assert.match(desktopSidecar, /request\.method === "http\.collection\.environment\.get"/);
-  assert.match(desktopSidecar, /readEnvironmentFile\(join\(params\.repositoryPath, "\.ade", "http", params\.collectionPath\)\)/);
+  assert.match(desktopSidecar, /readEnvironmentFile\(resolvedPath\)/);
+});
+
+test("every http.collection.* method that takes a collectionPath resolves it through the shared containment guard, not a bare join", () => {
+  assert.match(desktopSidecar, /function resolveHttpCollectionPath\(repositoryPath: string, collectionPath: string\): string \| undefined \{/);
+  assert.match(desktopSidecar, /const root = resolve\(join\(repositoryPath, "\.ade", "http"\)\);/);
+  assert.match(desktopSidecar, /return candidate === root \|\| candidate\.startsWith\(`\$\{root\}\$\{sep\}`\) \? candidate : undefined;/);
+  for (const method of ["request.get", "environment.get", "request.save", "environment.save"]) {
+    const marker = `request.method === "http.collection.${method}"`;
+    const start = desktopSidecar.indexOf(marker);
+    assert.ok(start >= 0, `${marker} exists`);
+    const block = desktopSidecar.slice(start, start + 700);
+    assert.match(block, /resolveHttpCollectionPath\(/, `http.collection.${method} resolves its path through the shared guard`);
+  }
+  const deleteStart = desktopSidecar.indexOf('request.method === "http.collection.delete"');
+  assert.match(desktopSidecar.slice(deleteStart, deleteStart + 700), /resolveHttpCollectionPath\(/, "delete resolves its path through the shared guard too — the highest-stakes of the five, since rm is recursive");
+  // Never a bare join(...collectionPath) anywhere in the collection RPC block -- that would be
+  // exactly the path-traversal shape the guard exists to close off.
+  assert.doesNotMatch(desktopSidecar, /join\([^)]*"\.ade",\s*"http",\s*params\.collectionPath\)/);
 });
 
 test("the executor's response body is threaded through to the RPC result without joining the persisted HttpExecution/history contract", () => {
@@ -204,4 +222,80 @@ test("the request/response split has a real resizable grip, not a fixed 50/50 �
   // Narrow-viewport fallback: stacks with independent scroll and hides the now-inapplicable grip,
   // per the creative doc's own responsive note — not the same behavior promoted to every width.
   assert.match(styles, /@media \(max-width: 900px\)[\s\S]*?\.requests-split-resizer \{ display: none; \}/);
+});
+
+test("Send asks before contacting a non-loopback host, reusing the shell's generic confirmation dialog", () => {
+  assert.match(main, /function isLoopbackHttpHost/);
+  assert.match(main, /hostname === 'localhost' \|\| hostname === '127\.0\.0\.1' \|\| hostname === '::1'/);
+  // A URL that fails to parse, or still carries an unresolved {{token}} in host position, must
+  // not be treated as trusted by default — the catch path returns false (ask), not true.
+  assert.match(main, /isLoopbackHttpHost\([\s\S]{0,400}?\} catch \{\s*return false;\s*\}/);
+  const sendBody = main.slice(main.indexOf('function sendHttpRequest('), main.indexOf('function dispatchHttpRequestExecution('));
+  assert.match(sendBody, /if \(!isLoopbackHttpHost\(httpRequest\.url, httpEnvironment\)\)/);
+  assert.match(sendBody, /requestConfirmation\(\{/, "reuses the shell's existing #confirm-dialog rather than a bespoke one");
+  assert.match(sendBody, /eyebrow: 'NETWORK REQUEST'/);
+  assert.match(sendBody, /dispatchHttpRequestExecution\(httpRequest, httpEnvironment\)/, "confirming actually sends — the callback isn't a dead end");
+  // The trusted (loopback) path must not show the dialog at all: dispatch runs unconditionally
+  // as the function's own fallthrough once the non-loopback branch has already returned.
+  assert.match(sendBody, /return;\s*\}\s*dispatchHttpRequestExecution\(httpRequest, httpEnvironment\);\s*\}/);
+});
+
+test("run-configurations host cross-referencing is a recorded deferral, not a silent gap", () => {
+  assert.match(main, /run-configurations.*declare|declared\/live/i);
+  assert.match(main, /deferred, not\s*\n?\s*silently dropped/);
+});
+
+test("delete is a real, reachable operation from the tree — confirmed first, never a bare click-to-delete (SPEC-http-client.md#acceptance-criteria)", () => {
+  // Every leaf and folder row carries a delete affordance, hidden until hover/focus so the tree
+  // stays readable at rest — not a permanently visible icon competing with the row's own label.
+  assert.match(main, /function httpTreeDeleteButton/);
+  assert.match(main, /data-http-delete-path="\$\{escapeHTML\(path\)\}" data-http-delete-kind="\$\{kind\}"/);
+  assert.match(styles, /\.requests-tree-delete \{[^}]*opacity: 0;/);
+  assert.match(styles, /\.requests-tree-row:hover \.requests-tree-delete, \.requests-tree-delete:focus-visible \{ opacity: 1; \}/);
+  // Clicking it never deletes directly — it goes through the shell's shared confirm dialog, same
+  // as every other destructive action, with a folder's copy naming that it takes its contents too.
+  assert.match(main, /function deleteHttpCollectionEntryFromTree/);
+  const deleteFnBody = main.slice(main.indexOf('function deleteHttpCollectionEntryFromTree('), main.indexOf('function chooseHttpEnvironment('));
+  assert.match(deleteFnBody, /requestConfirmation\(\{/);
+  assert.match(deleteFnBody, /eyebrow: 'DELETE'/);
+  assert.match(deleteFnBody, /tone: 'danger'/);
+  assert.match(deleteFnBody, /and every request, environment and sub-folder inside it/, "a folder delete's confirmation copy is honest about scope");
+  assert.match(deleteFnBody, /http\.collection\.delete/);
+  // The delegated tree click handler routes to it before the folder-toggle/open/choose branches.
+  assert.match(main, /const httpDeleteButton = event\.target\.closest\('\[data-http-delete-path\]'\);\s*\n\s*if \(httpDeleteButton\) \{ deleteHttpCollectionEntryFromTree/);
+  // A successful delete refreshes the tree and clears the editor/picker only when the deleted
+  // path (or an ancestor folder of it) was what was actually open — not an unconditional reset.
+  assert.match(main, /contextPurpose === 'http-collection-delete' && response\.result\?\.deleted/);
+  assert.match(main, /insideDeletedPath = \(path\) => path === deletedPath \|\| path\?\.startsWith\(`\$\{deletedPath\}\/`\)/);
+  assert.match(main, /loadHttpCollectionTree\(\);\s*\n\s*return;\s*\n\s*\}\s*\n\s*if \(contextPurpose === 'branches'/);
+});
+
+test("switching environment re-evaluates variables for the active request without losing anything edited (SPEC-http-client.md#acceptance-criteria)", () => {
+  // httpRequestForm (url/headers/params/body, all held as raw {{variable}} text — never
+  // pre-resolved into the editable fields) is orthogonal state to which environment is selected:
+  // chooseHttpEnvironment only ever touches environment-picker/tree state, so no edited field can
+  // be clobbered by a switch. Confirmed structurally by reading the whole function body.
+  const chooseFnBody = main.slice(main.indexOf('function chooseHttpEnvironment('), main.indexOf('function renderHttpEnvironmentPicker('));
+  assert.doesNotMatch(chooseFnBody, /httpRequestForm/, "switching environment must never touch the request form's own state");
+  assert.match(chooseFnBody, /httpSelectedEnvironmentId = environmentId \|\| null;/);
+  // "Re-evaluates" happens where evaluation actually occurs — Send reads whichever environment
+  // is selected at that moment, fresh, not one captured when the request was first opened/edited.
+  const sendBody = main.slice(main.indexOf('function sendHttpRequest('), main.indexOf('function dispatchHttpRequestExecution('));
+  assert.match(sendBody, /const httpEnvironment = httpSelectedEnvironmentId \? httpEnvironmentContents\.get\(httpSelectedEnvironmentId\) : undefined;/);
+});
+
+test("a response for a request that was deleted (or replaced) while in flight is discarded, not painted into a stale panel", () => {
+  // A Send stamps the editor generation it was fired under.
+  const dispatchBody = main.slice(main.indexOf('function dispatchHttpRequestExecution('), main.indexOf('function handleSaveHttpRequest('));
+  assert.match(dispatchBody, /httpRequestExecuteGeneration = httpEditorGeneration;/);
+  // Loading a different request, starting a new one, or a delete that clears the open request all
+  // bump the generation -- each is a real "the editor moved on" event, not just a cosmetic reset.
+  const newRequestBody = main.slice(main.indexOf('function newHttpRequest('), main.indexOf('function chooseHttpEnvironment('));
+  assert.match(newRequestBody, /httpEditorGeneration \+= 1;/);
+  assert.match(main, /contextPurpose === 'http-request-get' && response\.result\?\.id\) \{\s*\n\s*httpEditorGeneration \+= 1;/);
+  assert.match(main, /if \(insideDeletedPath\(httpSelectedRequestPath\)\) \{\s*\n\s*httpEditorGeneration \+= 1;/);
+  // Both the success and the error response paths compare the stamped generation against the
+  // current one before doing anything the operator would actually see.
+  assert.match(main, /if \(httpRequestExecuteGeneration === httpEditorGeneration\) \{\s*\n\s*httpLastResponse = response\.result;\s*\n\s*renderHttpResponse\(\);\s*\n\s*\}/);
+  assert.match(main, /if \(httpRequestExecuteGeneration === httpEditorGeneration\) notify\(`Request failed: \$\{response\.error\.message\}`\);/);
 });

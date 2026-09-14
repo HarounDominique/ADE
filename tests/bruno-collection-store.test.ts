@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readRequestFile, writeRequestFile, readEnvironmentFile, writeEnvironmentFile, listHttpCollectionTree } from "../src/adapters/bruno-collection-store.js";
+import { readRequestFile, writeRequestFile, readEnvironmentFile, writeEnvironmentFile, listHttpCollectionTree, deleteCollectionEntry } from "../src/adapters/bruno-collection-store.js";
 import type { HttpRequest, HttpEnvironment, HttpCollectionFolderNode, HttpCollectionRequestNode, HttpCollectionEnvironmentNode } from "../src/domain/http-request.js";
 
 const tempDir = () => mkdtemp(join(tmpdir(), "ade-http-"));
@@ -164,4 +164,35 @@ test("listHttpCollectionTree walks folders, requests and an environments/ folder
 
   // .gitkeep is neither a folder nor a .bru file, so it contributes no node at all.
   assert.equal(tree.length, 3);
+});
+
+test("deleteCollectionEntry removes a single request file without touching its siblings", async (t) => {
+  const directory = await tempDir();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const request: HttpRequest = { id: "ignored-on-write", name: "Keep me", method: "GET", url: "{{baseUrl}}", headers: [], params: [], auth: { type: "none" }, body: { type: "none" } };
+  await writeRequestFile(join(directory, "Keep.bru"), request);
+  await writeRequestFile(join(directory, "Delete me.bru"), request);
+
+  await deleteCollectionEntry(join(directory, "Delete me.bru"));
+
+  const tree = await listHttpCollectionTree(directory);
+  assert.deepEqual(tree.map((node) => node.path).sort(), ["Keep.bru"]);
+});
+
+test("deleteCollectionEntry removes a whole folder recursively", async (t) => {
+  const directory = await tempDir();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const request: HttpRequest = { id: "ignored-on-write", name: "Login", method: "POST", url: "{{baseUrl}}/login", headers: [], params: [], auth: { type: "none" }, body: { type: "none" } };
+  await writeRequestFile(join(directory, "Auth", "Login.bru"), request);
+  await writeRequestFile(join(directory, "Auth", "Logout.bru"), request);
+
+  await deleteCollectionEntry(join(directory, "Auth"));
+
+  assert.deepEqual(await listHttpCollectionTree(directory), []);
+});
+
+test("deleteCollectionEntry on a path that no longer exists is idempotent, not an error", async (t) => {
+  const directory = await tempDir();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await assert.doesNotReject(deleteCollectionEntry(join(directory, "never-existed.bru")));
 });

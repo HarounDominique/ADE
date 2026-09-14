@@ -2155,6 +2155,10 @@ span.git-option-mark { display: inline-block; width: 12px; flex: 0 0 auto; }
 .requests-rail-actions { display: flex; align-items: center; gap: 4px; }
 .requests-tree { max-height: none; padding: 0; border: 0; background: transparent; }
 .requests-tree-method { flex: 0 0 auto; min-width: 46px; color: var(--muted); font: 11px var(--mono); text-transform: uppercase; }
+.requests-tree-row { position: relative; display: flex; align-items: center; }
+.requests-tree-row .workspace-entry { flex: 1 1 auto; min-width: 0; }
+.requests-tree-delete { flex: 0 0 auto; margin-right: 4px; opacity: 0; }
+.requests-tree-row:hover .requests-tree-delete, .requests-tree-delete:focus-visible { opacity: 1; }
 .requests-layout.requests-rail-collapsed { grid-template-columns: 40px minmax(0, 1fr); }
 .requests-layout.requests-rail-collapsed .requests-rail-heading h2,
 .requests-layout.requests-rail-collapsed #requests-rail-toggle,

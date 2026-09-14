@@ -77,7 +77,7 @@ status: approved
   esbuild limpios. Review bloqueó una vez (secreto sin redactar en `responseBody` +
   divisor fijo en vez de redimensionable) y pasó limpio en el segundo intento.
 
-- [ ] Phase 5 — Boundary de red y cierre de criterios de aceptación. Diálogo `Ask first`
+- [x] Phase 5 — Boundary de red y cierre de criterios de aceptación. Diálogo `Ask first`
   reutilizando el patrón de confirmación propio de la shell cuando la URL resuelta
   apunta fuera de `localhost`/`127.0.0.1` y de los hosts que las configuraciones de
   `run-configurations` del Project ya declaran. Verificación final de los criterios de
@@ -86,10 +86,18 @@ status: approved
   Test strategy: petición hacia host externo exige confirmación explícita; petición
   hacia host declarado localmente no la exige; barrido completo de
   `SPEC-http-client.md#acceptance-criteria`.
+  Done: `isLoopbackHttpHost` + `requestConfirmation` reutilizado (loopback-only, ver
+  Deviations); `deleteCollectionEntry` + `http.collection.delete` + UI de borrado con
+  confirmación (gap real que ninguna fase anterior cubría); barrido completo de los 7
+  criterios de aceptación, 2 gaps encontrados y cerrados (borrar; reevaluación de
+  entorno). Review bloqueó una vez (spec/código desincronizados) y empujó fuerte dos
+  cosas más sin bloquear (path traversal real, carrera borrar/enviar) — las tres
+  corregidas. 642/642 tests, build y bundle esbuild limpios. Módulo `http-client`
+  completo.
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
+**Build Status**: DONE
 **Current Phase**: —
 **Current Step**: —
 **Step Attempts**: {2: 0, 3: 0, 4: 0}
@@ -216,3 +224,38 @@ status: approved
   "extensión planeada, no vigente" de `SPEC-desktop-shell.md#information-architecture`
   se reemplazó por el contrato real de seis entradas (`Requests` entre `Agents` y
   `Version control`).
+- Phase 5 (step 2, intento 1) crasheó dos veces seguidas por errores de infraestructura
+  (ECONNRESET, luego rate limit de sesión) antes de escribir nada — se construyó
+  directamente en la sesión principal, como ya había pasado en Phase 3.
+- Phase 5 recorta deliberadamente el `Ask first` del roadmap/spec original: sólo
+  confirma por loopback (`localhost`/`127.0.0.1`/`::1`); no cruza contra los hosts que
+  las configuraciones `run-configurations` del Project ya declaran, aunque el texto
+  original del Boundary y el test-strategy del roadmap sí lo mencionaban. La dirección
+  es conservadora —pide confirmación de más, nunca de menos, así que el propósito de
+  seguridad del Boundary queda intacto—, pero es una implementación parcial de un
+  Boundary nombrado, no el recorte completo. Corregido tras bloqueo de review (attempt
+  1): `SPEC-http-client.md#boundaries` reescrito para decir explícitamente
+  "loopback-only en esta iteración", con Open Question nueva registrando el cruce
+  pendiente; `Implementation status` actualizado.
+- Phase 5 review (attempt 1) empujó fuerte, sin bloquear, dos hallazgos más — corregidos
+  igual, por ser la última fase sin ninguna posterior que los fuera a revisitar:
+  1. Los cinco métodos RPC `http.collection.*` con `collectionPath` (`request.get`,
+     `environment.get`, `request.save`, `environment.save`, `delete`) construían la
+     ruta con `join()` crudo, sin contención contra `..`. El diálogo de guardado
+     (`#http-save-path-input`) es texto libre del operador, así que era un vector real
+     de escritura fuera de `.ade/http/` — no sólo teórico. Corregido con
+     `resolveHttpCollectionPath()` compartido (resuelve y exige que el resultado quede
+     bajo la raíz `.ade/http`), aplicado a los cinco; test nuevo que intenta
+     `collectionPath: "../sentinel.txt"` contra save y delete, confirma
+     `INVALID_PARAMS` en ambos y que el fichero centinela fuera de la raíz queda
+     intacto, más un caso de contorno que confirma que una ruta que normaliza de vuelta
+     dentro de la raíz (`"sub/../Root.bru"`) se acepta en vez de rechazarse por falso
+     positivo.
+  2. Borrar la petición abierta mientras su propio Send seguía en vuelo no tenía guard:
+     la respuesta tardía pintaba un resultado en un panel que ya no correspondía a
+     ninguna petición visible. Corregido con `httpEditorGeneration`, un contador que
+     sube en cada evento real de "el editor cambió de contenido" (nueva petición,
+     carga desde árbol, borrado que limpia el editor); `Send` graba la generación
+     vigente al disparar, y ambas ramas de respuesta (éxito y error) la comparan antes
+     de pintar nada.
+  642/642 tests, build y bundle esbuild limpios tras las tres correcciones.

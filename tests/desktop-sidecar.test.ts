@@ -301,6 +301,59 @@ test("desktop sidecar lists an empty Http collection tree for a Project with non
     const gotEnvironment = await lines.waitFor((message) => message.id === "get-environment") as { result: HttpEnvironment };
     assert.equal(gotEnvironment.result.name, "Local");
     assert.deepEqual(gotEnvironment.result.variables, [{ key: "baseUrl", value: "http://localhost:3000", secret: false }]);
+
+    // SPEC-http-client.md#acceptance-criteria: "Crear, editar y borrar una petición o una
+    // colección desde Assay" — delete is a real, reachable operation, not just create/save.
+    child.stdin.write(`${JSON.stringify({ id: "delete-request", method: "http.collection.delete", params: { repositoryPath: directory, collectionPath: "Auth/List users.bru" } }) }\n`);
+    const deletedRequest = await lines.waitFor((message) => message.id === "delete-request") as { result: { path: string; deleted: boolean } };
+    assert.equal(deletedRequest.result.deleted, true);
+
+    child.stdin.write(`${JSON.stringify({ id: "list-after-delete", method: "http.collection.list", params: { repositoryPath: directory } }) }\n`);
+    const afterDelete = await lines.waitFor((message) => message.id === "list-after-delete") as { result: Array<{ type: string; path: string; children?: unknown[] }> };
+    const authAfterDelete = afterDelete.result.find((node) => node.path === "Auth");
+    assert.equal(authAfterDelete?.children?.length, 0, "the deleted request is gone; its sibling folder is untouched otherwise");
+    assert.ok(afterDelete.result.some((node) => node.path === "environments"), "deleting a request does not touch the unrelated environments/ folder");
+  } finally {
+    child.kill();
+    await once(child, "close");
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a collectionPath that tries to walk outside .ade/http is rejected, not resolved — save and delete alike", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-http-traversal-"));
+  const databasePath = join(directory, "ade.db");
+  // A canary file one level above where .ade/http/ will live — a naive join() would let
+  // `collectionPath: "../sentinel.txt"` resolve straight to it.
+  const sentinelPath = join(directory, "sentinel.txt");
+  writeFileSync(sentinelPath, "untouched");
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: databasePath },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    const lines = readSidecarLines(child.stdout);
+    const httpRequest: HttpRequest = { id: "ignored-on-write", name: "Escape", method: "GET", url: "http://localhost", headers: [], params: [], auth: { type: "none" }, body: { type: "none" } };
+
+    child.stdin.write(`${JSON.stringify({ id: "traversal-save", method: "http.collection.request.save", params: { repositoryPath: directory, collectionPath: "../sentinel.txt", httpRequest } }) }\n`);
+    const saveAttempt = await lines.waitFor((message) => message.id === "traversal-save") as { error?: { code: string } };
+    assert.equal(saveAttempt.error?.code, "INVALID_PARAMS");
+    assert.equal(readFileSync(sentinelPath, "utf8"), "untouched", "a rejected save must never write outside .ade/http");
+
+    child.stdin.write(`${JSON.stringify({ id: "traversal-delete", method: "http.collection.delete", params: { repositoryPath: directory, collectionPath: "../sentinel.txt" } }) }\n`);
+    const deleteAttempt = await lines.waitFor((message) => message.id === "traversal-delete") as { error?: { code: string } };
+    assert.equal(deleteAttempt.error?.code, "INVALID_PARAMS");
+    assert.equal(readFileSync(sentinelPath, "utf8"), "untouched", "a rejected delete must never remove anything outside .ade/http");
+
+    // A collectionPath resolving exactly to the .ade/http root itself (empty-ish/./..-cancelling)
+    // is the boundary case: it must be accepted (root is a legitimate target for e.g. list), not
+    // rejected as if it had escaped.
+    child.stdin.write(`${JSON.stringify({ id: "root-save", method: "http.collection.request.save", params: { repositoryPath: directory, collectionPath: "sub/../Root.bru", httpRequest } }) }\n`);
+    const rootSave = await lines.waitFor((message) => message.id === "root-save") as { result?: { saved: boolean }; error?: unknown };
+    assert.equal(rootSave.result?.saved, true, "a collectionPath that normalizes back inside the root is legitimate, not a false-positive rejection");
   } finally {
     child.kill();
     await once(child, "close");
