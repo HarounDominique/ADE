@@ -1,10 +1,10 @@
 ---
 slug: terminal-attachments
 spec: docu/specs/SPEC-terminal-attachments.md
-status: draft
+status: approved
 ---
 
-## Proposed Roadmap
+## Implementation Roadmap
 
 ## Technical Plan
 
@@ -27,10 +27,14 @@ status: draft
 
 ## Execution State
 
-**Build Status**: NOT STARTED
-**Can Resume**: NO — requiere validar las preguntas abiertas de la spec antes de implementar.
+**Build Status**: NOT_STARTED
+**Current Phase**: —
+**Current Step**: —
+**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Last Block Rule**: none
+**Can Resume**: YES
 
-## Assumptions to confirm
+## Confirmed Decisions
 
 - En terminal el drop inserta una ruta shell-quoted; no ejecuta nada.
 - En Agents el drop crea una referencia local visible; no sube ni copia el fichero.

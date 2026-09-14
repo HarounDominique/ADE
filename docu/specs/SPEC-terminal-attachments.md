@@ -2,6 +2,8 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Module id: terminal-attachments -->
 
+**Estado:** approved — alcance confirmado por el operador el 2026-09-14.
+
 ## Objective
 
 Permitir que el operador arrastre un fichero —imagen, documento, código u otro fichero
