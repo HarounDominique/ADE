@@ -40,6 +40,8 @@ const desktopBuild = readFileSync(new URL("../desktop/build.mjs", import.meta.ur
 const sidecarBuild = readFileSync(new URL("../scripts/build-desktop-sidecar.mjs", import.meta.url), "utf8");
 const smokeBundle = readFileSync(new URL("../scripts/smoke-desktop-bundle.mjs", import.meta.url), "utf8");
 const rootPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { scripts: Record<string, string> };
+const desktopPackage = JSON.parse(readFileSync(new URL("../desktop/package.json", import.meta.url), "utf8")) as { dependencies: Record<string, string> };
+const thirdPartyLicenses = readFileSync(new URL("../desktop/THIRD_PARTY_LICENSES.md", import.meta.url), "utf8");
 const devTauriConfig = JSON.parse(readFileSync(new URL("../desktop/src-tauri/tauri.dev.conf.json", import.meta.url), "utf8")) as {
   productName: string;
   identifier: string;
@@ -859,13 +861,131 @@ test("Markdown opens rendered and keeps one control back to its source", () => {
   assert.match(main, /markdownMode = isMarkdownPath\(activeDocument\.path\) \? \(markdownPreviewVisible\(\) \? 'PRETTY' : 'SOURCE'\) : null/);
   assert.match(main, /localStorage\.setItem\(markdownPreviewStorageKey/);
   // The preview hides the editor, so Save must not read that as "not editable".
-  assert.match(main, /const editable = Boolean\(activeDocument\?\.kind === 'text' && editor && \(!editor\.hidden \|\| markdownPreviewVisible\(\)\)\)/);
+  assert.match(main, /const editable = Boolean\(activeDocument\?\.kind === 'text' && editor && \(!editor\.hidden \|\| markdownPreviewVisible\(\) \|\| svgPreviewVisible\(\) \|\| htmlPreviewVisible\(\) \|\| mermaidPreviewVisible\(\)\)\)/);
   // Links resolve inside the shell instead of navigating the webview away.
   assert.match(main, /function openMarkdownPreviewLink/);
   assert.match(main, /pathInsideRoot\(target\)/);
   assert.match(styles, /\.document-preview \{/);
   assert.match(styles, /#markdown-preview-toggle \{ min-width: 96px; white-space: nowrap; \}/);
   assert.match(styles, /\.document-preview li\.markdown-task-item/);
+});
+
+test("raster images preview with pan/zoom instead of the binary explanatory state (ADR-0060)", () => {
+  // Backend: the whitelist is narrow -- it returns bytes for exactly the six
+  // ADR-0060 extensions and leaves every other binary extension unchanged.
+  assert.match(nativeShell, /const IMAGE_PREVIEW_EXTENSIONS: \[&str; 7\] = \["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico"\]/);
+  assert.match(nativeShell, /fn is_image_preview_extension\(file: &Path\) -> bool/);
+  assert.match(nativeShell, /if is_image_preview_extension\(&file\) \{/);
+  assert.match(nativeShell, /kind: "image"\.to_string\(\)/);
+  // Frontend: detection mirrors isMarkdownPath's shape, and the preview markup
+  // sits beside document-preview in the same viewer body.
+  assert.match(main, /function isImagePath\(filePath = ''\) \{\s*return \['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'\]\.includes\(fileExtension\(filePath\)\);\s*\}/);
+  assert.match(main, /function documentIsRenderableImage\(record\) \{\s*return Boolean\(record && record\.state === 'ready' && record\.kind === 'image'\);\s*\}/);
+  assert.match(main, /import\('@panzoom\/panzoom'\)/);
+  assert.match(main, /function renderImagePreview/);
+  assert.match(main, /function syncImagePreview/);
+  assert.match(html, /class="document-image-preview" id="document-image-preview"[^>]*hidden/);
+  assert.match(html, /id="document-image-preview"[^>]*><img id="document-image" alt="">/);
+  assert.match(styles, /\.document-image-preview \{/);
+  // Open externally keeps working unchanged: it is gated only on load state,
+  // never on kind, for every record including image tabs.
+  assert.match(main, /externalDisabled: record\.state === 'loading',/);
+  // The dependency and its licence row both exist, per ADR-0060's verified table.
+  assert.equal(desktopPackage.dependencies["@panzoom/panzoom"], "^4.6.2");
+  assert.match(thirdPartyLicenses, /@panzoom\/panzoom`\]\(https:\/\/github\.com\/timmywil\/panzoom\) \| 4\.6\.2 \| .* \| MIT \|/);
+});
+
+test("SVG opens with the same Preview/Source toggle Markdown has, namespaced to its own preference (ADR-0060)", () => {
+  // Detection mirrors isMarkdownPath's/isImagePath's shape.
+  assert.match(main, /function isSvgPath\(filePath = ''\) \{\s*return \['svg'\]\.includes\(fileExtension\(filePath\)\);\s*\}/);
+  // The toggle button is a sibling of markdown-preview-toggle, not a repurposing
+  // of it -- switching a Markdown tab's preference must never flip an SVG tab's.
+  assert.match(html, /id="svg-preview-toggle"[^>]*data-action="toggle-svg-preview"|data-action="toggle-svg-preview"[^>]*id="svg-preview-toggle"/);
+  assert.match(html, /id="svg-preview-toggle"[^>]*aria-controls="document-svg-preview"/);
+  assert.match(html, /id="svg-preview-toggle"[^>]*aria-label="Show SVG source text"/);
+  assert.match(html, /class="document-svg-preview" id="document-svg-preview"[^>]*hidden/);
+  assert.match(html, /id="document-svg-preview"[^>]*><img id="document-svg" alt="">/);
+  assert.match(styles, /\.document-svg-preview \{/);
+  // Preview renders the already-read text content via a Blob + object URL into
+  // an <img> -- an SVG's own <script> does not execute there, by platform
+  // design, so no sandboxing code is needed for this path.
+  assert.match(main, /new Blob\(\[source\], \{ type: 'image\/svg\+xml' \}\)/);
+  assert.match(main, /URL\.createObjectURL/);
+  assert.match(main, /function documentIsRenderableSvg\(record\) \{\s*return Boolean\(record && record\.state === 'ready' && record\.kind === 'text' && isSvgPath\(record\.path\)\);\s*\}/);
+  assert.match(main, /function renderSvgPreview/);
+  assert.match(main, /function syncSvgPreview/);
+  assert.match(main, /function toggleSvgPreview/);
+  assert.match(main, /localStorage\.setItem\(svgPreviewStorageKey/);
+  assert.match(main, /item\.dataset\.action === 'toggle-svg-preview'/);
+});
+
+test("HTML opens with the same Preview/Source toggle Markdown and SVG have, namespaced to its own preference, rendered inside a sandboxed iframe with allow-scripts never granted (ADR-0060, security-critical)", () => {
+  // Detection mirrors isMarkdownPath's/isImagePath's/isSvgPath's shape.
+  assert.match(main, /function isHtmlPath\(filePath = ''\) \{\s*return \['html', 'htm'\]\.includes\(fileExtension\(filePath\)\);\s*\}/);
+  // The toggle button is a sibling of markdown-preview-toggle and
+  // svg-preview-toggle, not a repurposing of either -- switching one format
+  // tab's preference must never flip another's.
+  assert.match(html, /id="html-preview-toggle"[^>]*data-action="toggle-html-preview"|data-action="toggle-html-preview"[^>]*id="html-preview-toggle"/);
+  assert.match(html, /id="html-preview-toggle"[^>]*aria-controls="document-html-preview"/);
+  assert.match(html, /id="html-preview-toggle"[^>]*aria-label="Show HTML source text"/);
+  assert.match(html, /class="document-html-preview" id="document-html-preview"[^>]*hidden/);
+  // The iframe carries the bare `sandbox` attribute in the shipped markup
+  // itself -- restrictive by default even before any script runs -- and never
+  // carries `allow-scripts`.
+  assert.match(html, /id="document-html-preview"[^>]*><iframe id="document-html" sandbox srcdoc="">/);
+  assert.doesNotMatch(html, /id="document-html"[^>]*allow-scripts/);
+  assert.match(styles, /\.document-html-preview \{/);
+  // Preview fills the iframe's srcdoc from the already-read text content --
+  // no backend byte command, `.html` already classifies kind: "text" -- and
+  // the sandbox attribute is set from the same builder function every time.
+  assert.match(main, /function htmlPreviewSandbox\(\) \{\s*return '';\s*\}/);
+  assert.match(main, /frame\.setAttribute\('sandbox', htmlPreviewSandbox\(\)\)/);
+  assert.match(main, /frame\.srcdoc = htmlPreviewSrcdoc\(source\)/);
+  assert.match(main, /function documentIsRenderableHtml\(record\) \{\s*return Boolean\(record && record\.state === 'ready' && record\.kind === 'text' && isHtmlPath\(record\.path\)\);\s*\}/);
+  assert.match(main, /function renderHtmlPreview/);
+  assert.match(main, /function syncHtmlPreview/);
+  assert.match(main, /function toggleHtmlPreview/);
+  assert.match(main, /localStorage\.setItem\(htmlPreviewStorageKey/);
+  assert.match(main, /item\.dataset\.action === 'toggle-html-preview'/);
+});
+
+test("Mermaid diagrams-as-code render to SVG instead of plain code text, for both a ```mermaid fence and a standalone .mmd file (ADR-0060)", () => {
+  // Detection mirrors isMarkdownPath's/isImagePath's/isSvgPath's/isHtmlPath's shape.
+  assert.match(main, /function isMermaidPath\(filePath = ''\) \{\s*return \['mmd'\]\.includes\(fileExtension\(filePath\)\);\s*\}/);
+  // The toggle button is a sibling of the other three format toggles, not a
+  // repurposing of any of them.
+  assert.match(html, /id="mermaid-preview-toggle"[^>]*data-action="toggle-mermaid-preview"|data-action="toggle-mermaid-preview"[^>]*id="mermaid-preview-toggle"/);
+  assert.match(html, /id="mermaid-preview-toggle"[^>]*aria-controls="document-mermaid-preview"/);
+  assert.match(html, /id="mermaid-preview-toggle"[^>]*aria-label="Show Mermaid source text"/);
+  assert.match(html, /class="document-mermaid-preview" id="document-mermaid-preview"[^>]*hidden/);
+  assert.match(html, /id="document-mermaid-preview"[^>]*><div id="document-mermaid"><\/div>/);
+  assert.match(styles, /\.document-mermaid-preview \{/);
+  // The markdown-it core rule sits alongside the two existing rules and
+  // intercepts only the mermaid language tag -- everything else keeps its
+  // default fenced-code treatment.
+  assert.match(main, /function markdownMermaidDiagrams\(state\)/);
+  assert.match(main, /token\.info\.trim\(\) !== 'mermaid'/);
+  assert.match(main, /ruler\.push\('ade_mermaid_diagrams', markdownMermaidDiagrams\)/);
+  // mermaid.render(...) is async; renderMarkdownPreview's already-async flow
+  // (it already awaits a dynamic import for markdown-it itself) resolves the
+  // queued diagrams instead of dropping their promises.
+  assert.match(main, /import\('mermaid'\)/);
+  assert.match(main, /await renderMermaidDiagramsInto\(preview, env\.mermaidDiagrams/);
+  assert.match(main, /function renderMermaidSvg/);
+  // Security: securityLevel is set explicitly rather than left to whatever
+  // the installed version defaults to.
+  assert.match(main, /mermaid\.initialize\(\{ startOnLoad: false, securityLevel: 'strict' \}\)/);
+  // The standalone .mmd path feeds mermaid.render(...) the file's full source
+  // directly -- no markdown-it fence wrapper is involved.
+  assert.match(main, /function documentIsRenderableMermaid\(record\) \{\s*return Boolean\(record && record\.state === 'ready' && record\.kind === 'text' && isMermaidPath\(record\.path\)\);\s*\}/);
+  assert.match(main, /function renderMermaidPreview/);
+  assert.match(main, /function syncMermaidPreview/);
+  assert.match(main, /function toggleMermaidPreview/);
+  assert.match(main, /localStorage\.setItem\(mermaidPreviewStorageKey/);
+  assert.match(main, /item\.dataset\.action === 'toggle-mermaid-preview'/);
+  // The dependency and its licence row both exist, per ADR-0060's verified table.
+  assert.equal(desktopPackage.dependencies.mermaid, "^12.0.0");
+  assert.match(thirdPartyLicenses, /mermaid`\]\(https:\/\/github\.com\/mermaid-js\/mermaid\) \| 12\.0\.0 \| .* \| MIT \|/);
 });
 
 test("theme switch is visible in the topbar and exposes light/dark state", () => {

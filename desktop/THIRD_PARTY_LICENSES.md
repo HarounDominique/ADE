@@ -14,6 +14,8 @@ Assay is MIT licensed and is built on work by other people. This is the inventor
 | [`@xterm/xterm`](https://github.com/xtermjs/xterm.js) | 6.0.0 | Terminal surface of the PTY dock | MIT | [xtermjs.org](https://xtermjs.org/) |
 | [`@xterm/addon-fit`](https://github.com/xtermjs/xterm.js/tree/master/addons/addon-fit) | 0.11.0 | Fits terminal rows and columns to the dock | MIT | [xtermjs.org](https://xtermjs.org/) |
 | [`markdown-it`](https://github.com/markdown-it/markdown-it) | 14.3.1 | Markdown rendering in the Editor (CommonMark + tables), embedded HTML disabled | MIT | [markdown-it.github.io](https://markdown-it.github.io/) |
+| [`@panzoom/panzoom`](https://github.com/timmywil/panzoom) | 4.6.2 | Pan/zoom for the raster image preview | MIT | [github.com/timmywil/panzoom](https://github.com/timmywil/panzoom) |
+| [`mermaid`](https://github.com/mermaid-js/mermaid) | 12.0.0 | Renders ` ```mermaid ` fences and standalone `.mmd` files to SVG, client-side | MIT | [mermaid.js.org](https://mermaid.js.org/) |
 | [`esbuild`](https://github.com/evanw/esbuild) | 0.28.2 | Bundles the shell into `desktop/dist` | MIT | [esbuild.github.io](https://esbuild.github.io/) |
 | [`@tauri-apps/cli`](https://github.com/tauri-apps/tauri) | 2.11.4 | Development and packaging commands | Apache-2.0 OR MIT | [tauri.app](https://tauri.app/) |
 

@@ -4,7 +4,7 @@ priority: high
 ---
 
 ### audit-new-npm-dependencies-before-committing-to-them
-_derived_from: reflection/http-client.md · evidence_count: 1 · last_validated: 2026-09-14_
+_derived_from: reflection/http-client.md, reflection/image-and-html-preview.md · evidence_count: 2 · last_validated: 2026-09-14_
 
 Run `npm audit` immediately after `npm install`ing any new dependency during a build
 phase, before writing code against it — not only at spec time, and not only when
@@ -17,6 +17,21 @@ WebSocket — none of which this module's own contract needed — so the real fi
 pinning around the CVEs, it was removing the unnecessary dependency entirely and using
 `axios` directly. Both steps (audit, then verify the surface is actually needed) belong
 immediately after every `npm install` in a build phase, not deferred to review.
+
+**Second occurrence, same rule, still skipped at implementation time:** `image-and-
+html-preview` Phase 4 installed `mermaid@12.0.0` and moved straight to implementation
+without running `npm audit` — the rule above already existed in this same file and was
+not self-applied by the build-TDD dispatch; it was only caught reactively by the
+build-review step, one phase-cycle later than it should have been. `npm audit` found
+5 high-severity CVEs the dependency actually introduced (`mermaid → chevrotain →
+lodash-es@4.17.23`, an exact pin, code injection + prototype pollution — patched
+releases `4.18.0`/`4.18.1` existed but chevrotain's exact pin never picked them up),
+resolved without downgrading the pinned major version via `"overrides": { "lodash-es":
+"^4.18.1" }` in `package.json`, re-verified by a direct chevrotain smoke test against
+the overridden version. Conclusion: a rule in this file is not self-enforcing — a
+build-TDD dispatch prompt that adds a new npm dependency must explicitly include "run
+`npm audit` right after `npm install`, before writing implementation code" as an
+instruction, not assume the agent will recall this file's contents unprompted.
 
 ### file-path-rpc-methods-need-containment-guards-by-default
 _derived_from: reflection/http-client.md · evidence_count: 1 · last_validated: 2026-09-14_

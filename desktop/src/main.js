@@ -2048,7 +2048,7 @@ function updateDocumentEditState() {
   const discardButton = document.getElementById('discard-file');
   const formatButton = document.getElementById('format-document');
   const kindElement = document.getElementById('document-kind');
-  const editable = Boolean(activeDocument?.kind === 'text' && editor && (!editor.hidden || markdownPreviewVisible()));
+  const editable = Boolean(activeDocument?.kind === 'text' && editor && (!editor.hidden || markdownPreviewVisible() || svgPreviewVisible() || htmlPreviewVisible() || mermaidPreviewVisible()));
   const wasDirty = documentDirty;
   documentDirty = editable && codeEditorValue() !== documentOriginalContent;
   if (saveButton) saveButton.disabled = !documentDirty;
@@ -2065,6 +2065,9 @@ function updateDocumentEditState() {
   updateRevealOpenFileButton();
   // Formatting and discarding rewrite the buffer the preview is showing.
   if (markdownPreviewVisible()) void renderMarkdownPreview();
+  if (svgPreviewVisible()) void renderSvgPreview();
+  if (htmlPreviewVisible()) void renderHtmlPreview();
+  if (mermaidPreviewVisible()) void renderMermaidPreview();
   // The tab record carries the state the tree reads, so the tree is repainted
   // after it has been written -- before that write, a file that was just saved
   // still looks unsaved.
@@ -2154,6 +2157,11 @@ async function renderActiveDocument({ focus = false } = {}) {
   viewer.hidden = false;
   const record = documentTabById(activeDocumentId);
   activeDocument = record;
+  // The panel is about to show a different document, so any preview render
+  // still in flight for the outgoing one is stale from here on -- including the
+  // case where the incoming document is not previewable at all and so never
+  // starts a render pass of its own to supersede it.
+  beginPreviewRenderGeneration();
   renderDocumentTabs();
   if (!record) {
     empty.hidden = false;
@@ -2164,6 +2172,10 @@ async function renderActiveDocument({ focus = false } = {}) {
     documentDirty = false;
     await setCodeEditorContent('');
     await syncMarkdownPreview();
+    await syncSvgPreview();
+    await syncHtmlPreview();
+    await syncMermaidPreview();
+    await syncImagePreview();
     updateDocumentEditState();
     decorateWorkspaceTree();
     return;
@@ -2179,10 +2191,11 @@ async function renderActiveDocument({ focus = false } = {}) {
     externalDisabled: record.state === 'loading',
   });
   const isText = record.state === 'ready' && record.kind === 'text';
-  status.hidden = isText;
+  const isImage = documentIsRenderableImage(record);
+  status.hidden = isText || isImage;
   status.textContent = record.state === 'loading' ? 'Reading file…'
     : record.state === 'error' ? `Unable to read file: ${record.message}`
-    : isText ? '' : (record.message ?? 'This file cannot be previewed inside Assay.');
+    : isText || isImage ? '' : (record.message ?? 'This file cannot be previewed inside Assay.');
   content.hidden = !isText;
   // The editor reports every change it is handed, including the one that loads
   // the file. Naming the incoming original first means that report compares the
@@ -2193,12 +2206,19 @@ async function renderActiveDocument({ focus = false } = {}) {
   await setCodeEditorContent(isText ? (record.buffer ?? '') : '', record.path, isText && focus);
   if (isText) restoreDocumentCaret(record);
   await syncMarkdownPreview();
+  await syncSvgPreview();
+  await syncHtmlPreview();
+  await syncMermaidPreview();
+  await syncImagePreview();
   updateDocumentEditState();
   decorateWorkspaceTree();
   // Focus follows the surface that is actually on screen: the rendered
   // document when it is showing, the editor when it is not.
   if (isText && focus) {
     if (markdownPreviewVisible()) document.getElementById('document-preview')?.focus();
+    else if (svgPreviewVisible()) document.getElementById('document-svg-preview')?.focus();
+    else if (htmlPreviewVisible()) document.getElementById('document-html-preview')?.focus();
+    else if (mermaidPreviewVisible()) document.getElementById('document-mermaid-preview')?.focus();
     else editorSurface?.focus();
   }
 }
@@ -2219,6 +2239,7 @@ async function loadDocumentRecord(record) {
       size: result.size,
       original: result.kind === 'text' ? (result.content ?? '') : '',
       buffer: result.kind === 'text' ? (result.content ?? '') : '',
+      imageData: result.kind === 'image' ? (result.content ?? '') : '',
       dirty: false,
     });
   } catch (error) {
@@ -2676,6 +2697,34 @@ function isMarkdownPath(filePath = '') {
   return ['md', 'markdown', 'mdown', 'mkd'].includes(fileExtension(filePath));
 }
 
+/** ADR-0060's raster whitelist -- exactly the extensions `read_file_in` reads
+    as bytes instead of classifying `binary`. */
+function isImagePath(filePath = '') {
+  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'].includes(fileExtension(filePath));
+}
+
+function isSvgPath(filePath = '') {
+  return ['svg'].includes(fileExtension(filePath));
+}
+
+function isHtmlPath(filePath = '') {
+  return ['html', 'htm'].includes(fileExtension(filePath));
+}
+
+function isMermaidPath(filePath = '') {
+  return ['mmd'].includes(fileExtension(filePath));
+}
+
+/** The MIME type the base64 bytes from `read_file_in` decode as, for the
+    `data:` URL fed to the preview `<img>`. `jpg` and `jpeg` both resolve to
+    `image/jpeg`, matching `isImagePath`'s whitelist. */
+function imageMimeType(filePath = '') {
+  const extension = fileExtension(filePath);
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'ico') return 'image/x-icon';
+  return `image/${extension}`;
+}
+
 function markdownSlug(text, used) {
   const base = String(text).toLowerCase().trim().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, '-') || 'section';
   let slug = base;
@@ -2714,6 +2763,57 @@ function markdownTaskLists(state) {
   });
 }
 
+/** `mermaid.render(...)` is the one preview surface whose content arrives from
+    a genuinely slow async computation -- a DSL parse plus an SVG layout pass --
+    where the SVG and HTML previews paint synchronously. Tab clicks dispatch
+    `void activateDocumentTab(...)` without awaiting it, so two preview renders
+    really do overlap, and the one that resolves last is not necessarily the one
+    the user is looking at. Every render pass takes a generation on the way in
+    and re-checks it immediately before each write, the same shape
+    httpRequestExecuteGeneration/httpEditorGeneration already use to drop an
+    HTTP response the editor moved on from. A pass that finds itself stale just
+    stops: no write, no warning, nothing to report against a document that is no
+    longer on screen. The generation also namespaces the fence placeholders'
+    locator ids, so a stale pass cannot even address a live placeholder that
+    happens to sit at the same fence position in a different document. */
+let previewRenderGeneration = 0;
+
+function beginPreviewRenderGeneration() {
+  previewRenderGeneration += 1;
+  return previewRenderGeneration;
+}
+
+function previewRenderIsCurrent(generation) {
+  return generation === previewRenderGeneration;
+}
+
+/** A ` ```mermaid ` fence is diagram-as-code, not a code sample -- it is
+    swapped for its rendered SVG instead of the default
+    `<pre><code class="language-mermaid">` treatment. `mermaid.render(...)`
+    is async (v10+/v12), but markdown-it's own `render()` pass is
+    synchronous, so this core rule cannot call it inline: it replaces the
+    fence token with a placeholder `html_block` carrying only a locator id,
+    and queues the fence's own DSL text -- and only that text, never
+    anything else in the document -- on `state.env.mermaidDiagrams` for
+    `renderMarkdownPreview`'s already-async flow (it already awaits a
+    dynamic `import()` for markdown-it itself) to resolve once `render()`
+    returns the static HTML string. The id pairs the token's own position with
+    the render pass's generation (which renderMarkdownPreview puts on `env`):
+    position alone is unique only within one pass, which would let a slow
+    diagram resolving for a document the user has since navigated away from
+    address the placeholder that now belongs to a different document's fence at
+    the same position. */
+function markdownMermaidDiagrams(state) {
+  state.tokens.forEach((token, index) => {
+    if (token.type !== 'fence' || token.info.trim() !== 'mermaid') return;
+    const id = `ade-mermaid-${state.env.previewRenderGeneration ?? 0}-${index}`;
+    (state.env.mermaidDiagrams || (state.env.mermaidDiagrams = [])).push({ id, source: token.content });
+    const placeholder = new state.Token('html_block', '', 0);
+    placeholder.content = `<div class="mermaid-diagram" data-mermaid-id="${id}"></div>`;
+    state.tokens[index] = placeholder;
+  });
+}
+
 async function loadMarkdownRenderer() {
   if (markdownRenderer) return markdownRenderer;
   if (!markdownRendererLoader) {
@@ -2721,6 +2821,7 @@ async function loadMarkdownRenderer() {
       markdownRenderer = new MarkdownIt({ html: false, linkify: true });
       markdownRenderer.core.ruler.push('ade_heading_anchors', markdownHeadingAnchors);
       markdownRenderer.core.ruler.push('ade_task_lists', markdownTaskLists);
+      markdownRenderer.core.ruler.push('ade_mermaid_diagrams', markdownMermaidDiagrams);
       return markdownRenderer;
     });
   }
@@ -2745,10 +2846,20 @@ async function renderMarkdownPreview() {
   // The editor holds the text that is actually on screen, including edits that
   // have not been saved, so the preview reads from it rather than from the
   // record's last written buffer.
+  const generation = beginPreviewRenderGeneration();
   const source = codeEditorValue() || (record.buffer ?? '');
   const renderer = await loadMarkdownRenderer();
-  preview.innerHTML = renderer.render(source, {});
+  // The panel may have moved on to another document while the renderer loaded;
+  // this markup belongs to a document that is no longer on screen.
+  if (!previewRenderIsCurrent(generation)) return;
+  const env = { previewRenderGeneration: generation };
+  preview.innerHTML = renderer.render(source, env);
   preview.scrollTop = record.previewScrollTop ?? 0;
+  // Any ```mermaid fences markdownMermaidDiagrams queued during the
+  // (synchronous) render pass above resolve here -- this function is already
+  // async for loadMarkdownRenderer's own dynamic import, so the diagrams'
+  // promises are awaited in the same flow instead of being dropped.
+  await renderMermaidDiagramsInto(preview, env.mermaidDiagrams ?? [], generation);
 }
 
 /** One place decides which of the two surfaces the panel is showing, so the
@@ -2782,6 +2893,124 @@ async function syncMarkdownPreview() {
   if (record?.state === 'ready' && record.kind === 'text') content.hidden = false;
 }
 
+let panzoomLoader = null;
+/** `@panzoom/panzoom` (ADR-0060) is loaded once, on first use, the same way
+    `loadMarkdownRenderer` defers `markdown-it` -- a Project with no image tabs
+    open never pays for it. */
+async function loadPanzoom() {
+  if (!panzoomLoader) {
+    panzoomLoader = import('@panzoom/panzoom').then(({ default: Panzoom }) => Panzoom);
+  }
+  return panzoomLoader;
+}
+
+let mermaidLoader = null;
+/** Mermaid (ADR-0060, MIT) is loaded once, on first use, the same way
+    `loadMarkdownRenderer` defers `markdown-it` and `loadPanzoom` defers
+    `@panzoom/panzoom` -- a Project that never opens a diagram never pays for
+    it. `securityLevel: 'strict'` is set explicitly rather than left to
+    whatever the installed version happens to default to: confirmed against
+    the installed 12.0.0 package itself (`mermaidAPI.getConfig().securityLevel`
+    reads `'strict'` on a bare `mermaid.initialize({})`) that 'strict' is
+    already the shipped default, but this task asked for the choice to be
+    made explicitly rather than inherited silently, so a future Mermaid
+    release changing its own default cannot quietly loosen this app's
+    posture. 'strict' keeps Mermaid's own DOMPurify pass over its rendered
+    SVG output enabled (skipped only under 'loose'/'sandbox') and keeps a
+    diagram's `click` directive from invoking an arbitrary JS callback --
+    together the shape of Mermaid's historical XSS advisories, which all
+    require 'loose'. Mermaid only ever parses its own diagram DSL text here
+    (a fenced block's content, or a standalone `.mmd` file's full text) --
+    never arbitrary document or file content. */
+async function loadMermaid() {
+  if (!mermaidLoader) {
+    mermaidLoader = import('mermaid').then(({ default: mermaid }) => {
+      mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
+      return mermaid;
+    });
+  }
+  return mermaidLoader;
+}
+
+let mermaidRenderSequence = 0;
+
+/** The one call site that turns Mermaid DSL text into SVG -- shared by the
+    markdown-it fence rule's resolution step (renderMermaidDiagramsInto) and
+    the standalone `.mmd` preview (renderMermaidPreview), so both paths only
+    ever hand Mermaid the diagram source itself. The incrementing id is the
+    render id `mermaid.render(id, text)` needs internally (it must be unique
+    per call, not just per document), distinct from the locator id
+    markdownMermaidDiagrams put in the placeholder's `data-mermaid-id`. */
+async function renderMermaidSvg(source) {
+  const mermaid = await loadMermaid();
+  mermaidRenderSequence += 1;
+  const { svg } = await mermaid.render(`ade-mermaid-render-${mermaidRenderSequence}`, source);
+  return svg;
+}
+
+/** Resolves every diagram markdownMermaidDiagrams queued on `env` during the
+    synchronous markdown-it render pass, one `mermaid.render(...)` call at a
+    time, and fills each placeholder in the already-rendered DOM with the
+    resulting SVG. A diagram that fails to parse reports inline instead of
+    leaving its placeholder blank or throwing out of renderMarkdownPreview.
+    Each diagram is looked up between awaits, so `generation` -- the pass that
+    put these placeholders on the page -- is re-checked before every write:
+    once the panel has moved on, the rest of this pass is abandoned rather than
+    painted over whatever is there now. */
+async function renderMermaidDiagramsInto(container, diagrams, generation) {
+  for (const diagram of diagrams) {
+    const target = container.querySelector(`[data-mermaid-id="${CSS.escape(diagram.id)}"]`);
+    if (!target) continue;
+    try {
+      const svg = await renderMermaidSvg(diagram.source);
+      if (!previewRenderIsCurrent(generation)) return;
+      target.innerHTML = svg;
+    } catch (error) {
+      if (!previewRenderIsCurrent(generation)) return;
+      target.textContent = `Unable to render diagram: ${error?.message ?? error}`;
+      console.warn('Mermaid diagram render failed:', error);
+    }
+  }
+}
+
+let imagePanzoom = null;
+
+/** A record only renders as the raster image preview once it is a readable
+    image; anything else stays with the editor's own loading, binary and
+    failure states. */
+function documentIsRenderableImage(record) {
+  return Boolean(record && record.state === 'ready' && record.kind === 'image');
+}
+
+async function renderImagePreview() {
+  const image = document.getElementById('document-image');
+  const record = documentTabById(activeDocumentId);
+  if (!image || !documentIsRenderableImage(record)) return;
+  image.src = `data:${imageMimeType(record.path)};base64,${record.imageData ?? ''}`;
+  image.alt = record.name ?? '';
+  const Panzoom = await loadPanzoom();
+  imagePanzoom?.destroy?.();
+  imagePanzoom = Panzoom(image, { maxScale: 8, minScale: 0.5, contain: 'outside' });
+}
+
+/** One place decides whether the panel is showing the raster image preview,
+    so the tab switch and a document that stops being an image both end up
+    with the same account of it -- the same role `syncMarkdownPreview` plays
+    for Markdown. */
+async function syncImagePreview() {
+  const container = document.getElementById('document-image-preview');
+  if (!container) return;
+  const record = documentTabById(activeDocumentId);
+  const renderable = documentIsRenderableImage(record);
+  container.hidden = !renderable;
+  if (renderable) {
+    await renderImagePreview();
+    return;
+  }
+  imagePanzoom?.destroy?.();
+  imagePanzoom = null;
+}
+
 async function toggleMarkdownPreview() {
   const record = documentTabById(activeDocumentId);
   if (!documentIsRenderableMarkdown(record)) return;
@@ -2793,6 +3022,299 @@ async function toggleMarkdownPreview() {
   await syncMarkdownPreview();
   updateDocumentEditState();
   if (record.preview) document.getElementById('document-preview')?.focus();
+  else editorSurface?.focus();
+}
+
+/** SVG gets the same Preview/Source toggle as Markdown, namespaced to its own
+    localStorage key and its own per-record flag so switching a Markdown tab's
+    preference never flips an SVG tab's (or vice versa). Unlike the raster
+    route Phase 1 built, no backend byte command is involved -- `.svg` already
+    classifies `kind: "text"`, so Preview renders the same content the
+    CodeMirror Source surface already has in hand. */
+const svgPreviewStorageKey = 'ade-svg-preview';
+let svgPreviewPreference = true;
+try { svgPreviewPreference = localStorage.getItem(svgPreviewStorageKey) !== 'source'; } catch { svgPreviewPreference = true; }
+let svgPreviewObjectUrl = null;
+
+/** A record only renders as the SVG preview once it is readable text with an
+    `.svg` path; anything else stays with the editor's own loading, binary and
+    failure states. */
+function documentIsRenderableSvg(record) {
+  return Boolean(record && record.state === 'ready' && record.kind === 'text' && isSvgPath(record.path));
+}
+
+/** `new Blob([source], { type: 'image/svg+xml' })` fed to an `<img>` via
+    `URL.createObjectURL` -- a `<script>` inside the SVG does not execute in
+    that context, by platform design, so no sandboxing code is needed here the
+    way the HTML preview (a later phase) will need one. */
+async function renderSvgPreview() {
+  const image = document.getElementById('document-svg');
+  const record = documentTabById(activeDocumentId);
+  if (!image || !documentIsRenderableSvg(record)) return;
+  // The editor holds the text that is actually on screen, including edits that
+  // have not been saved, so the preview reads from it rather than from the
+  // record's last written buffer -- the same rule renderMarkdownPreview follows.
+  const source = codeEditorValue() || (record.buffer ?? '');
+  if (svgPreviewObjectUrl) URL.revokeObjectURL(svgPreviewObjectUrl);
+  svgPreviewObjectUrl = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml' }));
+  image.src = svgPreviewObjectUrl;
+  image.alt = record.name ?? '';
+}
+
+/** One place decides which of the two surfaces the panel is showing, so the
+    toggle, the tab switch and a document that stops being SVG all end up with
+    the same account of it -- the same role syncMarkdownPreview plays for
+    Markdown. */
+async function syncSvgPreview() {
+  const content = document.getElementById('document-content');
+  const preview = document.getElementById('document-svg-preview');
+  const toggle = document.getElementById('svg-preview-toggle');
+  if (!content || !preview) return;
+  const record = documentTabById(activeDocumentId);
+  const renderable = documentIsRenderableSvg(record);
+  if (renderable && record.svgPreview === undefined) record.svgPreview = svgPreviewPreference;
+  const rendered = renderable && record.svgPreview === true;
+  if (toggle) {
+    toggle.hidden = !renderable;
+    toggle.disabled = !renderable;
+    toggle.textContent = rendered ? 'Source text' : 'Preview';
+    toggle.setAttribute('aria-pressed', String(rendered));
+    const label = rendered ? 'Show SVG source text' : 'Show SVG preview';
+    toggle.setAttribute('aria-label', label);
+    toggle.title = label;
+  }
+  preview.hidden = !rendered;
+  if (rendered) {
+    content.hidden = true;
+    await renderSvgPreview();
+    return;
+  }
+  if (svgPreviewObjectUrl) { URL.revokeObjectURL(svgPreviewObjectUrl); svgPreviewObjectUrl = null; }
+  if (record?.state === 'ready' && record.kind === 'text') content.hidden = false;
+}
+
+function svgPreviewVisible() {
+  const preview = document.getElementById('document-svg-preview');
+  return Boolean(preview && !preview.hidden);
+}
+
+async function toggleSvgPreview() {
+  const record = documentTabById(activeDocumentId);
+  if (!documentIsRenderableSvg(record)) return;
+  record.svgPreview = !(record.svgPreview ?? svgPreviewPreference);
+  // The last choice is the one the next SVG file opens with, so a reader and
+  // an author each keep the surface they work in.
+  svgPreviewPreference = record.svgPreview;
+  try { localStorage.setItem(svgPreviewStorageKey, record.svgPreview ? 'preview' : 'source'); } catch { /* Persistence is optional. */ }
+  await syncSvgPreview();
+  updateDocumentEditState();
+  if (record.svgPreview) document.getElementById('document-svg-preview')?.focus();
+  else editorSurface?.focus();
+}
+
+/** HTML gets the same Preview/Source toggle as Markdown and SVG, namespaced to
+    its own localStorage key and its own per-record flag so switching a
+    Markdown or SVG tab's preference never flips an HTML tab's. Unlike SVG,
+    an .html file is fully executable markup, not a format the platform
+    already refuses to execute -- so Preview renders inside
+    `<iframe sandbox srcdoc="...">` with `allow-scripts` deliberately omitted
+    (ADR-0060). That omission is the entire mechanism relied on here: it is
+    what keeps a `<script>` or an inline handler like `onerror=` from ever
+    running, exactly as `tests/markdown-preview.test.ts` requires for
+    Markdown, restated for a format that cannot be made safe by escaping
+    alone. `Source` reuses the existing CodeMirror `lang-html` surface
+    (ADR-0023) -- no new editor. */
+const htmlPreviewStorageKey = 'ade-html-preview';
+let htmlPreviewPreference = true;
+try { htmlPreviewPreference = localStorage.getItem(htmlPreviewStorageKey) !== 'source'; } catch { htmlPreviewPreference = true; }
+
+/** A record only renders as the HTML preview once it is readable text with an
+    `.html`/`.htm` path; anything else stays with the editor's own loading,
+    binary and failure states. */
+function documentIsRenderableHtml(record) {
+  return Boolean(record && record.state === 'ready' && record.kind === 'text' && isHtmlPath(record.path));
+}
+
+/** The one and only sandbox value this codebase ever sets on the HTML preview
+    iframe. Supplying the `sandbox` attribute at all opts an iframe into every
+    platform restriction (script execution, same-origin access, top-level
+    navigation, popups, form submission, modals...); each space-separated
+    token in its *value* opts back out of exactly one. This value opts back
+    out of nothing, so nothing that was blocked becomes allowed again -- in
+    particular `allow-scripts` is never present, so an embedded `<script>` or
+    an inline `onerror=`/`javascript:` handler never executes. Pulled into its
+    own function so tests/html-preview.test.ts asserts directly against what
+    ships, not a copy of it. */
+function htmlPreviewSandbox() {
+  return '';
+}
+
+/** The exact text handed to the iframe's `srcdoc` -- unmodified from the
+    document's own content. Unlike Markdown's `html: false` escaping, this
+    does not alter, strip or sanitize the source at all (ADR-0060 rejected
+    DOMPurify for this phase): the safety guarantee is entirely
+    `htmlPreviewSandbox()`, applied to the same iframe in the same step (see
+    renderHtmlPreview below). A `<script>` reaching this string intact is
+    expected and correct -- the sandbox is what keeps it from running, not
+    this function. */
+function htmlPreviewSrcdoc(source = '') {
+  return source;
+}
+
+async function renderHtmlPreview() {
+  const frame = document.getElementById('document-html');
+  const record = documentTabById(activeDocumentId);
+  if (!frame || !documentIsRenderableHtml(record)) return;
+  // The editor holds the text that is actually on screen, including edits that
+  // have not been saved, so the preview reads from it rather than from the
+  // record's last written buffer -- the same rule renderMarkdownPreview and
+  // renderSvgPreview follow.
+  const source = codeEditorValue() || (record.buffer ?? '');
+  frame.setAttribute('sandbox', htmlPreviewSandbox());
+  frame.srcdoc = htmlPreviewSrcdoc(source);
+}
+
+/** One place decides which of the two surfaces the panel is showing, so the
+    toggle, the tab switch and a document that stops being HTML all end up
+    with the same account of it -- the same role syncMarkdownPreview and
+    syncSvgPreview play for their formats. */
+async function syncHtmlPreview() {
+  const content = document.getElementById('document-content');
+  const preview = document.getElementById('document-html-preview');
+  const toggle = document.getElementById('html-preview-toggle');
+  if (!content || !preview) return;
+  const record = documentTabById(activeDocumentId);
+  const renderable = documentIsRenderableHtml(record);
+  if (renderable && record.htmlPreview === undefined) record.htmlPreview = htmlPreviewPreference;
+  const rendered = renderable && record.htmlPreview === true;
+  if (toggle) {
+    toggle.hidden = !renderable;
+    toggle.disabled = !renderable;
+    toggle.textContent = rendered ? 'Source text' : 'Preview';
+    toggle.setAttribute('aria-pressed', String(rendered));
+    const label = rendered ? 'Show HTML source text' : 'Show HTML preview';
+    toggle.setAttribute('aria-label', label);
+    toggle.title = label;
+  }
+  preview.hidden = !rendered;
+  if (rendered) {
+    content.hidden = true;
+    await renderHtmlPreview();
+    return;
+  }
+  if (record?.state === 'ready' && record.kind === 'text') content.hidden = false;
+}
+
+function htmlPreviewVisible() {
+  const preview = document.getElementById('document-html-preview');
+  return Boolean(preview && !preview.hidden);
+}
+
+async function toggleHtmlPreview() {
+  const record = documentTabById(activeDocumentId);
+  if (!documentIsRenderableHtml(record)) return;
+  record.htmlPreview = !(record.htmlPreview ?? htmlPreviewPreference);
+  // The last choice is the one the next HTML file opens with, so a reader and
+  // an author each keep the surface they work in.
+  htmlPreviewPreference = record.htmlPreview;
+  try { localStorage.setItem(htmlPreviewStorageKey, record.htmlPreview ? 'preview' : 'source'); } catch { /* Persistence is optional. */ }
+  await syncHtmlPreview();
+  updateDocumentEditState();
+  if (record.htmlPreview) document.getElementById('document-html-preview')?.focus();
+  else editorSurface?.focus();
+}
+
+/** A standalone `.mmd` file gets the same Preview/Source toggle as Markdown,
+    SVG and HTML, namespaced to its own localStorage key and its own
+    per-record flag so switching another format's tab preference never flips
+    a Mermaid tab's. Unlike the ` ```mermaid ` fence case inside a Markdown
+    document, there is no markdown-it document to render around it: the
+    file's full source text goes straight to mermaid.render(...) (via
+    renderMermaidSvg, the same call the fence path resolves through). */
+const mermaidPreviewStorageKey = 'ade-mermaid-preview';
+let mermaidPreviewPreference = true;
+try { mermaidPreviewPreference = localStorage.getItem(mermaidPreviewStorageKey) !== 'source'; } catch { mermaidPreviewPreference = true; }
+
+/** A record only renders as the Mermaid preview once it is readable text with
+    an `.mmd` path; anything else stays with the editor's own loading, binary
+    and failure states. */
+function documentIsRenderableMermaid(record) {
+  return Boolean(record && record.state === 'ready' && record.kind === 'text' && isMermaidPath(record.path));
+}
+
+async function renderMermaidPreview() {
+  const target = document.getElementById('document-mermaid');
+  const record = documentTabById(activeDocumentId);
+  if (!target || !documentIsRenderableMermaid(record)) return;
+  // The editor holds the text that is actually on screen, including edits that
+  // have not been saved, so the preview reads from it rather than from the
+  // record's last written buffer -- the same rule renderMarkdownPreview,
+  // renderSvgPreview and renderHtmlPreview follow.
+  const generation = beginPreviewRenderGeneration();
+  const source = codeEditorValue() || (record.buffer ?? '');
+  try {
+    const svg = await renderMermaidSvg(source);
+    // `#document-mermaid` is a single shared element: without this check a slow
+    // diagram resolving after the user clicked another tab would overwrite the
+    // diagram that tab already painted there.
+    if (!previewRenderIsCurrent(generation)) return;
+    target.innerHTML = svg;
+  } catch (error) {
+    // A failure belonging to a document nobody is looking at has nothing to
+    // report against, and must not blank out the diagram now on screen.
+    if (!previewRenderIsCurrent(generation)) return;
+    target.textContent = `Unable to render diagram: ${error?.message ?? error}`;
+    console.warn('Mermaid diagram render failed:', error);
+  }
+}
+
+/** One place decides which of the two surfaces the panel is showing, so the
+    toggle, the tab switch and a document that stops being Mermaid all end up
+    with the same account of it -- the same role syncMarkdownPreview,
+    syncSvgPreview and syncHtmlPreview play for their formats. */
+async function syncMermaidPreview() {
+  const content = document.getElementById('document-content');
+  const preview = document.getElementById('document-mermaid-preview');
+  const toggle = document.getElementById('mermaid-preview-toggle');
+  if (!content || !preview) return;
+  const record = documentTabById(activeDocumentId);
+  const renderable = documentIsRenderableMermaid(record);
+  if (renderable && record.mermaidPreview === undefined) record.mermaidPreview = mermaidPreviewPreference;
+  const rendered = renderable && record.mermaidPreview === true;
+  if (toggle) {
+    toggle.hidden = !renderable;
+    toggle.disabled = !renderable;
+    toggle.textContent = rendered ? 'Source text' : 'Preview';
+    toggle.setAttribute('aria-pressed', String(rendered));
+    const label = rendered ? 'Show Mermaid source text' : 'Show Mermaid preview';
+    toggle.setAttribute('aria-label', label);
+    toggle.title = label;
+  }
+  preview.hidden = !rendered;
+  if (rendered) {
+    content.hidden = true;
+    await renderMermaidPreview();
+    return;
+  }
+  if (record?.state === 'ready' && record.kind === 'text') content.hidden = false;
+}
+
+function mermaidPreviewVisible() {
+  const preview = document.getElementById('document-mermaid-preview');
+  return Boolean(preview && !preview.hidden);
+}
+
+async function toggleMermaidPreview() {
+  const record = documentTabById(activeDocumentId);
+  if (!documentIsRenderableMermaid(record)) return;
+  record.mermaidPreview = !(record.mermaidPreview ?? mermaidPreviewPreference);
+  // The last choice is the one the next Mermaid file opens with, so a reader
+  // and an author each keep the surface they work in.
+  mermaidPreviewPreference = record.mermaidPreview;
+  try { localStorage.setItem(mermaidPreviewStorageKey, record.mermaidPreview ? 'preview' : 'source'); } catch { /* Persistence is optional. */ }
+  await syncMermaidPreview();
+  updateDocumentEditState();
+  if (record.mermaidPreview) document.getElementById('document-mermaid-preview')?.focus();
   else editorSurface?.focus();
 }
 
@@ -6779,6 +7301,18 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'toggle-markdown-preview') {
     void toggleMarkdownPreview();
+    return;
+  }
+  if (item.dataset.action === 'toggle-svg-preview') {
+    void toggleSvgPreview();
+    return;
+  }
+  if (item.dataset.action === 'toggle-html-preview') {
+    void toggleHtmlPreview();
+    return;
+  }
+  if (item.dataset.action === 'toggle-mermaid-preview') {
+    void toggleMermaidPreview();
     return;
   }
   if (item.dataset.action === 'format-document') {
