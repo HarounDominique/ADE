@@ -861,7 +861,7 @@ test("Markdown opens rendered and keeps one control back to its source", () => {
   assert.match(main, /markdownMode = isMarkdownPath\(activeDocument\.path\) \? \(markdownPreviewVisible\(\) \? 'PRETTY' : 'SOURCE'\) : null/);
   assert.match(main, /localStorage\.setItem\(markdownPreviewStorageKey/);
   // The preview hides the editor, so Save must not read that as "not editable".
-  assert.match(main, /const editable = Boolean\(activeDocument\?\.kind === 'text' && editor && \(!editor\.hidden \|\| markdownPreviewVisible\(\) \|\| svgPreviewVisible\(\)\)\)/);
+  assert.match(main, /const editable = Boolean\(activeDocument\?\.kind === 'text' && editor && \(!editor\.hidden \|\| markdownPreviewVisible\(\) \|\| svgPreviewVisible\(\) \|\| htmlPreviewVisible\(\)\)\)/);
   // Links resolve inside the shell instead of navigating the webview away.
   assert.match(main, /function openMarkdownPreviewLink/);
   assert.match(main, /pathInsideRoot\(target\)/);
@@ -917,6 +917,36 @@ test("SVG opens with the same Preview/Source toggle Markdown has, namespaced to 
   assert.match(main, /function toggleSvgPreview/);
   assert.match(main, /localStorage\.setItem\(svgPreviewStorageKey/);
   assert.match(main, /item\.dataset\.action === 'toggle-svg-preview'/);
+});
+
+test("HTML opens with the same Preview/Source toggle Markdown and SVG have, namespaced to its own preference, rendered inside a sandboxed iframe with allow-scripts never granted (ADR-0060, security-critical)", () => {
+  // Detection mirrors isMarkdownPath's/isImagePath's/isSvgPath's shape.
+  assert.match(main, /function isHtmlPath\(filePath = ''\) \{\s*return \['html', 'htm'\]\.includes\(fileExtension\(filePath\)\);\s*\}/);
+  // The toggle button is a sibling of markdown-preview-toggle and
+  // svg-preview-toggle, not a repurposing of either -- switching one format
+  // tab's preference must never flip another's.
+  assert.match(html, /id="html-preview-toggle"[^>]*data-action="toggle-html-preview"|data-action="toggle-html-preview"[^>]*id="html-preview-toggle"/);
+  assert.match(html, /id="html-preview-toggle"[^>]*aria-controls="document-html-preview"/);
+  assert.match(html, /id="html-preview-toggle"[^>]*aria-label="Show HTML source text"/);
+  assert.match(html, /class="document-html-preview" id="document-html-preview"[^>]*hidden/);
+  // The iframe carries the bare `sandbox` attribute in the shipped markup
+  // itself -- restrictive by default even before any script runs -- and never
+  // carries `allow-scripts`.
+  assert.match(html, /id="document-html-preview"[^>]*><iframe id="document-html" sandbox srcdoc="">/);
+  assert.doesNotMatch(html, /id="document-html"[^>]*allow-scripts/);
+  assert.match(styles, /\.document-html-preview \{/);
+  // Preview fills the iframe's srcdoc from the already-read text content --
+  // no backend byte command, `.html` already classifies kind: "text" -- and
+  // the sandbox attribute is set from the same builder function every time.
+  assert.match(main, /function htmlPreviewSandbox\(\) \{\s*return '';\s*\}/);
+  assert.match(main, /frame\.setAttribute\('sandbox', htmlPreviewSandbox\(\)\)/);
+  assert.match(main, /frame\.srcdoc = htmlPreviewSrcdoc\(source\)/);
+  assert.match(main, /function documentIsRenderableHtml\(record\) \{\s*return Boolean\(record && record\.state === 'ready' && record\.kind === 'text' && isHtmlPath\(record\.path\)\);\s*\}/);
+  assert.match(main, /function renderHtmlPreview/);
+  assert.match(main, /function syncHtmlPreview/);
+  assert.match(main, /function toggleHtmlPreview/);
+  assert.match(main, /localStorage\.setItem\(htmlPreviewStorageKey/);
+  assert.match(main, /item\.dataset\.action === 'toggle-html-preview'/);
 });
 
 test("theme switch is visible in the topbar and exposes light/dark state", () => {
