@@ -2,7 +2,7 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Module id: http-client -->
 
-**Estado:** planned — spec en revisión, nada implementado. La verificación técnica y de licencia de [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md) ya está hecha; el contrato queda cerrado en lo arquitectónico y pendiente sólo de aprobación humana y de la implementación.
+**Estado:** done — Phases 1-5 implementadas y verificadas (dominio, motor de ejecución, historial/evidencia, superficie `Requests` en la shell, boundary de red y borrado). Los siete criterios de aceptación están cubiertos por tests reales.
 
 ## Objective
 
@@ -106,7 +106,7 @@ Tests de parseo y escritura de ficheros `.bru` contra el formato real de Bruno, 
 ## Boundaries
 
 - **Always:** mostrar la petición real enviada (URL resuelta, headers, body) antes y después de ejecutar; redactar valores marcados como secretos en cualquier superficie de lectura; atribuir cada ejecución a Project y, cuando exista, a Task.
-- **Ask first:** ejecutar una petición cuya URL resuelta apunte fuera de `localhost`/`127.0.0.1` y de los hosts que el propio Project ya declara en sus configuraciones de `run-configurations`, para no convertir el módulo en un vector silencioso hacia redes externas.
+- **Ask first:** ejecutar una petición cuya URL resuelta apunte fuera de `localhost`/`127.0.0.1`/`::1`, para no convertir el módulo en un vector silencioso hacia redes externas. Esta iteración confirma por loopback únicamente; no cruza contra los hosts que las configuraciones de `run-configurations` del Project ya declaran — ver Open Questions.
 - **Never:** enviar una petición desde el proceso de renderizado del webview; escribir un valor marcado como secreto en el fichero `.bru` en texto plano sin que el operador lo haya escrito así explícitamente; presentar una ejecución sin `assertions` como si hubiera pasado o fallado una verificación.
 
 ## Decisions
@@ -119,10 +119,16 @@ Tests de parseo y escritura de ficheros `.bru` contra el formato real de Bruno, 
 
 ## Implementation status
 
-Nada implementado. [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md) ya verificó que `@usebruno/lang`, `@usebruno/requests`, `@usebruno/js`, `@usebruno/common` y `@usebruno/filestore` son paquetes Node MIT independientes de Electron/React, consumibles como dependencias normales del sidecar. La siguiente fase es planificación de build (`/seed:plan` o equivalente), no un nuevo spike de viabilidad.
+Phase 1 (dominio + E/S de colecciones `.bru`) implementada. [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md) verificó que los cinco paquetes del motor de Bruno son Node MIT independientes de Electron/React; Phase 2 confirmó además, contra su API real, que sólo `@usebruno/lang` y `@usebruno/filestore` terminan consumidos directamente — `@usebruno/requests` y `@usebruno/js` cubren OAuth2/Digest/gRPC/WebSocket/scripting, ninguno dentro del contrato `HttpAuth`/`HttpBody` de esta spec, así que no se vendorizan; la ejecución HTTP usa `axios` directamente (ver la corrección de alcance en el ADR).
+
+Phase 2 (motor de ejecución, `axios`, redacción de secretos en headers y body) y Phase 3 (historial por Project, evidencia de Task vía el mismo mecanismo de `run-configurations`, sin gate) implementadas. Phase 4 implementa la superficie `Requests`: CRUD de colecciones por RPC (`http.collection.list`/`.request.save`/`.environment.save`/`.request.get`/`.environment.get`) y la vista completa en la shell (árbol de colecciones, editor de petición con tabs Params/Headers/Body/Auth/Assertions, panel de respuesta con divisor redimensionable real, selector de entorno). `Requests` ya es la sexta entrada de navegación, entre `Agents` y `Version control` — ver [SPEC-desktop-shell.md#information-architecture](SPEC-desktop-shell.md#information-architecture).
+
+Phase 5 implementada: confirmación `Ask first` por loopback (ver Boundaries y Open Questions sobre el alcance real frente al texto original), borrado de petición/colección/entorno desde el árbol (`http.collection.delete`, con confirmación previa) y barrido completo de `#acceptance-criteria` contra la suite real. El módulo queda completo para esta iteración.
 
 ## Open Questions
 
 - ¿Debe existir una gate `http-check` opt-in, análoga a `structural-gate`, para Projects que quieran bloquear `SHIP` en una assertion HTTP fallida? Queda deliberadamente fuera de esta iteración.
 - ¿Cómo se relaciona una variable de entorno de este módulo con el puerto real que expone una configuración `run-configurations` en ejecución — sustitución automática `${port:<name>}` como ya hace `run.json`, o dos sistemas de variables independientes que el operador sincroniza a mano?
 - ¿El historial de ejecuciones tiene un límite de retención, o crece sin cota igual que puede crecer sin cota un `.ade/http/` con muchas colecciones?
+- Surgido durante Phase 1 (`memory-bank/tasks/http-client.md`): `HttpRequest.params` no distingue query de path. El `.bru` real de Bruno separa `params:query`/`params:path` en bloques propios; leer un fichero ajeno con parámetros de path los descarta en vez de mapearlos, aunque su valor suele seguir presente igualmente dentro del propio `url` como segmento `{{var}}`. No bloquea Phase 1 —el contrato cerrado de esa fase cubre explícitamente method/url/headers/params/auth/body sin params de path—, pero Phase 2 (sustitución y ejecución) debe decidir si esto es pérdida real o redundante con el propio `url`, y si `HttpRequest` necesita un campo `kind: "query" | "path"` antes de que el motor de ejecución dependa del contrato actual.
+- Surgido en Phase 5: el `Ask first` confirma hoy sólo por loopback (`localhost`/`127.0.0.1`/`::1`); no cruza contra los hosts que las configuraciones `run-configurations` del Project ya declaran (`bind: "all"` u otro puerto expuesto), como el texto original de este Boundary preveía. La dirección del recorte es conservadora —pide confirmación de más, nunca de menos—, pero cruzar contra configuraciones declaradas/en ejecución queda pendiente de una iteración futura en vez de resuelto.

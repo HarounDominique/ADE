@@ -8,10 +8,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Project } from "../src/domain/project.js";
 import { Task } from "../src/domain/task.js";
 import { agentTurnUsage, handleDesktopRequest, persistAgentPressure, readAgentPressure, summarizeAgentActivity } from "../src/desktop-sidecar.js";
+import type { HttpRequest, HttpEnvironment } from "../src/domain/http-request.js";
 import type { Readable } from "node:stream";
 
 const execFile = promisify(execFileCallback);
@@ -126,6 +129,236 @@ test("desktop sidecar isolates saved agent terminal sessions by Project", () => 
   assert.equal((handleDesktopRequest(store, { id: "terminal-list", method: "terminal.history.list", params: { projectId: "project-a" } }).result as Array<{ id: string }>)[0]?.id, "terminal-a");
   assert.equal(handleDesktopRequest(store, { id: "terminal-get-wrong", method: "terminal.history.get", params: { sessionId: "terminal-a", projectId: "project-b" } }).error?.code, "TERMINAL_SESSION_PROJECT_MISMATCH");
   store.close();
+});
+
+test("desktop sidecar lists Http execution history scoped to a Project", () => {
+  const store = new AdeStore();
+  store.saveHttpExecution({ id: "exec-a", requestId: "req-1", projectId: "project-a", startedAt: "2026-09-14T10:00:00.000Z", durationMs: 12, status: 200 });
+  store.saveHttpExecution({ id: "exec-b", requestId: "req-2", projectId: "project-b", startedAt: "2026-09-14T10:01:00.000Z", durationMs: 8, status: 204 });
+
+  const listed = handleDesktopRequest(store, { id: "http-history-1", method: "http.history.list", params: { projectId: "project-a" } });
+  assert.deepEqual((listed.result as Array<{ id: string }>).map((execution) => execution.id), ["exec-a"]);
+
+  const missingProject = handleDesktopRequest(store, { id: "http-history-2", method: "http.history.list" });
+  assert.deepEqual(missingProject, { id: "http-history-2", error: { code: "INVALID_PARAMS", message: "projectId is required" } });
+  store.close();
+});
+
+test("desktop sidecar executes an Http request, persists it, and attributes evidence only when a Task is active", async () => {
+  const server = createServer((req, res) => {
+    res.setHeader("content-type", "application/json");
+    res.writeHead(200);
+    res.end(JSON.stringify({ ok: true }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-http-"));
+  const databasePath = join(directory, "ade.db");
+  const store = new AdeStore(databasePath);
+  const task = Task.create({ id: "task-http", intent: "Exercise an endpoint", repositoryPath: directory });
+  store.saveTask(task);
+  store.close();
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: databasePath },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    const lines = readSidecarLines(child.stdout);
+
+    const httpRequest: HttpRequest = { id: "req-attributed", name: "Ping", method: "GET", url: `${baseUrl}/ping`, headers: [], params: [], auth: { type: "none" }, body: { type: "none" } };
+
+    child.stdin.write(`${JSON.stringify({ id: "http-exec-1", method: "http.request.execute", params: { httpRequest, projectId: "project-http", taskId: task.id } }) }\n`);
+    const attributed = await lines.waitFor((message) => message.id === "http-exec-1") as { result: { id: string; status: number; requestId: string } };
+    assert.equal(attributed.result.status, 200);
+    assert.equal(attributed.result.requestId, "req-attributed");
+
+    const unattributedRequest: HttpRequest = { ...httpRequest, id: "req-unattributed" };
+    child.stdin.write(`${JSON.stringify({ id: "http-exec-2", method: "http.request.execute", params: { httpRequest: unattributedRequest, projectId: "project-http" } }) }\n`);
+    const unattributed = await lines.waitFor((message) => message.id === "http-exec-2") as { result: { status: number } };
+    assert.equal(unattributed.result.status, 200);
+
+    const reopened = new AdeStore(databasePath);
+    try {
+      const executions = reopened.listHttpExecutions("project-http");
+      assert.equal(executions.length, 2);
+
+      const evidence = reopened.listRuntimeEvidence(task.id);
+      assert.equal(evidence.filter((item) => item.type === "http.request.req-attributed.executed").length, 1);
+      assert.equal(evidence.some((item) => item.type === "http.request.req-unattributed.executed"), false);
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    child.kill();
+    await once(child, "close");
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("desktop sidecar prunes Http request evidence beyond the Project's policy, like every other evidence writer", async () => {
+  const server = createServer((req, res) => {
+    res.writeHead(200);
+    res.end("ok");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-http-prune-"));
+  mkdirSync(join(directory, ".ade"), { recursive: true });
+  writeFileSync(join(directory, ".ade", "policy.json"), JSON.stringify({ evidence: { maxItems: 2 } }));
+  const databasePath = join(directory, "ade.db");
+  const store = new AdeStore(databasePath);
+  const task = Task.create({ id: "task-http-prune", intent: "Poll an endpoint repeatedly", repositoryPath: directory });
+  store.saveTask(task);
+  store.close();
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: databasePath },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    const lines = readSidecarLines(child.stdout);
+    for (const requestId of ["req-1", "req-2", "req-3"]) {
+      const httpRequest: HttpRequest = { id: requestId, name: requestId, method: "GET", url: `${baseUrl}/ping`, headers: [], params: [], auth: { type: "none" }, body: { type: "none" } };
+      child.stdin.write(`${JSON.stringify({ id: `exec-${requestId}`, method: "http.request.execute", params: { httpRequest, projectId: "project-http-prune", taskId: task.id } }) }\n`);
+      await lines.waitFor((message) => message.id === `exec-${requestId}`);
+    }
+
+    const reopened = new AdeStore(databasePath);
+    try {
+      assert.equal(reopened.listHttpExecutions("project-http-prune").length, 3, "history is Project-scoped and unpruned — only evidence is bounded");
+      const evidence = reopened.listRuntimeEvidence(task.id);
+      assert.equal(evidence.length, 2, "evidence is pruned to the policy's maxItems, same as every other evidence writer");
+      assert.deepEqual(evidence.map((item) => item.type).sort(), ["http.request.req-2.executed", "http.request.req-3.executed"].sort(), "the oldest execution's evidence is the one pruned away");
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    child.kill();
+    await once(child, "close");
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("desktop sidecar lists an empty Http collection tree for a Project with none yet, and reflects a saved request and environment", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-http-collection-"));
+  const databasePath = join(directory, "ade.db");
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: databasePath },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    const lines = readSidecarLines(child.stdout);
+
+    child.stdin.write(`${JSON.stringify({ id: "list-empty", method: "http.collection.list", params: { repositoryPath: directory } }) }\n`);
+    const empty = await lines.waitFor((message) => message.id === "list-empty") as { result: unknown[] };
+    assert.deepEqual(empty.result, []);
+
+    const httpRequest: HttpRequest = { id: "ignored-on-write", name: "List users", method: "GET", url: "{{baseUrl}}/users", headers: [], params: [], auth: { type: "none" }, body: { type: "none" } };
+    child.stdin.write(`${JSON.stringify({ id: "save-request", method: "http.collection.request.save", params: { repositoryPath: directory, collectionPath: "Auth/List users.bru", httpRequest } }) }\n`);
+    const savedRequest = await lines.waitFor((message) => message.id === "save-request") as { result: { path: string; saved: boolean } };
+    assert.equal(savedRequest.result.saved, true);
+    assert.equal(savedRequest.result.path, "Auth/List users.bru");
+
+    const httpEnvironment: HttpEnvironment = { id: "ignored-on-write", name: "ignored-on-write", variables: [{ key: "baseUrl", value: "http://localhost:3000", secret: false }] };
+    child.stdin.write(`${JSON.stringify({ id: "save-environment", method: "http.collection.environment.save", params: { repositoryPath: directory, collectionPath: "environments/Local.bru", httpEnvironment } }) }\n`);
+    const savedEnvironment = await lines.waitFor((message) => message.id === "save-environment") as { result: { saved: boolean } };
+    assert.equal(savedEnvironment.result.saved, true);
+
+    child.stdin.write(`${JSON.stringify({ id: "list-after-save", method: "http.collection.list", params: { repositoryPath: directory } }) }\n`);
+    const afterSave = await lines.waitFor((message) => message.id === "list-after-save") as { result: Array<{ type: string; name: string; path: string; children?: Array<{ type: string; name: string }> }> };
+    const authFolder = afterSave.result.find((node) => node.type === "folder" && node.path === "Auth");
+    assert.equal(authFolder?.children?.[0]?.name, "List users");
+    const environmentsFolder = afterSave.result.find((node) => node.type === "folder" && node.path === "environments");
+    assert.equal(environmentsFolder?.children?.[0]?.name, "Local");
+
+    // The tree lists only id/name/method per request (SPEC-http-client.md#request-and-collection-contract);
+    // the Requests view (Phase 4b) needs the full HttpRequest to populate the editor when a tree
+    // node is clicked, so a single request is readable by its collection-relative path too.
+    child.stdin.write(`${JSON.stringify({ id: "get-request", method: "http.collection.request.get", params: { repositoryPath: directory, collectionPath: "Auth/List users.bru" } }) }\n`);
+    const gotRequest = await lines.waitFor((message) => message.id === "get-request") as { result: HttpRequest };
+    assert.equal(gotRequest.result.name, "List users");
+    assert.equal(gotRequest.result.method, "GET");
+    assert.equal(gotRequest.result.url, "{{baseUrl}}/users");
+
+    // Same gap, mirrored for environments: the tree lists only id/name per environment node, but
+    // the Requests view needs the full variable set (including secret values) to actually
+    // substitute `{{variable}}` tokens when the operator picks an environment and sends a request.
+    child.stdin.write(`${JSON.stringify({ id: "get-environment", method: "http.collection.environment.get", params: { repositoryPath: directory, collectionPath: "environments/Local.bru" } }) }\n`);
+    const gotEnvironment = await lines.waitFor((message) => message.id === "get-environment") as { result: HttpEnvironment };
+    assert.equal(gotEnvironment.result.name, "Local");
+    assert.deepEqual(gotEnvironment.result.variables, [{ key: "baseUrl", value: "http://localhost:3000", secret: false }]);
+
+    // SPEC-http-client.md#acceptance-criteria: "Crear, editar y borrar una petición o una
+    // colección desde Assay" — delete is a real, reachable operation, not just create/save.
+    child.stdin.write(`${JSON.stringify({ id: "delete-request", method: "http.collection.delete", params: { repositoryPath: directory, collectionPath: "Auth/List users.bru" } }) }\n`);
+    const deletedRequest = await lines.waitFor((message) => message.id === "delete-request") as { result: { path: string; deleted: boolean } };
+    assert.equal(deletedRequest.result.deleted, true);
+
+    child.stdin.write(`${JSON.stringify({ id: "list-after-delete", method: "http.collection.list", params: { repositoryPath: directory } }) }\n`);
+    const afterDelete = await lines.waitFor((message) => message.id === "list-after-delete") as { result: Array<{ type: string; path: string; children?: unknown[] }> };
+    const authAfterDelete = afterDelete.result.find((node) => node.path === "Auth");
+    assert.equal(authAfterDelete?.children?.length, 0, "the deleted request is gone; its sibling folder is untouched otherwise");
+    assert.ok(afterDelete.result.some((node) => node.path === "environments"), "deleting a request does not touch the unrelated environments/ folder");
+  } finally {
+    child.kill();
+    await once(child, "close");
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a collectionPath that tries to walk outside .ade/http is rejected, not resolved — save and delete alike", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-http-traversal-"));
+  const databasePath = join(directory, "ade.db");
+  // A canary file one level above where .ade/http/ will live — a naive join() would let
+  // `collectionPath: "../sentinel.txt"` resolve straight to it.
+  const sentinelPath = join(directory, "sentinel.txt");
+  writeFileSync(sentinelPath, "untouched");
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: databasePath },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    const lines = readSidecarLines(child.stdout);
+    const httpRequest: HttpRequest = { id: "ignored-on-write", name: "Escape", method: "GET", url: "http://localhost", headers: [], params: [], auth: { type: "none" }, body: { type: "none" } };
+
+    child.stdin.write(`${JSON.stringify({ id: "traversal-save", method: "http.collection.request.save", params: { repositoryPath: directory, collectionPath: "../sentinel.txt", httpRequest } }) }\n`);
+    const saveAttempt = await lines.waitFor((message) => message.id === "traversal-save") as { error?: { code: string } };
+    assert.equal(saveAttempt.error?.code, "INVALID_PARAMS");
+    assert.equal(readFileSync(sentinelPath, "utf8"), "untouched", "a rejected save must never write outside .ade/http");
+
+    child.stdin.write(`${JSON.stringify({ id: "traversal-delete", method: "http.collection.delete", params: { repositoryPath: directory, collectionPath: "../sentinel.txt" } }) }\n`);
+    const deleteAttempt = await lines.waitFor((message) => message.id === "traversal-delete") as { error?: { code: string } };
+    assert.equal(deleteAttempt.error?.code, "INVALID_PARAMS");
+    assert.equal(readFileSync(sentinelPath, "utf8"), "untouched", "a rejected delete must never remove anything outside .ade/http");
+
+    // A collectionPath resolving exactly to the .ade/http root itself (empty-ish/./..-cancelling)
+    // is the boundary case: it must be accepted (root is a legitimate target for e.g. list), not
+    // rejected as if it had escaped.
+    child.stdin.write(`${JSON.stringify({ id: "root-save", method: "http.collection.request.save", params: { repositoryPath: directory, collectionPath: "sub/../Root.bru", httpRequest } }) }\n`);
+    const rootSave = await lines.waitFor((message) => message.id === "root-save") as { result?: { saved: boolean }; error?: unknown };
+    assert.equal(rootSave.result?.saved, true, "a collectionPath that normalizes back inside the root is legitimate, not a false-positive rejection");
+  } finally {
+    child.kill();
+    await once(child, "close");
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("desktop sidecar returns actionable protocol errors", () => {

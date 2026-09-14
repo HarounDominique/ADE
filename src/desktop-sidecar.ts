@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { isSea } from "node:sea";
 import { advanceTask, createTask, setTaskAcceptance } from "./application/tasks/task-commands.js";
 import type { TaskStatus } from "./domain/task.js";
@@ -55,11 +55,14 @@ import { LocalGitRepository } from "./adapters/local-git-repository.js";
 import { GitRepositoryMissingError, GitUnavailableError } from "./adapters/git-command.js";
 import { fallbackTerminalTitle, type TerminalAgentProvider } from "./application/terminal-history/agent-terminal.js";
 import { resolveProviderSessionId } from "./application/terminal-history/provider-session-id.js";
+import { executeHttpRequest } from "./adapters/http-request-executor.js";
+import { deleteCollectionEntry, listHttpCollectionTree, readEnvironmentFile, readRequestFile, writeRequestFile, writeEnvironmentFile } from "./adapters/bruno-collection-store.js";
+import type { HttpEnvironment, HttpRequest } from "./domain/http-request.js";
 
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; settings?: Partial<UserSettings>; prompt?: string; commit?: string; file?: string; untracked?: boolean; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean; workflowMode?: WorkflowMode; result?: WorkflowResult; files?: string[]; ref?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; settings?: Partial<UserSettings>; prompt?: string; commit?: string; file?: string; untracked?: boolean; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean; workflowMode?: WorkflowMode; result?: WorkflowResult; files?: string[]; ref?: string; httpRequest?: HttpRequest; httpEnvironment?: HttpEnvironment; limit?: number; collectionPath?: string };
 };
 
 export type DesktopResponse = {
@@ -204,7 +207,7 @@ function readWorkflow(state: WorkflowState) {
 
 export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): DesktopResponse {
   try {
-    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.acceptance', 'task.advance', 'settings.read', 'settings.write', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'terminal.history.list', 'terminal.history.get', 'terminal.history.save', 'terminal.history.delete', 'service.status', 'skills.list', 'workflow.state', 'workflow.start', 'workflow.advance'].includes(request.method)) {
+    if (!['project.list', 'project.remove', 'project.snapshot', 'task.create', 'task.acceptance', 'task.advance', 'settings.read', 'settings.write', 'runtime.status', 'task.detail', 'runtime.history', 'change.review', 'task.approve', 'task.git.operations', 'runtime.sessions', 'agent.session.delete', 'terminal.history.list', 'terminal.history.get', 'terminal.history.save', 'terminal.history.delete', 'service.status', 'skills.list', 'workflow.state', 'workflow.start', 'workflow.advance', 'http.history.list'].includes(request.method)) {
       return { id: request.id, error: { code: "METHOD_NOT_FOUND", message: `Unknown method: ${request.method}` } };
     }
     if (request.method === "project.list") {
@@ -286,6 +289,11 @@ export function handleDesktopRequest(store: AdeStore, request: DesktopRequest): 
       }
       store.saveTerminalHistorySession({ id: params.sessionId, projectId: params.projectId, provider, title: params.title?.slice(0, 60) || fallbackTerminalTitle(provider, params.endedAt), transcript: params.transcript, truncated: Boolean(params.truncated), startedAt: params.startedAt, endedAt: params.endedAt, providerSessionId });
       return { id: request.id, result: { id: params.sessionId, saved: true } };
+    }
+    if (request.method === "http.history.list") {
+      const projectId = request.params?.projectId;
+      if (!projectId) return { id: request.id, error: { code: "INVALID_PARAMS", message: "projectId is required" } };
+      return { id: request.id, result: store.listHttpExecutions(projectId, request.params?.limit) };
     }
     if (request.method === "skills.list") return { id: request.id, result: listNativeSkills() };
     if (request.method === "service.status") {
@@ -702,6 +710,58 @@ export async function runDesktopSidecar(): Promise<void> {
         const response = handleDesktopRequest(store, request);
         process.stdout.write(`${JSON.stringify(response)}\n`);
         if (!response.error) void enrichTerminalHistoryTitle(store, request.params);
+      } else if (request.method === "http.request.execute") {
+        void runHttpRequestExecution(store, request);
+      } else if (request.method === "http.collection.list") {
+        const repositoryPath = request.params?.repositoryPath;
+        if (!repositoryPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath is required" } })}\n`);
+        else void listHttpCollectionTree(join(repositoryPath, ".ade", "http")).then((tree) => process.stdout.write(`${JSON.stringify({ id: request.id, result: tree })}\n`))
+          .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_COLLECTION_LIST_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "http.collection.request.get") {
+        // Phase 4b gap: the tree (`http.collection.list`) only carries id/name/method per request
+        // node, not the full HttpRequest — the Requests view needs this to load a tree row's full
+        // content into the editor when it's clicked. Mirrors `readRequestFile`'s use in
+        // `listHttpCollectionTree` itself, just for one file instead of a whole subtree.
+        const params = request.params;
+        const resolvedPath = params?.repositoryPath && params.collectionPath ? resolveHttpCollectionPath(params.repositoryPath, params.collectionPath) : undefined;
+        if (!resolvedPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and a collectionPath inside .ade/http are required" } })}\n`);
+        else void readRequestFile(resolvedPath)
+          .then((httpRequest) => process.stdout.write(`${JSON.stringify({ id: request.id, result: httpRequest })}\n`))
+          .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_REQUEST_GET_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "http.collection.environment.get") {
+        // Same gap as http.collection.request.get, mirrored for environments: the tree carries
+        // only id/name per environment node, never its variables, but Send needs the full
+        // variable set to substitute `{{variable}}` tokens once the operator picks one.
+        const params = request.params;
+        const resolvedPath = params?.repositoryPath && params.collectionPath ? resolveHttpCollectionPath(params.repositoryPath, params.collectionPath) : undefined;
+        if (!resolvedPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and a collectionPath inside .ade/http are required" } })}\n`);
+        else void readEnvironmentFile(resolvedPath)
+          .then((httpEnvironment) => process.stdout.write(`${JSON.stringify({ id: request.id, result: httpEnvironment })}\n`))
+          .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_ENVIRONMENT_GET_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "http.collection.request.save") {
+        const params = request.params;
+        const collectionPath = params?.collectionPath;
+        const resolvedPath = params?.repositoryPath && collectionPath ? resolveHttpCollectionPath(params.repositoryPath, collectionPath) : undefined;
+        if (!resolvedPath || !collectionPath || !params?.httpRequest) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, a collectionPath inside .ade/http, and httpRequest are required" } })}\n`);
+        else void writeRequestFile(resolvedPath, params.httpRequest)
+          .then(() => process.stdout.write(`${JSON.stringify({ id: request.id, result: { path: collectionPath, saved: true } })}\n`))
+          .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_REQUEST_SAVE_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "http.collection.environment.save") {
+        const params = request.params;
+        const collectionPath = params?.collectionPath;
+        const resolvedPath = params?.repositoryPath && collectionPath ? resolveHttpCollectionPath(params.repositoryPath, collectionPath) : undefined;
+        if (!resolvedPath || !collectionPath || !params?.httpEnvironment) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, a collectionPath inside .ade/http, and httpEnvironment are required" } })}\n`);
+        else void writeEnvironmentFile(resolvedPath, params.httpEnvironment)
+          .then(() => process.stdout.write(`${JSON.stringify({ id: request.id, result: { path: collectionPath, saved: true } })}\n`))
+          .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_ENVIRONMENT_SAVE_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "http.collection.delete") {
+        const params = request.params;
+        const collectionPath = params?.collectionPath;
+        const resolvedPath = params?.repositoryPath && collectionPath ? resolveHttpCollectionPath(params.repositoryPath, collectionPath) : undefined;
+        if (!resolvedPath || !collectionPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and a collectionPath inside .ade/http are required" } })}\n`);
+        else void deleteCollectionEntry(resolvedPath)
+          .then(() => process.stdout.write(`${JSON.stringify({ id: request.id, result: { path: collectionPath, deleted: true } })}\n`))
+          .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_COLLECTION_DELETE_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else {
         process.stdout.write(`${JSON.stringify(handleDesktopRequest(store, request))}\n`);
       }
@@ -737,6 +797,59 @@ function terminalHistoryTitle(output: string): string {
     if (typeof value === "string" && value.trim()) return value.trim().replace(/\s+/g, " ").slice(0, 60);
   } catch { /* Some providers return plain text. */ }
   return trimmed.startsWith("{") ? "Agent terminal session" : trimmed.replace(/^title\s*:\s*/i, "").replace(/^['"]|['"]$/g, "").replace(/\s+/g, " ").slice(0, 60);
+}
+
+/** Every `http.collection.*` method that touches a file joins `repositoryPath` + `.ade/http` +
+    an operator-supplied `collectionPath` — `list`/`request.get`/`environment.get` only ever see a
+    path this sidecar itself produced (real `readdir()` entries), but `.request.save`/
+    `.environment.save`/`.delete`'s `collectionPath` reaches here from free text the webview
+    collected (the save-path dialog's own text input, in particular) with no containment check
+    before this fix. Returns the resolved absolute path when it stays under the collection root,
+    `undefined` when a `collectionPath` like `../../../../etc/passwd` would walk outside it — the
+    caller turns that into the same `INVALID_PARAMS` shape every other validation failure uses,
+    not a stack trace from a surprised `fs` call three layers down. */
+function resolveHttpCollectionPath(repositoryPath: string, collectionPath: string): string | undefined {
+  const root = resolve(join(repositoryPath, ".ade", "http"));
+  const candidate = resolve(root, collectionPath);
+  return candidate === root || candidate.startsWith(`${root}${sep}`) ? candidate : undefined;
+}
+
+/** Runs a request via the sidecar (never the webview) and persists the result.
+    Attribution to a Task is optional by design: the history belongs to the
+    Project, and only an active Task also gets a RuntimeEvidence entry, with
+    the same mechanism `run-configurations` already uses for its own
+    verification evidence — see SPEC-http-client.md#relación-con-gates: this
+    is citable evidence, never a gate. */
+async function runHttpRequestExecution(store: AdeStore, request: DesktopRequest): Promise<void> {
+  const params = request.params;
+  if (!params?.httpRequest || !params.projectId) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "httpRequest and projectId are required" } })}\n`);
+    return;
+  }
+  try {
+    const execution = await executeHttpRequest({
+      request: params.httpRequest,
+      projectId: params.projectId,
+      ...(params.httpEnvironment ? { environment: params.httpEnvironment } : {}),
+      ...(params.taskId ? { taskId: params.taskId } : {}),
+    });
+    store.saveHttpExecution(execution);
+    if (params.taskId) {
+      const evidencePolicy = loadGatePolicy(store.getTask(params.taskId)?.repositoryPath ?? undefined).evidence;
+      store.saveRuntimeEvidence(createRuntimeEvidence({
+        id: `http-request-${params.taskId}-${Date.now()}-${++runtimeEvidenceSequence}`,
+        taskId: params.taskId,
+        type: `http.request.${execution.requestId}.executed`,
+        summary: `${params.httpRequest.method} ${params.httpRequest.name} → ${execution.status} (${execution.durationMs}ms)`,
+        details: JSON.stringify({ requestId: execution.requestId, status: execution.status, durationMs: execution.durationMs, assertionResults: execution.assertionResults }),
+        policy: evidencePolicy,
+      }));
+      store.pruneRuntimeEvidence(params.taskId, evidencePolicy.maxItems);
+    }
+    process.stdout.write(`${JSON.stringify({ id: request.id, result: execution })}\n`);
+  } catch (error: unknown) {
+    process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_REQUEST_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`);
+  }
 }
 
 async function runCatalog(repositoryPath: string): Promise<readonly ResolvedRunConfiguration[]> {

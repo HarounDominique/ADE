@@ -24,9 +24,7 @@ La shell no puede presentar controles decorativos o estados inventados. Indicado
 
 ## Information architecture
 
-Las áreas visibles, en ese orden, son `PROJECTS`, `AGENTS`, `VERSION CONTROL`, `CONTEXT` y `EDITOR`: el orden recorre desde donde empieza el trabajo hasta donde se juzga, y deja el editor como salida. El orden es contrato, no un accidente del marcado. `Projects` administra el catálogo local, el Project activo y sus Tasks; `Editor` es la superficie de ficheros; `Agents` es la superficie conversacional para runtimes locales. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y evidencia de runtime se consume desde sus superficies respectivas sin exponer un menú Runtime independiente.
-
-**Extensión planeada, no vigente:** [http-client](SPEC-http-client.md) añadirá una sexta entrada, `Requests`, entre `Agents` y `Version control`, cuando ese módulo pase de `planned` a implementación activa. Hasta entonces el orden descrito arriba —cinco entradas— sigue siendo el contrato real de la shell.
+Las áreas visibles, en ese orden, son `PROJECTS`, `AGENTS`, `REQUESTS`, `VERSION CONTROL`, `CONTEXT` y `EDITOR`: el orden recorre desde donde empieza el trabajo hasta donde se juzga, y deja el editor como salida. El orden es contrato, no un accidente del marcado. `Projects` administra el catálogo local, el Project activo y sus Tasks; `Editor` es la superficie de ficheros; `Agents` es la superficie conversacional para runtimes locales. `Requests` es el cliente de peticiones HTTP embebido, definido en [http-client](SPEC-http-client.md#product-contract): árbol de colecciones, editor de petición, respuesta y selector de entorno, sin panel auxiliar de Git ni de agentes. `Version control` es la superficie Git operativa; el resumen de Project se mantiene deliberadamente compacto y el detalle de Tasks, revisiones y evidencia de runtime se consume desde sus superficies respectivas sin exponer un menú Runtime independiente.
 
 ### Projects
 
