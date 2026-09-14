@@ -85,7 +85,11 @@ async function probe(id: string, label: string, command: string, args: readonly 
     // spawn, even when the directory is present in PATH. Keep the public
     // status command as `npm`, but invoke the concrete shim on that host.
     const executable = process.platform === "win32" && command === "npm" ? "npm.cmd" : command;
-    const child = crossSpawn(executable, [...args], { cwd, env: environment, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    // A .cmd shim is a shell script rather than a native executable. The
+    // arguments are fixed version-probe flags, so enabling the Windows shell
+    // here is safe and avoids a false unavailable result from direct spawn.
+    const shell = process.platform === "win32" && executable.endsWith(".cmd");
+    const child = crossSpawn(executable, [...args], { cwd, env: environment, stdio: ["ignore", "pipe", "pipe"], windowsHide: true, shell });
     let output = "";
     const append = (chunk: Buffer | string) => { output += chunk.toString(); };
     child.stdout?.on("data", append);
