@@ -44,6 +44,26 @@ export type HttpEnvironment = {
   variables: readonly { key: string; value: string; secret: boolean }[];
 };
 
+/** One recorded run of an `HttpRequest`, produced by the execution engine in
+    `src/adapters/http-request-executor.ts`. Deliberately carries no resolved URL, request
+    headers, or request/response body: those are reconstructible from the (already-persisted)
+    `HttpRequest` + `HttpEnvironment` pair via `substituteVariables`, so this type only needs to
+    record what the response itself contributes — status, timing, response headers/size, and any
+    `assertions` verdicts. */
+export type HttpExecution = {
+  id: string;
+  requestId: string;
+  projectId: string;
+  taskId?: string;
+  environmentId?: string;
+  startedAt: string;
+  durationMs: number;
+  status: number | "error";
+  responseHeaders?: Record<string, string>;
+  responseSize?: number;
+  assertionResults?: readonly { assertion: HttpAssertion; passed: boolean }[];
+};
+
 /** The plain object shape `@usebruno/filestore`'s `parseRequest`/`stringifyRequest` read and
     write for `{ format: 'bru' }`, restricted to the fields Phase 1 cares about. Bruno's own
     model carries a lot more (scripts, vars, oauth2, examples, …); we round-trip only what our

@@ -18,7 +18,7 @@ status: approved
   `tests/http-request.test.ts`, `tests/bruno-collection-store.test.ts`. 573/573 tests,
   build limpio, review pasó en el segundo intento (ver Deviations).
 
-- [ ] Phase 2 — Motor de ejecución en el sidecar. Usa `axios` directo (no
+- [x] Phase 2 — Motor de ejecución en el sidecar. Usa `axios` directo (no
   `@usebruno/requests`: instalado, auditado y descartado en esta fase — su superficie
   real es OAuth2/Digest/gRPC/WebSocket/proxy PAC, nada de lo cual cubre el contrato
   `HttpAuth`/`HttpBody` de este módulo; ver corrección de alcance en ADR-0059). Método
@@ -28,6 +28,10 @@ status: approved
   Test strategy: ejecución contra servidor HTTP efímero de test para cada método/body;
   evaluación de cada operador de `assertions`; test de redacción de secretos en la
   respuesta capturada. Ningún test depende de una URL pública.
+  Done: `src/adapters/http-request-executor.ts`, `HttpExecution` en
+  `src/domain/http-request.ts`, `tests/http-request-executor.test.ts` (24 tests contra
+  servidor `node:http` real). 597/597 tests, build limpio, review pasó limpio a la
+  primera.
 
 - [ ] Phase 3 — Historial y evidencia de Task. Persistir `HttpExecution` en la DB de ADE
   por Project y, cuando exista, por Task activa; métodos `http.history.list` /
@@ -61,10 +65,10 @@ status: approved
 
 ## Execution State
 
-**Build Status**: RUNNING
-**Current Phase**: 2
-**Current Step**: 2/6
-**Step Attempts**: {2: 1, 3: 0, 4: 0}
+**Build Status**: NOT_STARTED
+**Current Phase**: —
+**Current Step**: —
+**Step Attempts**: {2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
@@ -119,3 +123,10 @@ status: approved
   `npm audit`: 0 hallazgos. Commit intermedio `fix: pin axios/faker above
   known-vulnerable versions` quedó luego revertido en efecto por la desinstalación de
   `@usebruno/requests`, documentado en vez de reescrito con `git commit --amend`.
+- Phase 2 deja sin implementar el envío real de campos `isFile: true` en bodies
+  multipart: `HttpBody`'s multipart field sólo declara `value: string`, sin contrato de
+  bytes de fichero, así que un campo marcado como fichero se omite del cuerpo enviado
+  en vez de mandarse mal. Documentado con comentario en
+  `src/adapters/http-request-executor.ts` y cubierto por test explícito
+  (`POST multipart body sends only enabled non-file fields`); subida real de ficheros
+  queda para cuando `HttpBody` gane un campo con contrato de bytes, no asumido aquí.
