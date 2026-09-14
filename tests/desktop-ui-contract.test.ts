@@ -20,6 +20,7 @@ const safeCommand = readFileSync(new URL("../src/adapters/safe-command.ts", impo
 const gitCommand = readFileSync(new URL("../src/adapters/git-command.ts", import.meta.url), "utf8");
 const ghCommand = readFileSync(new URL("../src/adapters/gh-command.ts", import.meta.url), "utf8");
 const githubStatus = readFileSync(new URL("../src/application/git/github-status.ts", import.meta.url), "utf8");
+const desktopSidecar = readFileSync(new URL("../src/desktop-sidecar.ts", import.meta.url), "utf8");
 const nativeCargo = readFileSync(new URL("../desktop/src-tauri/Cargo.toml", import.meta.url), "utf8");
 const peSignature = readFileSync(new URL("../scripts/pe-signature.mjs", import.meta.url), "utf8");
 const releaseManifest = readFileSync(new URL("../scripts/release-manifest.mjs", import.meta.url), "utf8");
@@ -1953,6 +1954,64 @@ test("committing an empty selection refuses instead of creating an empty commit"
   // stays identical to before this task, per the spec's boundary.
   assert.match(main, /allSelected/);
   assert.doesNotMatch(main, /files: \[\.\.\.pendingGitFiles\]/);
+});
+
+test("a Stash button beside Commit sends exactly the checked files, never omitting the pathspec", () => {
+  // Stash's whole contract is "only what's checked" -- unlike Commit's
+  // allSelected-omission optimization, the pathspec is always explicit.
+  assert.match(html, /id="git-stash-checked"/);
+  const stashHandler = main.slice(main.indexOf("document.getElementById('git-stash-checked')?.addEventListener('click'"), main.indexOf("document.getElementById('worktree-form')"));
+  assert.match(stashHandler, /if \(!pendingCommitSelection\.size\) \{ notify\('Select at least one file to stash\.'\); return; \}/);
+  assert.match(stashHandler, /const files = \[\.\.\.pendingCommitSelection\];/);
+  assert.match(stashHandler, /requestConfirmation\(/);
+  assert.match(stashHandler, /method: 'git\.stash\.create'|sendContextRequest\('git\.stash\.create'/);
+  assert.match(stashHandler, /files,|files: files/);
+  assert.doesNotMatch(stashHandler, /allSelected/);
+  // A fire-and-forget dispatch alone is not feedback: every sibling mutation
+  // (commit, push, fetch) has a success-response branch that notifies and
+  // refreshes -- stash needs the same, not just a transport-failure .catch().
+  assert.match(main, /contextPurpose === 'git-stash-create' && response\.result\?\.operation === 'stash\.create'/);
+  assert.match(main, /'git-stash-create': 'stash',/);
+});
+
+test("the Stash button's confirmation copy points at Repository actions now that the stash list exists", () => {
+  // Phase 1 pointed at a terminal command because Repository actions had no
+  // stash surface yet; Phase 2 ships that surface, so the copy must revert.
+  const stashHandler = main.slice(main.indexOf("document.getElementById('git-stash-checked')?.addEventListener('click'"), main.indexOf("document.getElementById('worktree-form')"));
+  assert.match(stashHandler, /Apply them again later from Repository actions\./);
+  assert.doesNotMatch(stashHandler, /git stash pop or git stash apply from a terminal/);
+});
+
+test("Repository actions lists existing stashes with per-entry Apply and Drop", () => {
+  const repositoryActions = html.slice(html.indexOf("Repository actions"), html.indexOf("Repository actions") + 4000);
+  assert.match(repositoryActions, /id="stash-list"/);
+  assert.match(main, /function renderStashList/);
+  assert.match(main, /function applyStashFromUI/);
+  assert.match(main, /function dropStashFromUI/);
+  // Drop is irreversible; Apply is recoverable but can produce conflicts --
+  // the spec calls for exactly this tone split.
+  const applyFunction = main.slice(main.indexOf("function applyStashFromUI"), main.indexOf("function applyStashFromUI") + 600);
+  const dropFunction = main.slice(main.indexOf("function dropStashFromUI"), main.indexOf("function dropStashFromUI") + 600);
+  assert.match(applyFunction, /requestConfirmation\(/);
+  assert.doesNotMatch(applyFunction, /tone: 'danger'/);
+  assert.match(dropFunction, /requestConfirmation\(/);
+  assert.match(dropFunction, /tone: 'danger'/);
+  assert.match(applyFunction, /sendContextRequest\('git\.stash\.apply'/);
+  assert.match(dropFunction, /sendContextRequest\('git\.stash\.drop'/);
+});
+
+test("git.stash.list, git.stash.apply and git.stash.drop are registered in the sidecar dispatch", () => {
+  assert.match(desktopSidecar, /request\.method === "git\.stash\.list"/);
+  assert.match(desktopSidecar, /request\.method === "git\.stash\.apply"/);
+  assert.match(desktopSidecar, /request\.method === "git\.stash\.drop"/);
+});
+
+test("applying and dropping a stash both notify and refresh, not just a transport-failure .catch()", () => {
+  // The exact same gap Phase 1 shipped with for stash.create (caught in
+  // review) must not recur for apply/drop -- each needs its own
+  // success-response branch in the sidecar response listener.
+  assert.match(main, /contextPurpose === 'git-stash-apply' && response\.result\?\.operation === 'stash\.apply'/);
+  assert.match(main, /contextPurpose === 'git-stash-drop' && response\.result\?\.operation === 'stash\.drop'/);
 });
 
 test("a pending-file row keeps keyboard activation despite becoming a div", () => {

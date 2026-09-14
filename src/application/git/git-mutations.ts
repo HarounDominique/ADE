@@ -68,6 +68,31 @@ export async function discardFileChanges(input: ConfirmedOperation & { file: str
   return { operation: "discard.file", file: input.file, actor: input.actor, reason: input.reason };
 }
 
+export async function createStash(
+  input: ConfirmedOperation & { files: string[]; message?: string },
+) {
+  assertConfirmed(input);
+  if (!input.files.length) throw new Error("Stash requires at least one file");
+  const message = input.message ?? `Stashed from Assay (${input.files.length} file${input.files.length === 1 ? "" : "s"})`;
+  const result = await executeGit(
+    ["stash", "push", "--include-untracked", "-m", message, "--", ...input.files],
+    { cwd: input.directory },
+  );
+  return { operation: "stash.create", message, output: result.stdout.trim(), actor: input.actor, reason: input.reason };
+}
+
+export async function applyStash(input: ConfirmedOperation & { ref: string }) {
+  assertConfirmed(input);
+  const result = await executeGit(["stash", "apply", input.ref], { cwd: input.directory });
+  return { operation: "stash.apply", ref: input.ref, output: result.stdout.trim(), actor: input.actor, reason: input.reason };
+}
+
+export async function dropStash(input: ConfirmedOperation & { ref: string }) {
+  assertConfirmed(input);
+  await executeGit(["stash", "drop", input.ref], { cwd: input.directory });
+  return { operation: "stash.drop", ref: input.ref, actor: input.actor, reason: input.reason };
+}
+
 export async function initializeRepository(input: ConfirmedOperation) {
   assertConfirmed(input);
   // A bare `git init` inherits the operator's own global init.defaultBranch --
