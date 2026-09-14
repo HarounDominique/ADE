@@ -1,7 +1,7 @@
 ---
 slug: terminal-attachments
 spec: docu/specs/SPEC-terminal-attachments.md
-status: in_progress
+status: ready_to_archive
 ---
 
 ## Implementation Roadmap
@@ -22,15 +22,15 @@ status: in_progress
 - [x] Phase 3 — Drop en Agents. Añadir chips de referencias al composer, envío explícito
   y preservación ante errores; mantener el contrato común para Claude Code, Codex y
   OpenCode.
-- [ ] Phase 4 — Revisión de seguridad, multiplataformidad y smoke manual. Verificar
+- [x] Phase 4 — Revisión de seguridad, multiplataformidad y smoke manual. Verificar
   rutas con espacios/unicode, fuera de raíz, imagen/PDF/código y documentación de shell.
 
 ## Execution State
 
-**Build Status**: RUNNING
+**Build Status**: PASSED
 **Current Phase**: 4
-**Current Step**: 1/6
-**Step Attempts**: {1: 1, 2: 1, 3: 1, 4: 0}
+**Current Step**: 6/6
+**Step Attempts**: {1: 1, 2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
