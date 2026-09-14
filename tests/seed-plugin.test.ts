@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { seedPluginSearchPath, resolveSeedPluginDir } from "../src/adapters/seed-plugin.js";
 
@@ -11,6 +11,13 @@ test("the workflow plugin ships inside Assay and is found without anything insta
   assert.ok(existsSync(join(dir!, ".claude-plugin", "plugin.json")), "the resolved directory is a plugin, not just a directory that exists");
   assert.ok(existsSync(join(dir!, "commands")), "its commands come with it");
   assert.ok(existsSync(join(dir!, "agents")), "so do its agents");
+  assert.ok(existsSync(join(dir!, ".codex-plugin", "plugin.json")), "its Codex manifest comes with it");
+  assert.ok(existsSync(join(dir!, ".agents", "plugins", "marketplace.json")), "its Codex marketplace comes with it");
+  const codex = JSON.parse(readFileSync(join(dir!, ".codex-plugin", "plugin.json"), "utf8")) as { name?: string; version?: string; skills?: string };
+  assert.equal(codex.name, "seed");
+  assert.equal(codex.version, "1.2.0");
+  assert.equal(codex.skills, "./skills/");
+  assert.equal(existsSync(join(dir!, "skills", "seed-workflow", "SKILL.md")), true, "the Codex workflow skill is vendored");
 });
 
 test("an explicit override wins, so a packaged app can say where it put the plugin", () => {

@@ -1,6 +1,6 @@
 # SEED
 
-A spec-grounded agentic build workflow for Claude Code. Every task traces back to a spec
+A spec-grounded agentic build workflow for Claude Code and Codex. Every task traces back to a spec
 document, every commit passes a deterministic TDD gate, and every closed task leaves a
 reusable rule behind.
 
@@ -25,6 +25,20 @@ Then, in the project you want to work in:
 
 ```
 /seed:init
+```
+
+Codex uses the same project as a native plugin through
+`.agents/plugins/marketplace.json`, `.codex-plugin/` and
+the skills under `skills/`. The host-neutral skills are `seed-workflow`,
+`seed-spec`, `seed-plan`, `seed-build` and `seed-verify`; they do not depend on
+Claude flags, slash commands or `${CLAUDE_PLUGIN_ROOT}`. The Claude and Codex
+surfaces share the workflow contract but remain independently installable.
+
+Install it in Codex from a local checkout with:
+
+```
+codex plugin marketplace add /path/to/SEED
+codex plugin add seed@seed
 ```
 
 ## Requirements
@@ -124,6 +138,12 @@ Cross-references in this plugin use `${CLAUDE_PLUGIN_ROOT}` to mean "this plugin
 installed location". For reading a file it resolves transparently. It is **not** an
 exported shell variable: when running one of `scripts/*.mjs` via Bash, substitute the real
 absolute path first. See `context/plugin-paths.md`.
+
+## Provider parity
+
+Run `node scripts/validate-plugin-parity.mjs` to verify both manifests, all
+Codex skills and the local Codex marketplace entry. The validator is Node-only
+so it can run on macOS, Ubuntu and Windows.
 
 ## License
 

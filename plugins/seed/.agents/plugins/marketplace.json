@@ -1,0 +1,16 @@
+{
+  "name": "seed",
+  "interface": {
+    "displayName": "SEED"
+  },
+  "plugins": [
+    {
+      "name": "seed",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

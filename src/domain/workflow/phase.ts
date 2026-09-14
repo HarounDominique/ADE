@@ -4,7 +4,7 @@
     IN_PROGRESS while the work moves BUILD -> VERIFY -> BUILD, and COMPLETED is
     not a phase. The two axes are persisted separately for that reason.
 
-    The escalation and guard mechanisms follow SEED, the Claude Code plugin this
+    The escalation and guard mechanisms follow SEED, the dual-host workflow plugin this
     implementation takes as its reference (ADR-0056). */
 
 export type WorkflowPhase =

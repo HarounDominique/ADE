@@ -3,6 +3,12 @@
 Format: one entry per notable change, newest first. Schema-affecting changes also get a
 row in `context/schema-migrations.md`.
 
+## Unreleased
+
+- Added a native Codex plugin manifest and provider-neutral workflow skills.
+- Kept the Claude Code plugin surface intact and added a Node-only parity
+  validator for macOS, Ubuntu and Windows.
+
 ## 1.1.0
 
 **MIT.** The plugin was published as `UNLICENSED` — "all rights reserved, not licensed for
