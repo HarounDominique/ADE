@@ -22,7 +22,7 @@ status: approved
   `tests/desktop-ui-contract.test.ts` additions, manual pan/zoom + `Open externally`
   check in `npm run desktop:dev`.
 
-- [ ] Phase 2 — SVG preview toggle: `isSvgPath`; `Preview` renders the already-read text
+- [x] Phase 2 — SVG preview toggle: `isSvgPath`; `Preview` renders the already-read text
   content via `new Blob([content], { type: 'image/svg+xml' })` +
   `URL.createObjectURL` into an `<img>` (a `<script>` inside the SVG does not execute
   there, by platform design — no sandboxing code needed); `Source` shows the existing
@@ -103,3 +103,24 @@ status: approved
   terminal_pty_accepts_input_after_the_shell_is_ready`, 53/53 green), plus the full
   `npm test` (645/645 green).
 - No spec ambiguity or gap surfaced — `/seed:spec-sync` not needed for this phase.
+- Phase 2: `isSvgPath` + toggle implemented as a full parallel clone of the Markdown
+  preview machinery (own `svgPreviewStorageKey`/`svgPreviewPreference`/
+  `documentIsRenderableSvg`/`renderSvgPreview`/`syncSvgPreview`/`svgPreviewVisible`/
+  `toggleSvgPreview`, own `svg-preview-toggle` button, own `document-svg-preview`
+  markup) rather than generalizing `markdownPreviewVisible()`'s pattern into one
+  format-parameterized implementation. Reasoned choice, not an oversight: relabeling the
+  single existing `markdown-preview-toggle` button risked breaking already-pinned
+  Markdown tests, and separate per-format state directly satisfies the spec's own
+  requirement that switching one tab's preference never flips another's. Review pass
+  confirmed this reading is defensible against the spec's Boundaries (reuses toggle UX,
+  not literal implementation) and PASSed on it — but flagged it as real duplication debt:
+  Phase 3 (HTML) and Phase 4 (Mermaid, which reuses "the same toggle" per spec) would be
+  a third and fourth near-identical clone, cheaper to unify into one
+  `createFormatPreviewToggle({...})` factory now (two instances) than to untangle later
+  (three or four). **Not acted on in Phase 2** — accepted as-is to keep this phase's diff
+  small and risk low, per the implementer's own reasoning. Flagged here for `/seed:reflect`
+  and as an explicit decision point before Phase 3 starts: continue the established
+  parallel-clone pattern (lowest risk, matches what's already committed twice) or pause
+  to extract the shared factory first (lower total debt, touches already-pinned Markdown
+  code). Proceeding with the established pattern for Phase 3 to keep the roadmap moving;
+  this is the tradeoff being made, not an oversight.

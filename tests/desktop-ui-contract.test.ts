@@ -861,7 +861,7 @@ test("Markdown opens rendered and keeps one control back to its source", () => {
   assert.match(main, /markdownMode = isMarkdownPath\(activeDocument\.path\) \? \(markdownPreviewVisible\(\) \? 'PRETTY' : 'SOURCE'\) : null/);
   assert.match(main, /localStorage\.setItem\(markdownPreviewStorageKey/);
   // The preview hides the editor, so Save must not read that as "not editable".
-  assert.match(main, /const editable = Boolean\(activeDocument\?\.kind === 'text' && editor && \(!editor\.hidden \|\| markdownPreviewVisible\(\)\)\)/);
+  assert.match(main, /const editable = Boolean\(activeDocument\?\.kind === 'text' && editor && \(!editor\.hidden \|\| markdownPreviewVisible\(\) \|\| svgPreviewVisible\(\)\)\)/);
   // Links resolve inside the shell instead of navigating the webview away.
   assert.match(main, /function openMarkdownPreviewLink/);
   assert.match(main, /pathInsideRoot\(target\)/);
@@ -893,6 +893,30 @@ test("raster images preview with pan/zoom instead of the binary explanatory stat
   // The dependency and its licence row both exist, per ADR-0060's verified table.
   assert.equal(desktopPackage.dependencies["@panzoom/panzoom"], "^4.6.2");
   assert.match(thirdPartyLicenses, /@panzoom\/panzoom`\]\(https:\/\/github\.com\/timmywil\/panzoom\) \| 4\.6\.2 \| .* \| MIT \|/);
+});
+
+test("SVG opens with the same Preview/Source toggle Markdown has, namespaced to its own preference (ADR-0060)", () => {
+  // Detection mirrors isMarkdownPath's/isImagePath's shape.
+  assert.match(main, /function isSvgPath\(filePath = ''\) \{\s*return \['svg'\]\.includes\(fileExtension\(filePath\)\);\s*\}/);
+  // The toggle button is a sibling of markdown-preview-toggle, not a repurposing
+  // of it -- switching a Markdown tab's preference must never flip an SVG tab's.
+  assert.match(html, /id="svg-preview-toggle"[^>]*data-action="toggle-svg-preview"|data-action="toggle-svg-preview"[^>]*id="svg-preview-toggle"/);
+  assert.match(html, /id="svg-preview-toggle"[^>]*aria-controls="document-svg-preview"/);
+  assert.match(html, /id="svg-preview-toggle"[^>]*aria-label="Show SVG source text"/);
+  assert.match(html, /class="document-svg-preview" id="document-svg-preview"[^>]*hidden/);
+  assert.match(html, /id="document-svg-preview"[^>]*><img id="document-svg" alt="">/);
+  assert.match(styles, /\.document-svg-preview \{/);
+  // Preview renders the already-read text content via a Blob + object URL into
+  // an <img> -- an SVG's own <script> does not execute there, by platform
+  // design, so no sandboxing code is needed for this path.
+  assert.match(main, /new Blob\(\[source\], \{ type: 'image\/svg\+xml' \}\)/);
+  assert.match(main, /URL\.createObjectURL/);
+  assert.match(main, /function documentIsRenderableSvg\(record\) \{\s*return Boolean\(record && record\.state === 'ready' && record\.kind === 'text' && isSvgPath\(record\.path\)\);\s*\}/);
+  assert.match(main, /function renderSvgPreview/);
+  assert.match(main, /function syncSvgPreview/);
+  assert.match(main, /function toggleSvgPreview/);
+  assert.match(main, /localStorage\.setItem\(svgPreviewStorageKey/);
+  assert.match(main, /item\.dataset\.action === 'toggle-svg-preview'/);
 });
 
 test("theme switch is visible in the topbar and exposes light/dark state", () => {
