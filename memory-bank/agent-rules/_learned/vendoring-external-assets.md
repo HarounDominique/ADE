@@ -13,3 +13,21 @@ filename and let a missing-file bug surface later. This scaled cleanly from a 53
 curated set to 144 with zero broken references, entirely because every one of the 142
 unique values was checked to exist upstream first, and cross-checked again (every
 mapping value against the actually-vendored files) after writing the mapping.
+
+### verify-actual-api-surface-before-vendoring-a-library
+_derived_from: reflection/http-client.md · evidence_count: 1 · last_validated: 2026-09-14_
+
+The same discipline applies one level up, to vendoring a whole library rather than a
+named asset set: verify what a package actually exports (read its real `.d.ts`/
+`index.js`, not its README's pitch or an earlier spec-time survey's summary) before
+committing to depend on it. `http-client`'s ADR surveyed five Bruno packages by name and
+description at spec time and judged `@usebruno/requests` necessary for HTTP execution;
+reading its actual `dist/esm/index.d.ts` once the build phase reached it showed the
+real exports were OAuth2/Digest/EdgeGrid interceptors, a gRPC client, a WebSocket
+client, and PAC proxy resolution — none of which the module's own `HttpAuth`/`HttpBody`
+contract needed. The package was installed, its surface read, and it was removed in
+the same session once the mismatch was clear (see `audit-new-npm-dependencies-before-
+committing-to-them` in `security-defaults.md` for the security half of that same
+correction). A spec-time survey of a library's name/description is not the same
+verification as reading its real exports once the build phase is about to depend on
+it — do the second check too, even when the first already happened.
