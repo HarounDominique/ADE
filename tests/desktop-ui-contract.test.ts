@@ -861,7 +861,7 @@ test("Markdown opens rendered and keeps one control back to its source", () => {
   assert.match(main, /markdownMode = isMarkdownPath\(activeDocument\.path\) \? \(markdownPreviewVisible\(\) \? 'PRETTY' : 'SOURCE'\) : null/);
   assert.match(main, /localStorage\.setItem\(markdownPreviewStorageKey/);
   // The preview hides the editor, so Save must not read that as "not editable".
-  assert.match(main, /const editable = Boolean\(activeDocument\?\.kind === 'text' && editor && \(!editor\.hidden \|\| markdownPreviewVisible\(\) \|\| svgPreviewVisible\(\) \|\| htmlPreviewVisible\(\)\)\)/);
+  assert.match(main, /const editable = Boolean\(activeDocument\?\.kind === 'text' && editor && \(!editor\.hidden \|\| markdownPreviewVisible\(\) \|\| svgPreviewVisible\(\) \|\| htmlPreviewVisible\(\) \|\| mermaidPreviewVisible\(\)\)\)/);
   // Links resolve inside the shell instead of navigating the webview away.
   assert.match(main, /function openMarkdownPreviewLink/);
   assert.match(main, /pathInsideRoot\(target\)/);
@@ -947,6 +947,45 @@ test("HTML opens with the same Preview/Source toggle Markdown and SVG have, name
   assert.match(main, /function toggleHtmlPreview/);
   assert.match(main, /localStorage\.setItem\(htmlPreviewStorageKey/);
   assert.match(main, /item\.dataset\.action === 'toggle-html-preview'/);
+});
+
+test("Mermaid diagrams-as-code render to SVG instead of plain code text, for both a ```mermaid fence and a standalone .mmd file (ADR-0060)", () => {
+  // Detection mirrors isMarkdownPath's/isImagePath's/isSvgPath's/isHtmlPath's shape.
+  assert.match(main, /function isMermaidPath\(filePath = ''\) \{\s*return \['mmd'\]\.includes\(fileExtension\(filePath\)\);\s*\}/);
+  // The toggle button is a sibling of the other three format toggles, not a
+  // repurposing of any of them.
+  assert.match(html, /id="mermaid-preview-toggle"[^>]*data-action="toggle-mermaid-preview"|data-action="toggle-mermaid-preview"[^>]*id="mermaid-preview-toggle"/);
+  assert.match(html, /id="mermaid-preview-toggle"[^>]*aria-controls="document-mermaid-preview"/);
+  assert.match(html, /id="mermaid-preview-toggle"[^>]*aria-label="Show Mermaid source text"/);
+  assert.match(html, /class="document-mermaid-preview" id="document-mermaid-preview"[^>]*hidden/);
+  assert.match(html, /id="document-mermaid-preview"[^>]*><div id="document-mermaid"><\/div>/);
+  assert.match(styles, /\.document-mermaid-preview \{/);
+  // The markdown-it core rule sits alongside the two existing rules and
+  // intercepts only the mermaid language tag -- everything else keeps its
+  // default fenced-code treatment.
+  assert.match(main, /function markdownMermaidDiagrams\(state\)/);
+  assert.match(main, /token\.info\.trim\(\) !== 'mermaid'/);
+  assert.match(main, /ruler\.push\('ade_mermaid_diagrams', markdownMermaidDiagrams\)/);
+  // mermaid.render(...) is async; renderMarkdownPreview's already-async flow
+  // (it already awaits a dynamic import for markdown-it itself) resolves the
+  // queued diagrams instead of dropping their promises.
+  assert.match(main, /import\('mermaid'\)/);
+  assert.match(main, /await renderMermaidDiagramsInto\(preview, env\.mermaidDiagrams/);
+  assert.match(main, /function renderMermaidSvg/);
+  // Security: securityLevel is set explicitly rather than left to whatever
+  // the installed version defaults to.
+  assert.match(main, /mermaid\.initialize\(\{ startOnLoad: false, securityLevel: 'strict' \}\)/);
+  // The standalone .mmd path feeds mermaid.render(...) the file's full source
+  // directly -- no markdown-it fence wrapper is involved.
+  assert.match(main, /function documentIsRenderableMermaid\(record\) \{\s*return Boolean\(record && record\.state === 'ready' && record\.kind === 'text' && isMermaidPath\(record\.path\)\);\s*\}/);
+  assert.match(main, /function renderMermaidPreview/);
+  assert.match(main, /function syncMermaidPreview/);
+  assert.match(main, /function toggleMermaidPreview/);
+  assert.match(main, /localStorage\.setItem\(mermaidPreviewStorageKey/);
+  assert.match(main, /item\.dataset\.action === 'toggle-mermaid-preview'/);
+  // The dependency and its licence row both exist, per ADR-0060's verified table.
+  assert.equal(desktopPackage.dependencies.mermaid, "^12.0.0");
+  assert.match(thirdPartyLicenses, /mermaid`\]\(https:\/\/github\.com\/mermaid-js\/mermaid\) \| 12\.0\.0 \| .* \| MIT \|/);
 });
 
 test("theme switch is visible in the topbar and exposes light/dark state", () => {

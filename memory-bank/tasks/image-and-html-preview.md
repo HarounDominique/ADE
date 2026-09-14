@@ -46,7 +46,7 @@ status: approved
   `tests/desktop-ui-contract.test.ts` additions, manual check in `npm run desktop:dev`
   with an `.html` containing `<script>alert(1)</script>` — `Preview` must not alert.
 
-- [ ] Phase 4 — Mermaid diagram rendering: add `mermaid` (12.0.0, MIT) to
+- [x] Phase 4 — Mermaid diagram rendering: add `mermaid` (12.0.0, MIT) to
   `desktop/package.json` and its row to `desktop/THIRD_PARTY_LICENSES.md`. New
   `markdown-it` core rule alongside `markdownHeadingAnchors`/`markdownTaskLists`
   detecting fenced ` ```mermaid ` blocks and replacing them with `mermaid.render(...)`'s
@@ -93,6 +93,48 @@ status: approved
 - Phase 1: image bytes land in a new `record.imageData` frontend field rather than
   reusing `record.buffer`/`original` (which carry text dirty-tracking semantics) — kept
   concerns separate. Accepted, no spec conflict.
+- Phase 4 review (attempt 2, opus) confirmed the stale-async-render race is genuinely
+  closed (reproduced-and-fixed via `previewRenderGeneration`/`beginPreviewRenderGeneration`/
+  `previewRenderIsCurrent`, mirroring the existing `httpRequestExecuteGeneration` pattern;
+  guards both the success and failure write in `renderMermaidPreview`,
+  `renderMermaidDiagramsInto`'s per-diagram loop, the markdown-fence placeholder id
+  namespace, and — deliberately beyond the literal finding — `renderMarkdownPreview`'s own
+  write, since guarding diagrams alone while leaving markdown unguarded would produce a
+  worse state, wrong document's text with empty diagram holes) — but blocked on a
+  DIFFERENT, `high`-priority finding: `agent-rules/_learned/security-defaults.md`'s
+  `audit-new-npm-dependencies-before-committing-to-them` had not been run for `mermaid`.
+  `npm audit` on the phase's diff: 5 high + 2 moderate. Root-caused directly: 2 moderate
+  (`dompurify`/`monaco-editor`) are **pre-existing on `master`** (already-accepted risk
+  from ADR-0023's Monaco adoption, unchanged by this diff — confirmed via
+  `git stash`+audit on master, same 2/moderate/0/high baseline). The 5 high were genuinely
+  new: `mermaid@12.0.0 → chevrotain@11.1.2 → lodash-es@4.17.23` (pinned to an exact,
+  vulnerable version — code injection via `_.template`, prototype pollution via
+  `_.unset`/`_.omit`). Fixed surgically, not by downgrading mermaid (which would
+  contradict ADR-0060's pin and `npm audit fix --force`'s own suggested `mermaid@11.17.2`
+  re-enters the *same* vulnerable chevrotain range from the other direction): added
+  `"overrides": { "lodash-es": "^4.18.1" }` to `desktop/package.json` — a patched
+  lodash-es release exists (`4.18.0`/`4.18.1`) that chevrotain's exact pin never picked
+  up. `npm audit` after: back to the exact pre-existing 2-moderate baseline, 0 high.
+  Sanity-checked chevrotain still works against the overridden lodash-es directly
+  (a standalone lexer/tokenize smoke test, since `mermaid.render()` itself needs a DOM
+  this repo's test environment doesn't have) — tokenized correctly, 0 errors. Full
+  `npm test` re-run clean (673/673) after the override. Not a Boundaries violation — the
+  spec's "ask first before adding any dependency beyond `@panzoom/panzoom` and
+  `mermaid`" is about direct dependencies; `overrides` doesn't add one, it pins a
+  transitive one already pulled in. `THIRD_PARTY_LICENSES.md` unchanged (transitive,
+  out of its stated direct-dependency scope, per its own header).
+- Follow-up flagged by review, not acted on in this task (recorded for `/seed:reflect`):
+  ADR-0060's prose reasoning against DOMPurify ("keeps the tree 100% MIT-compatible")
+  is now loosely worded now that `mermaid` transitively pulls DOMPurify anyway (the
+  licence *table* stays correct — direct dependencies only, by its own stated scope, and
+  DOMPurify was already transitively present via `monaco-editor` before this task).
+  Worth a `/seed:spec-sync` note on ADR-0060 at some point, not a code change. Also
+  flagged: each document activation renders its preview twice (once via the awaited
+  `sync*Preview()` chain, once via `updateDocumentEditState()`'s fire-and-forget
+  `void render*Preview()`) — harmless for the synchronous SVG/HTML paths, doubles
+  Mermaid's DSL-parse+layout cost per `.mmd` tab activation. Pre-existing pattern, newly
+  expensive; not blocking, flagged for `/seed:reflect` alongside the Phase 2 parallel-
+  clone duplication debt already recorded above.
 - Phase 1: `tests::terminal_pty_accepts_input_after_the_shell_is_ready` fails
   intermittently in this sandbox (`Timeout` on PTY shell readiness) — confirmed via
   `git stash` during the TDD pass that it fails identically on unmodified `master`, and
