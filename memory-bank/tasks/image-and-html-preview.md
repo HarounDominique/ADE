@@ -58,7 +58,7 @@ status: approved
   `tests/desktop-ui-contract.test.ts` additions, manual check in `npm run desktop:dev`
   with a ` ```mermaid ` fence inside a `.md` and a standalone `.mmd` file.
 
-- [ ] Phase 5 — Verification: full regression (`npm test`, `cargo test`), then one
+- [x] Phase 5 — Verification: full regression (`npm test`, `cargo test`), then one
   manual pass by the operator in `npm run desktop:dev` covering all four formats in the
   same session (PNG pan/zoom, SVG toggle, HTML toggle with the `<script>` non-execution
   check, Mermaid fence + standalone `.mmd`), plus a check that
@@ -70,15 +70,13 @@ status: approved
 
 ## Execution State
 
-**Build Status**: RUNNING
+**Build Status**: DONE
 **Current Phase**: 5
-**Current Step**: 5/6 — automated verification done (regression + licence check); blocked
-  on the operator's mandatory manual GUI pass (see roadmap Phase 5 and Deviations) before
-  this phase can be checked off and `Build Status` can move to `DONE`.
+**Current Step**: 6/6
 **Step Attempts**: {2: 0, 3: 1, 4: 0}
 **Last Block Rule**: none
-**Can Resume**: YES — resume by checking off Phase 5 and running step 6 (commit-guard +
-  commit) once the operator confirms the manual pass below.
+**Can Resume**: NO — all phases complete, operator ran `npm run desktop:dev` and
+  confirmed the manual pass
 
 ## Deviations
 
