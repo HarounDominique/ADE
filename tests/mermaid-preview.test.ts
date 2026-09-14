@@ -86,8 +86,8 @@ test("a ```mermaid fence is intercepted before the default fenced-code renderer 
   // A placeholder with a stable, unique locator id takes its place.
   assert.match(html, /<div class="mermaid-diagram" data-mermaid-id="[^"]+"><\/div>/);
   assert.equal(env.mermaidDiagrams?.length, 1);
-  assert.equal(env.mermaidDiagrams?.[0].source, "graph TD;\n  A-->B;\n");
-  assert.doesNotMatch(env.mermaidDiagrams?.[0].source ?? "", /Antes|Despues/);
+  assert.equal(env.mermaidDiagrams?.[0]?.source, "graph TD;\n  A-->B;\n");
+  assert.doesNotMatch(env.mermaidDiagrams?.[0]?.source ?? "", /Antes|Despues/);
 });
 
 test("a fence with any other language tag renders exactly as before -- the rule only ever intercepts mermaid", async () => {
@@ -216,7 +216,10 @@ function createPreviewStub() {
     set innerHTML(value: string) {
       html = value;
       placeholders.clear();
-      for (const match of value.matchAll(/data-mermaid-id="([^"]+)"/g)) placeholders.set(match[1], createElementStub());
+      for (const match of value.matchAll(/data-mermaid-id="([^"]+)"/g)) {
+        const id = match[1];
+        if (id) placeholders.set(id, createElementStub());
+      }
     },
     querySelector(selector: string) {
       const id = selector.match(/data-mermaid-id="([^"]+)"\]/)?.[1];
@@ -397,6 +400,8 @@ test("a stale markdown-fence diagram cannot land in the placeholder of the docum
   await settle();
   const onScreen = harness.preview.onScreenPlaceholderIds();
   assert.equal(onScreen.length, 2);
+  const [onScreenFirst, onScreenSecond] = onScreen;
+  assert.ok(onScreenFirst && onScreenSecond);
 
   // B walks on to its second diagram.
   harness.resolveFor(firstOfB, "<svg id='B1'></svg>");
@@ -409,17 +414,17 @@ test("a stale markdown-fence diagram cannot land in the placeholder of the docum
 
   harness.resolveFor(secondOfB, "<svg id='B2'></svg>");
   await renderOfB;
-  assert.equal(harness.preview.placeholder(onScreen[0])?.innerHTML, "<svg id='B1'></svg>");
-  assert.equal(harness.preview.placeholder(onScreen[1])?.innerHTML, "<svg id='B2'></svg>");
+  assert.equal(harness.preview.placeholder(onScreenFirst)?.innerHTML, "<svg id='B1'></svg>");
+  assert.equal(harness.preview.placeholder(onScreenSecond)?.innerHTML, "<svg id='B2'></svg>");
 
   if (harness.isPending(secondOfA)) harness.resolveFor(secondOfA, "<svg id='A2'></svg>");
   await renderOfA;
   assert.equal(
-    harness.preview.placeholder(onScreen[1])?.innerHTML,
+    harness.preview.placeholder(onScreenSecond)?.innerHTML,
     "<svg id='B2'></svg>",
     "document A's stale diagram landed in document B's placeholder -- the locator id collided across render passes",
   );
-  assert.equal(harness.preview.placeholder(onScreen[0])?.innerHTML, "<svg id='B1'></svg>");
+  assert.equal(harness.preview.placeholder(onScreenFirst)?.innerHTML, "<svg id='B1'></svg>");
 });
 
 test("placeholder locator ids are unique across render passes, not just within one", async () => {

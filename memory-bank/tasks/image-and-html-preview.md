@@ -182,6 +182,20 @@ status: approved
   replaced by structural assertions on the actual builder function's return value and
   call-site coverage — accepted as the stronger, more precise test.
 - No spec ambiguity or gap surfaced in Phase 3 — `/seed:spec-sync` not needed.
+- Archive Step 4 (independent pre-merge validation, `npm run build` = `tsc --noEmit`):
+  found 6 real strict-mode type errors in `tests/mermaid-preview.test.ts` that no
+  earlier gate caught — `npm test` runs via `tsx`, which does not enforce
+  `noUncheckedIndexedAccess`/full strict-null-check the way a standalone `tsc --noEmit`
+  pass does, so an array index (`onScreen[0]`/`onScreen[1]`, typed `string | undefined`
+  under this repo's `noUncheckedIndexedAccess: true`) and two other possibly-undefined
+  accesses (`env.mermaidDiagrams?.[0].source` missing a second `?.`, a regex capture
+  group passed to `Map.set` without a guard) passed every test run all task long but
+  failed the independent typecheck gate. Fixed directly (destructure-and-assert-both-
+  defined for the array indices, an added `?.`, an added `if (id)` guard) — no behavior
+  change, pure type-safety. Re-verified green after: `tsc --noEmit` clean, `npm test`
+  672/672, `cargo test` 53/53 (excl. the same pre-existing PTY flake), `node build.mjs`
+  clean. This is exactly what Step 4 exists for — an independent check right before
+  merge, not a trust of an earlier one; it worked as designed.
 - Phase 5: discovered mid-verification that `feature/image-and-html-preview` had absorbed
   10 unrelated commits (`ff4cdf0`..`ffc0b32`, "vendor dual-host seed plugin" work) —
   confirmed via `git log`/reflog that another concurrent process committed directly onto
