@@ -497,6 +497,16 @@ function activeTerminal() {
   return terminalTabs.find((tab) => tab.id === activeTerminalId) ?? terminalTabs[0] ?? null;
 }
 
+/** The first tab is created before the registered Project finishes loading.
+    Give any tab that has not started yet the canonical Project root once it is
+    available, so its first keystroke cannot try to start a PTY in an empty cwd. */
+function syncPendingTerminalCwds(cwd = workspaceRootPath) {
+  if (!cwd) return;
+  terminalTabs.forEach((tab) => {
+    if (!tab.started && !tab.completionCwd) tab.completionCwd = cwd;
+  });
+}
+
 function renderTerminalOutput() {
   const tab = activeTerminal();
   const hosts = document.getElementById('terminal-hosts');
@@ -775,6 +785,8 @@ async function startTerminal(tab) {
   if (tab.started) return tab.readiness ?? Promise.resolve();
   tab.startPromise = (async () => {
     if (!nativeInvoke) throw new Error('Native terminal requires the desktop runtime.');
+    tab.completionCwd ||= workspaceRootPath;
+    if (!tab.completionCwd) throw new Error('Select a Project before using the terminal.');
     const readiness = prepareTerminalReadiness(tab);
     await nativeInvoke('terminal_start', { sessionId: tab.id, cwd: tab.completionCwd });
     tab.started = true;
@@ -794,7 +806,8 @@ async function sendTerminalInput(tab, data) {
       await nativeInvoke('terminal_input', { sessionId: tab.id, input: data });
     })
     .catch((error) => {
-      notify('Terminal input failed.');
+      const detail = error instanceof Error ? error.message : String(error ?? 'unknown error');
+      notify(`Terminal input failed: ${detail}`);
       console.warn('Terminal input unavailable:', error);
     });
   return tab.inputQueue;
@@ -1255,6 +1268,7 @@ async function switchProjectFromContext(project) {
     activeProjectId = project.id;
     activeProject = mergeActiveProject(project, context);
     workspaceRootPath = context.repositoryPath;
+    syncPendingTerminalCwds(workspaceRootPath);
     activeGitBranch = context.branch;
     gitBranches = [];
     /** A commit belongs to the repository it was read from: keeping the
@@ -4944,6 +4958,8 @@ async function refreshProjectContext(snapshot) {
     const context = await invoke('project_context', { repositoryPath: activeProject.repositoryPath });
     activeGitBranch = context.branch;
     activeProject = mergeActiveProject(activeProject, context);
+    workspaceRootPath = context.repositoryPath;
+    syncPendingTerminalCwds(workspaceRootPath);
     renderSnapshot({ ...snapshot, project: activeProject });
     window.clearTimeout(workspaceSearchTimer);
     workspaceTreeToken += 1;
