@@ -71,12 +71,15 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | agent-terminal-history | [SPEC-agent-terminal-history.md](SPEC-agent-terminal-history.md) | Historial de terminales con agente, reanudación por id, títulos y popup del dock | workspace-core, agent-providers, desktop-shell | done | — |
 | structural-gate | [SPEC-structural-gate.md](SPEC-structural-gate.md) | Veredicto estructural externo (ASK) como gate citable del Task, opt-in por política | changes-review-governance, native-skills | in-progress | — |
 | http-client | [SPEC-http-client.md](SPEC-http-client.md) | Cliente de peticiones HTTP embebido, colecciones versionables y evidencia de ejecución por Task | project-task-workflow, changes-review-governance, workspace-core, desktop-shell | done | — |
+| database-schema-browser | [SPEC-database-schema-browser.md](SPEC-database-schema-browser.md) | Árbol de esquema de base de datos de solo lectura, vía el cliente nativo (`psql`/`mysql`/`sqlite3`) que el Project ya tenga instalado, sin driver ni secreto propios | project-task-workflow, local-runtime, desktop-shell | planned | — |
 
 `done` identifica capacidades implementadas y verificadas; `planned` identifica una spec aprobada para una iteración posterior, todavía no implementada.
 
 **Build order:** `project-task-workflow → development-workflow → agent-runtime + knowledge-docs + local-runtime → changes-review-governance → desktop-shell`.
 
 La ampliación de `run-configurations` con propuestas de toolchains externos reutiliza `local-runtime` y no añade un runtime ni un compilador al producto. La decisión está en [ADR-0038](../adr/0038-external-project-toolchains.md).
+
+`database-schema-browser` reutiliza el mismo principio de ADR-0038 para delegar en el cliente de base de datos (`psql`/`mysql`/`sqlite3`) que el Project ya tenga instalado: tampoco añade un driver, un protocolo ni un almacén de secretos propio al producto.
 
 **v0.3 build order:** `workspace-core → agent-providers + native-skills → git-collaboration + living-knowledge → desktop-shell integration`. `quality-consulting` se implementará como skills nativas sobre esos contratos.
 
