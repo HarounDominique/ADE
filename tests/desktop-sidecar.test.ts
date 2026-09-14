@@ -8,10 +8,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { AdeStore } from "../src/persistence/sqlite-store.js";
 import { Project } from "../src/domain/project.js";
 import { Task } from "../src/domain/task.js";
 import { agentTurnUsage, handleDesktopRequest, persistAgentPressure, readAgentPressure, summarizeAgentActivity } from "../src/desktop-sidecar.js";
+import type { HttpRequest } from "../src/domain/http-request.js";
 import type { Readable } from "node:stream";
 
 const execFile = promisify(execFileCallback);
@@ -126,6 +129,125 @@ test("desktop sidecar isolates saved agent terminal sessions by Project", () => 
   assert.equal((handleDesktopRequest(store, { id: "terminal-list", method: "terminal.history.list", params: { projectId: "project-a" } }).result as Array<{ id: string }>)[0]?.id, "terminal-a");
   assert.equal(handleDesktopRequest(store, { id: "terminal-get-wrong", method: "terminal.history.get", params: { sessionId: "terminal-a", projectId: "project-b" } }).error?.code, "TERMINAL_SESSION_PROJECT_MISMATCH");
   store.close();
+});
+
+test("desktop sidecar lists Http execution history scoped to a Project", () => {
+  const store = new AdeStore();
+  store.saveHttpExecution({ id: "exec-a", requestId: "req-1", projectId: "project-a", startedAt: "2026-09-14T10:00:00.000Z", durationMs: 12, status: 200 });
+  store.saveHttpExecution({ id: "exec-b", requestId: "req-2", projectId: "project-b", startedAt: "2026-09-14T10:01:00.000Z", durationMs: 8, status: 204 });
+
+  const listed = handleDesktopRequest(store, { id: "http-history-1", method: "http.history.list", params: { projectId: "project-a" } });
+  assert.deepEqual((listed.result as Array<{ id: string }>).map((execution) => execution.id), ["exec-a"]);
+
+  const missingProject = handleDesktopRequest(store, { id: "http-history-2", method: "http.history.list" });
+  assert.deepEqual(missingProject, { id: "http-history-2", error: { code: "INVALID_PARAMS", message: "projectId is required" } });
+  store.close();
+});
+
+test("desktop sidecar executes an Http request, persists it, and attributes evidence only when a Task is active", async () => {
+  const server = createServer((req, res) => {
+    res.setHeader("content-type", "application/json");
+    res.writeHead(200);
+    res.end(JSON.stringify({ ok: true }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-http-"));
+  const databasePath = join(directory, "ade.db");
+  const store = new AdeStore(databasePath);
+  const task = Task.create({ id: "task-http", intent: "Exercise an endpoint", repositoryPath: directory });
+  store.saveTask(task);
+  store.close();
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: databasePath },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    const lines = readSidecarLines(child.stdout);
+
+    const httpRequest: HttpRequest = { id: "req-attributed", name: "Ping", method: "GET", url: `${baseUrl}/ping`, headers: [], params: [], auth: { type: "none" }, body: { type: "none" } };
+
+    child.stdin.write(`${JSON.stringify({ id: "http-exec-1", method: "http.request.execute", params: { httpRequest, projectId: "project-http", taskId: task.id } }) }\n`);
+    const attributed = await lines.waitFor((message) => message.id === "http-exec-1") as { result: { id: string; status: number; requestId: string } };
+    assert.equal(attributed.result.status, 200);
+    assert.equal(attributed.result.requestId, "req-attributed");
+
+    const unattributedRequest: HttpRequest = { ...httpRequest, id: "req-unattributed" };
+    child.stdin.write(`${JSON.stringify({ id: "http-exec-2", method: "http.request.execute", params: { httpRequest: unattributedRequest, projectId: "project-http" } }) }\n`);
+    const unattributed = await lines.waitFor((message) => message.id === "http-exec-2") as { result: { status: number } };
+    assert.equal(unattributed.result.status, 200);
+
+    const reopened = new AdeStore(databasePath);
+    try {
+      const executions = reopened.listHttpExecutions("project-http");
+      assert.equal(executions.length, 2);
+
+      const evidence = reopened.listRuntimeEvidence(task.id);
+      assert.equal(evidence.filter((item) => item.type === "http.request.req-attributed.executed").length, 1);
+      assert.equal(evidence.some((item) => item.type === "http.request.req-unattributed.executed"), false);
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    child.kill();
+    await once(child, "close");
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("desktop sidecar prunes Http request evidence beyond the Project's policy, like every other evidence writer", async () => {
+  const server = createServer((req, res) => {
+    res.writeHead(200);
+    res.end("ok");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const directory = mkdtempSync(join(tmpdir(), "ade-sidecar-http-prune-"));
+  mkdirSync(join(directory, ".ade"), { recursive: true });
+  writeFileSync(join(directory, ".ade", "policy.json"), JSON.stringify({ evidence: { maxItems: 2 } }));
+  const databasePath = join(directory, "ade.db");
+  const store = new AdeStore(databasePath);
+  const task = Task.create({ id: "task-http-prune", intent: "Poll an endpoint repeatedly", repositoryPath: directory });
+  store.saveTask(task);
+  store.close();
+
+  const child = spawn(process.execPath, ["--import", "tsx", "src/desktop-sidecar.ts"], {
+    cwd: process.cwd(),
+    env: { ...process.env, ADE_DB_PATH: databasePath },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  try {
+    const lines = readSidecarLines(child.stdout);
+    for (const requestId of ["req-1", "req-2", "req-3"]) {
+      const httpRequest: HttpRequest = { id: requestId, name: requestId, method: "GET", url: `${baseUrl}/ping`, headers: [], params: [], auth: { type: "none" }, body: { type: "none" } };
+      child.stdin.write(`${JSON.stringify({ id: `exec-${requestId}`, method: "http.request.execute", params: { httpRequest, projectId: "project-http-prune", taskId: task.id } }) }\n`);
+      await lines.waitFor((message) => message.id === `exec-${requestId}`);
+    }
+
+    const reopened = new AdeStore(databasePath);
+    try {
+      assert.equal(reopened.listHttpExecutions("project-http-prune").length, 3, "history is Project-scoped and unpruned — only evidence is bounded");
+      const evidence = reopened.listRuntimeEvidence(task.id);
+      assert.equal(evidence.length, 2, "evidence is pruned to the policy's maxItems, same as every other evidence writer");
+      assert.deepEqual(evidence.map((item) => item.type).sort(), ["http.request.req-2.executed", "http.request.req-3.executed"].sort(), "the oldest execution's evidence is the one pruned away");
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    child.kill();
+    await once(child, "close");
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("desktop sidecar returns actionable protocol errors", () => {

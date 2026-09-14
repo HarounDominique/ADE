@@ -6,6 +6,7 @@ import { Task, type TaskEvent, type TaskStatus } from "../domain/task.js";
 import type { Project, Repository } from "../domain/project.js";
 import type { Review } from "../domain/review.js";
 import type { RuntimeEvidence } from "../domain/runtime-evidence.js";
+import type { HttpExecution } from "../domain/http-request.js";
 import type { Gate, GateStatus } from "../domain/gate.js";
 import type { WorkflowSnapshot } from "../domain/workflow/phase.js";
 import type { LearnedRule } from "../domain/workflow/learned-rule.js";
@@ -251,6 +252,19 @@ export class AdeStore {
         started_at TEXT NOT NULL,
         ended_at TEXT NOT NULL,
         provider_session_id TEXT
+      );
+      CREATE TABLE IF NOT EXISTS http_executions (
+        id TEXT PRIMARY KEY,
+        request_id TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        task_id TEXT,
+        environment_id TEXT,
+        started_at TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        response_headers_json TEXT,
+        response_size INTEGER,
+        assertion_results_json TEXT
       );
     `);
     this.migrateTasks();
@@ -547,6 +561,60 @@ export class AdeStore {
 
   updateTerminalHistoryTitle(id: string, title: string): void {
     this.db.prepare("UPDATE terminal_history_sessions SET title = ? WHERE id = ?").run(title.slice(0, 60), id);
+  }
+
+  /** The history belongs to the Project; the Task attribution is optional and
+      travels along as a nullable column, never a foreign key requirement --
+      an execution run before any Task existed, or with none active, is still
+      a first-class row. */
+  saveHttpExecution(execution: HttpExecution): void {
+    this.db.prepare(`
+      INSERT INTO http_executions (id, request_id, project_id, task_id, environment_id, started_at, duration_ms, status, response_headers_json, response_size, assertion_results_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        request_id = excluded.request_id, project_id = excluded.project_id, task_id = excluded.task_id,
+        environment_id = excluded.environment_id, started_at = excluded.started_at, duration_ms = excluded.duration_ms,
+        status = excluded.status, response_headers_json = excluded.response_headers_json,
+        response_size = excluded.response_size, assertion_results_json = excluded.assertion_results_json
+    `).run(
+      execution.id,
+      execution.requestId,
+      execution.projectId,
+      execution.taskId ?? null,
+      execution.environmentId ?? null,
+      execution.startedAt,
+      execution.durationMs,
+      String(execution.status),
+      execution.responseHeaders ? JSON.stringify(execution.responseHeaders) : null,
+      execution.responseSize ?? null,
+      execution.assertionResults ? JSON.stringify(execution.assertionResults) : null,
+    );
+  }
+
+  listHttpExecutions(projectId: string, limit = 100): HttpExecution[] {
+    const rows = this.db.prepare(`
+      SELECT id, request_id AS requestId, project_id AS projectId, task_id AS taskId, environment_id AS environmentId,
+             started_at AS startedAt, duration_ms AS durationMs, status,
+             response_headers_json AS responseHeadersJson, response_size AS responseSize, assertion_results_json AS assertionResultsJson
+      FROM http_executions WHERE project_id = ? ORDER BY started_at DESC, id DESC LIMIT ?
+    `).all(projectId, limit) as Array<{
+      id: string; requestId: string; projectId: string; taskId: string | null; environmentId: string | null;
+      startedAt: string; durationMs: number; status: string; responseHeadersJson: string | null;
+      responseSize: number | null; assertionResultsJson: string | null;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      requestId: row.requestId,
+      projectId: row.projectId,
+      ...(row.taskId !== null ? { taskId: row.taskId } : {}),
+      ...(row.environmentId !== null ? { environmentId: row.environmentId } : {}),
+      startedAt: row.startedAt,
+      durationMs: row.durationMs,
+      status: row.status === "error" ? "error" as const : Number(row.status),
+      ...(row.responseHeadersJson ? { responseHeaders: JSON.parse(row.responseHeadersJson) as Record<string, string> } : {}),
+      ...(row.responseSize !== null ? { responseSize: row.responseSize } : {}),
+      ...(row.assertionResultsJson ? { assertionResults: JSON.parse(row.assertionResultsJson) as NonNullable<HttpExecution["assertionResults"]> } : {}),
+    }));
   }
 
   saveAgentMessage(input: Omit<AgentMessage, "createdAt"> & { createdAt?: string }): void {
