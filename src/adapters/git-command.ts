@@ -87,12 +87,14 @@ function windowsGitCandidates(environment: NodeJS.ProcessEnv): readonly string[]
   ];
 }
 
-export async function executeGit(args: string[], options?: { cwd?: string; env?: NodeJS.ProcessEnv }): Promise<{ stdout: string; stderr: string }> {
+export async function executeGit(args: string[], options?: { cwd?: string; env?: NodeJS.ProcessEnv; maxBuffer?: number }): Promise<{ stdout: string; stderr: string }> {
   try {
-    const { env, ...rest } = options ?? {};
+    const { env, maxBuffer, ...rest } = options ?? {};
     // Git is a console application: without this, every read of the repository
     // flashes a window on Windows.
-    return await execFile(gitExecutable(), args, { encoding: "utf8", windowsHide: true, ...rest, ...(env ? { env: { ...process.env, ...env } } : {}) });
+    // --binary diffs base64-encode file contents inline, so the default 1MB
+    // Node cap trips on a single changed image or lockfile.
+    return await execFile(gitExecutable(), args, { encoding: "utf8", windowsHide: true, maxBuffer: maxBuffer ?? 64 * 1024 * 1024, ...rest, ...(env ? { env: { ...process.env, ...env } } : {}) });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") throw new GitUnavailableError();
     throw error;
