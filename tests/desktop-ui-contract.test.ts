@@ -40,6 +40,8 @@ const desktopBuild = readFileSync(new URL("../desktop/build.mjs", import.meta.ur
 const sidecarBuild = readFileSync(new URL("../scripts/build-desktop-sidecar.mjs", import.meta.url), "utf8");
 const smokeBundle = readFileSync(new URL("../scripts/smoke-desktop-bundle.mjs", import.meta.url), "utf8");
 const rootPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { scripts: Record<string, string> };
+const desktopPackage = JSON.parse(readFileSync(new URL("../desktop/package.json", import.meta.url), "utf8")) as { dependencies: Record<string, string> };
+const thirdPartyLicenses = readFileSync(new URL("../desktop/THIRD_PARTY_LICENSES.md", import.meta.url), "utf8");
 const devTauriConfig = JSON.parse(readFileSync(new URL("../desktop/src-tauri/tauri.dev.conf.json", import.meta.url), "utf8")) as {
   productName: string;
   identifier: string;
@@ -866,6 +868,31 @@ test("Markdown opens rendered and keeps one control back to its source", () => {
   assert.match(styles, /\.document-preview \{/);
   assert.match(styles, /#markdown-preview-toggle \{ min-width: 96px; white-space: nowrap; \}/);
   assert.match(styles, /\.document-preview li\.markdown-task-item/);
+});
+
+test("raster images preview with pan/zoom instead of the binary explanatory state (ADR-0060)", () => {
+  // Backend: the whitelist is narrow -- it returns bytes for exactly the six
+  // ADR-0060 extensions and leaves every other binary extension unchanged.
+  assert.match(nativeShell, /const IMAGE_PREVIEW_EXTENSIONS: \[&str; 7\] = \["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico"\]/);
+  assert.match(nativeShell, /fn is_image_preview_extension\(file: &Path\) -> bool/);
+  assert.match(nativeShell, /if is_image_preview_extension\(&file\) \{/);
+  assert.match(nativeShell, /kind: "image"\.to_string\(\)/);
+  // Frontend: detection mirrors isMarkdownPath's shape, and the preview markup
+  // sits beside document-preview in the same viewer body.
+  assert.match(main, /function isImagePath\(filePath = ''\) \{\s*return \['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'\]\.includes\(fileExtension\(filePath\)\);\s*\}/);
+  assert.match(main, /function documentIsRenderableImage\(record\) \{\s*return Boolean\(record && record\.state === 'ready' && record\.kind === 'image'\);\s*\}/);
+  assert.match(main, /import\('@panzoom\/panzoom'\)/);
+  assert.match(main, /function renderImagePreview/);
+  assert.match(main, /function syncImagePreview/);
+  assert.match(html, /class="document-image-preview" id="document-image-preview"[^>]*hidden/);
+  assert.match(html, /id="document-image-preview"[^>]*><img id="document-image" alt="">/);
+  assert.match(styles, /\.document-image-preview \{/);
+  // Open externally keeps working unchanged: it is gated only on load state,
+  // never on kind, for every record including image tabs.
+  assert.match(main, /externalDisabled: record\.state === 'loading',/);
+  // The dependency and its licence row both exist, per ADR-0060's verified table.
+  assert.equal(desktopPackage.dependencies["@panzoom/panzoom"], "^4.6.2");
+  assert.match(thirdPartyLicenses, /@panzoom\/panzoom`\]\(https:\/\/github\.com\/timmywil\/panzoom\) \| 4\.6\.2 \| .* \| MIT \|/);
 });
 
 test("theme switch is visible in the topbar and exposes light/dark state", () => {

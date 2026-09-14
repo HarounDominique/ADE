@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Raster image preview: extend `read_file_in`
+- [x] Phase 1 — Raster image preview: extend `read_file_in`
   (`desktop/src-tauri/src/lib.rs`) with a narrow image-extension whitelist
   (`png`/`jpg`/`jpeg`/`gif`/`webp`/`bmp`/`ico`) that returns bytes under the existing
   `MAX_FILE_PREVIEW_BYTES` cap instead of falling into `kind: "binary"`; every other
@@ -79,5 +79,27 @@ status: approved
 
 ## Deviations
 
-[Anything a build phase did differently from what the spec/plan predicted, and whether
-it was accepted, and by whom.]
+- Phase 1: `kind` value for a previewable raster image is `"image"` — the spec/plan only
+  said "instead of falling into `kind: \"binary\"`" without naming the replacement
+  string; frontend gates on this literal.
+- Phase 1: no new Rust crate for base64 — hand-rolled a ~15-line encoder in `lib.rs`
+  instead of adding a `base64` crate (one sits transitively in `Cargo.lock` via `tauri`
+  already). Read the spec's Boundaries "ask first before adding any dependency beyond
+  `@panzoom/panzoom` and `mermaid`" as covering the backend too. Review pass hand-checked
+  the encoder against known vectors (`[0,1,2] → "AAEC"`, `[0xFF] → "/w=="`,
+  `[0xFF,0xFF] → "//8="`) — correct alphabet, padding, no MSRV risk (`div_ceil` stable
+  since Rust 1.73, no `rust-version` pin in `Cargo.toml` to conflict with it). Accepted —
+  no crate dependency was ever named in the spec/ADR for this phase.
+- Phase 1: image bytes land in a new `record.imageData` frontend field rather than
+  reusing `record.buffer`/`original` (which carry text dirty-tracking semantics) — kept
+  concerns separate. Accepted, no spec conflict.
+- Phase 1: `tests::terminal_pty_accepts_input_after_the_shell_is_ready` fails
+  intermittently in this sandbox (`Timeout` on PTY shell readiness) — confirmed via
+  `git stash` during the TDD pass that it fails identically on unmodified `master`, and
+  the review pass reproduced the same intermittent failure independently. Pre-existing
+  environment flake, unrelated to this phase's diff (PTY/terminal code, not
+  `read_file_in`); `last-test-exit-code` for this phase was recorded from a run
+  excluding only this one known-flaky test (`cargo test -- --skip
+  terminal_pty_accepts_input_after_the_shell_is_ready`, 53/53 green), plus the full
+  `npm test` (645/645 green).
+- No spec ambiguity or gap surfaced — `/seed:spec-sync` not needed for this phase.

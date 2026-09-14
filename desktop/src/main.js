@@ -2164,6 +2164,7 @@ async function renderActiveDocument({ focus = false } = {}) {
     documentDirty = false;
     await setCodeEditorContent('');
     await syncMarkdownPreview();
+    await syncImagePreview();
     updateDocumentEditState();
     decorateWorkspaceTree();
     return;
@@ -2179,10 +2180,11 @@ async function renderActiveDocument({ focus = false } = {}) {
     externalDisabled: record.state === 'loading',
   });
   const isText = record.state === 'ready' && record.kind === 'text';
-  status.hidden = isText;
+  const isImage = documentIsRenderableImage(record);
+  status.hidden = isText || isImage;
   status.textContent = record.state === 'loading' ? 'Reading file…'
     : record.state === 'error' ? `Unable to read file: ${record.message}`
-    : isText ? '' : (record.message ?? 'This file cannot be previewed inside Assay.');
+    : isText || isImage ? '' : (record.message ?? 'This file cannot be previewed inside Assay.');
   content.hidden = !isText;
   // The editor reports every change it is handed, including the one that loads
   // the file. Naming the incoming original first means that report compares the
@@ -2193,6 +2195,7 @@ async function renderActiveDocument({ focus = false } = {}) {
   await setCodeEditorContent(isText ? (record.buffer ?? '') : '', record.path, isText && focus);
   if (isText) restoreDocumentCaret(record);
   await syncMarkdownPreview();
+  await syncImagePreview();
   updateDocumentEditState();
   decorateWorkspaceTree();
   // Focus follows the surface that is actually on screen: the rendered
@@ -2219,6 +2222,7 @@ async function loadDocumentRecord(record) {
       size: result.size,
       original: result.kind === 'text' ? (result.content ?? '') : '',
       buffer: result.kind === 'text' ? (result.content ?? '') : '',
+      imageData: result.kind === 'image' ? (result.content ?? '') : '',
       dirty: false,
     });
   } catch (error) {
@@ -2676,6 +2680,22 @@ function isMarkdownPath(filePath = '') {
   return ['md', 'markdown', 'mdown', 'mkd'].includes(fileExtension(filePath));
 }
 
+/** ADR-0060's raster whitelist -- exactly the extensions `read_file_in` reads
+    as bytes instead of classifying `binary`. */
+function isImagePath(filePath = '') {
+  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'].includes(fileExtension(filePath));
+}
+
+/** The MIME type the base64 bytes from `read_file_in` decode as, for the
+    `data:` URL fed to the preview `<img>`. `jpg` and `jpeg` both resolve to
+    `image/jpeg`, matching `isImagePath`'s whitelist. */
+function imageMimeType(filePath = '') {
+  const extension = fileExtension(filePath);
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'ico') return 'image/x-icon';
+  return `image/${extension}`;
+}
+
 function markdownSlug(text, used) {
   const base = String(text).toLowerCase().trim().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, '-') || 'section';
   let slug = base;
@@ -2780,6 +2800,55 @@ async function syncMarkdownPreview() {
   }
   preview.innerHTML = '';
   if (record?.state === 'ready' && record.kind === 'text') content.hidden = false;
+}
+
+let panzoomLoader = null;
+/** `@panzoom/panzoom` (ADR-0060) is loaded once, on first use, the same way
+    `loadMarkdownRenderer` defers `markdown-it` -- a Project with no image tabs
+    open never pays for it. */
+async function loadPanzoom() {
+  if (!panzoomLoader) {
+    panzoomLoader = import('@panzoom/panzoom').then(({ default: Panzoom }) => Panzoom);
+  }
+  return panzoomLoader;
+}
+
+let imagePanzoom = null;
+
+/** A record only renders as the raster image preview once it is a readable
+    image; anything else stays with the editor's own loading, binary and
+    failure states. */
+function documentIsRenderableImage(record) {
+  return Boolean(record && record.state === 'ready' && record.kind === 'image');
+}
+
+async function renderImagePreview() {
+  const image = document.getElementById('document-image');
+  const record = documentTabById(activeDocumentId);
+  if (!image || !documentIsRenderableImage(record)) return;
+  image.src = `data:${imageMimeType(record.path)};base64,${record.imageData ?? ''}`;
+  image.alt = record.name ?? '';
+  const Panzoom = await loadPanzoom();
+  imagePanzoom?.destroy?.();
+  imagePanzoom = Panzoom(image, { maxScale: 8, minScale: 0.5, contain: 'outside' });
+}
+
+/** One place decides whether the panel is showing the raster image preview,
+    so the tab switch and a document that stops being an image both end up
+    with the same account of it -- the same role `syncMarkdownPreview` plays
+    for Markdown. */
+async function syncImagePreview() {
+  const container = document.getElementById('document-image-preview');
+  if (!container) return;
+  const record = documentTabById(activeDocumentId);
+  const renderable = documentIsRenderableImage(record);
+  container.hidden = !renderable;
+  if (renderable) {
+    await renderImagePreview();
+    return;
+  }
+  imagePanzoom?.destroy?.();
+  imagePanzoom = null;
 }
 
 async function toggleMarkdownPreview() {

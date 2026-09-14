@@ -498,6 +498,38 @@ struct DirectoryEntry {
 
 const MAX_FILE_PREVIEW_BYTES: u64 = 2 * 1024 * 1024;
 
+/// ADR-0060's raster image whitelist: exactly these extensions read as bytes
+/// in `read_file_in` instead of classifying through the null-byte/UTF-8 checks
+/// that route every other binary format to `kind: "binary"`.
+const IMAGE_PREVIEW_EXTENSIONS: [&str; 7] = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico"];
+
+fn is_image_preview_extension(file: &Path) -> bool {
+    file.extension()
+        .and_then(|value| value.to_str())
+        .map(|value| IMAGE_PREVIEW_EXTENSIONS.contains(&value.to_lowercase().as_str()))
+        .unwrap_or(false)
+}
+
+/// Minimal standard-alphabet, padded base64 encoder for the raster image
+/// preview route. ADE has no base64 crate in its dependency tree, and
+/// ADR-0060 closes the door on adding libraries beyond `@panzoom/panzoom` and
+/// `mermaid` for this feature, so encoding a handful of image bytes stays
+/// local rather than pulling one in.
+fn base64_encode(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut output = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let b0 = chunk[0];
+        let b1 = chunk.get(1).copied().unwrap_or(0);
+        let b2 = chunk.get(2).copied().unwrap_or(0);
+        output.push(ALPHABET[(b0 >> 2) as usize] as char);
+        output.push(ALPHABET[(((b0 & 0x03) << 4) | (b1 >> 4)) as usize] as char);
+        output.push(if chunk.len() > 1 { ALPHABET[(((b1 & 0x0f) << 2) | (b2 >> 6)) as usize] as char } else { '=' });
+        output.push(if chunk.len() > 2 { ALPHABET[(b2 & 0x3f) as usize] as char } else { '=' });
+    }
+    output
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FileReadResult {
@@ -834,6 +866,17 @@ fn read_file_in(workspace: &WorkspaceRoot, path: &str) -> Result<FileReadResult,
         });
     }
     let bytes = std::fs::read(&file).map_err(|error| format!("Unable to read file: {error}"))?;
+    if is_image_preview_extension(&file) {
+        return Ok(FileReadResult {
+            path: file.to_string_lossy().into_owned(),
+            relative_path,
+            name,
+            kind: "image".to_string(),
+            size,
+            content: Some(base64_encode(&bytes)),
+            message: None,
+        });
+    }
     if bytes.contains(&0) {
         return Ok(FileReadResult {
             path: file.to_string_lossy().into_owned(),
@@ -2020,6 +2063,43 @@ mod tests {
 
         let result = read_file_in(&workspace, &root.join("image.bin").to_string_lossy())
             .expect("classify binary file");
+        assert_eq!(result.kind, "binary");
+        assert!(result.content.is_none());
+
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    /// ADR-0060's raster whitelist: a whitelisted extension returns its bytes
+    /// (base64) as `kind: "image"`, even though the fixture's own bytes -- a
+    /// leading null byte -- would otherwise route it into the `binary` branch
+    /// just below. This is the case the whitelist exists to intercept.
+    #[test]
+    fn read_file_returns_base64_bytes_for_whitelisted_image_extension() {
+        let root = fixture_root("read-file-image");
+        fs::write(root.join("sample.png"), [0u8, 1, 2]).expect("create image fixture");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = read_file_in(&workspace, &root.join("sample.png").to_string_lossy())
+            .expect("classify whitelisted image extension");
+        assert_eq!(result.kind, "image");
+        assert_eq!(result.content.as_deref(), Some("AAEC"));
+
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    /// The same bytes that decode as an image above stay `binary` under a
+    /// non-whitelisted extension -- proving the exception is narrow (keyed on
+    /// extension), not a general binary-passthrough keyed on content.
+    #[test]
+    fn read_file_leaves_non_whitelisted_binary_extension_classified_as_binary() {
+        let root = fixture_root("read-file-non-image-binary");
+        fs::write(root.join("payload.bin"), [0u8, 1, 2]).expect("create binary fixture");
+        let workspace = WorkspaceRoot::default();
+        project_context_for(&workspace, &root.to_string_lossy()).expect("select root");
+
+        let result = read_file_in(&workspace, &root.join("payload.bin").to_string_lossy())
+            .expect("classify non-whitelisted binary extension");
         assert_eq!(result.kind, "binary");
         assert!(result.content.is_none());
 
