@@ -98,10 +98,14 @@ async function probe(id: string, label: string, command: string, args: readonly 
     // POSIX ones for a cold process spawn -- 1.5s was tight enough to read a
     // genuinely present npm as "unavailable" purely from spawn latency, not
     // from anything actually wrong.
+    // A cold npm shim can exceed four seconds on a hosted Windows runner;
+    // keep the shorter bound on POSIX while allowing the Windows probe to
+    // distinguish slow startup from an actually missing toolchain.
+    const timeoutMs = process.platform === "win32" ? 10_000 : 4_000;
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
       resolve({ ...base, available: false, error: "version check timed out" });
-    }, 4_000);
+    }, timeoutMs);
     child.once("error", (error) => {
       clearTimeout(timer);
       resolve({ ...base, available: false, error: error.message });
