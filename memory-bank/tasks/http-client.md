@@ -33,13 +33,19 @@ status: approved
   servidor `node:http` real). 597/597 tests, build limpio, review pasó limpio a la
   primera.
 
-- [ ] Phase 3 — Historial y evidencia de Task. Persistir `HttpExecution` en la DB de ADE
+- [x] Phase 3 — Historial y evidencia de Task. Persistir `HttpExecution` en la DB de ADE
   por Project y, cuando exista, por Task activa; métodos `http.history.list` /
   lectura de evidencia con el mismo criterio de atribución que `run-configurations`.
   (satisfies: SPEC-http-client.md#product-contract "Cada ejecución queda en un
   historial...", SPEC-http-client.md#relación-con-gates)
   Test strategy: atribución a Task activa y su ausencia sin Task; evidencia visible
   desde el detalle de Task sin bloquear ninguna gate del pipeline.
+  Done: tabla `http_executions` + `saveHttpExecution`/`listHttpExecutions` en
+  `sqlite-store.ts`; `http.history.list` (síncrono) y `http.request.execute`
+  (asíncrono, rama propia del loop del sidecar) en `desktop-sidecar.ts`, con
+  `RuntimeEvidence` sólo cuando hay Task activa. 601/601 tests, build limpio, review
+  bloqueó una vez (faltaba `loadGatePolicy`/`pruneRuntimeEvidence`, ver Deviations) y
+  pasó limpio en el segundo intento.
 
 - [ ] Phase 4 — Superficie `Requests` en la shell. Diseño resuelto en
   `memory-bank/creative/http-client-ui-ux.md`: rail de colecciones reutilizando
@@ -130,3 +136,30 @@ status: approved
   `src/adapters/http-request-executor.ts` y cubierto por test explícito
   (`POST multipart body sends only enabled non-file fields`); subida real de ficheros
   queda para cuando `HttpBody` gane un campo con contrato de bytes, no asumido aquí.
+- Phase 3 (step 2, intento 1) crasheó a mitad por un error de infraestructura del
+  dispatch (HTTP 400 "assistant message prefill" contra la API), no por el trabajo en
+  sí: dejó `http_executions` (tabla, `saveHttpExecution`/`listHttpExecutions`) y
+  `http.history.list` completos y correctos, pero `http.request.execute` sin
+  implementar del todo. Se completó a mano en la misma sesión: `handleDesktopRequest`
+  es síncrona (usada directa en tests), así que `http.request.execute` —que necesita
+  `await executeHttpRequest`— no podía vivir ahí; se añadió como rama propia del bucle
+  `for await` async del sidecar (mismo patrón que `run.start`/`task.run`), con
+  `runHttpRequestExecution` escribiendo su propia respuesta a `stdout`. El test que el
+  agente ya había escrito para este caso (spawn del sidecar real, correcto para algo
+  async) no tenía `try/finally`: al fallar contra el método todavía inexistente dejó el
+  proceso hijo y el servidor HTTP efímero sin cerrar, colgando `npm test` más allá del
+  timeout. Corregido con el mismo patrón `try/finally` que ya usa el resto de tests de
+  spawn en `tests/desktop-sidecar.test.ts`. Dos fixes de tipado adicionales por
+  `exactOptionalPropertyTypes: true` (spread condicional de `environment`/`taskId` en
+  vez de asignar `undefined`; cast a `NonNullable<...>` en `listHttpExecutions`).
+  600/600 tests, build limpio, tras la corrección.
+- Phase 3 review (attempt 1) bloqueó: `runHttpRequestExecution` escribía
+  `RuntimeEvidence` sin `loadGatePolicy`/política ni `pruneRuntimeEvidence` posterior —
+  los 8 demás sitios del repo que escriben evidencia siguen ese patrón sin excepción, y
+  el propio spec describe la ejecución HTTP como algo que se repite "decenas de veces"
+  explorando un endpoint, justo el crecimiento que `pruneRuntimeEvidence` existe para
+  acotar. Corregido con el mismo patrón (`loadGatePolicy(store.getTask(taskId)
+  ?.repositoryPath ?? undefined)` + `pruneRuntimeEvidence` tras guardar), más un test
+  nuevo que dispara 3 ejecuciones con `maxItems: 2` vía `.ade/policy.json` real y
+  confirma que sobreviven exactamente las 2 más recientes — no sólo que el conteo baja,
+  sino que se poda la correcta. Pasó limpio en el segundo intento de review.

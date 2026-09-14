@@ -159,6 +159,51 @@ test("SQLite migrates terminal history and keeps the conversation it can resume"
   store.close();
 });
 
+test("SQLite persists Http executions by Project, with or without an active Task", () => {
+  const store = new AdeStore();
+
+  store.saveHttpExecution({
+    id: "exec-project-only",
+    requestId: "req-1",
+    projectId: "project-a",
+    startedAt: "2026-09-14T10:00:00.000Z",
+    durationMs: 42,
+    status: 200,
+    responseHeaders: { "content-type": "application/json" },
+    responseSize: 128,
+    assertionResults: [{ assertion: { target: "status", operator: "eq", expected: 200 }, passed: true }],
+  });
+  store.saveHttpExecution({
+    id: "exec-with-task",
+    requestId: "req-2",
+    projectId: "project-a",
+    taskId: "task-a",
+    environmentId: "env-1",
+    startedAt: "2026-09-14T10:05:00.000Z",
+    durationMs: 7,
+    status: "error",
+  });
+  store.saveHttpExecution({ id: "exec-other-project", requestId: "req-3", projectId: "project-b", startedAt: "2026-09-14T10:06:00.000Z", durationMs: 3, status: 500 });
+
+  const executions = store.listHttpExecutions("project-a");
+  assert.deepEqual(executions.map((execution) => execution.id), ["exec-with-task", "exec-project-only"]);
+
+  const projectOnly = executions.find((execution) => execution.id === "exec-project-only");
+  assert.equal(projectOnly?.taskId, undefined);
+  assert.equal(projectOnly?.status, 200);
+  assert.deepEqual(projectOnly?.responseHeaders, { "content-type": "application/json" });
+  assert.equal(projectOnly?.responseSize, 128);
+  assert.deepEqual(projectOnly?.assertionResults, [{ assertion: { target: "status", operator: "eq", expected: 200 }, passed: true }]);
+
+  const withTask = executions.find((execution) => execution.id === "exec-with-task");
+  assert.equal(withTask?.taskId, "task-a");
+  assert.equal(withTask?.environmentId, "env-1");
+  assert.equal(withTask?.status, "error");
+  assert.equal(withTask?.responseHeaders, undefined);
+
+  store.close();
+});
+
 test("SQLite records what each agent turn cost and sums the session", () => {
   const store = new AdeStore();
   store.saveAgentSession({ id: "session-usage", provider: "claude", directory: "/tmp/project", model: "haiku", status: "COMPLETED", createdAt: "2026-09-08T10:00:00.000Z" });
