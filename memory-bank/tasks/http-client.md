@@ -18,9 +18,12 @@ status: approved
   `tests/http-request.test.ts`, `tests/bruno-collection-store.test.ts`. 573/573 tests,
   build limpio, review pasó en el segundo intento (ver Deviations).
 
-- [ ] Phase 2 — Motor de ejecución en el sidecar. Vendorizar `@usebruno/requests`;
-  método `http.request.execute` corre la petición desde el sidecar (nunca el webview),
-  evalúa `assertions`, redacta variables marcadas como secretas en toda salida.
+- [ ] Phase 2 — Motor de ejecución en el sidecar. Usa `axios` directo (no
+  `@usebruno/requests`: instalado, auditado y descartado en esta fase — su superficie
+  real es OAuth2/Digest/gRPC/WebSocket/proxy PAC, nada de lo cual cubre el contrato
+  `HttpAuth`/`HttpBody` de este módulo; ver corrección de alcance en ADR-0059). Método
+  `http.request.execute` corre la petición desde el sidecar (nunca el webview), evalúa
+  `assertions`, redacta variables marcadas como secretas en toda salida.
   (satisfies: SPEC-http-client.md#product-contract, SPEC-http-client.md#boundaries)
   Test strategy: ejecución contra servidor HTTP efímero de test para cada método/body;
   evaluación de cada operador de `assertions`; test de redacción de secretos en la
@@ -58,10 +61,10 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: RUNNING
+**Current Phase**: 2
+**Current Step**: 2/6
+**Step Attempts**: {2: 1, 3: 0, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
 
@@ -104,3 +107,15 @@ status: approved
   propagación cruzada que hacer. Se registró directamente como Open Question nueva en
   `SPEC-http-client.md`, a decidir antes de que Phase 2 dependa del contrato de
   `params`.
+- Phase 2 corrigió el alcance de vendorización previsto en el roadmap y en ADR-0059:
+  `@usebruno/requests` se instaló, se auditó (`npm audit` marcó altas en `axios@1.16.0`
+  y `@faker-js/faker@9.9.0`, ambas transitivas suyas) y se desinstaló en la misma
+  sesión al confirmar contra su `.d.ts` real que su superficie —OAuth2/Digest/EdgeGrid,
+  gRPC, WebSocket, proxy PAC— no cubre nada del contrato `HttpAuth`/`HttpBody` de este
+  módulo (`none`/`basic`/`bearer`/`apikey`; sin gRPC/WebSocket, fuera de alcance de la
+  spec). La ejecución usa `axios@^1.20.0` como dependencia directa, fuera del rango
+  vulnerable, sin necesidad de `overrides`. `@usebruno/js` tampoco se adopta: no hay
+  scripting pre/post-request en el contrato, `HttpAssertion` es comparación estática.
+  `npm audit`: 0 hallazgos. Commit intermedio `fix: pin axios/faker above
+  known-vulnerable versions` quedó luego revertido en efecto por la desinstalación de
+  `@usebruno/requests`, documentado en vez de reescrito con `git commit --amend`.

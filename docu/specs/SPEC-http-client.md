@@ -119,7 +119,7 @@ Tests de parseo y escritura de ficheros `.bru` contra el formato real de Bruno, 
 
 ## Implementation status
 
-Nada implementado. [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md) ya verificó que `@usebruno/lang`, `@usebruno/requests`, `@usebruno/js`, `@usebruno/common` y `@usebruno/filestore` son paquetes Node MIT independientes de Electron/React, consumibles como dependencias normales del sidecar. La siguiente fase es planificación de build (`/seed:plan` o equivalente), no un nuevo spike de viabilidad.
+Phase 1 (dominio + E/S de colecciones `.bru`) implementada. [ADR-0059](../adr/0059-vendor-bruno-as-embedded-http-client.md) verificó que los cinco paquetes del motor de Bruno son Node MIT independientes de Electron/React; Phase 2 confirmó además, contra su API real, que sólo `@usebruno/lang` y `@usebruno/filestore` terminan consumidos directamente — `@usebruno/requests` y `@usebruno/js` cubren OAuth2/Digest/gRPC/WebSocket/scripting, ninguno dentro del contrato `HttpAuth`/`HttpBody` de esta spec, así que no se vendorizan; la ejecución HTTP usa `axios` directamente (ver la corrección de alcance en el ADR).
 
 ## Open Questions
 

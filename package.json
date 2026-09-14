@@ -30,12 +30,8 @@
   "dependencies": {
     "@usebruno/filestore": "^0.12.0",
     "@usebruno/lang": "^0.39.0",
-    "@usebruno/requests": "^0.20.0",
+    "axios": "^1.20.0",
     "cross-spawn": "^7.0.6",
     "nanoid": "^3.3.19"
-  },
-  "overrides": {
-    "axios": "^1.20.0",
-    "@faker-js/faker": "^10.6.0"
   }
 }
