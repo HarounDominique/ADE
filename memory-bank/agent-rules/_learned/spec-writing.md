@@ -15,7 +15,7 @@ actually meant — surface the gap as an explicit assumption for human confirmat
 of quietly picking the easiest-to-implement reading.
 
 ### mutating-operation-feedback
-_derived_from: reflection/explorer-selection-and-drag-drop.md, reflection/explorer-delete-and-rename.md · evidence_count: 2 · last_validated: 2026-09-12_
+_derived_from: reflection/explorer-selection-and-drag-drop.md, reflection/explorer-delete-and-rename.md, reflection/git-stash-management.md · evidence_count: 3 · last_validated: 2026-09-14_
 
 When a spec covers a mutating UI operation (create, move, rename, delete), its Boundaries
 must state explicitly what visible feedback proves the operation succeeded and what
@@ -30,6 +30,21 @@ cleared on an affecting delete/rename but the symmetric `selectedFilePath` case 
 missed in the first draft — same shape of stale reference, this time caught in review
 before the operator ever saw it. That task's manual-verification pass raised zero
 follow-ups, the first of its arc to do so.
+
+Third occurrence (`git-stash-management`), and the most concrete form of this rule yet:
+this codebase's request/response mutation contract is two halves — the dispatch
+(`sendContextRequest(...)`, fire-and-forget by design, its own `.catch()` covers only
+*transport* failure) and a `contextPurpose === '<x>'` branch in the shared response
+listener that notifies and refreshes on *success*. A spec's Style section that shows
+only the dispatch snippet reads as complete and compiles/tests clean with no response
+handler at all — the operation silently works with zero feedback until the next
+incidental background poll. This exact gap blocked `git-stash-management`'s Phase 1
+review twice in the same phase (a rare double-block), because the spec itself only
+ever showed the dispatch half, and the build faithfully implemented exactly that. The
+concrete fix for future specs: **a Style section for any mutation must show both
+halves side by side** — the dispatch AND its success-response branch — never one
+without the other, even when the response branch feels like "obvious wiring" not worth
+spelling out. It wasn't obvious enough to get written twice in a row without it.
 
 ### mirror-pattern-verification
 _derived_from: reflection/offer-git-init-when-no-vcs.md · evidence_count: 2 · last_validated: 2026-09-12_

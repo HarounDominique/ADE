@@ -65,6 +65,16 @@ export async function inspectPendingGitChanges(directory: string) {
   return { files, diff: diff.stdout };
 }
 
+const STASH_LINE = /^(stash@\{\d+\}):\s(.*)$/;
+
+export async function listStashes(directory: string): Promise<{ ref: string; message: string }[]> {
+  const result = await executeGit(["stash", "list"], { cwd: directory });
+  return result.stdout.split("\n").filter(Boolean).map((line) => {
+    const match = STASH_LINE.exec(line);
+    return match ? { ref: match[1]!, message: match[2]! } : { ref: line, message: "" };
+  });
+}
+
 export async function readPendingGitDiff(directory: string, file: string): Promise<{ file: string; diff: string }> {
   const pending = await inspectPendingGitChanges(directory);
   if (!pending.files.some((candidate) => candidate.path === file)) throw new Error("The requested file is not pending in this repository");

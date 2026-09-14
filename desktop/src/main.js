@@ -1755,11 +1755,57 @@ function renderPendingGitChanges(result) {
   renderCommitControls();
 }
 
+/** Repository actions' stash list. No diff preview in this cut -- Apply/Drop
+    act on the whole entry, sight-unseen beyond its one-line message. */
+function renderStashList(stashes) {
+  const list = document.getElementById('stash-list');
+  if (!list) return;
+  list.innerHTML = stashes.length
+    ? stashes.map((stash) => `<li class="runtime-service"><span><strong>${escapeHTML(stash.ref)}</strong><small>${escapeHTML(stash.message)}</small></span><button class="text-button" data-stash-action="apply" data-stash-ref="${escapeHTML(stash.ref)}">Apply</button><button class="text-button" data-stash-action="drop" data-stash-ref="${escapeHTML(stash.ref)}">Drop</button></li>`).join('')
+    : '<li class="runtime-service-empty">No stashes.</li>';
+}
+
+function requestStashList(path = workspaceRootPath) {
+  if (!nativeInvoke || !path || activeVersionControl === 'none') return Promise.resolve();
+  return sendContextRequest('git.stash.list', { repositoryPath: path }, 'git-stash-list').catch((error) => {
+    console.warn('Stash list unavailable:', error);
+  });
+}
+
+/** Recoverable but can produce conflicts the operator should expect -- tone
+    stays the default, unlike Drop's irreversible `danger`. */
+function applyStashFromUI(ref) {
+  requestConfirmation({
+    eyebrow: 'STASH',
+    title: `Apply ${ref}?`,
+    copy: 'The stashed changes are restored to the working tree. The stash entry itself is not removed.',
+    confirmLabel: 'Apply',
+  }, () => sendContextRequest('git.stash.apply', {
+    repositoryPath: workspaceRootPath, ref,
+    reason: 'Stash apply requested from Repository actions', actor: 'human', confirmed: true,
+  }, 'git-stash-apply').catch((error) => notify(error instanceof Error ? error.message : 'Stash apply failed.')));
+}
+
+function dropStashFromUI(ref) {
+  requestConfirmation({
+    eyebrow: 'STASH',
+    title: `Drop ${ref}?`,
+    copy: 'This permanently deletes the stash entry. This cannot be undone.',
+    confirmLabel: 'Drop',
+    tone: 'danger',
+  }, () => sendContextRequest('git.stash.drop', {
+    repositoryPath: workspaceRootPath, ref,
+    reason: 'Stash drop requested from Repository actions', actor: 'human', confirmed: true,
+  }, 'git-stash-drop').catch((error) => notify(error instanceof Error ? error.message : 'Stash drop failed.')));
+}
+
 /** Syncs the select-all checkbox and the commit button to the current
     selection without a full renderPendingGitChanges re-render -- toggling a
     checkbox must never re-fetch or repaint the whole list. */
 function updatePendingCommitSelectionUI() {
   const selectAll = document.getElementById('git-pending-select-all');
+  const stashButton = document.getElementById('git-stash-checked');
+  if (stashButton) stashButton.disabled = pendingCommitSelection.size === 0 || activeVersionControl === 'none';
   if (!selectAll) return;
   const total = pendingGitFiles.length;
   const selected = pendingCommitSelection.size;
@@ -4226,6 +4272,7 @@ async function refreshGitWorkspace(path, invoke = nativeInvoke) {
     const result = await invoke('sidecar_request', { request: JSON.stringify({ id: `git-workspace-${Date.now()}`, method: 'git.workspace', params: { repositoryPath: path } }) });
     await invoke('sidecar_request', { request: JSON.stringify({ id: `git-workflow-${Date.now()}`, method: 'git.workflow', params: { repositoryPath: path } }) });
     requestVersionControlData(path);
+    void requestStashList(path);
     return result;
   } catch (error) { console.warn('Git workspace unavailable:', error); }
 }
@@ -5069,6 +5116,10 @@ async function connectSidecar(snapshot) {
         if (first) selectGitCommit(first.hash);
         return;
       }
+      if (contextPurpose === 'git-stash-list' && Array.isArray(response.result)) {
+        renderStashList(response.result);
+        return;
+      }
       if (contextPurpose === 'git-pending' && response.result?.files) {
         if (pendingGitRequestPath !== workspaceRootPath) {
           requestPendingGitChanges(workspaceRootPath, { showLoading: true });
@@ -5125,6 +5176,23 @@ async function connectSidecar(snapshot) {
         setVersionControlRemoteStatus('Pushed just now');
         notify(`Pushed ${response.result.branch ?? 'current branch'} to origin.`);
         requestVersionControlData(workspaceRootPath);
+        return;
+      }
+      if (contextPurpose === 'git-stash-create' && response.result?.operation === 'stash.create') {
+        notify(response.result.message ?? 'Changes stashed.');
+        requestVersionControlData(workspaceRootPath, { force: true });
+        void requestStashList(workspaceRootPath);
+        return;
+      }
+      if (contextPurpose === 'git-stash-apply' && response.result?.operation === 'stash.apply') {
+        notify('Stash applied.');
+        requestVersionControlData(workspaceRootPath, { force: true });
+        void requestStashList(workspaceRootPath);
+        return;
+      }
+      if (contextPurpose === 'git-stash-drop' && response.result?.operation === 'stash.drop') {
+        notify('Stash dropped.');
+        void requestStashList(workspaceRootPath);
         return;
       }
       if (contextPurpose === 'switch-branch' && response.result?.operation === 'branch.switch') {
@@ -5689,6 +5757,9 @@ function operationErrorCopy(technical, purpose) {
     'git-commit-local': 'commit',
     'git-push-origin': 'push',
     'git-fetch': 'fetch',
+    'git-stash-create': 'stash',
+    'git-stash-apply': 'apply the stash',
+    'git-stash-drop': 'drop the stash',
     'run-start': 'start the run',
     'run-stop': 'stop the run',
     'agent-prompt': 'send the agent message',
@@ -6159,6 +6230,19 @@ document.getElementById('git-commit-form')?.addEventListener('submit', (event) =
       sidecar records the operation only when it is told which one. */
   void sendContextRequest('git.commit.create', { repositoryPath: workspaceRootPath, intent: title, ...(body ? { body } : {}), ...(selectedTaskId ? { taskId: selectedTaskId } : {}), ...(allSelected ? {} : { files: [...pendingCommitSelection] }), reason: 'Local commit requested from Version control', actor: 'human', confirmed: true }, 'git-commit-local').catch((error) => notify(error instanceof Error ? error.message : 'Commit failed.'));
 });
+document.getElementById('git-stash-checked')?.addEventListener('click', () => {
+  if (!pendingCommitSelection.size) { notify('Select at least one file to stash.'); return; }
+  const files = [...pendingCommitSelection];
+  requestConfirmation({
+    eyebrow: 'STASH',
+    title: `Stash ${files.length} file${files.length === 1 ? '' : 's'}?`,
+    copy: 'Checked changes are moved out of the working tree. Apply them again later from Repository actions.',
+    confirmLabel: 'Stash',
+  }, () => sendContextRequest('git.stash.create', {
+    repositoryPath: workspaceRootPath, files,
+    reason: 'Stash requested from Version control', actor: 'human', confirmed: true,
+  }, 'git-stash-create').catch((error) => notify(error instanceof Error ? error.message : 'Stash failed.')));
+});
 document.getElementById('worktree-form')?.addEventListener('submit', (event) => {
   event.preventDefault();
   if (!nativeInvoke) { notify('Git operations require the sidecar.'); return; }
@@ -6543,6 +6627,13 @@ document.addEventListener('click', (event) => {
     if (!nativeInvoke) { notify('Local services require the sidecar.'); return; }
     const method = serviceButton.dataset.serviceAction === 'start' ? 'service.start' : 'service.stop';
     nativeInvoke('sidecar_request', { request: JSON.stringify({ id: `${method}-${Date.now()}`, method, params: { serviceId: serviceButton.dataset.serviceId, repositoryPath: activeRepositoryPath() } }) }).catch((error) => { notify('Local service action failed.'); console.warn(error); });
+    return;
+  }
+  const stashActionButton = event.target.closest('[data-stash-action][data-stash-ref]');
+  if (stashActionButton) {
+    if (!nativeInvoke) { notify('Git operations require the sidecar.'); return; }
+    if (stashActionButton.dataset.stashAction === 'apply') applyStashFromUI(stashActionButton.dataset.stashRef);
+    else dropStashFromUI(stashActionButton.dataset.stashRef);
     return;
   }
   const resumeButton = event.target.closest('[data-resume-session]');

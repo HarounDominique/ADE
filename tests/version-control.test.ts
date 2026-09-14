@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { inspectPendingGitChanges, listGitCommits, listUnpushedCommits, readGitCommitDiff, readPendingGitDiff } from "../src/application/git/version-control.js";
+import { inspectPendingGitChanges, listGitCommits, listStashes, listUnpushedCommits, readGitCommitDiff, readPendingGitDiff } from "../src/application/git/version-control.js";
 import { GitRepositoryMissingError } from "../src/adapters/git-command.js";
 
 const execFile = promisify(execFileCallback);
@@ -114,6 +114,35 @@ test("version control read model handles a repository with no commits yet", asyn
   // above -- it never appears in the batch `git diff` output; only a
   // per-file diff surfaces it, via the existing --no-index fallback.
   assert.match((await readPendingGitDiff(directory, "untracked.txt")).diff, /untracked/);
+});
+
+test("listStashes parses a real multi-entry git stash list output", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ade-version-control-stash-"));
+  await git(directory, "init", "-q");
+  await git(directory, "config", "user.email", "ade@example.test");
+  await git(directory, "config", "user.name", "ADE Test");
+  await writeFile(join(directory, "note.txt"), "committed\n");
+  await git(directory, "add", "note.txt");
+  await git(directory, "commit", "-qm", "chore: seed");
+
+  await writeFile(join(directory, "note.txt"), "first change\n");
+  await git(directory, "stash", "push", "-m", "first stash");
+  await writeFile(join(directory, "note.txt"), "second change\n");
+  await git(directory, "stash", "push", "-m", "second stash");
+
+  const stashes = await listStashes(directory);
+
+  assert.equal(stashes.length, 2);
+  assert.equal(stashes[0]?.ref, "stash@{0}");
+  assert.match(stashes[0]?.message ?? "", /second stash/);
+  assert.equal(stashes[1]?.ref, "stash@{1}");
+  assert.match(stashes[1]?.message ?? "", /first stash/);
+});
+
+test("listStashes returns an empty array when there are no stashes", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ade-version-control-stash-empty-"));
+  await git(directory, "init", "-q");
+  assert.deepEqual(await listStashes(directory), []);
 });
 
 test("pending-changes inspection rejects clearly when .git was removed, instead of crashing", async () => {

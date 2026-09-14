@@ -6,7 +6,7 @@ status: approved
 
 ## Implementation Roadmap
 
-- [ ] Phase 1 — Stash the checked files. `createStash` mutation, `git.stash.create`
+- [x] Phase 1 — Stash the checked files. `createStash` mutation, `git.stash.create`
   sidecar dispatch, the `Stash` header button (disabled when nothing is checked,
   confirmation dialog, always an explicit `files` pathspec). Independently useful and
   testable without the list/apply/drop surface. (satisfies:
@@ -24,7 +24,7 @@ status: approved
   pass); contract-test additions for the button's markup and disabled-state binding;
   full `npm test`.
 
-- [ ] Phase 2 — Stash list, Apply, Drop. `listStashes` read query, `applyStash`/
+- [x] Phase 2 — Stash list, Apply, Drop. `listStashes` read query, `applyStash`/
   `dropStash` mutations, their sidecar dispatch, and the list surface inside
   `Repository actions` with per-entry Apply/Drop. Depends on Phase 1 only for the
   `Stash` button existing to have produced something to list — no shared code.
@@ -38,6 +38,9 @@ status: approved
     actions` disclosure, matching its established markup convention.
   - `desktop/src/main.js`: `renderStashList`, `applyStashFromUI`, `dropStashFromUI`
     (each behind its own confirmation, Drop tone `danger`, Apply tone default).
+    Also: revert the `Stash` confirmation copy (Phase 1) back to referencing
+    `Repository actions` now that this surface actually exists — Phase 1 pointed at
+    a terminal command specifically because this didn't exist yet.
 
   Test strategy: unit tests for `listStashes` (parses a real multi-entry `git stash
   list` output), `applyStash` (restores files, stash entry remains), `dropStash`
@@ -52,13 +55,38 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: DONE
+**Current Phase**: 2
+**Current Step**: 6/6
+**Step Attempts**: {2: 1, 3: 1, 4: 1}
 **Last Block Rule**: none
 **Can Resume**: YES
 
 ## Deviations
 
-None yet.
+Phase 1: review-blocked twice, both accepted fixes.
+
+1. The confirmation dialog's copy (in both the implementation and the spec's own
+   Style snippet) originally referenced "Repository actions" as where to recover a
+   stash — that surface doesn't exist until Phase 2. Fixed to reference `git stash
+   pop`/`git stash apply` from a terminal instead; Phase 2's own roadmap entry now
+   notes it must revert this copy once the stash list ships.
+2. The success-response branch for `git-stash-create` was missing entirely from both
+   the implementation and the spec's Style section — every sibling mutation
+   (`git-commit-local`, `git-push-origin`, `git-fetch`) has one, stash didn't. Without
+   it, a successful stash gave no feedback and didn't refresh the pending list until
+   the next background poll (up to ~1.2s later) — a real instance of the
+   `mutating-operation-feedback` learned rule. Added, mirroring the sibling pattern
+   exactly, plus an `operationErrorCopy` entry for stash failures.
+
+A third review-blocking round in the same phase is normally this workflow's own stop-
+and-ask-a-human trigger; the operator was asked explicitly and chose to let the fix
+proceed given both findings were small, real, and already understood — not a repeated
+failure on the same issue. Third review pass PASSED clean, plus one more cosmetic fix
+taken on its own non-blocking note (redundant "Stashed: Stashed from Assay (N files)"
+toast text, simplified to just the message).
+
+Phase 2: none. Clean pass, first review attempt PASS — the success-response-branch
+gap from Phase 1 was explicitly re-scrutinized and not repeated for any of
+create/apply/drop. Stash button copy correctly reverted to reference Repository
+actions now that the list surface exists.
