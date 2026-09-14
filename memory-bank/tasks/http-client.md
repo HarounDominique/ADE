@@ -31,14 +31,15 @@ status: approved
   Test strategy: atribución a Task activa y su ausencia sin Task; evidencia visible
   desde el detalle de Task sin bloquear ninguna gate del pipeline.
 
-- [ ] Phase 4 — Superficie `Requests` en la shell. **Necesita `/seed:creative` antes de
-  construirse**: sexta entrada de navegación nueva, mismo peso visual que `Editor`,
-  debe encajar en "Sala de Evidencia" (DESIGN.md) sin decisión de layout tomada todavía
-  — árbol de colecciones, editor de petición, panel de respuesta con pestañas, selector
-  de entorno con el patrón de menú de `Model`/`Agent`. Al completarse, esta fase
-  convierte la nota "extensión planeada" de `SPEC-desktop-shell.md#information-architecture`
-  en contrato vigente. (satisfies: SPEC-http-client.md#product-contract,
-  SPEC-http-client.md#decisions)
+- [ ] Phase 4 — Superficie `Requests` en la shell. Diseño resuelto en
+  `memory-bank/creative/http-client-ui-ux.md`: rail de colecciones reutilizando
+  `.workspace-tree`, split vertical petición/respuesta en `main` (sin tercera columna),
+  selector de entorno con `.picker`, tabs con `.version-control-tabs` reutilizado,
+  método HTTP sin color semántico (Signal Scarcity Rule), código de estado de
+  respuesta sí coloreado (`--green`/`--amber`/`--red`), icono de nav nuevo (dos flechas
+  opuestas). Al completarse, esta fase convierte la nota "extensión planeada" de
+  `SPEC-desktop-shell.md#information-architecture` en contrato vigente. (satisfies:
+  SPEC-http-client.md#product-contract, SPEC-http-client.md#decisions)
   Test strategy: contract test de la superficie (árbol, editor de petición, panel de
   respuesta, selector de entorno) sobre la shell, mismo patrón que `run-configurations`.
 
