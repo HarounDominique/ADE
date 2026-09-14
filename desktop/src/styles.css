@@ -2143,6 +2143,10 @@ span.git-option-mark { display: inline-block; width: 12px; flex: 0 0 auto; }
 .document-preview li.markdown-task-item { list-style: none; margin-left: -20px; }
 .document-preview .markdown-task { margin-right: 8px; accent-color: var(--cyan); vertical-align: baseline; }
 
+.document-image-preview { display: grid; width: 100%; min-width: 0; flex: 1 1 auto; place-items: center; overflow: hidden; background: var(--panel-soft); cursor: grab; }
+.document-image-preview[hidden] { display: none; }
+.document-image-preview img { max-width: 100%; max-height: 100%; touch-action: none; user-select: none; }
+
 /* ---- Requests view (SPEC-http-client.md, Phase 4b) ----
    Rail (reuses .workspace-tree/.workspace-entry) + main, split vertically into request/response,
    per memory-bank/creative/http-client-ui-ux.md. Request/response tabs reuse
