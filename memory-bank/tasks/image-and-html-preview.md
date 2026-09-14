@@ -70,12 +70,15 @@ status: approved
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
-**Step Attempts**: {2: 0, 3: 0, 4: 0}
+**Build Status**: RUNNING
+**Current Phase**: 5
+**Current Step**: 5/6 — automated verification done (regression + licence check); blocked
+  on the operator's mandatory manual GUI pass (see roadmap Phase 5 and Deviations) before
+  this phase can be checked off and `Build Status` can move to `DONE`.
+**Step Attempts**: {2: 0, 3: 1, 4: 0}
 **Last Block Rule**: none
-**Can Resume**: YES
+**Can Resume**: YES — resume by checking off Phase 5 and running step 6 (commit-guard +
+  commit) once the operator confirms the manual pass below.
 
 ## Deviations
 
@@ -181,3 +184,20 @@ status: approved
   replaced by structural assertions on the actual builder function's return value and
   call-site coverage — accepted as the stronger, more precise test.
 - No spec ambiguity or gap surfaced in Phase 3 — `/seed:spec-sync` not needed.
+- Phase 5: discovered mid-verification that `feature/image-and-html-preview` had absorbed
+  10 unrelated commits (`ff4cdf0`..`ffc0b32`, "vendor dual-host seed plugin" work) —
+  confirmed via `git log`/reflog that another concurrent process committed directly onto
+  this branch name in the same shared working directory, between this task's branch
+  creation and Phase 1's first commit (not a merge, not caused by anything this task's
+  build steps did). Operator confirmed the other work is legitimate but landed on the
+  wrong branch. Resolved: preserved it intact at `feature/dual-host-seed-plugin`
+  (branched from `ffc0b32`, pushed to origin on operator confirmation), then
+  `git rebase --onto 366cfdd ffc0b32 feature/image-and-html-preview` to drop those 10
+  commits from this branch — clean rebase, no conflicts (no file overlap between the two
+  efforts). Re-verified post-rebase: `git diff master...feature/image-and-html-preview`
+  touches only this task's 13 files; full `npm test` 672/672 (was 673/673 pre-rebase —
+  the missing one is the foreign branch's own test contribution, correctly gone, not a
+  regression; confirmed by checking `master` alone at 642 and this branch's real delta
+  at +30, matching the four phases' actual new tests). Force-pushed the cleaned branch to
+  origin (`--force-with-lease`, operator-confirmed) since it had already been pushed
+  once in the tangled state.
