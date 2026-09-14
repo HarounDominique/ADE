@@ -714,6 +714,13 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(main, /function syncPendingTerminalCwds/);
   assert.match(main, /if \(!tab\.started && !tab\.completionCwd\) tab\.completionCwd = cwd/);
   assert.match(main, /tab\.completionCwd \|\|= workspaceRootPath/);
+  assert.match(main, /tauri:\/\/drag-enter/);
+  assert.match(main, /tauri:\/\/drag-over/);
+  assert.match(main, /tauri:\/\/drag-leave/);
+  assert.match(main, /tauri:\/\/drag-drop/);
+  assert.match(main, /validate_dropped_files/);
+  assert.match(main, /agentPromptAttachments/);
+  assert.match(main, /Attached local files/);
 });
 
 test("navigation sidebar supports persisted pointer and keyboard resizing", () => {

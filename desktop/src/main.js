@@ -6,6 +6,7 @@ import '@xterm/xterm/css/xterm.css';
 import { createCodeEditorSurface, formatterParserForPath, languageLabelForPath } from './code-editor.js';
 import { fileExtension, pathBaseName, pathDirname, pathSegments, pathsEqual } from './paths.js';
 import { iconForFileName } from './file-icon-map.js';
+import { droppedPathPlatform, formatDroppedPaths } from './drop-paths.js';
 
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 const panels = [...document.querySelectorAll('.view')];
@@ -114,6 +115,7 @@ let agentStopRequested = false;
 let agentPromptHistoryIndex = -1;
 let agentPromptHistoryDraft = '';
 let agentPromptHistoryKey = null;
+let agentPromptAttachments = [];
 let agentRailCollapsed = false;
 /** What this conversation has consumed, or null when no turn of it was ever
     accounted for -- which is not the same as zero. */
@@ -3724,6 +3726,8 @@ function resetAgentWorkspaceForProject() {
   agentGroupExpansion.clear();
   agentSessions = [];
   selectedAgentModel = '';
+  agentPromptAttachments = [];
+  renderAgentAttachments();
   renderAgentSessions([]);
   renderAgentMessages([]);
   renderModelSelection();
@@ -4589,6 +4593,8 @@ function startNewAgentSession() {
   resetAgentPromptHistoryNavigation();
   activeAgentTaskId = selectedTaskId ?? null;
   selectedAgentModel = defaultModelForProvider(selectedProvider);
+  agentPromptAttachments = [];
+  renderAgentAttachments();
   renderAgentMessages([]);
   const providerLabel = document.getElementById('agent-session-provider');
   const title = document.getElementById('agent-session-title');
@@ -4712,7 +4718,11 @@ function sendAgentPrompt(event) {
   event.preventDefault();
   if (!nativeInvoke || agentPromptRunning) return;
   const input = document.getElementById('agent-prompt-input');
-  const prompt = input?.value.trim();
+  const typedPrompt = input?.value.trim();
+  const attachmentPrompt = agentPromptAttachments.length
+    ? `\n\nAttached local files:\n${agentPromptAttachments.map((path) => `- ${path}`).join('\n')}`
+    : '';
+  const prompt = `${typedPrompt ?? ''}${attachmentPrompt}`.trim();
   const provider = document.getElementById('agent-provider')?.value ?? selectedProvider;
   const model = document.getElementById('agent-model')?.value ?? '';
   const taskId = activeAgentSessionId ? (agentSessions.find((session) => session.id === activeAgentSessionId)?.taskId ?? null) : (selectedTaskId ?? null);
@@ -4756,6 +4766,69 @@ function sendAgentPrompt(event) {
     if (feedback) feedback.textContent = `Agent failed: ${error}`;
   });
   if (input) input.value = '';
+  agentPromptAttachments = [];
+  renderAgentAttachments();
+}
+
+function renderAgentAttachments() {
+  let list = document.getElementById('agent-prompt-attachments');
+  if (!list) {
+    list = document.createElement('ol');
+    list.id = 'agent-prompt-attachments';
+    list.className = 'agent-prompt-attachments';
+    document.getElementById('agent-prompt-form')?.before(list);
+  }
+  if (!list) return;
+  list.innerHTML = agentPromptAttachments.map((path, index) => `<li><code>${escapeHTML(pathBaseName(path) || path)}</code><small>${escapeHTML(path)}</small><button type="button" data-remove-agent-attachment="${index}" aria-label="Remove ${escapeHTML(pathBaseName(path) || path)}">Remove</button></li>`).join('');
+  list.hidden = agentPromptAttachments.length === 0;
+}
+
+async function acceptDroppedPaths(paths, target) {
+  if (!nativeInvoke || !paths.length) return;
+  try {
+    const result = await nativeInvoke('validate_dropped_files', { paths });
+    const validPaths = result?.files?.map((file) => file.path).filter(Boolean) ?? [];
+    if (!validPaths.length) { notify('Drop a local file, not a folder.'); return; }
+    if (validPaths.length !== paths.length) notify('Some dropped items were ignored because they are not files.');
+    if (target === 'terminal') {
+      const tab = activeTerminal();
+      if (!tab) return;
+      const text = formatDroppedPaths(validPaths, droppedPathPlatform(navigator.userAgent));
+      if (text) await sendTerminalInput(tab, text);
+      return;
+    }
+    const known = new Set(agentPromptAttachments);
+    agentPromptAttachments = [...agentPromptAttachments, ...validPaths.filter((path) => !known.has(path))];
+    renderAgentAttachments();
+    document.getElementById('agent-prompt-input')?.focus();
+    notify(`${validPaths.length} local file${validPaths.length === 1 ? '' : 's'} attached.`);
+  } catch (error) {
+    notify(`Could not accept dropped files: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function dropTargetAt(position) {
+  const target = document.elementFromPoint(Number(position?.x ?? 0), Number(position?.y ?? 0));
+  if (target?.closest('.terminal-surface')) return 'terminal';
+  if (target?.closest('#agent-prompt-form')) return 'agent';
+  return null;
+}
+
+function registerNativeDropListener(listen) {
+  const dropTargets = () => document.querySelectorAll('.terminal-surface, #agent-prompt-form');
+  void listen('tauri://drag-enter', (event) => {
+    if (dropTargetAt(event.payload?.position)) dropTargets().forEach((target) => target.classList.add('is-drop-target'));
+  });
+  void listen('tauri://drag-leave', () => dropTargets().forEach((target) => target.classList.remove('is-drop-target')));
+  void listen('tauri://drag-over', (event) => {
+    dropTargets().forEach((target) => target.classList.toggle('is-drop-target', Boolean(dropTargetAt(event.payload?.position))));
+  });
+  void listen('tauri://drag-drop', (event) => {
+    dropTargets().forEach((target) => target.classList.remove('is-drop-target'));
+    const payload = event.payload ?? {};
+    const target = dropTargetAt(payload.position);
+    if (target) void acceptDroppedPaths(payload.paths ?? [], target);
+  });
 }
 
 function taskStatusTone(status) {
@@ -5561,6 +5634,7 @@ async function connectSidecar(snapshot) {
   const listen = window.__TAURI__?.event?.listen;
   if (!invoke || !listen) return;
   nativeInvoke = invoke;
+  registerNativeDropListener(listen);
   await listen('terminal:output', (event) => {
     const payload = event.payload;
     if (typeof payload === 'string') appendTerminalTranscript(activeTerminalId, payload);
@@ -8169,6 +8243,13 @@ document.addEventListener('click', (event) => {
       setWorkspaceSearchLoading(false);
       void collapseExplorer();
     });
+    return;
+  }
+  const removeAgentAttachment = event.target.closest('[data-remove-agent-attachment]');
+  if (removeAgentAttachment) {
+    agentPromptAttachments.splice(Number(removeAgentAttachment.dataset.removeAgentAttachment), 1);
+    renderAgentAttachments();
+    document.getElementById('agent-prompt-input')?.focus();
     return;
   }
   const copyButton = event.target.closest('[data-copy-message]');
