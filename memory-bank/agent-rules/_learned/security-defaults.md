@@ -48,3 +48,8 @@ sanitizing it), caught only when Phase 5's review was explicitly asked to trace
 reachability rather than just note the shared shape. Write the guard once as a shared
 helper the first time a module gains more than one such method, and use it from the
 first call site, not retrofitted after the fact.
+
+### never-persist-database-credentials-in-project-config
+_derived_from: reflection/database-schema-browser.md · evidence_count: 1 · last_validated: 2026-09-14_
+
+Project-versioned database connection metadata must exclude passwords and other secrets at the type boundary and at runtime: reconstruct an explicit allowlist of fields when loading and saving, and let the native client or approved secret mechanism handle authentication outside the project file.

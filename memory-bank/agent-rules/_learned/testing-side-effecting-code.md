@@ -40,3 +40,8 @@ all — only step 4's reviewer is instructed to. Confirms this specific rule nee
 reach the TDD dispatch prompt directly whenever a phase involves a new spawn-based
 test, not just live in `_learned/` waiting for review to catch a violation after the
 fact.
+
+### bound-native-introspection-processes
+_derived_from: reflection/database-schema-browser.md · evidence_count: 1 · last_validated: 2026-09-14_
+
+Any production path that invokes a native database client for introspection must run one bounded process with a timeout and deterministic argv, so a missing client, password prompt, hung connection, or untrusted query cannot keep the desktop sidecar alive.
