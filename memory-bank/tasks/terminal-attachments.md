@@ -14,8 +14,8 @@ status: draft
 4. Cerrar con revisión de seguridad, matriz de plataformas y smoke manual.
 
 - [ ] Phase 1 — Contrato de drop, normalización y quoting multiplataforma. Resolver
-  rutas dentro del Project, rechazar carpetas o tipos según decisión final y cubrir
-  POSIX/Windows con tests puros.
+  ficheros locales en cualquier ubicación, rechazar carpetas o tipos según decisión final
+  y cubrir POSIX/Windows con tests puros.
 - [ ] Phase 2 — Drop en terminal PTY. Añadir target visual y accesible, inyectar la ruta
   mediante `terminal_input`, mantener intacta la consola `run` y cubrir el ciclo sin
   ejecución automática.
@@ -34,4 +34,4 @@ status: draft
 
 - En terminal el drop inserta una ruta shell-quoted; no ejecuta nada.
 - En Agents el drop crea una referencia local visible; no sube ni copia el fichero.
-- El alcance inicial son ficheros del Project, no carpetas.
+- El alcance inicial son ficheros de cualquier ubicación local de la máquina, no carpetas.
