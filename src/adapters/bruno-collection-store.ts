@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { parseRequest, stringifyRequest, parseEnvironment, stringifyEnvironment } from "@usebruno/filestore";
 import type { HttpCollectionNode, HttpEnvironment, HttpRequest, BrunoRequestItem, BrunoEnvironmentVars } from "../domain/http-request.js";
@@ -50,6 +50,17 @@ export async function writeEnvironmentFile(filePath: string, environment: HttpEn
     SPEC-http-client.md#product-contract's "Sin colecciones, Assay ofrece crear la primera". */
 export async function listHttpCollectionTree(rootDirectory: string): Promise<readonly HttpCollectionNode[]> {
   return listDirectory(rootDirectory, "");
+}
+
+/** Deletes one collection entry — a single `.bru` request/environment file, or a whole folder,
+    recursively — per SPEC-http-client.md#acceptance-criteria's "Crear, editar y borrar una
+    petición o una colección desde Assay". `node:fs`'s own `rm` already handles both a file and a
+    directory correctly with `recursive: true`, so no file/folder branch is needed here. Deleting
+    an entry that no longer exists is not an error — the operator's intent (this entry should be
+    gone) is already satisfied, so a second delete of the same path is idempotent rather than a
+    surprise failure. */
+export async function deleteCollectionEntry(absolutePath: string): Promise<void> {
+  await rm(absolutePath, { recursive: true, force: true });
 }
 
 async function listDirectory(absoluteDirectory: string, relativePath: string): Promise<readonly HttpCollectionNode[]> {

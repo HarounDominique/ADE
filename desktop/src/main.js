@@ -201,6 +201,13 @@ let httpResponseTab = 'body';
 let httpRequestSending = false;
 let httpLastResponse = null;
 let httpPendingSavePath = null;
+/** Bumped whenever the editor loads different content -- new request, tree selection, or a
+    delete that clears what was open. A Send stamps the generation it was fired under; if that
+    generation is stale by the time the response lands (the operator deleted or replaced the open
+    request while it was in flight), the response is discarded instead of painting a result into
+    a response panel for a request that is no longer the one on screen. */
+let httpEditorGeneration = 0;
+let httpRequestExecuteGeneration = null;
 const pendingHttpRequestGetPaths = new Map();
 const pendingHttpEnvironmentGetIds = new Map();
 
@@ -5113,7 +5120,14 @@ async function connectSidecar(snapshot) {
         if (contextPurpose === 'http-request-execute') {
           httpRequestSending = false;
           updateHttpSendButtonState();
-          notify(`Request failed: ${response.error.message}`);
+          // A stale generation means the editor moved on (a delete, a new tree selection) while
+          // this was in flight -- nothing on screen still corresponds to it, so there is nothing
+          // left to report the failure against.
+          if (httpRequestExecuteGeneration === httpEditorGeneration) notify(`Request failed: ${response.error.message}`);
+          return;
+        }
+        if (contextPurpose === 'http-collection-delete') {
+          notify(`Could not delete: ${response.error.message}`);
           return;
         }
         const feedback = document.getElementById('agent-feedback');
@@ -5230,6 +5244,7 @@ async function connectSidecar(snapshot) {
         return;
       }
       if (contextPurpose === 'http-request-get' && response.result?.id) {
+        httpEditorGeneration += 1;
         httpRequestForm = normalizeHttpRequestForm(response.result);
         httpSelectedRequestPath = httpRequestGetPath ?? httpSelectedRequestPath;
         httpLastResponse = null;
@@ -5255,8 +5270,36 @@ async function connectSidecar(snapshot) {
       if (contextPurpose === 'http-request-execute' && response.result) {
         httpRequestSending = false;
         updateHttpSendButtonState();
-        httpLastResponse = response.result;
-        renderHttpResponse();
+        // Discard a response that arrives after the editor moved on (deleted, or replaced by a
+        // different tree selection, while this was in flight) instead of painting it into a
+        // response panel that no longer has a matching request above it.
+        if (httpRequestExecuteGeneration === httpEditorGeneration) {
+          httpLastResponse = response.result;
+          renderHttpResponse();
+        }
+        return;
+      }
+      if (contextPurpose === 'http-collection-delete' && response.result?.deleted) {
+        const deletedPath = response.result.path;
+        // A deleted folder takes every request/environment under it with it — clear the editor
+        // if what was open lived anywhere inside that subtree, not just at an exact path match.
+        const insideDeletedPath = (path) => path === deletedPath || path?.startsWith(`${deletedPath}/`);
+        if (insideDeletedPath(httpSelectedRequestPath)) {
+          httpEditorGeneration += 1;
+          httpSelectedRequestPath = null;
+          httpRequestForm = createBlankHttpRequestForm();
+          httpLastResponse = null;
+          renderHttpRequestEditor();
+          renderHttpRequestTabs('params');
+          renderHttpResponseTabs('body');
+        }
+        const deletedEnvironment = httpEnvironmentsFlat.find((environment) => insideDeletedPath(environment.path));
+        if (deletedEnvironment && httpSelectedEnvironmentId === deletedEnvironment.id) {
+          httpSelectedEnvironmentId = null;
+          renderHttpEnvironmentPicker();
+        }
+        notify('Deleted.');
+        loadHttpCollectionTree();
         return;
       }
       if (contextPurpose === 'branches' && response.result?.branches) {
@@ -5960,17 +6003,21 @@ function renderHttpTreeNodes(nodes) {
   return nodes.map((node) => renderHttpTreeNode(node)).join('');
 }
 
+function httpTreeDeleteButton(path, kind, name) {
+  return `<button class="requests-row-remove requests-tree-delete" type="button" data-http-delete-path="${escapeHTML(path)}" data-http-delete-kind="${kind}" data-http-delete-name="${escapeHTML(name)}" aria-label="Delete ${escapeHTML(name)}" title="Delete">×</button>`;
+}
+
 function renderHttpTreeNode(node) {
   if (node.type === 'folder') {
     const collapsed = httpCollapsedHttpFolders.has(node.path);
-    return `<li class="workspace-node directory"><button class="workspace-entry directory${collapsed ? '' : ' compact-branch'}" type="button" data-http-folder-path="${escapeHTML(node.path)}" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escapeHTML(node.name)}"><span class="workspace-arrow" aria-hidden="true"></span><span class="workspace-name">${escapeHTML(node.name)}</span></button><ul class="workspace-children" data-directory-children${collapsed ? ' hidden' : ''}>${renderHttpTreeNodes(node.children)}</ul></li>`;
+    return `<li class="workspace-node directory"><div class="requests-tree-row"><button class="workspace-entry directory${collapsed ? '' : ' compact-branch'}" type="button" data-http-folder-path="${escapeHTML(node.path)}" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escapeHTML(node.name)}"><span class="workspace-arrow" aria-hidden="true"></span><span class="workspace-name">${escapeHTML(node.name)}</span></button>${httpTreeDeleteButton(node.path, 'folder', node.name)}</div><ul class="workspace-children" data-directory-children${collapsed ? ' hidden' : ''}>${renderHttpTreeNodes(node.children)}</ul></li>`;
   }
   if (node.type === 'environment') {
     const selected = node.id === httpSelectedEnvironmentId;
-    return `<li class="workspace-node file"><button class="workspace-entry file${selected ? ' selected' : ''}" type="button" data-http-environment-id="${escapeHTML(node.id)}" data-http-environment-path="${escapeHTML(node.path)}" aria-label="Use environment ${escapeHTML(node.name)}" title="Environment"><span class="workspace-glyph file" aria-hidden="true"></span><span class="workspace-name">${escapeHTML(node.name)}</span></button></li>`;
+    return `<li class="workspace-node file"><div class="requests-tree-row"><button class="workspace-entry file${selected ? ' selected' : ''}" type="button" data-http-environment-id="${escapeHTML(node.id)}" data-http-environment-path="${escapeHTML(node.path)}" aria-label="Use environment ${escapeHTML(node.name)}" title="Environment"><span class="workspace-glyph file" aria-hidden="true"></span><span class="workspace-name">${escapeHTML(node.name)}</span></button>${httpTreeDeleteButton(node.path, 'environment', node.name)}</div></li>`;
   }
   const selected = node.path === httpSelectedRequestPath;
-  return `<li class="workspace-node file"><button class="workspace-entry file${selected ? ' selected' : ''}" type="button" data-http-request-path="${escapeHTML(node.path)}" aria-label="Open ${escapeHTML(node.name)}" aria-current="${selected ? 'page' : 'false'}"><span class="requests-tree-method">${escapeHTML(node.method)}</span><span class="workspace-name">${escapeHTML(node.name)}</span></button></li>`;
+  return `<li class="workspace-node file"><div class="requests-tree-row"><button class="workspace-entry file${selected ? ' selected' : ''}" type="button" data-http-request-path="${escapeHTML(node.path)}" aria-label="Open ${escapeHTML(node.name)}" aria-current="${selected ? 'page' : 'false'}"><span class="requests-tree-method">${escapeHTML(node.method)}</span><span class="workspace-name">${escapeHTML(node.name)}</span></button>${httpTreeDeleteButton(node.path, 'request', node.name)}</div></li>`;
 }
 
 function openHttpRequestFromTree(path) {
@@ -5982,6 +6029,7 @@ function openHttpRequestFromTree(path) {
 }
 
 function newHttpRequest() {
+  httpEditorGeneration += 1;
   httpSelectedRequestPath = null;
   httpRequestForm = createBlankHttpRequestForm();
   httpLastResponse = null;
@@ -5989,6 +6037,26 @@ function newHttpRequest() {
   renderHttpRequestTabs('params');
   renderHttpResponseTabs('body');
   renderHttpCollectionTree();
+}
+
+/** SPEC-http-client.md#acceptance-criteria: "Crear, editar y borrar una petición o una
+    colección desde Assay" — delete is destructive and irreversible (no trash, no undo), so it
+    goes through the same in-app confirmation every other risky action in the shell uses, never a
+    bare click-to-delete. */
+function deleteHttpCollectionEntryFromTree(path, kind, name) {
+  if (!nativeInvoke || !workspaceRootPath || !path) return;
+  const copy = kind === 'folder'
+    ? `This deletes "${name}" and every request, environment and sub-folder inside it. This cannot be undone.`
+    : `This deletes "${name}". This cannot be undone.`;
+  requestConfirmation({
+    eyebrow: 'DELETE',
+    title: `Delete ${kind === 'folder' ? 'folder' : kind}?`,
+    copy,
+    confirmLabel: 'Delete',
+    tone: 'danger',
+  }, () => {
+    void sendContextRequest('http.collection.delete', { repositoryPath: workspaceRootPath, collectionPath: path }, 'http-collection-delete');
+  });
 }
 
 function chooseHttpEnvironment(environmentId, environmentPath) {
@@ -6243,6 +6311,35 @@ function buildHttpRequestPayload() {
   return payload;
 }
 
+/** Resolves `{{variable}}` tokens against the active environment for the one purpose this
+    needs: reading the *hostname* Send is actually about to contact. A minimal local mirror of
+    the domain's own `substituteVariables` (src/domain/http-request.ts) — this file has no
+    access to that module, it runs in the webview, not the sidecar. */
+function resolveHttpUrlForHostCheck(url, environment) {
+  const variables = environment?.variables ?? [];
+  return url.replace(/\{\{(\w+)\}\}/g, (token, name) => {
+    const variable = variables.find((candidate) => candidate.key === name);
+    return variable ? variable.value : token;
+  });
+}
+
+/** Ask-first boundary (SPEC-http-client.md#boundaries): only `localhost`/`127.0.0.1`/`::1` are
+    trusted without confirmation. Deliberately conservative — the spec also allows trusting hosts
+    a Project's own `run-configurations` declare, but cross-referencing declared/live
+    configuration ports against a resolved request host adds real complexity for a boundary whose
+    job is "don't let this become a silent exfiltration path"; that refinement is deferred, not
+    silently dropped (see memory-bank/tasks/http-client.md's Deviations for Phase 5). A URL that
+    fails to parse, or still carries an unresolved `{{token}}` in host position, is not proven
+    safe and asks too, rather than guessing. */
+function isLoopbackHttpHost(url, environment) {
+  try {
+    const hostname = new URL(resolveHttpUrlForHostCheck(url, environment)).hostname;
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+  } catch {
+    return false;
+  }
+}
+
 function sendHttpRequest() {
   if (!nativeInvoke) { notify('Sending a request requires the sidecar.'); return; }
   if (!activeProjectId) { notify('Select a Project before sending a request.'); return; }
@@ -6250,9 +6347,24 @@ function sendHttpRequest() {
   const httpRequest = buildHttpRequestPayload();
   renderHttpRequestEditor();
   if (!httpRequest.url.trim()) { notify('Enter a URL before sending.'); return; }
-  httpRequestSending = true;
-  updateHttpSendButtonState();
   const httpEnvironment = httpSelectedEnvironmentId ? httpEnvironmentContents.get(httpSelectedEnvironmentId) : undefined;
+  if (!isLoopbackHttpHost(httpRequest.url, httpEnvironment)) {
+    requestConfirmation({
+      eyebrow: 'NETWORK REQUEST',
+      title: 'Send to a non-local host?',
+      copy: 'This request targets a host outside localhost/127.0.0.1. Assay will send it for real, right now.',
+      confirmLabel: 'Send request',
+      tone: 'primary',
+    }, () => dispatchHttpRequestExecution(httpRequest, httpEnvironment));
+    return;
+  }
+  dispatchHttpRequestExecution(httpRequest, httpEnvironment);
+}
+
+function dispatchHttpRequestExecution(httpRequest, httpEnvironment) {
+  httpRequestSending = true;
+  httpRequestExecuteGeneration = httpEditorGeneration;
+  updateHttpSendButtonState();
   const id = `http-request-execute-${Date.now()}`;
   pendingContextRequests.set(id, 'http-request-execute');
   const params = {
@@ -6986,6 +7098,8 @@ document.addEventListener('click', (event) => {
   if (requestsTab) { renderHttpRequestTabs(requestsTab.dataset.requestsTab); return; }
   const requestsResponseTab = event.target.closest('[data-requests-response-tab]');
   if (requestsResponseTab) { renderHttpResponseTabs(requestsResponseTab.dataset.requestsResponseTab); return; }
+  const httpDeleteButton = event.target.closest('[data-http-delete-path]');
+  if (httpDeleteButton) { deleteHttpCollectionEntryFromTree(httpDeleteButton.dataset.httpDeletePath, httpDeleteButton.dataset.httpDeleteKind, httpDeleteButton.dataset.httpDeleteName); return; }
   const httpFolderToggle = event.target.closest('[data-http-folder-path]');
   if (httpFolderToggle) {
     const path = httpFolderToggle.dataset.httpFolderPath;

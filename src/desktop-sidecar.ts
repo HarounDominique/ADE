@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { isSea } from "node:sea";
 import { advanceTask, createTask, setTaskAcceptance } from "./application/tasks/task-commands.js";
 import type { TaskStatus } from "./domain/task.js";
@@ -56,7 +56,7 @@ import { GitRepositoryMissingError, GitUnavailableError } from "./adapters/git-c
 import { fallbackTerminalTitle, type TerminalAgentProvider } from "./application/terminal-history/agent-terminal.js";
 import { resolveProviderSessionId } from "./application/terminal-history/provider-session-id.js";
 import { executeHttpRequest } from "./adapters/http-request-executor.js";
-import { listHttpCollectionTree, readEnvironmentFile, readRequestFile, writeRequestFile, writeEnvironmentFile } from "./adapters/bruno-collection-store.js";
+import { deleteCollectionEntry, listHttpCollectionTree, readEnvironmentFile, readRequestFile, writeRequestFile, writeEnvironmentFile } from "./adapters/bruno-collection-store.js";
 import type { HttpEnvironment, HttpRequest } from "./domain/http-request.js";
 
 export type DesktopRequest = {
@@ -723,8 +723,9 @@ export async function runDesktopSidecar(): Promise<void> {
         // content into the editor when it's clicked. Mirrors `readRequestFile`'s use in
         // `listHttpCollectionTree` itself, just for one file instead of a whole subtree.
         const params = request.params;
-        if (!params?.repositoryPath || !params.collectionPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and collectionPath are required" } })}\n`);
-        else void readRequestFile(join(params.repositoryPath, ".ade", "http", params.collectionPath))
+        const resolvedPath = params?.repositoryPath && params.collectionPath ? resolveHttpCollectionPath(params.repositoryPath, params.collectionPath) : undefined;
+        if (!resolvedPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and a collectionPath inside .ade/http are required" } })}\n`);
+        else void readRequestFile(resolvedPath)
           .then((httpRequest) => process.stdout.write(`${JSON.stringify({ id: request.id, result: httpRequest })}\n`))
           .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_REQUEST_GET_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "http.collection.environment.get") {
@@ -732,22 +733,35 @@ export async function runDesktopSidecar(): Promise<void> {
         // only id/name per environment node, never its variables, but Send needs the full
         // variable set to substitute `{{variable}}` tokens once the operator picks one.
         const params = request.params;
-        if (!params?.repositoryPath || !params.collectionPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and collectionPath are required" } })}\n`);
-        else void readEnvironmentFile(join(params.repositoryPath, ".ade", "http", params.collectionPath))
+        const resolvedPath = params?.repositoryPath && params.collectionPath ? resolveHttpCollectionPath(params.repositoryPath, params.collectionPath) : undefined;
+        if (!resolvedPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and a collectionPath inside .ade/http are required" } })}\n`);
+        else void readEnvironmentFile(resolvedPath)
           .then((httpEnvironment) => process.stdout.write(`${JSON.stringify({ id: request.id, result: httpEnvironment })}\n`))
           .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_ENVIRONMENT_GET_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "http.collection.request.save") {
         const params = request.params;
-        if (!params?.repositoryPath || !params.collectionPath || !params.httpRequest) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, collectionPath and httpRequest are required" } })}\n`);
-        else void writeRequestFile(join(params.repositoryPath, ".ade", "http", params.collectionPath), params.httpRequest)
-          .then(() => process.stdout.write(`${JSON.stringify({ id: request.id, result: { path: params.collectionPath, saved: true } })}\n`))
+        const collectionPath = params?.collectionPath;
+        const resolvedPath = params?.repositoryPath && collectionPath ? resolveHttpCollectionPath(params.repositoryPath, collectionPath) : undefined;
+        if (!resolvedPath || !collectionPath || !params?.httpRequest) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, a collectionPath inside .ade/http, and httpRequest are required" } })}\n`);
+        else void writeRequestFile(resolvedPath, params.httpRequest)
+          .then(() => process.stdout.write(`${JSON.stringify({ id: request.id, result: { path: collectionPath, saved: true } })}\n`))
           .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_REQUEST_SAVE_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else if (request.method === "http.collection.environment.save") {
         const params = request.params;
-        if (!params?.repositoryPath || !params.collectionPath || !params.httpEnvironment) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, collectionPath and httpEnvironment are required" } })}\n`);
-        else void writeEnvironmentFile(join(params.repositoryPath, ".ade", "http", params.collectionPath), params.httpEnvironment)
-          .then(() => process.stdout.write(`${JSON.stringify({ id: request.id, result: { path: params.collectionPath, saved: true } })}\n`))
+        const collectionPath = params?.collectionPath;
+        const resolvedPath = params?.repositoryPath && collectionPath ? resolveHttpCollectionPath(params.repositoryPath, collectionPath) : undefined;
+        if (!resolvedPath || !collectionPath || !params?.httpEnvironment) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath, a collectionPath inside .ade/http, and httpEnvironment are required" } })}\n`);
+        else void writeEnvironmentFile(resolvedPath, params.httpEnvironment)
+          .then(() => process.stdout.write(`${JSON.stringify({ id: request.id, result: { path: collectionPath, saved: true } })}\n`))
           .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_ENVIRONMENT_SAVE_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+      } else if (request.method === "http.collection.delete") {
+        const params = request.params;
+        const collectionPath = params?.collectionPath;
+        const resolvedPath = params?.repositoryPath && collectionPath ? resolveHttpCollectionPath(params.repositoryPath, collectionPath) : undefined;
+        if (!resolvedPath || !collectionPath) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "repositoryPath and a collectionPath inside .ade/http are required" } })}\n`);
+        else void deleteCollectionEntry(resolvedPath)
+          .then(() => process.stdout.write(`${JSON.stringify({ id: request.id, result: { path: collectionPath, deleted: true } })}\n`))
+          .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "HTTP_COLLECTION_DELETE_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
       } else {
         process.stdout.write(`${JSON.stringify(handleDesktopRequest(store, request))}\n`);
       }
@@ -783,6 +797,21 @@ function terminalHistoryTitle(output: string): string {
     if (typeof value === "string" && value.trim()) return value.trim().replace(/\s+/g, " ").slice(0, 60);
   } catch { /* Some providers return plain text. */ }
   return trimmed.startsWith("{") ? "Agent terminal session" : trimmed.replace(/^title\s*:\s*/i, "").replace(/^['"]|['"]$/g, "").replace(/\s+/g, " ").slice(0, 60);
+}
+
+/** Every `http.collection.*` method that touches a file joins `repositoryPath` + `.ade/http` +
+    an operator-supplied `collectionPath` — `list`/`request.get`/`environment.get` only ever see a
+    path this sidecar itself produced (real `readdir()` entries), but `.request.save`/
+    `.environment.save`/`.delete`'s `collectionPath` reaches here from free text the webview
+    collected (the save-path dialog's own text input, in particular) with no containment check
+    before this fix. Returns the resolved absolute path when it stays under the collection root,
+    `undefined` when a `collectionPath` like `../../../../etc/passwd` would walk outside it — the
+    caller turns that into the same `INVALID_PARAMS` shape every other validation failure uses,
+    not a stack trace from a surprised `fs` call three layers down. */
+function resolveHttpCollectionPath(repositoryPath: string, collectionPath: string): string | undefined {
+  const root = resolve(join(repositoryPath, ".ade", "http"));
+  const candidate = resolve(root, collectionPath);
+  return candidate === root || candidate.startsWith(`${root}${sep}`) ? candidate : undefined;
 }
 
 /** Runs a request via the sidecar (never the webview) and persists the result.
