@@ -2048,7 +2048,7 @@ function updateDocumentEditState() {
   const discardButton = document.getElementById('discard-file');
   const formatButton = document.getElementById('format-document');
   const kindElement = document.getElementById('document-kind');
-  const editable = Boolean(activeDocument?.kind === 'text' && editor && (!editor.hidden || markdownPreviewVisible()));
+  const editable = Boolean(activeDocument?.kind === 'text' && editor && (!editor.hidden || markdownPreviewVisible() || svgPreviewVisible()));
   const wasDirty = documentDirty;
   documentDirty = editable && codeEditorValue() !== documentOriginalContent;
   if (saveButton) saveButton.disabled = !documentDirty;
@@ -2065,6 +2065,7 @@ function updateDocumentEditState() {
   updateRevealOpenFileButton();
   // Formatting and discarding rewrite the buffer the preview is showing.
   if (markdownPreviewVisible()) void renderMarkdownPreview();
+  if (svgPreviewVisible()) void renderSvgPreview();
   // The tab record carries the state the tree reads, so the tree is repainted
   // after it has been written -- before that write, a file that was just saved
   // still looks unsaved.
@@ -2164,6 +2165,7 @@ async function renderActiveDocument({ focus = false } = {}) {
     documentDirty = false;
     await setCodeEditorContent('');
     await syncMarkdownPreview();
+    await syncSvgPreview();
     await syncImagePreview();
     updateDocumentEditState();
     decorateWorkspaceTree();
@@ -2195,6 +2197,7 @@ async function renderActiveDocument({ focus = false } = {}) {
   await setCodeEditorContent(isText ? (record.buffer ?? '') : '', record.path, isText && focus);
   if (isText) restoreDocumentCaret(record);
   await syncMarkdownPreview();
+  await syncSvgPreview();
   await syncImagePreview();
   updateDocumentEditState();
   decorateWorkspaceTree();
@@ -2202,6 +2205,7 @@ async function renderActiveDocument({ focus = false } = {}) {
   // document when it is showing, the editor when it is not.
   if (isText && focus) {
     if (markdownPreviewVisible()) document.getElementById('document-preview')?.focus();
+    else if (svgPreviewVisible()) document.getElementById('document-svg-preview')?.focus();
     else editorSurface?.focus();
   }
 }
@@ -2686,6 +2690,10 @@ function isImagePath(filePath = '') {
   return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'].includes(fileExtension(filePath));
 }
 
+function isSvgPath(filePath = '') {
+  return ['svg'].includes(fileExtension(filePath));
+}
+
 /** The MIME type the base64 bytes from `read_file_in` decode as, for the
     `data:` URL fed to the preview `<img>`. `jpg` and `jpeg` both resolve to
     `image/jpeg`, matching `isImagePath`'s whitelist. */
@@ -2862,6 +2870,93 @@ async function toggleMarkdownPreview() {
   await syncMarkdownPreview();
   updateDocumentEditState();
   if (record.preview) document.getElementById('document-preview')?.focus();
+  else editorSurface?.focus();
+}
+
+/** SVG gets the same Preview/Source toggle as Markdown, namespaced to its own
+    localStorage key and its own per-record flag so switching a Markdown tab's
+    preference never flips an SVG tab's (or vice versa). Unlike the raster
+    route Phase 1 built, no backend byte command is involved -- `.svg` already
+    classifies `kind: "text"`, so Preview renders the same content the
+    CodeMirror Source surface already has in hand. */
+const svgPreviewStorageKey = 'ade-svg-preview';
+let svgPreviewPreference = true;
+try { svgPreviewPreference = localStorage.getItem(svgPreviewStorageKey) !== 'source'; } catch { svgPreviewPreference = true; }
+let svgPreviewObjectUrl = null;
+
+/** A record only renders as the SVG preview once it is readable text with an
+    `.svg` path; anything else stays with the editor's own loading, binary and
+    failure states. */
+function documentIsRenderableSvg(record) {
+  return Boolean(record && record.state === 'ready' && record.kind === 'text' && isSvgPath(record.path));
+}
+
+/** `new Blob([source], { type: 'image/svg+xml' })` fed to an `<img>` via
+    `URL.createObjectURL` -- a `<script>` inside the SVG does not execute in
+    that context, by platform design, so no sandboxing code is needed here the
+    way the HTML preview (a later phase) will need one. */
+async function renderSvgPreview() {
+  const image = document.getElementById('document-svg');
+  const record = documentTabById(activeDocumentId);
+  if (!image || !documentIsRenderableSvg(record)) return;
+  // The editor holds the text that is actually on screen, including edits that
+  // have not been saved, so the preview reads from it rather than from the
+  // record's last written buffer -- the same rule renderMarkdownPreview follows.
+  const source = codeEditorValue() || (record.buffer ?? '');
+  if (svgPreviewObjectUrl) URL.revokeObjectURL(svgPreviewObjectUrl);
+  svgPreviewObjectUrl = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml' }));
+  image.src = svgPreviewObjectUrl;
+  image.alt = record.name ?? '';
+}
+
+/** One place decides which of the two surfaces the panel is showing, so the
+    toggle, the tab switch and a document that stops being SVG all end up with
+    the same account of it -- the same role syncMarkdownPreview plays for
+    Markdown. */
+async function syncSvgPreview() {
+  const content = document.getElementById('document-content');
+  const preview = document.getElementById('document-svg-preview');
+  const toggle = document.getElementById('svg-preview-toggle');
+  if (!content || !preview) return;
+  const record = documentTabById(activeDocumentId);
+  const renderable = documentIsRenderableSvg(record);
+  if (renderable && record.svgPreview === undefined) record.svgPreview = svgPreviewPreference;
+  const rendered = renderable && record.svgPreview === true;
+  if (toggle) {
+    toggle.hidden = !renderable;
+    toggle.disabled = !renderable;
+    toggle.textContent = rendered ? 'Source text' : 'Preview';
+    toggle.setAttribute('aria-pressed', String(rendered));
+    const label = rendered ? 'Show SVG source text' : 'Show SVG preview';
+    toggle.setAttribute('aria-label', label);
+    toggle.title = label;
+  }
+  preview.hidden = !rendered;
+  if (rendered) {
+    content.hidden = true;
+    await renderSvgPreview();
+    return;
+  }
+  if (svgPreviewObjectUrl) { URL.revokeObjectURL(svgPreviewObjectUrl); svgPreviewObjectUrl = null; }
+  if (record?.state === 'ready' && record.kind === 'text') content.hidden = false;
+}
+
+function svgPreviewVisible() {
+  const preview = document.getElementById('document-svg-preview');
+  return Boolean(preview && !preview.hidden);
+}
+
+async function toggleSvgPreview() {
+  const record = documentTabById(activeDocumentId);
+  if (!documentIsRenderableSvg(record)) return;
+  record.svgPreview = !(record.svgPreview ?? svgPreviewPreference);
+  // The last choice is the one the next SVG file opens with, so a reader and
+  // an author each keep the surface they work in.
+  svgPreviewPreference = record.svgPreview;
+  try { localStorage.setItem(svgPreviewStorageKey, record.svgPreview ? 'preview' : 'source'); } catch { /* Persistence is optional. */ }
+  await syncSvgPreview();
+  updateDocumentEditState();
+  if (record.svgPreview) document.getElementById('document-svg-preview')?.focus();
   else editorSurface?.focus();
 }
 
@@ -6848,6 +6943,10 @@ document.querySelectorAll('[data-action]').forEach((item) => item.addEventListen
   }
   if (item.dataset.action === 'toggle-markdown-preview') {
     void toggleMarkdownPreview();
+    return;
+  }
+  if (item.dataset.action === 'toggle-svg-preview') {
+    void toggleSvgPreview();
     return;
   }
   if (item.dataset.action === 'format-document') {
