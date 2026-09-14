@@ -2,7 +2,7 @@
 
 <!-- Nexus: SPEC-NEXUS.md | Module id: http-client -->
 
-**Estado:** in-progress — Phases 1-4 implementadas y verificadas (dominio, motor de ejecución, historial/evidencia, superficie `Requests` en la shell). Queda Phase 5 (boundary de red no-localhost, barrido de criterios de aceptación).
+**Estado:** done — Phases 1-5 implementadas y verificadas (dominio, motor de ejecución, historial/evidencia, superficie `Requests` en la shell, boundary de red y borrado). Los siete criterios de aceptación están cubiertos por tests reales.
 
 ## Objective
 
