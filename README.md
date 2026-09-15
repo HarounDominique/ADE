@@ -28,6 +28,9 @@ Start with the [contribution guide](CONTRIBUTING.md), read the [Code of
 Conduct](CODE_OF_CONDUCT.md), and report vulnerabilities privately through
 [SECURITY.md](SECURITY.md).
 
+See the [community backlog](docu/COMMUNITY-BACKLOG.md) for scoped tasks with
+acceptance criteria and verification guidance.
+
 ## Status
 
 The CLI MVP and the desktop vertical are operable: ADE can register Projects, create and advance Tasks, run the Implementer/Reviewer flow with OpenCode, persist ChangeSets, Reviews, evidence and gates in SQLite, and apply human approval from Changes. The runtime includes a minimal lifecycle for local services.
