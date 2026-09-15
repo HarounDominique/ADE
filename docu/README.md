@@ -6,6 +6,8 @@ La release v0.3 está cerrada y validada en macOS; Ubuntu es la segunda platafor
 
 ## Organización
 
+- `FOUNDING-CHARTER.md`: identidad pública, invitación a la comunidad y
+  principios para forks, contribuciones y stewardship de módulos.
 - `specs/`: nexus y specs funcionales/técnicas. El nexus es el índice único y contiene el brief de producto, fundamentos, contratos, decisiones diferidas y change log.
 - `adr/`: decisiones arquitectónicas con contexto, alternativas, decisión y consecuencias.
 - `releases/`: evidencias y límites de cada release cerrada.

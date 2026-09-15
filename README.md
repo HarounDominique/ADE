@@ -8,10 +8,21 @@ This repository deliberately starts from documentation. Documentation is the sou
 
 ## Documentation
 
+- [Founding charter](docu/FOUNDING-CHARTER.md)
 - [Spec nexus](docu/specs/SPEC-NEXUS.md)
 - [Module specs](docu/specs/)
 - [Documentation index](docu/README.md)
 - [ADRs](docu/adr/)
+
+## Open source community
+
+ADE is the project and technical identifier; Assay is the product name. The
+[founding charter](docu/FOUNDING-CHARTER.md) explains the project's open source
+posture: people are welcome to clone, fork or continue ADE independently, and
+we would be delighted to see useful improvements flow back to the main
+repository. It also describes how contributors can take long-term stewardship
+of a module — such as the database manager — and improve it with the wider
+community.
 
 ## Status
 
