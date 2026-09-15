@@ -92,13 +92,12 @@ export async function probe(id: string, label: string, command: string, args: re
     child.stdout?.on("data", appendStdout);
     child.stderr?.on("data", appendStderr);
     // Windows CI runners (and slower real Windows machines) measurably lag
-    // POSIX ones for a cold process spawn -- 1.5s was tight enough to read a
-    // genuinely present npm as "unavailable" purely from spawn latency, not
-    // from anything actually wrong.
+    // POSIX ones for a cold process spawn. Keep a shorter bound on POSIX, but
+    // give a genuine npm.cmd probe enough time to start on a cold Windows VM.
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
       resolve({ ...base, available: false, error: "version check timed out" });
-    }, 4_000);
+    }, process.platform === "win32" ? 10_000 : 4_000);
     child.once("error", (error) => {
       clearTimeout(timer);
       resolve({ ...base, available: false, error: error.message });
