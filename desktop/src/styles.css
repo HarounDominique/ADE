@@ -344,8 +344,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @keyframes workspace-reveal { from { background: color-mix(in srgb, var(--cyan) 40%, transparent); } }
 .workspace-entry.just-revealed { animation: workspace-reveal .9s ease-out; }
 @media (prefers-reduced-motion: reduce) { .workspace-entry.just-revealed { animation: none; } }
-.sidebar.explorer-expanded .primary-nav { max-height: 58px; margin-bottom: 10px; padding-bottom: 10px; border-bottom-color: var(--line); opacity: 1; pointer-events: auto; visibility: visible; transform: none; }
-.sidebar.explorer-expanded .primary-nav .nav-item:not(.active) { display: none; }
+/* Explorer expands the tree, but it must not remove the rest of the
+   navigation: Editor remains the way back to the code workbench. */
+.sidebar.explorer-expanded .primary-nav { max-height: 270px; margin-bottom: 10px; padding-bottom: 10px; border-bottom-color: var(--line); opacity: 1; pointer-events: auto; visibility: visible; transform: none; }
 .sidebar.explorer-expanded .explorer-section { margin-top: 0; }
 .sidebar.explorer-expanded .workspace-tree { padding-top: 8px; }
 .workspace-tree { opacity: 1; transform: translateY(0); transition: opacity .16s ease, transform .24s cubic-bezier(.16,1,.3,1), padding-top .24s cubic-bezier(.16,1,.3,1); }
