@@ -73,6 +73,7 @@ La visión es que el humano dirija intención y restricciones, los agentes ejecu
 | http-client | [SPEC-http-client.md](SPEC-http-client.md) | Cliente de peticiones HTTP embebido, colecciones versionables y evidencia de ejecución por Task | project-task-workflow, changes-review-governance, workspace-core, desktop-shell | done | — |
 | database-schema-browser | [SPEC-database-schema-browser.md](SPEC-database-schema-browser.md) | Árbol de esquema de base de datos de solo lectura, vía el cliente nativo (`psql`/`mysql`/`sqlite3`) que el Project ya tenga instalado, sin driver ni secreto propios | project-task-workflow, local-runtime, desktop-shell | done | 2026-09-14 |
 | terminal-attachments | [SPEC-terminal-attachments.md](SPEC-terminal-attachments.md) | Arrastre seguro de ficheros al terminal PTY y al compositor de Agents como referencias locales | workspace-core, agent-runtime, agent-providers, desktop-shell | done | 2026-09-14 |
+| windows-runtime-hardening | [SPEC-windows-runtime-hardening.md](SPEC-windows-runtime-hardening.md) | Robustez Windows para sondas de toolchain y locks transitorios de Git | local-runtime, desktop-shell | done | 2026-09-15 |
 
 `done` identifica capacidades implementadas y verificadas; `planned` identifica una spec aprobada para una iteración posterior, todavía no implementada.
 
@@ -416,3 +417,5 @@ Las entradas siguientes son históricas y describen el estado en el momento de c
 - 2026-09-14 — terminal-attachments-spec — Se propone el módulo `terminal-attachments` para arrastrar ficheros al PTY y al composer de Agents como referencias locales, con quoting multiplataforma, validación de fichero local (sin restringirlo al Project) y envío siempre explícito; queda en `draft` hasta confirmar las preguntas abiertas.
 - 2026-09-14 — terminal-attachments-approved — El operador confirma inserción de ruta shell-quoted en terminal, referencia local visible en Agents, sin subida/copia automática, y aceptación de cualquier fichero local fuera o dentro del Project; el módulo pasa a `ready`.
 - 2026-09-14 — terminal-attachments-archived — Se implementa y verifica el drop nativo de ficheros locales en terminal PTY y Agents, con validación Rust, quoting POSIX/Windows, referencias provider-neutral y bundle macOS generado; el módulo pasa a `done`.
+- 2026-09-15 — windows-runtime-hardening — Se abre hardening multiplataforma para separar warnings de versión en sondas y reintentar locks transitorios del index Git en Windows.
+- 2026-09-15 — windows-runtime-hardening-archived — Se separan stdout/stderr en sondas, se añade retry/backoff acotado para locks Git y se verifica la suite completa; el módulo pasa a `done`.
