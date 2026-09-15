@@ -505,7 +505,7 @@ function activeTerminal() {
 function syncPendingTerminalCwds(cwd = workspaceRootPath) {
   if (!cwd) return;
   terminalTabs.forEach((tab) => {
-    if (!tab.started && !tab.completionCwd) tab.completionCwd = cwd;
+    if (tab.kind === 'pty' && !tab.started && tab.cwdOrigin === 'project-default') tab.completionCwd = cwd;
   });
 }
 
@@ -703,7 +703,7 @@ function selectTerminalTab(sessionId, focus = true) {
   syncActiveTerminalInput(focus);
 }
 
-function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null, label: requestedLabel = null, cwd = workspaceRootPath } = {}) {
+function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null, label: requestedLabel = null, cwd = null } = {}) {
   terminalTabSequence += 1;
   const id = requestedId ?? `terminal-${Date.now()}-${terminalTabSequence}`;
   const tab = {
@@ -711,7 +711,8 @@ function createTerminalTab({ focus = true, kind = 'pty', id: requestedId = null,
     kind,
     label: requestedLabel ?? `Terminal ${terminalTabSequence}`,
     started: false,
-    completionCwd: cwd,
+    completionCwd: cwd ?? workspaceRootPath,
+    cwdOrigin: cwd == null ? 'project-default' : 'explicit',
     terminal: null,
     fitAddon: null,
     startPromise: null,
@@ -787,6 +788,7 @@ async function startTerminal(tab) {
   if (tab.started) return tab.readiness ?? Promise.resolve();
   tab.startPromise = (async () => {
     if (!nativeInvoke) throw new Error('Native terminal requires the desktop runtime.');
+    if (tab.cwdOrigin === 'project-default') tab.completionCwd = workspaceRootPath;
     tab.completionCwd ||= workspaceRootPath;
     if (!tab.completionCwd) throw new Error('Select a Project before using the terminal.');
     const readiness = prepareTerminalReadiness(tab);
