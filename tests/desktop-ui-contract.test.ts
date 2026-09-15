@@ -839,9 +839,10 @@ test("the workspace tree colours Git state and unsaved buffers", () => {
 });
 
 test("explorer mode changes preserve continuity with a reduced-motion path", () => {
+  assert.match(styles, /\.primary-nav \{ flex: 0 0 auto; max-height: 320px;/);
   assert.match(styles, /\.sidebar\.explorer-expanded \.primary-nav/);
-  assert.match(styles, /\.sidebar\.explorer-expanded \.primary-nav \{ max-height: 270px;/);
-  assert.doesNotMatch(styles, /\.sidebar\.explorer-expanded \.primary-nav \.nav-item:not\(\.active\) \{ display: none; \}/);
+  assert.match(styles, /\.sidebar\.explorer-expanded \.primary-nav \{ max-height: 58px;/);
+  assert.match(styles, /\.sidebar\.explorer-expanded \.primary-nav \.nav-item:not\(\.active\) \{ display: none; \}/);
   assert.match(styles, /\.workspace-tree\.is-transitioning/);
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(main, /loadWorkspaceTree\([^\n]+\{ animate: true \}/);

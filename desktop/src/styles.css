@@ -258,7 +258,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .sidebar { grid-column: 1; }
 .main-content { grid-column: 2; padding-bottom: calc(var(--terminal-height, 138px) + 20px); }
 .status-bar { padding-left: 12px; }
-.primary-nav { flex: 0 0 auto; max-height: 270px; margin: 0 0 15px; padding-bottom: 15px; overflow: hidden; border-bottom: 1px solid var(--line); opacity: 1; visibility: visible; transform: translateY(0); transition: max-height .24s cubic-bezier(.16,1,.3,1), margin-bottom .24s cubic-bezier(.16,1,.3,1), padding-bottom .24s cubic-bezier(.16,1,.3,1), border-color .18s ease, opacity .16s ease, visibility 0s linear 0s, transform .24s cubic-bezier(.16,1,.3,1); }
+.primary-nav { flex: 0 0 auto; max-height: 320px; margin: 0 0 15px; padding-bottom: 15px; overflow: hidden; border-bottom: 1px solid var(--line); opacity: 1; visibility: visible; transform: translateY(0); transition: max-height .24s cubic-bezier(.16,1,.3,1), margin-bottom .24s cubic-bezier(.16,1,.3,1), padding-bottom .24s cubic-bezier(.16,1,.3,1), border-color .18s ease, opacity .16s ease, visibility 0s linear 0s, transform .24s cubic-bezier(.16,1,.3,1); }
 .nav-item { min-height: 34px; padding: 7px 9px; }
 .nav-item svg { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
 .nav-item.active svg { color: var(--cyan); }
@@ -344,9 +344,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @keyframes workspace-reveal { from { background: color-mix(in srgb, var(--cyan) 40%, transparent); } }
 .workspace-entry.just-revealed { animation: workspace-reveal .9s ease-out; }
 @media (prefers-reduced-motion: reduce) { .workspace-entry.just-revealed { animation: none; } }
-/* Explorer expands the tree, but it must not remove the rest of the
-   navigation: Editor remains the way back to the code workbench. */
-.sidebar.explorer-expanded .primary-nav { max-height: 270px; margin-bottom: 10px; padding-bottom: 10px; border-bottom-color: var(--line); opacity: 1; pointer-events: auto; visibility: visible; transform: none; }
+/* Explorer focus mode keeps the navigation compact while the tree is open.
+   Collapsing the tree removes this class and restores every workbench area. */
+.sidebar.explorer-expanded .primary-nav { max-height: 58px; margin-bottom: 10px; padding-bottom: 10px; border-bottom-color: var(--line); opacity: 1; pointer-events: auto; visibility: visible; transform: none; }
+.sidebar.explorer-expanded .primary-nav .nav-item:not(.active) { display: none; }
 .sidebar.explorer-expanded .explorer-section { margin-top: 0; }
 .sidebar.explorer-expanded .workspace-tree { padding-top: 8px; }
 .workspace-tree { opacity: 1; transform: translateY(0); transition: opacity .16s ease, transform .24s cubic-bezier(.16,1,.3,1), padding-top .24s cubic-bezier(.16,1,.3,1); }
