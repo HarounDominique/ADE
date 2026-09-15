@@ -1,0 +1,24 @@
+name: Feature request
+description: Propose an improvement to ADE/Assay
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What user or contributor need would this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the outcome you would like and possible alternatives.
+    validations:
+      required: true
+  - type: input
+    id: module
+    attributes:
+      label: Related module or spec
+      placeholder: e.g. database manager, SPEC-local-runtime
