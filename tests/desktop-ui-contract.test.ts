@@ -712,8 +712,17 @@ test("desktop navigation is labeled and terminal dock supports persisted resizin
   assert.match(main, /data-terminal-close-id/);
   assert.match(main, /sendTerminalInput/);
   assert.match(main, /function syncPendingTerminalCwds/);
-  assert.match(main, /if \(!tab\.started && !tab\.completionCwd\) tab\.completionCwd = cwd/);
+  assert.match(main, /tab\.kind === 'pty' && !tab\.started && tab\.cwdOrigin === 'project-default'/);
+  assert.match(main, /cwdOrigin: cwd == null \? 'project-default' : 'explicit'/);
+  assert.match(main, /if \(tab\.cwdOrigin === 'project-default'\) tab\.completionCwd = workspaceRootPath/);
   assert.match(main, /tab\.completionCwd \|\|= workspaceRootPath/);
+  assert.match(main, /tauri:\/\/drag-enter/);
+  assert.match(main, /tauri:\/\/drag-over/);
+  assert.match(main, /tauri:\/\/drag-leave/);
+  assert.match(main, /tauri:\/\/drag-drop/);
+  assert.match(main, /validate_dropped_files/);
+  assert.match(main, /agentPromptAttachments/);
+  assert.match(main, /Attached local files/);
 });
 
 test("navigation sidebar supports persisted pointer and keyboard resizing", () => {
@@ -1964,8 +1973,8 @@ test("the Explorer offers New File / New Directory, not just Refresh", () => {
 
 test("Explorer entries can open an integrated terminal there, or reveal in the file manager", () => {
   assert.match(html, /id="workspace-context-menu"[\s\S]*data-action="open-workspace-entry-terminal"[\s\S]*data-action="reveal-workspace-entry-in-file-manager"/);
-  assert.match(main, /function createTerminalTab\(\{[\s\S]{0,200}cwd = workspaceRootPath[\s\S]{0,50}\} = \{\}\)/);
-  assert.match(main, /completionCwd: cwd,/);
+  assert.match(main, /function createTerminalTab\(\{[\s\S]{0,200}cwd = null[\s\S]{0,50}\} = \{\}\)/);
+  assert.match(main, /completionCwd: cwd \?\? workspaceRootPath,/);
   assert.match(main, /nativeInvoke\('terminal_start', \{ sessionId: tab\.id, cwd: tab\.completionCwd \}\)/);
   assert.match(main, /function openWorkspaceEntryInTerminal/);
   assert.match(main, /function revealWorkspaceEntryInFileManager/);

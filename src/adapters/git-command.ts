@@ -5,6 +5,7 @@ import { posix, win32 } from "node:path";
 import { promisify } from "node:util";
 
 const execFile = promisify(execFileCallback);
+const gitRetryDelaysMs = [50, 100, 200] as const;
 
 export class GitUnavailableError extends Error {
   readonly code = "GIT_UNAVAILABLE";
@@ -88,17 +89,31 @@ function windowsGitCandidates(environment: NodeJS.ProcessEnv): readonly string[]
 }
 
 export async function executeGit(args: string[], options?: { cwd?: string; env?: NodeJS.ProcessEnv; maxBuffer?: number }): Promise<{ stdout: string; stderr: string }> {
-  try {
-    const { env, maxBuffer, ...rest } = options ?? {};
-    // Git is a console application: without this, every read of the repository
-    // flashes a window on Windows.
-    // --binary diffs base64-encode file contents inline, so the default 1MB
-    // Node cap trips on a single changed image or lockfile.
-    return await execFile(gitExecutable(), args, { encoding: "utf8", windowsHide: true, maxBuffer: maxBuffer ?? 64 * 1024 * 1024, ...rest, ...(env ? { env: { ...process.env, ...env } } : {}) });
-  } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") throw new GitUnavailableError();
-    throw error;
+  const { env, maxBuffer, ...rest } = options ?? {};
+  const commandOptions = { encoding: "utf8" as const, windowsHide: true, maxBuffer: maxBuffer ?? 64 * 1024 * 1024, ...rest, ...(env ? { env: { ...process.env, ...env } } : {}) };
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      // Git is a console application: without this, every read of the repository
+      // flashes a window on Windows. The bounded retry handles antivirus/indexer
+      // locks that release moments after a temporary repository operation.
+      return await execFile(gitExecutable(), args, commandOptions);
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") throw new GitUnavailableError();
+      if (!isTransientGitLockError(error) || attempt >= gitRetryDelaysMs.length) throw error;
+      await new Promise((resolve) => setTimeout(resolve, gitRetryDelaysMs[attempt]));
+    }
   }
+}
+
+/** Windows can briefly hold `.git/index` or its lock while antivirus/indexing
+ * catches up. Keep this classifier narrow so real Git errors remain immediate. */
+export function isTransientGitLockError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { message?: unknown; stderr?: unknown; code?: unknown };
+  if (value.code === "ENOENT") return false;
+  const text = `${String(value.message ?? "")}\n${String(value.stderr ?? "")}`;
+  return /(?:\.git[\\/]index(?:\.lock)?|index file open failed|could not lock .*index)/i.test(text)
+    && /(permission denied|access is denied|being used by another process|resource busy|temporarily unavailable)/i.test(text);
 }
 
 export async function isInsideGitWorkTree(directory: string): Promise<boolean> {

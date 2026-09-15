@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { inspectProjectToolchains } from "../src/application/local-runtime/toolchain-inspection.js";
+import { inspectProjectToolchains, probe } from "../src/application/local-runtime/toolchain-inspection.js";
 
 test("toolchain inspection reports the entry points implied by Project manifests", async () => {
   const root = await mkdtemp(join(tmpdir(), "ade-toolchains-"));
@@ -29,4 +29,14 @@ test("toolchain inspection reports nothing for a Project with no recognized mani
   const statuses = await inspectProjectToolchains(root);
 
   assert.deepEqual(statuses, []);
+});
+
+test("toolchain version prefers stdout when Windows emits a warning on stderr", async () => {
+  const status = await probe(process.execPath, "Node/npm", process.execPath, [
+    "-e",
+    "process.stderr.write('npm warn Unknown env config msbuild-path\\n'); process.stdout.write('10.9.2\\n');",
+  ], "package.json", process.cwd(), process.env);
+
+  assert.equal(status.available, true);
+  assert.equal(status.version, "10.9.2");
 });

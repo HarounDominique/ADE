@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { GitUnavailableError, gitExecutable } from "../src/adapters/git-command.js";
+import { GitUnavailableError, gitExecutable, isTransientGitLockError } from "../src/adapters/git-command.js";
 
 test("packaged Windows app finds Git for Windows outside PATH", () => {
   const installed = "D:\\Tools\\Git\\cmd\\git.exe";
@@ -53,4 +53,14 @@ test("a Windows PATH is searched with its own separator and executable name", ()
 test("Git stays a bare command when nothing on disk answers", () => {
   assert.equal(gitExecutable({ PATH: "/usr/bin" }, "linux", () => false), "git");
   assert.equal(gitExecutable({ Path: "C:\\Windows" }, "win32", () => false), "git.exe");
+});
+
+test("Git index access-denied failures are classified as transient", () => {
+  assert.equal(isTransientGitLockError({ stderr: "fatal: .git/index: index file open failed: Permission denied" }), true);
+  assert.equal(isTransientGitLockError({ message: "fatal: Unable to create '.git/index.lock': Access is denied" }), true);
+});
+
+test("non-lock Git failures are not retried", () => {
+  assert.equal(isTransientGitLockError({ stderr: "fatal: not a git repository" }), false);
+  assert.equal(isTransientGitLockError({ code: "ENOENT", stderr: "fatal: .git/index: Permission denied" }), false);
 });

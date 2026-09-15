@@ -30,6 +30,17 @@ struct TerminalOutput {
     data: String,
 }
 
+#[derive(Clone, Serialize)]
+struct DroppedFile {
+    path: String,
+    name: String,
+}
+
+#[derive(Clone, Serialize)]
+struct DroppedFilesResult {
+    files: Vec<DroppedFile>,
+}
+
 #[derive(Default)]
 struct WorkspaceRoot {
     root: Mutex<Option<PathBuf>>,
@@ -373,6 +384,33 @@ fn terminal_input(
         .write_all(input.as_bytes())
         .and_then(|_| process.writer.flush())
         .map_err(|error| format!("Unable to write terminal input: {error}"))
+}
+
+/// Validate paths supplied by the OS drag-and-drop bridge without reading their
+/// contents. External files are allowed by product design; only regular files
+/// are accepted, and canonical paths are returned for the PTY/provider.
+#[tauri::command]
+fn validate_dropped_files(paths: Vec<String>) -> Result<DroppedFilesResult, String> {
+    let mut files = Vec::new();
+    for raw in paths {
+        let path = PathBuf::from(raw.trim());
+        if !path.is_file() {
+            continue;
+        }
+        let canonical = path
+            .canonicalize()
+            .map_err(|error| format!("Unable to resolve dropped file: {error}"))?;
+        let name = canonical
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("file")
+            .to_string();
+        files.push(DroppedFile {
+            path: canonical.to_string_lossy().into_owned(),
+            name,
+        });
+    }
+    Ok(DroppedFilesResult { files })
 }
 
 #[tauri::command]
@@ -1651,6 +1689,7 @@ pub fn run() {
             terminal_exec,
             terminal_start,
             terminal_input,
+            validate_dropped_files,
             terminal_resize,
             terminal_stop,
             terminal_stop_all,
@@ -1683,7 +1722,7 @@ mod tests {
         open_local_url, open_terminal_in, project_context_for, rename_workspace_entry_in,
         containing_folder_of, reveal_in_file_manager_in, search_directory_in, SEARCH_RESULT_LIMIT,
         read_file_in, start_terminal_pty, terminal_exec_in, write_file_in, SidecarSupervisor,
-        WorkspaceRoot, MAX_FILE_PREVIEW_BYTES, validate_new_entry_name,
+        WorkspaceRoot, MAX_FILE_PREVIEW_BYTES, validate_dropped_files, validate_new_entry_name,
     };
     use std::fs;
 
@@ -1993,6 +2032,19 @@ mod tests {
         }
         let _ = process.child.kill();
         let _ = process.child.wait();
+        remove_fixture(root);
+    }
+
+    #[test]
+    fn dropped_files_accept_regular_files_outside_the_project_and_skip_directories() {
+        let root = fixture_root("dropped-files");
+        let file = root.join("a document.pdf");
+        fs::write(&file, b"not read by validation").expect("write fixture");
+        let result = validate_dropped_files(vec![file.to_string_lossy().into_owned(), root.to_string_lossy().into_owned()])
+            .expect("validate dropped paths");
+        assert_eq!(result.files.len(), 1);
+        assert_eq!(result.files[0].path, file.canonicalize().expect("canonical file").to_string_lossy());
+        assert_eq!(result.files[0].name, "a document.pdf");
         remove_fixture(root);
     }
 

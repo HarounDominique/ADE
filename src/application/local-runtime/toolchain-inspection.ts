@@ -85,10 +85,12 @@ export async function probe(id: string, label: string, command: string, args: re
     // reads as "unavailable" in this preview and as present the moment the
     // operator actually runs it.
     const child = crossSpawn(command, [...args], { cwd, env: environment, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
-    let output = "";
-    const append = (chunk: Buffer | string) => { output += chunk.toString(); };
-    child.stdout?.on("data", append);
-    child.stderr?.on("data", append);
+    let stdout = "";
+    let stderr = "";
+    const appendStdout = (chunk: Buffer | string) => { stdout += chunk.toString(); };
+    const appendStderr = (chunk: Buffer | string) => { stderr += chunk.toString(); };
+    child.stdout?.on("data", appendStdout);
+    child.stderr?.on("data", appendStderr);
     // Windows CI runners (and slower real Windows machines) measurably lag
     // POSIX ones for a cold process spawn -- 1.5s was tight enough to read a
     // genuinely present npm as "unavailable" purely from spawn latency, not
@@ -103,8 +105,14 @@ export async function probe(id: string, label: string, command: string, args: re
     });
     child.once("close", (code) => {
       clearTimeout(timer);
-      const version = output.trim().split(/\r?\n/).find(Boolean)?.trim();
-      resolve(code === 0 ? { ...base, available: true, ...(version ? { version } : {}) } : { ...base, available: false, ...(version ? { version } : {}), error: `exited with code ${code ?? "unknown"}` });
+      // npm and other Windows tools may write warnings to stderr before their
+      // real version on stdout. Never let diagnostic stderr become the version.
+      const version = stdout.trim().split(/\r?\n/).find(Boolean)?.trim()
+        ?? stderr.trim().split(/\r?\n/).find(Boolean)?.trim();
+      const diagnostic = stderr.trim().split(/\r?\n/).find(Boolean)?.trim();
+      resolve(code === 0
+        ? { ...base, available: true, ...(version ? { version } : {}) }
+        : { ...base, available: false, ...(version ? { version } : {}), error: diagnostic ? `exited with code ${code ?? "unknown"}: ${diagnostic}` : `exited with code ${code ?? "unknown"}` });
     });
   });
 }
