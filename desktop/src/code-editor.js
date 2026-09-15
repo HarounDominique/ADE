@@ -25,7 +25,7 @@ import { EditorState, Compartment, Prec } from '@codemirror/state';
 import { EditorView, hoverTooltip, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { openSearchPanel } from '@codemirror/search';
-import { completeAnyWord, acceptCompletion, completeFromList, snippetCompletion } from '@codemirror/autocomplete';
+import { completeAnyWord, acceptCompletion, completeFromList, hasNextSnippetField, nextSnippetField, snippet, snippetCompletion } from '@codemirror/autocomplete';
 import { pathBaseName, fileExtension } from './paths.js';
 import { snippetCatalog, toMonacoSnippet } from './editor-snippets.js';
 
@@ -313,8 +313,8 @@ export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = 
           lintGutter(),
           hoverTooltip((view, pos) => lspHover(view, pos)),
           EditorState.languageData.of(() => [{ autocomplete: completeAnyWord }]),
-          keymap.of([
-            { key: 'Tab', run: acceptCompletion },
+          Prec.highest(keymap.of([
+            { key: 'Tab', run: (view) => expandJavaAbbreviation(view) || acceptCompletion(view) },
             indentWithTab,
             { key: 'Mod-s', run: () => { void onSave(); return true; } },
             { key: 'Mod-Alt-Enter', run: () => { void goToDefinition(); return true; } },
@@ -325,7 +325,7 @@ export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = 
             // search panel this opens already renders a replace UI inline
             // once open, so no separate replace-panel exists to target.
             { key: 'Mod-r', run: openSearchPanel, preventDefault: true },
-          ]),
+          ])),
           EditorView.updateListener.of((update) => {
             if (!update.docChanged) return;
             onChange();
@@ -479,6 +479,20 @@ export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = 
       const items = Array.isArray(result) ? result : result?.items ?? [];
       return { from: word?.from ?? context.pos, options: items.map((item) => ({ label: item.label, detail: item.detail, type: completionKind(item.kind), apply: item.insertText ?? item.label })) };
     }).catch(() => null);
+  }
+
+  function expandJavaAbbreviation(view) {
+    if (hasNextSnippetField(view.state)) return nextSnippetField(view);
+    if (!activeFilePath.toLowerCase().endsWith('.java')) return false;
+    const pos = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(pos);
+    const match = /[A-Za-z][A-Za-z0-9]*$/.exec(line.text.slice(0, pos - line.from));
+    if (!match) return false;
+    const entries = [...(snippetCatalog.Java?.structural ?? []), ...(snippetCatalog.Java?.idioms ?? [])];
+    const entry = entries.find((candidate) => candidate.label === match[0]);
+    if (!entry) return false;
+    snippet(entry.template)(view, { label: entry.label }, pos - match[0].length, pos);
+    return true;
   }
 
   async function goToDefinition() {

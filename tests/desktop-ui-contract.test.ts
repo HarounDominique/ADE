@@ -2225,7 +2225,7 @@ test("editor Tab accepts an autocomplete suggestion before falling through to in
   // Tab/acceptCompletion entry is resolved first, i.e. appears earlier in
   // the same keymap.of([...]) array. A presence-only check would pass even
   // if Tab never actually reached acceptCompletion.
-  const tabAcceptIndex = codeEditor.indexOf("key: 'Tab', run: acceptCompletion");
+  const tabAcceptIndex = codeEditor.indexOf("acceptCompletion(view)");
   // lastIndexOf, not indexOf: 'indentWithTab' also appears earlier as the
   // import declaration, which would make this pass regardless of where the
   // keymap entry itself sits relative to Tab/acceptCompletion.
@@ -2258,7 +2258,8 @@ test("editor snippet expansion wires a per-language completion source on both en
   // completeAnyWord/acceptCompletion from editor-autocomplete stay
   // untouched -- this is a second, additional source, not a replacement.
   assert.match(codeEditor, /EditorState\.languageData\.of\(\(\) => \[\{ autocomplete: completeAnyWord \}\]\)/);
-  assert.match(codeEditor, /key: 'Tab', run: acceptCompletion/);
+  assert.match(codeEditor, /key: 'Tab', run: \(view\) => expandJavaAbbreviation\(view\) \|\| acceptCompletion\(view\)/);
+  assert.match(codeEditor, /function expandJavaAbbreviation\(view\)/);
 });
 
 test("snippet catalog seeds Java, Go, Python, JavaScript and TypeScript per Phase 1 scope", () => {
