@@ -19,9 +19,10 @@ import { sql } from '@codemirror/lang-sql';
 import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, bracketMatching, indentOnInput, syntaxHighlighting } from '@codemirror/language';
+import { lintGutter, setDiagnostics } from '@codemirror/lint';
 import { tags } from '@lezer/highlight';
 import { EditorState, Compartment, Prec } from '@codemirror/state';
-import { EditorView, keymap } from '@codemirror/view';
+import { EditorView, hoverTooltip, keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { openSearchPanel } from '@codemirror/search';
 import { completeAnyWord, acceptCompletion, completeFromList, snippetCompletion } from '@codemirror/autocomplete';
@@ -287,12 +288,15 @@ function codeMirrorSnippetExtension(label) {
     in module globals -- the two engines, which is showing, the caret -- belongs
     to the surface, so a second window can have its own without the two treading
     on each other. */
-export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = () => {} }) {
+export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = () => {}, lsp = null }) {
   const codeEditorLanguage = new Compartment();
   const codeEditorHighlight = new Compartment();
   let codeEditorView = null;
   let monacoEditor = null;
   let engine = 'codemirror';
+  let activeFilePath = '';
+  let lspVersion = 0;
+  let suppressLspChange = false;
 
   function initializeCodeEditor() {
     if (!parent || codeEditorView) return;
@@ -306,11 +310,14 @@ export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = 
           bracketMatching(),
           indentOnInput(),
           EditorView.lineWrapping,
+          lintGutter(),
+          hoverTooltip((view, pos) => lspHover(view, pos)),
           EditorState.languageData.of(() => [{ autocomplete: completeAnyWord }]),
           keymap.of([
             { key: 'Tab', run: acceptCompletion },
             indentWithTab,
             { key: 'Mod-s', run: () => { void onSave(); return true; } },
+            { key: 'Mod-Alt-Enter', run: () => { void goToDefinition(); return true; } },
             // Find (Mod-f), next/previous match (F3/Mod-g, Shift-F3/Shift-Mod-g)
             // are already bound by basicSetup's own bundled searchKeymap
             // (@codemirror/search, pulled in transitively through the
@@ -320,7 +327,12 @@ export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = 
             { key: 'Mod-r', run: openSearchPanel, preventDefault: true },
           ]),
           EditorView.updateListener.of((update) => {
-            if (update.docChanged) onChange();
+            if (!update.docChanged) return;
+            onChange();
+            if (!suppressLspChange && activeFilePath.toLowerCase().endsWith('.java')) {
+              lspVersion += 1;
+              void lsp?.change?.(activeFilePath, codeEditorView.state.doc.toString(), lspVersion);
+            }
           }),
         ],
       }),
@@ -387,12 +399,18 @@ export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = 
       if (!codeEditorView) return;
       const current = codeEditorView.state.doc.toString();
       const language = definition?.language;
+      if (activeFilePath && activeFilePath !== filePath && activeFilePath.toLowerCase().endsWith('.java')) void lsp?.close?.(activeFilePath);
+      activeFilePath = filePath;
+      lspVersion = 1;
+      suppressLspChange = true;
       codeEditorView.dispatch({
         changes: { from: 0, to: current.length, insert: content },
-        effects: codeEditorLanguage.reconfigure(language ? [language(), codeMirrorSnippetExtension(definition.label)] : []),
+        effects: codeEditorLanguage.reconfigure(language ? [language(), codeMirrorSnippetExtension(definition.label), ...(definition.label === 'Java' && lsp?.completion ? [EditorState.languageData.of(() => [{ autocomplete: (context) => lspCompletion(context) }])] : [])] : []),
       });
+      suppressLspChange = false;
       engine = 'codemirror';
       showEngine(engine);
+      if (definition.label === 'Java') void lsp?.open?.(filePath, content, lspVersion);
       if (focus) codeEditorView.focus();
     },
 
@@ -434,5 +452,78 @@ export function createCodeEditorSurface({ parent, onChange = () => {}, onSave = 
     focus() {
       (engine === 'monaco' ? monacoEditor : codeEditorView)?.focus();
     },
+
+    applyLspNotification(notification) {
+      const message = notification?.message;
+      if (!message || message.method !== 'textDocument/publishDiagnostics' || !codeEditorView) return;
+      const uri = message.params?.uri;
+      if (!uri || !activeFilePath || !uri.endsWith(activeFilePath.replaceAll('\\', '/'))) return;
+      const diagnostics = (message.params?.diagnostics ?? []).map((diagnostic) => ({
+        from: positionToOffset(codeEditorView.state, diagnostic.range?.start),
+        to: positionToOffset(codeEditorView.state, diagnostic.range?.end ?? diagnostic.range?.start),
+        severity: diagnostic.severity === 1 ? 'error' : diagnostic.severity === 2 ? 'warning' : 'info',
+        message: diagnostic.message ?? 'Java diagnostic',
+      }));
+      codeEditorView.dispatch(setDiagnostics(codeEditorView.state, diagnostics));
+    },
   };
+
+  function lspCompletion(context) {
+    if (!activeFilePath || !lsp?.completion) return null;
+    const line = context.state.doc.lineAt(context.pos);
+    const lineStart = line.from;
+    const character = context.pos - lineStart;
+    const word = context.matchBefore(/[\w$]*/);
+    if (!context.explicit && !word?.text) return null;
+    return lsp.completion(activeFilePath, { line: line.number - 1, character }).then((result) => {
+      const items = Array.isArray(result) ? result : result?.items ?? [];
+      return { from: word?.from ?? context.pos, options: items.map((item) => ({ label: item.label, detail: item.detail, type: completionKind(item.kind), apply: item.insertText ?? item.label })) };
+    }).catch(() => null);
+  }
+
+  async function goToDefinition() {
+    if (!activeFilePath || !lsp?.definition || !codeEditorView) return;
+    const pos = codeEditorView.state.selection.main.head;
+    const line = codeEditorView.state.doc.lineAt(pos);
+    try {
+      const result = await lsp.definition(activeFilePath, { line: line.number - 1, character: pos - line.from });
+      const location = Array.isArray(result) ? result[0] : result;
+      const uri = location?.uri;
+      if (!uri) return;
+      const target = decodeURIComponent(uri.replace(/^file:\/\//, ''));
+      await lsp.onDefinition?.(target, location.range);
+    } catch { /* definition is an enhancement; editing must remain unaffected */ }
+  }
+
+  function lspHover(view, pos) {
+    if (!activeFilePath.toLowerCase().endsWith('.java') || !lsp?.hover) return null;
+    const line = view.state.doc.lineAt(pos);
+    return lsp.hover(activeFilePath, { line: line.number - 1, character: pos - line.from }).then((result) => {
+      const contents = result?.contents;
+      if (!contents) return null;
+      const text = Array.isArray(contents) ? contents.map((item) => typeof item === 'string' ? item : item.value ?? '').join('\n') : typeof contents === 'string' ? contents : contents.value ?? '';
+      if (!text) return null;
+      return {
+        pos,
+        end: pos,
+        above: true,
+        create() {
+          const dom = document.createElement('pre');
+          dom.className = 'ade-lsp-hover';
+          dom.textContent = text;
+          return { dom };
+        },
+      };
+    }).catch(() => null);
+  }
+}
+
+function completionKind(kind) {
+  return { 2: 'method', 3: 'function', 4: 'constructor', 5: 'field', 6: 'variable', 7: 'class', 8: 'interface', 9: 'module', 10: 'property', 14: 'keyword' }[kind] ?? 'text';
+}
+
+function positionToOffset(state, position) {
+  if (!position) return 0;
+  const line = state.doc.line(Math.max(1, Math.min(state.doc.lines, position.line + 1)));
+  return Math.max(line.from, Math.min(line.to, line.from + position.character));
 }

@@ -2241,7 +2241,10 @@ test("editor snippet expansion wires a per-language completion source on both en
   // already reconfigures the language on file open -- scoped to that one
   // file, unlike completeAnyWord's global fallback.
   assert.match(codeEditor, /function codeMirrorSnippetExtension\(label\)/);
-  assert.match(codeEditor, /codeEditorLanguage\.reconfigure\(language \? \[language\(\), codeMirrorSnippetExtension\(definition\.label\)\] : \[\]\)/);
+  assert.match(codeEditor, /codeEditorLanguage\.reconfigure\(language \? \[language\(\), codeMirrorSnippetExtension\(definition\.label\),/);
+  assert.match(codeEditor, /lspCompletion/);
+  assert.match(codeEditor, /setDiagnostics/);
+  assert.match(codeEditor, /hoverTooltip/);
   // Monaco: one registerCompletionItemProvider call per catalog language
   // that has a monacoLanguage id, generic over monacoLanguageDefinitions so
   // later phases' languages are picked up with no new wiring code.

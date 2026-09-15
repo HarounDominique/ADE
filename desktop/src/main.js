@@ -182,6 +182,9 @@ const pendingSnapshotProjects = new Map();
 const pendingToolchainInspectionPaths = new Map();
 const taskDetailMarkup = new Map();
 const pendingProjectRemovals = new Map();
+const pendingJavaLspRequests = new Map();
+let javaLspProject = null;
+let javaLspStartPromise = null;
 
 /** State for the Requests view (SPEC-http-client.md, Phase 4b). `httpRequestForm` is the
     HttpRequest currently in the editor -- new or loaded from a tree node -- edited in place by
@@ -2209,9 +2212,59 @@ function codeEditor() {
       parent,
       onChange: () => updateDocumentEditState(),
       onSave: () => { void saveActiveDocument(); },
+      lsp: javaLspBridge(),
     });
   }
   return editorSurface;
+}
+
+/** The editor speaks in LSP operations; this bridge keeps Tauri's event-based
+    sidecar transport out of CodeMirror. Missing JDTLS is deliberately silent
+    here: syntax editing and local completion remain available. */
+function javaLspBridge() {
+  const request = (method, params) => {
+    if (!nativeInvoke || !activeProjectId || !workspaceRootPath) return Promise.reject(new Error('Java language server unavailable'));
+    const id = `java-lsp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    return new Promise((resolve, reject) => {
+      pendingJavaLspRequests.set(String(id), { resolve, reject });
+      nativeInvoke('sidecar_request', { request: JSON.stringify({ id, method, params }) }).catch((error) => {
+        pendingJavaLspRequests.delete(String(id));
+        reject(error);
+      });
+    });
+  };
+  const ensureStarted = async () => {
+    if (javaLspProject === activeProjectId) return;
+    if (javaLspStartPromise) await javaLspStartPromise;
+    if (javaLspProject === activeProjectId) return;
+    javaLspStartPromise = request('java.lsp.start', { projectId: activeProjectId, repositoryPath: workspaceRootPath, command: 'jdtls', args: [] })
+      .then((response) => {
+        if (response?.status !== 'ready') throw new Error(response?.message ?? 'JDTLS is unavailable');
+        javaLspProject = activeProjectId;
+      }).finally(() => { javaLspStartPromise = null; });
+    await javaLspStartPromise;
+  };
+  return {
+    open: async (file, text) => { try { await ensureStarted(); await request('java.lsp.open', { projectId: activeProjectId, file, text, version: 1 }); } catch { /* fallback editor remains usable */ } },
+    change: async (file, text, version) => { try { await request('java.lsp.change', { projectId: activeProjectId, file, text, version }); } catch { /* server may be unavailable */ } },
+    close: async (file) => { try { await request('java.lsp.close', { projectId: activeProjectId, file }); } catch { /* server may already be stopped */ } },
+    completion: async (file, position) => {
+      await ensureStarted();
+      const uri = `file://${file.replaceAll('\\', '/')}`;
+      return request('java.lsp.request', { projectId: activeProjectId, file, lspMethod: 'textDocument/completion', lspParams: { textDocument: { uri }, position } });
+    },
+    definition: async (file, position) => {
+      await ensureStarted();
+      const uri = `file://${file.replaceAll('\\', '/')}`;
+      return request('java.lsp.request', { projectId: activeProjectId, file, lspMethod: 'textDocument/definition', lspParams: { textDocument: { uri }, position } });
+    },
+    hover: async (file, position) => {
+      await ensureStarted();
+      const uri = `file://${file.replaceAll('\\', '/')}`;
+      return request('java.lsp.request', { projectId: activeProjectId, file, lspMethod: 'textDocument/hover', lspParams: { textDocument: { uri }, position } });
+    },
+    onDefinition: async (file) => { await openFileInADE(file); },
+  };
 }
 
 async function setCodeEditorContent(content = '', filePath = '', focus = false) {
@@ -5663,6 +5716,17 @@ async function connectSidecar(snapshot) {
   try {
     await listen('sidecar:response', async (event) => {
       const response = JSON.parse(event.payload);
+      if (response.type === 'java.lsp.notification') {
+        editorSurface?.applyLspNotification(response);
+        return;
+      }
+      const javaLspRequest = pendingJavaLspRequests.get(String(response.id));
+      if (javaLspRequest) {
+        pendingJavaLspRequests.delete(String(response.id));
+        if (response.error) javaLspRequest.reject(new Error(response.error.message));
+        else javaLspRequest.resolve(response.result);
+        return;
+      }
       const contextPurpose = pendingContextRequests.get(String(response.id));
       if (contextPurpose) pendingContextRequests.delete(String(response.id));
       const agentSessionRequestPath = pendingAgentSessionPaths.get(String(response.id));

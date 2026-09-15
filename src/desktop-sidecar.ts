@@ -61,11 +61,12 @@ import type { HttpEnvironment, HttpRequest } from "./domain/http-request.js";
 import type { DatabaseConnection } from "./domain/database-schema.js";
 import { loadDatabaseConnections, saveDatabaseConnections } from "./adapters/database-connection-store.js";
 import { introspectDatabaseSchema } from "./application/local-runtime/database-introspection.js";
+import { JavaLspManager } from "./application/java-lsp/java-lsp-manager.js";
 
 export type DesktopRequest = {
   id: string | number;
   method: string;
-  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; settings?: Partial<UserSettings>; prompt?: string; commit?: string; file?: string; untracked?: boolean; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean; workflowMode?: WorkflowMode; result?: WorkflowResult; files?: string[]; ref?: string; httpRequest?: HttpRequest; httpEnvironment?: HttpEnvironment; limit?: number; collectionPath?: string; databaseConnection?: DatabaseConnection; databaseConnections?: DatabaseConnection[]; connectionId?: string };
+  params?: { projectId?: string; taskId?: string; intent?: string; acceptanceCriteria?: string[]; body?: string; name?: string; skillId?: string; provider?: string; model?: string; sessionId?: string; requestId?: string; checkpointId?: string; currentVersion?: string; feedUrl?: string; settings?: Partial<UserSettings>; prompt?: string; commit?: string; file?: string; untracked?: boolean; grantedPermissions?: Array<"read_project" | "write_code" | "write_docs" | "run_commands" | "network">; repositoryPath?: string; next?: TaskStatus; reason?: string; actor?: string; confirmed?: boolean; serviceId?: string; command?: string; args?: string[]; cwd?: string; branch?: string; worktreePath?: string; configurationId?: string; configurations?: RunConfiguration[]; mode?: "run" | "debug"; runSessionId?: string; transcript?: string; since?: string; profile?: string; title?: string; startedAt?: string; agentStartedAt?: string; endedAt?: string; truncated?: boolean; workflowMode?: WorkflowMode; result?: WorkflowResult; files?: string[]; ref?: string; httpRequest?: HttpRequest; httpEnvironment?: HttpEnvironment; limit?: number; collectionPath?: string; databaseConnection?: DatabaseConnection; databaseConnections?: DatabaseConnection[]; connectionId?: string; languageId?: string; version?: number; text?: string; lspMethod?: string; lspParams?: Record<string, unknown> };
 };
 
 export type DesktopResponse = {
@@ -92,6 +93,7 @@ const runtimeStatus: RuntimeStatus = {
 let runtimeEvidenceSequence = 0;
 let serviceManager: ServiceManager | undefined;
 let declaredServices: readonly ServiceDefinition[] = [];
+const javaLspManager = new JavaLspManager();
 /** One supervisor per Project: a run belongs to the repository it was started
     from, and switching Project must not inherit another one's processes. */
 const runManagers = new Map<string, RunManager>();
@@ -376,7 +378,40 @@ export async function runDesktopSidecar(): Promise<void> {
         process.stdout.write(`${JSON.stringify({ id: null, error: { code: "INVALID_JSON", message: "Request must be valid JSON" } })}\n`);
         continue;
       }
-      if (request.method === "runtime.health") {
+      if (request.method === "java.lsp.status") {
+        const projectId = request.params?.projectId;
+        process.stdout.write(`${JSON.stringify({ id: request.id, result: projectId ? javaLspManager.snapshot(projectId) : { status: "stopped" } })}\n`);
+      } else if (request.method === "java.lsp.start") {
+        const { projectId, repositoryPath, command, args } = request.params ?? {};
+        if (!projectId || !repositoryPath || !command) {
+          process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "projectId, repositoryPath and command are required" } })}\n`);
+        } else {
+          void javaLspManager.start(projectId, repositoryPath, command, args ?? [], (message) => {
+            process.stdout.write(`${JSON.stringify({ type: "java.lsp.notification", projectId, message })}\n`);
+          }).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`))
+            .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "JAVA_LSP_START_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        }
+      } else if (request.method === "java.lsp.stop") {
+        const projectId = request.params?.projectId;
+        if (!projectId) process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "projectId is required" } })}\n`);
+        else void javaLspManager.stop(projectId).then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`));
+      } else if (["java.lsp.open", "java.lsp.change", "java.lsp.close", "java.lsp.request"].includes(request.method)) {
+        const params = request.params ?? {};
+        const { projectId, file, text, version, lspMethod, lspParams } = params;
+        if (!projectId || !file) {
+          process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "INVALID_PARAMS", message: "projectId and file are required" } })}\n`);
+        } else {
+          const operation = request.method === "java.lsp.open"
+            ? javaLspManager.open(projectId, file, text ?? "", params.languageId ?? "java")
+            : request.method === "java.lsp.change"
+              ? javaLspManager.change(projectId, file, text ?? "", version ?? 1)
+              : request.method === "java.lsp.close"
+                ? javaLspManager.close(projectId, file)
+                : lspMethod ? javaLspManager.request(projectId, lspMethod, lspParams ?? {}, file) : Promise.reject(new Error("lspMethod is required"));
+          void operation.then((result) => process.stdout.write(`${JSON.stringify({ id: request.id, result: result ?? { accepted: true } })}\n`))
+            .catch((error: unknown) => process.stdout.write(`${JSON.stringify({ id: request.id, error: { code: "JAVA_LSP_REQUEST_FAILED", message: error instanceof Error ? error.message : String(error) } })}\n`));
+        }
+      } else if (request.method === "runtime.health") {
         void checkRuntimeHealth(request);
       } else if (request.method === "skills.list") {
         void listSkills(request.params?.repositoryPath).then((skills) => process.stdout.write(`${JSON.stringify({ id: request.id, result: skills })}\n`))
@@ -779,12 +814,14 @@ export async function runDesktopSidecar(): Promise<void> {
     }
   } finally {
     input.close();
+    await javaLspManager.stopAll().catch(() => undefined);
     /** The shell is going away; its runs go with it. A detached process that
         outlives the application is an orphan nobody can see or stop. */
     for (const manager of runManagers.values()) await manager.stopAll().catch(() => undefined);
     store.close();
   }
 }
+
 
 async function enrichTerminalHistoryTitle(store: AdeStore, params: DesktopRequest["params"]): Promise<void> {
   if (!params?.sessionId || !params.provider || !params.repositoryPath || !params.transcript) return;
